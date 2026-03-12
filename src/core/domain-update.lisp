@@ -388,10 +388,41 @@
            true-domain
            (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))))))))
 
+(defun update-domain-polar-3d (mesh mp dt)
+  "Use a corner tracking scheme to update domain lengths"
+  (with-accessors ((dF cl-mpm/particle::mp-deformation-gradient-increment)
+                   (domain cl-mpm/particle::mp-domain-size)
+                   (true-domain cl-mpm/particle::mp-true-domain)
+                   (volume-0 cl-mpm/particle::mp-volume-0)
+                   (volume cl-mpm/particle::mp-volume))
+      mp
+    (let ()
+      (multiple-value-bind (u s vt) (magicl:svd dF)
+        (let* (;; (vt (magicl:transpose vt))
+               (R (magicl:@ u vt))
+               (U (magicl:@ (magicl:transpose vt) s vt)))
+          (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R))))))
+    (setf
+     (varef domain 0)
+     (cl-mpm/fastmaths:mag
+      (cl-mpm/fastmaths::fast-@-matrix-vector
+       true-domain
+       (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
+     (varef domain 1)
+     (cl-mpm/fastmaths:mag
+      (cl-mpm/fastmaths::fast-@-matrix-vector
+       true-domain
+       (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))))
+     (varef domain 2)
+     (cl-mpm/fastmaths:mag
+      (cl-mpm/fastmaths::fast-@-matrix-vector
+       true-domain
+       (cl-mpm/utils:vector-from-list (list 0d0 0d0 1d0)))))))
+
 (defun update-domain-polar (mesh mp dt)
   (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
       (update-domain-polar-2d mesh mp dt)
-      (error "Polar decomposition domain update not implemented for 3D")))
+      (update-domain-polar-3d mesh mp dt)))
 
 (defun update-domain-corner-2d (mesh mp dt)
   "Use a corner tracking scheme to update domain lengths"

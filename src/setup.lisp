@@ -427,11 +427,16 @@
   (with-accessors ((mps cl-mpm:sim-mps)
                    (bcs-force-list cl-mpm:sim-bcs-force-list))
       sim
-    (loop for bc-list in bcs-force-list
-          minimize
-          (loop for bc across bc-list
-                minimize
-                (cl-mpm/bc::estimate-min-dt-bc sim bc)))))
+    (if bcs-force-list
+        (loop for bc-list in bcs-force-list
+              minimize
+              (if bc-list
+                  (loop for bc across bc-list
+                        minimize
+                        (cl-mpm/bc::estimate-min-dt-bc sim bc))
+                  sb-ext:double-float-positive-infinity))
+      sb-ext:double-float-positive-infinity
+      )))
 
 (defgeneric %estimate-elastic-dt (sim))
 (defmethod %estimate-elastic-dt ((sim cl-mpm:mpm-sim))
@@ -540,7 +545,6 @@
                           (de cl-mpm/particle::mp-elastic-matrix))
              mp
            (when (funcall clipping-func pos)
-             ;; (break)
              (unless k-x
                (setf k-x (/ nu (- 1d0 nu))))
              (unless k-z

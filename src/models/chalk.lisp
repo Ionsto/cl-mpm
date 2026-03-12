@@ -633,7 +633,7 @@
           (setf p-mod
                 (max
                  (* 1d-9 P-0)
-                 (* (max 1d-9 (expt (/ (+ K (* 4/3 G)) P-0) 1)) p-mod))))))))
+                 (* (max 1d-9 (/ (+ K (* 4/3 G)) P-0)) p-mod))))))))
 
 (defun apply-tensile-vol-degredation (mp dt)
   (with-accessors ((damage        cl-mpm/particle::mp-damage)

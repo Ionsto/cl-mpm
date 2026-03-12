@@ -1089,6 +1089,11 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                   (weightsz (cl-mpm/shape-function::shape-gimp-fast
                                                              (aref dista 2) (aref doa 2) h))
                                                   (weight (* weightsx weightsy weightsz))
+
+                                                  (weights-fbar-x (the double-float (cl-mpm/shape-function::shape-gimp-fbar (aref dista 0) (aref doa 0) h)))
+                                                  (weights-fbar-y (the double-float (cl-mpm/shape-function::shape-gimp-fbar (aref dista 1) (aref doa 1) h)))
+                                                  (weights-fbar-z (the double-float (cl-mpm/shape-function::shape-gimp-fbar (aref dista 2) (aref doa 2) h)))
+                                                  (weight-fbar (* weights-fbar-x weights-fbar-y weights-fbar-z))
                                                   )
                                              (declare ;(type double-float h)
                                               (double-float weight weightsx weightsy weightsz)
@@ -1104,11 +1109,18 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                       (gradz (* (cl-mpm/shape-function::shape-gimp-dsvp (aref dista 2) (aref doa 2) h)
                                                                 weightsx weightsy
                                                                 ))
+                                                      (grads-fbar
+                                                        (list (* weights-fbar-y weights-fbar-z
+                                                                 (cl-mpm/shape-function::shape-gimp-dsvp (aref dista 0) (aref doa 0) h))
+                                                              (* weights-fbar-x weights-fbar-z
+                                                                 (cl-mpm/shape-function::shape-gimp-dsvp (aref dista 1) (aref doa 1) h))
+                                                              (* weights-fbar-x weights-fbar-y
+                                                                 (cl-mpm/shape-function::shape-gimp-dsvp (aref dista 2) (aref doa 2) h))))
                                                       )
                                                  (declare (double-float gradx grady gradz))
                                                  (funcall func mesh mp node
                                                           weight (list gradx grady gradz)
-                                                          0d0 (list 0d0 0d0 0d0))))))))))))))))
+                                                          weight-fbar grads-fbar)))))))))))))))
 
 (defun make-knot-list (mesh pos)
   "Function for maybe being able to make a bspline knot list"
