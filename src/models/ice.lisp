@@ -618,17 +618,6 @@
         ;; (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
         ))))
 
-
-(defun deriv-partial (k y k0 tau n)
-  (if (> y k0)
-      (/
-       (* k0
-          (expt
-           (/ (the double-float (max 0d0 (- y k)))
-              k0) n))
-       tau)
-      0d0))
-
 (defmethod compute-damage ((mp cl-mpm/particle::particle-ice-brittle))
   (with-accessors ((k cl-mpm/particle::mp-history-stress)
                    (k-n cl-mpm/particle::mp-history-stress-n)

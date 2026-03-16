@@ -144,6 +144,12 @@
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage-increment)
                                            (cl-mpm/particle::mp-damage-increment mp)
                                            0d0))
+        (cl-mpm/output::save-parameter "damage-dyk"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::damage-ybar)
+                                           (- (cl-mpm/particle::mp-damage-ybar mp)
+                                              (cl-mpm/particle::mp-history-stress mp)
+                                              )
+                                           0d0))
         (cl-mpm/output::save-parameter "damage-ybar"
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage-ybar)
                                            (cl-mpm/particle::mp-damage-ybar mp)

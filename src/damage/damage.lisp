@@ -242,32 +242,54 @@
         ;;Worst case we want dont want our delocal counter to exceed the max incase we get adjusted
         (setf delocal-counter (min (- delocal-counter 1) delocal-counter-max)))
 
-      (cl-mpm:iterate-over-mps
-       mps
-       (lambda (mp)
-         (when (typep mp 'cl-mpm/particle:particle-damage)
-           (damage-model-calculate-y mp dt))))
+      (flet ((damage-update ()
+               (cl-mpm:iterate-over-mps
+                mps
+                (lambda (mp)
+                  (when (typep mp 'cl-mpm/particle:particle-damage)
+                    (damage-model-calculate-y mp dt))))
 
-      (if non-local-damage
-          (progn
-            (when (sim-enable-length-localisation sim)
-              (update-localisation-lengths sim))
-            (if (cl-mpm/damage::sim-enable-ekl sim)
-                (delocalise-damage-ekl sim)
-                (delocalise-damage sim)))
-          (localise-damage mesh mps dt))
-
-      (cl-mpm:iterate-over-mps
-       mps
-       (lambda (mp)
-         (when (typep mp 'cl-mpm/particle:particle-damage)
-           (update-damage mp dt)))))
-
-    (cl-mpm:iterate-over-mps
-     mps
-     (lambda (mp)
-       (when (typep mp 'cl-mpm/particle:particle-damage)
-         (cl-mpm/particle::post-damage-step mp dt))))))
+               (if non-local-damage
+                   (progn
+                     (when (sim-enable-length-localisation sim)
+                       (update-localisation-lengths sim))
+                     (if (cl-mpm/damage::sim-enable-ekl sim)
+                         (delocalise-damage-ekl sim)
+                         (delocalise-damage sim)))
+                   (localise-damage mesh mps dt))
+               (cl-mpm:iterate-over-mps
+                mps
+                (lambda (mp)
+                  (when (typep mp 'cl-mpm/particle:particle-damage)
+                    (update-damage mp dt))))
+               (cl-mpm:iterate-over-mps
+                mps
+                (lambda (mp)
+                  (when (typep mp 'cl-mpm/particle:particle-damage)
+                    (cl-mpm/particle::post-damage-step mp dt))))))
+        (damage-update)
+        ;; (let* ((crit 1d-3)
+        ;;        (dconv crit)
+        ;;        (iterative-damage t))
+        ;;   (if t;enable-damage
+        ;;       (if iterative-damage
+        ;;           (loop for d from 0 to 10
+        ;;                 while (>= dconv crit)
+        ;;                 do
+        ;;                    (progn
+        ;;                      (damage-update)
+        ;;                      (setf dconv (compute-damage-delta sim))
+        ;;                      ;; (format t "Damage inc ~D - ~E~%" d dconv)
+        ;;                      (when (> d 1)
+        ;;                        (format t "Damage inc ~D - ~E~%" d dconv))))
+        ;;           (damage-update))
+        ;;       (cl-mpm:iterate-over-mps
+        ;;        mps
+        ;;        (lambda (mp)
+        ;;          (when (typep mp 'cl-mpm/particle:particle-damage)
+        ;;            (cl-mpm/particle::post-damage-step mp dt))))
+        ;;       ))
+        ))))
 
 (defun create-delocalisation-list (mesh mps)
   (with-accessors ((nodes cl-mpm/mesh:mesh-nodes))
@@ -1096,6 +1118,37 @@ Calls the function with the mesh mp and node"
 ;; (defmethod compute-dt-damage-inc ((mp cl-mpm/particle::particle-elastic-damage) current-dt damage-inc)
 ;;   )
 
+
+(defun compute-damage-delta (sim)
+  (let* ((delta-ds
+           (cl-mpm::reduce-over-mps
+            (cl-mpm:sim-mps sim)
+            (lambda (mp)
+              (if (typep mp 'cl-mpm/particle::particle-damage)
+                (with-accessors ((damage cl-mpm/particle::mp-damage)
+                                 (damage-prev cl-mpm/particle::mp-damage-prev-trial)
+                                 (inc cl-mpm/particle::mp-damage-increment)
+                                 (mass cl-mpm/particle::mp-mass))
+                    mp
+                  (expt (* mass (- damage damage-prev)) 2))
+                0d0))
+            #'+))
+         (delta-incs
+           (cl-mpm::reduce-over-mps
+            (cl-mpm:sim-mps sim)
+            (lambda (mp)
+              (if (typep mp 'cl-mpm/particle::particle-damage)
+                  (with-accessors ((damage cl-mpm/particle::mp-damage)
+                                   (damage-prev cl-mpm/particle::mp-damage-prev-trial)
+                                   (inc cl-mpm/particle::mp-damage-increment)
+                                   (mass cl-mpm/particle::mp-mass))
+                      mp
+                    (expt (* mass damage) 2))
+                  0d0))
+            #'+)))
+    (if (> delta-incs 0d0)
+        (sqrt (/ delta-ds delta-incs))
+        0d0)))
 
 (defgeneric compute-damage (mp))
 (defmethod compute-damage ((mp cl-mpm/particle::particle))
