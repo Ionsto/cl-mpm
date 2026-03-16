@@ -274,7 +274,7 @@
   "Map particle momentum to the grid"
   (declare (type (vector cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
   (case update-type
-    (:TFLIP
+    ((or :TFLIP :TPIC :TBLEND)
      (iterate-over-mps
       mps
       (lambda (mp)
