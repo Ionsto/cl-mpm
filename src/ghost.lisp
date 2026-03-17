@@ -806,7 +806,7 @@
                        (h cl-mpm/mesh::mesh-resolution))
           mesh
         (declare (double-float h ghost-factor))
-        (let ((gf (* 1d0 ghost-factor (expt h 1))))
+        (let ((gf (* 1d0 ghost-factor (expt h 3))))
           (cl-mpm::iterate-over-cells
            mesh
            (lambda (cell)
@@ -816,5 +816,4 @@
                      do (when (cl-mpm/mesh::node-active n)
                           (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
                             (incf (cl-mpm/mesh::node-mass n)
-                                  gf)))))))))))
-  )
+                                  gf))))))))))))
