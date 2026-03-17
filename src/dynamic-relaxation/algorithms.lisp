@@ -520,7 +520,9 @@
                         (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
                         (incf oobf (estimate-static-oobf sim))
                         (incf energy (cl-mpm::sim-stats-energy sim))
-                        (incf work (cl-mpm::sim-stats-power sim))))
+                        (incf work (estimate-strain-energy sim))
+                        ;; (incf work (cl-mpm::sim-stats-power sim))
+                        ))
 
                      (setf
                       energy (/ energy substeps)

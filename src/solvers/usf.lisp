@@ -42,7 +42,7 @@
         ;;Trial update displacements
         (update-nodes sim)
         (update-cells sim)
-        (cl-mpm/ghost::apply-half-step-ghost sim)
+        ;; (cl-mpm/ghost::apply-half-step-ghost sim)
         (update-stress mesh mps dt fbar)
         (cl-mpm::update-stiffness-mps sim)
         ;; Map forces onto nodes
@@ -119,9 +119,9 @@
 
         (reset-node-displacement sim)
         (update-nodes sim)
-
         (apply-bcs mesh bcs dt)
         (cl-mpm/ghost::apply-half-step-ghost sim)
+
         (update-dynamic-stats sim)
         ;; Also updates mps inline
         (g2p mesh mps dt damping vel-algo)
