@@ -474,7 +474,7 @@
                          (max-steps 1000)
                          (damping 1d-4)
                          (damping-0 nil)
-                         (enable-mass-scaling nil)
+                         (enable-mass-scaling t)
                          (enable-damage t)
                          (criteria 1d-3)
                          (enable-plastic t))
@@ -495,6 +495,7 @@
          (oobf oobf-crit)
          (work 0d0)
          (intertial-passed nil)
+         (state :dynamic)
          (dt-0 (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
          (substeps (round target-time (cl-mpm:sim-dt sim))))
     (cl-mpm:sim-format sim t "Substeps ~D~%" substeps)
@@ -532,6 +533,31 @@
                                (> oobf oobf-crit))
                        (cl-mpm:sim-format sim t "Inertia passed~%")
                        (setf intertial-passed t))
+                     (when enable-mass-scaling
+                       (let* ((mass-scaler 1d2)
+                              (hist 2d0)
+                              (hist-power 0.5d0)
+                              (hist-energy (expt e-crit hist-power))
+                              (hist-oobf (expt e-crit hist-power)))
+                         (format t "Current state ~A - ~E ~E~%" state hist-energy hist-oobf)
+                         (case state
+                           (:accelerate
+                            (when (or ;; (> energy (* hist-energy hist))
+                                      (> oobf (* hist-oobf hist)))
+                              (format t "Switched to dynamic timestep~%")
+                              (setf
+                               state :dynamic
+                               (cl-mpm:sim-mass-scale sim) 1d0
+                               (cl-mpm:sim-dt sim) (/ (cl-mpm:sim-dt sim) (sqrt mass-scaler) ))))
+                           (:dynamic
+                            (when (and ;; (< energy (/ hist-energy hist))
+                                       (< oobf (/ hist-oobf hist)))
+                                  (format t "Switched to accelerate timestep~%")
+                                  (reset-mp-velocity sim)
+                                  (setf
+                                   state :accelerate
+                                   (cl-mpm:sim-mass-scale sim) mass-scaler
+                                   (cl-mpm:sim-dt sim) (* (cl-mpm:sim-dt sim) (sqrt mass-scaler))))))))
                      (cl-mpm:sim-format sim t "Residuals ~E ~E ~%" energy oobf)
                      (setf (cl-mpm::sim-stats-oobf sim) oobf)
                      (save-timestep sim output-dir global-step :DYNAMIC)

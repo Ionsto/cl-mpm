@@ -610,7 +610,7 @@
     ;;For each aggregated element set solve mass matrix and velocity
     (when enable-aggregate
       (let* ((E (cl-mpm/aggregate::sim-global-e sim))
-             (ma (cl-mpm/aggregate::sim-global-ma sim)))
+             (ma (cl-mpm/fastmaths::fast-scale (cl-mpm/aggregate::sim-global-ma sim) (sqrt mass-scale))))
         (iterate-over-dimensions
          (mesh-nd mesh)
          (lambda (d)
@@ -619,8 +619,7 @@
                     (magicl:transpose E)
                     (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))))
              (apply-internal-bcs sim fa d)
-             (let* ((acc
-                      (linear-solve-with-bcs ma fa (assemble-internal-bcs sim d))))
+             (let* ((acc (linear-solve-with-bcs ma fa (assemble-internal-bcs sim d))))
                (cl-mpm/aggregate::apply-internal-bcs sim acc d)
                (project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d)
                ;; (project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d)
