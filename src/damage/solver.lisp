@@ -34,7 +34,7 @@
                       (cl-mpm::apply-bcs mesh bcs dt)
                       (cl-mpm::update-nodes sim)
                       (cl-mpm::update-cells sim)
-                      (cl-mpm/ghost::apply-half-step-ghost sim)
+                      ;; (cl-mpm/ghost::apply-half-step-ghost sim)
 
                       (cl-mpm::update-stress mesh mps dt fbar)
                       (cl-mpm/damage::calculate-damage sim dt)

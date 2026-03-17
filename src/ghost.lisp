@@ -696,6 +696,7 @@
         node
       (declare (double-float mass dt damping mass-scale))
       (progn
+        
         ;; (cl-mpm/fastmaths:fast-zero acc)
         (cl-mpm/fastmaths:fast-fmacc acc force-ghost (/ 1d0 (* mass mass-scale)))
         (cl-mpm/fastmaths:fast-fmacc vel force-ghost (/ dt (* mass mass-scale)))
@@ -732,19 +733,67 @@
       ;; (cl-mpm::update-cells sim)
       ;; (cl-mpm::apply-bcs mesh bcs dt)
       ;; (dotimes )
-      ;; (let* ((iters 10))
-      ;;   (dotimes (i iters)
-      ;;     (cl-mpm::iterate-over-nodes
-      ;;      mesh
-      ;;      (lambda (n)
-      ;;        (when (cl-mpm/mesh::node-active n)
-      ;;          (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-ghost-force n)))))
-      ;;     (cl-mpm/ghost::apply-ghost-accel sim (/ ghost-factor iters))
-      ;;     (update-node-forces-ghost sim dt)
-      ;;     (cl-mpm::apply-bcs mesh bcs dt)))
-      (cl-mpm/ghost::apply-ghost-accel sim ghost-factor)
+      (let* ((iters 10))
+        (with-accessors ((mesh cl-mpm:sim-mesh)
+                         (mps cl-mpm:sim-mps))
+            sim
+          (with-accessors ((cells cl-mpm/mesh::mesh-cells)
+                           (h cl-mpm/mesh::mesh-resolution)
+                           (nd cl-mpm/mesh:mesh-nd))
+              mesh
+            (declare (double-float h ghost-factor))
+            ;; (cl-mpm::filter-cells sim)
+            (cl-mpm::update-cells sim)
+            (locate-ghost-elements sim)
+            (let ((elems (make-array 0 :adjustable t :fill-pointer t))
+                  (mut (sb-thread:make-mutex)))
+              (cl-mpm::iterate-over-cells
+               mesh
+               (lambda (cell)
+                 (let* ((index (cl-mpm/mesh::cell-index cell))
+                        (cell (cl-mpm/mesh::get-cell mesh index)))
+                   (when (cl-mpm/mesh::cell-ghost-element cell)
+                     (loop for direction from 0 below nd
+                           do
+                              (let ((ind-dir (list 0 0 0)))
+                                (setf (nth direction ind-dir) 1)
+                                (let ((index-b (mapcar #'+ index ind-dir)))
+                                  (when (cl-mpm/mesh::in-bounds-cell mesh index-b)
+                                    (let ((cell-a cell)
+                                          (cell-b (cl-mpm/mesh::get-cell mesh index-b)))
+                                      (when
+                                          (and
+                                           (and
+                                            (cl-mpm/mesh::cell-active cell-a)
+                                            (cl-mpm/mesh::cell-active cell-b))
+                                           (not (cl-mpm/mesh::cell-partial cell-a))
+                                           (not (cl-mpm/mesh::cell-partial cell-b))
+                                           (and
+                                            (cl-mpm/mesh::cell-ghost-element cell-a)
+                                            (cl-mpm/mesh::cell-ghost-element cell-b)))
+                                        (sb-thread:with-mutex (mut)
+                                          (vector-push-extend (list cell-a cell-b) elems))))))))))))
+              (dotimes (i iters)
+                (cl-mpm::iterate-over-nodes
+                 mesh
+                 (lambda (n)
+                   (when (cl-mpm/mesh::node-active n)
+                     (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-ghost-force n)))))
+                (cl-mpm::update-cells sim)
+                ;; (cl-mpm/ghost::apply-ghost-accel sim (/ ghost-factor iters))
+                ;; (cl-mpm/ghost::apply-ghost sim ghost-factor)
+                (lparallel:pdotimes (i (length elems))
+                  (destructuring-bind (cell-a cell-b) (aref elems i)
+                    ;; (apply-ghost-cells-accel mesh cell-a cell-b (/ ghost-factor iters))
+                    (apply-ghost-cells-new mesh cell-a cell-b (/ ghost-factor iters))
+                    ))
+                (update-node-forces-ghost sim dt)
+                (cl-mpm::apply-bcs mesh bcs dt))))))
+
+      ;;Standard
+      ;; (cl-mpm/ghost::apply-ghost-accel sim ghost-factor)
       ;; (cl-mpm/ghost::apply-ghost sim ghost-factor)
-      (update-node-forces-ghost sim dt)
+      ;; (update-node-forces-ghost sim dt)
       (cl-mpm::apply-bcs mesh bcs dt)
       )))
 

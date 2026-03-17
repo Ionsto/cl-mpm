@@ -282,7 +282,7 @@
                           (enable-damage t)
                           (enable-plastic t)
                           (max-damage-inc 0.6d0)
-                          (true-stagger t)
+                          (true-stagger nil)
                           (plotter (lambda (sim))))
   (let ((total-i 0))
     (handler-case

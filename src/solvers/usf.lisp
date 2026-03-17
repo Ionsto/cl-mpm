@@ -42,6 +42,7 @@
         ;;Trial update displacements
         (update-nodes sim)
         (update-cells sim)
+        (cl-mpm/ghost::apply-half-step-ghost sim)
         (update-stress mesh mps dt fbar)
         (cl-mpm::update-stiffness-mps sim)
         ;; Map forces onto nodes
