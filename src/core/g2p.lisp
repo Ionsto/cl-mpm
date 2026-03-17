@@ -136,7 +136,10 @@
                            (cl-mpm/fastmaths::fast-fmacc disp-inc node-disp svp)
                            (cl-mpm/fastmaths::fast-fmacc acc node-acc svp)
                            (incf svp-sum svp)
-                           (cl-mpm/shape-function::@-combi-assemble-dstretch-3d (cl-mpm::gradient-push-forwards-cached grads df-inc-inv) node-vel vel-grad)
+                           (cl-mpm/shape-function::@-combi-assemble-dstretch-3d
+                            grads
+                            ;; (cl-mpm::gradient-push-forwards-cached grads df-inc-inv)
+                            node-vel vel-grad)
                            ;; (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-vel vel-grad)
                            ;;With special operations we want to include this operation
                            #+cl-mpm-special (special-g2p mesh mp node svp grads)

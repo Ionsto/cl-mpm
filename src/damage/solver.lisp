@@ -34,6 +34,7 @@
                       (cl-mpm::apply-bcs mesh bcs dt)
                       (cl-mpm::update-nodes sim)
                       (cl-mpm::update-cells sim)
+                      (cl-mpm/ghost::apply-half-step-ghost sim)
 
                       (cl-mpm::update-stress mesh mps dt fbar)
                       (cl-mpm/damage::calculate-damage sim dt)
@@ -46,6 +47,8 @@
                       (cl-mpm::reset-node-displacement sim)
                       (cl-mpm::update-nodes sim)
                       (cl-mpm::apply-bcs mesh bcs dt)
+                      (cl-mpm/ghost::apply-half-step-ghost sim)
+
                       (cl-mpm::update-dynamic-stats sim)
                       (cl-mpm::g2p mesh mps dt damping vel-algo)
                       (cl-mpm::new-loadstep sim)

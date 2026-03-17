@@ -141,8 +141,7 @@
       cell
     (when (and
            active
-           ;; (not partial)
-           )
+           (not partial))
       (cl-mpm/fastmaths:fast-zero disp)
       (cl-mpm/fastmaths:fast-zero df)
       (setf (varef df 0) 1d0

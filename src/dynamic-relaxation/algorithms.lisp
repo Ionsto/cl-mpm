@@ -64,7 +64,7 @@
   (cl-mpm:sim-format sim t "Save vtks ~D~%" step)
   (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" step)) sim)
   (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) sim)
-  ;; (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) sim)
+  (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) sim)
   (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) sim ))
 
 
@@ -282,7 +282,7 @@
                           (enable-damage t)
                           (enable-plastic t)
                           (max-damage-inc 0.6d0)
-                          (true-stagger nil)
+                          (true-stagger t)
                           (plotter (lambda (sim))))
   (let ((total-i 0))
     (handler-case
@@ -308,6 +308,8 @@
                             (>= (cl-mpm::sim-stats-oobf sim) oobf-crit))
                   do
                      (progn
+                       (when (> stagger-i 1)
+                         (setf true-stagger nil))
                        (cl-mpm/dynamic-relaxation:converge-quasi-static
                         sim
                         :oobf-crit oobf-crit
@@ -423,7 +425,7 @@
 
                                     (incf total-i))
                            (when t;damage-iter
-                             (dotimes (i 1)
+                             (dotimes (i 2)
                                (cl-mpm:update-sim sim))
                              (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim))
                              (cl-mpm:sim-format sim t "fast trial ~E~%" fast-trial-conv))
@@ -471,14 +473,21 @@
                          (output-dir "./output/")
                          (max-steps 1000)
                          (damping 1d-4)
+                         (damping-0 nil)
                          (enable-mass-scaling nil)
                          (enable-damage t)
                          (criteria 1d-3)
                          (enable-plastic t))
   (setf (cl-mpm:sim-mass-scale sim) 1d0)
   (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
-  (setf (cl-mpm:sim-damping-factor sim) (* damping (cl-mpm/setup:estimate-critical-damping sim)))
+  (setf (cl-mpm:sim-damping-factor sim) (* damping
+                                           (if damping-0
+                                               damping-0
+                                               (cl-mpm/setup:estimate-critical-damping sim))))
   (set-mp-plastic-damage sim :enable-damage enable-damage :enable-plastic enable-plastic)
+  (cl-mpm::update-stiffness-mps sim)
+  (cl-mpm::reset-grid (cl-mpm:sim-mesh sim))
+  (reset-mp-velocity sim)
   (setf (cl-mpm:sim-enable-damage sim) enable-damage)
   (let* ((e-crit    (* 0.5d0 criteria))
          (oobf-crit (* 0.5d0 criteria))
@@ -557,7 +566,7 @@
                           (setup-quasi-static (lambda (sim)))
                           (setup-dynamic (lambda (sim)))
                           (explicit-dynamic-solver 'cl-mpm::mpm-sim-usf))
-  (let ()
+  (let ((damping-0 (cl-mpm/setup::estimate-critical-damping sim)))
     (when steps
       (setf total-time (* dt steps)))
     (uiop:ensure-all-directories-exist (list output-dir))
@@ -713,6 +722,7 @@
                                        :plotter plotter
                                        :dt-scale explicit-dt-scale
                                        :criteria (* conv-criteria 1d0)
+                                       :damping-0 damping-0
                                        :damping explicit-damping-factor
                                        :target-time (* 0.1d0 dt-loadstep)
                                        :enable-damage enable-damage
@@ -1153,6 +1163,7 @@
   (cl-mpm:iterate-over-mps
    (cl-mpm:sim-mps sim)
    (lambda (mp)
+     (cl-mpm/fastmaths::fast-zero (cl-mpm/particle::mp-velocity-gradient mp))
      (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-velocity mp)))))
 
 (defun reset-nominal-displacement (sim)
