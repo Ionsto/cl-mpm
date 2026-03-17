@@ -220,8 +220,7 @@
   :serial t
   :components ((:file "src/cpp"))
   )
-(defsystem "cl-mpm"
-  ;; :class :package-inferred-system
+(defsystem "cl-mpm/core"
   :depends-on ("cl-mpm/magicl"
                "cl-mpm/fastmaths"
                "cl-mpm/ext"
@@ -250,11 +249,18 @@
                (:file "src/core/splitting")
                (:file "src/core/p2g")
                (:file "src/core/g2p")
-               (:file "src/core")
-               (:file "src/solvers/usf")
+               (:file "src/core")))
+(defsystem "cl-mpm"
+  ;; :class :package-inferred-system
+  :depends-on ("cl-mpm/core"
+               "cl-mpm/ghost")
+  :description "An explicit Material Point Method implementation"
+  :in-order-to ((test-op (load-op "test/all")))
+  :perform (test-op (o c) (symbol-call :test/all :test-suite))
+  :serial t
+  :components ((:file "src/solvers/usf")
                (:file "src/solvers/usl")
-               (:file "src/solvers/musl")
-               ))
+               (:file "src/solvers/musl")))
 (defsystem "cl-mpm/mpi"
   :depends-on ("cl-mpm"
                "lfarm-client"
@@ -308,7 +314,7 @@
   :components ((:file "src/bc/penalty")))
 
 (defsystem "cl-mpm/ghost"
-  :depends-on ("cl-mpm"
+  :depends-on ("cl-mpm/core"
                "cl-mpm/bc")
   :description ""
   :components ((:file "src/ghost")))
