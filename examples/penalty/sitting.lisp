@@ -4,7 +4,7 @@
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defun setup (&key (refine 1) (mps 2) (mu 0.25d0)
-                (eps-scale 1d1)
+                (eps-scale 1d0)
                 )
   (let* ((d 1d0)
          (dsize 2d0)
@@ -80,10 +80,10 @@
                 (incf step)
                 )
      :total-time 30d0
-     :damping 1d-3
+     :damping 1d-1
      :dt 0.1d0
      :initial-quasi-static nil
-     :dt-scale 0.5d0))
+     :dt-scale 0.9d0))
   )
 
 (defun run (&key (output-dir (format nil "./output/")))
@@ -112,3 +112,9 @@
         (run :output-dir (format nil "./output-~D-~D/" r mps))))))
 
 
+(defun test-time ()
+  setup :mps 3 :refine 1 :mu 0.5
+         :eps-scale 1d2
+  (change-class *sim* 'cl-mpm/aggregate::mpm-sim-agg-usf)
+  (setf (cl-mpm::sim-velocity-algorithm *sim*) :TFLIP)
+  (run-time))
