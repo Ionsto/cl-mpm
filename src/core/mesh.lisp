@@ -834,7 +834,7 @@
      active nil
      volume 0d0
      svp 0d0
-     damage 0d0
+     ;; damage 0d0
      p-mod 0d0
      mass 0d0)
     (cl-mpm/fastmaths::fast-zero vel)
@@ -884,7 +884,7 @@
     (setf mass-t 0d0)
     (setf volume 0d0)
     (setf p-wave 0d0)
-    (setf damage 0d0)
+    ;; (setf damage 0d0)
     (setf svp-sum 0d0)
     (setf j 0d0)
     (setf j-inc 0d0)

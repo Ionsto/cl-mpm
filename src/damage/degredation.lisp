@@ -177,3 +177,54 @@
           (setf p-mod (max (* P-0 1d-9) (+ K (* 4/3 G))))
           )
         ))))
+
+(defun apply-tcs-degredation (mp)
+  (with-accessors ((damage        cl-mpm/particle::mp-damage)
+                   (damage-t      cl-mpm/particle::mp-damage-tension)
+                   (damage-c      cl-mpm/particle::mp-damage-compression)
+                   (damage-s      cl-mpm/particle::mp-damage-shear)
+                   (stress        cl-mpm/particle::mp-stress)
+                   (p-mod         cl-mpm/particle::mp-p-modulus-0)
+                   (E cl-mpm/particle::mp-e)
+                   (nu cl-mpm/particle::mp-nu)
+                   (def cl-mpm/particle::mp-deformation-gradient)
+                   (enable-damage cl-mpm/particle::mp-enable-damage))
+      mp
+    (declare (double-float damage damage-t damage-c damage-s))
+    (when (and
+           enable-damage
+           (> damage 0.0d0))
+      (let* ((exponent 1)
+            (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+            (pind p)
+            ;; (pind p)
+            (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+        (declare (double-float damage-t damage-c damage-s))
+        (setf p
+              (if (> pind 0d0)
+                  (* (- 1d0 (expt damage-t exponent)) p)
+                  (* (- 1d0 (expt damage-c exponent)) p)))
+        ;; (pprint pressure)
+        ;; (break)
+        (setf stress
+              (cl-mpm/fastmaths:fast-.+
+               (cl-mpm/constitutive::voight-eye p)
+               (cl-mpm/fastmaths:fast-scale! s (- 1d0 (expt damage-s exponent)))
+               stress))
+        (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
+               (G (/ e (* 2 (+ 1d0 nu))))
+               (P-0 (+ K (* 4/3 G))))
+          (setf K
+                (if (> pind 0d0)
+                    (* (- 1d0 (expt damage-t exponent)) K)
+                    (* (- 1d0 (expt damage-c exponent)) K)))
+          (setf G (* G (- 1d0 (expt damage-s exponent))))
+          (setf p-mod (max (* P-0 1d-9) (+ K (* 4/3 G)))))))))
+
+(defun est-shear-from-angle (angle angle-r rc)
+  (let* ((angle-plastic (cl-mpm/utils:deg-to-rad angle))
+         (angle-plastic-residual (cl-mpm/utils:deg-to-rad angle-r)))
+    (- 1d0
+       (* (- 1d0 rc)
+          (/ (tan angle-plastic-residual)
+             (tan angle-plastic))))))

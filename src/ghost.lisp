@@ -9,7 +9,8 @@
   (:import-from
    :magicl tref .+ .-)
   (:export
-   #:apply-ghost))
+   #:apply-ghost
+   #:apply-ghost-cached))
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 ;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
                                         ;    #:make-shape-function
@@ -392,6 +393,109 @@
                                     ghost
                                     ghost
                                     ))))))))))))))))))))
+
+(defun apply-ghost-cells-undeformed (mesh cell-a cell-b ghost-factor)
+  (when
+      (and
+       (and
+        (cl-mpm/mesh::cell-active cell-a)
+        (cl-mpm/mesh::cell-active cell-b))
+       (not (cl-mpm/mesh::cell-partial cell-a))
+       (not (cl-mpm/mesh::cell-partial cell-b))
+       (and
+        (cl-mpm/mesh::cell-ghost-element cell-a)
+        (cl-mpm/mesh::cell-ghost-element cell-b)))
+    (with-accessors ((h cl-mpm/mesh:mesh-resolution))
+        mesh
+      (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
+        (iterate-over-face-gps
+         mesh
+         cell-a
+         cell-b
+         (lambda (gp-loc gp-weight normal normal-trial face-length)
+           (let* ((nx (varef normal-trial 0))
+                  (ny (varef normal-trial 1))
+                  (nz (varef normal-trial 2))
+                  (dsvp-adjuster (magicl:transpose! (cl-mpm/utils::arb-matrix-from-list
+                                                     (list
+                                                      nx  0d0 0d0
+                                                      0d0 ny  0d0
+                                                      0d0 0d0 nz
+                                                      0d0 nz  ny
+                                                      nz  0d0 nx
+                                                      ny  nx  0d0)
+                                                     3
+                                                     6)))
+                  (gradient-terms (cl-mpm/utils:vector-zeros)))
+             (cl-mpm/ghost::iterate-over-bicell-nodes
+              mesh
+              cell-a
+              cell-b
+              gp-loc
+              (lambda (cell-p node weight grads fact)
+                (when (cl-mpm/mesh::node-active node)
+                  (with-accessors ((ghost cl-mpm/mesh::node-ghost-force)
+                                   (f-int cl-mpm/mesh::node-internal-force)
+                                   (f-ext cl-mpm/mesh::node-external-force)
+                                   (node-lock cl-mpm/mesh::node-lock)
+                                   (disp cl-mpm/mesh::node-displacment))
+                      node
+                    (let ((dsvp-p (fast-scale!
+                                   (magicl:transpose
+                                    (cl-mpm/shape-function::assemble-dsvp-3d
+                                     grads
+                                     ;; (cl-mpm::gradient-push-forwards
+                                     ;;  grads
+                                     ;;  (cl-mpm/mesh::cell-deformation-gradient cell-p))
+                                     )
+                                    )
+                                   fact
+                                   )))
+                      (cl-mpm/fastmaths:fast-.+
+                       (magicl:@
+                        (magicl:transpose dsvp-adjuster)
+                        (magicl:transpose dsvp-p)
+                        disp)
+                       gradient-terms
+                       gradient-terms))))))
+             (iterate-over-bicell-nodes
+              mesh
+              cell-a
+              cell-b
+              gp-loc
+              (lambda (cell node weight grads fact)
+                (when (cl-mpm/mesh::node-active node)
+                  (with-accessors ((disp cl-mpm/mesh::node-displacment)
+                                   (node-lock cl-mpm/mesh::node-lock)
+                                   (ghost cl-mpm/mesh::node-ghost-force))
+                      node
+                    (let* ((dsvp
+                             (fast-scale!
+                              (magicl:transpose
+                               (cl-mpm/shape-function::assemble-dsvp-3d
+                                grads
+                                ;; (cl-mpm::gradient-push-forwards
+                                ;;  grads
+                                ;;  (cl-mpm/mesh::cell-deformation-gradient cell))
+                                ))
+                              fact)))
+                      (let ((ghost-force
+                              (cl-mpm/fastmaths:fast-scale!
+                               (magicl:@
+                                dsvp
+                                dsvp-adjuster
+                                gradient-terms)
+                               (*
+                                -1d0
+                                (/ (* ghost-factor (expt h 2)) 6)
+                                ;; face-length
+                                gp-weight))))
+                        (sb-thread:with-mutex (node-lock)
+                          (cl-mpm/fastmaths:fast-.+
+                           ghost-force
+                           ghost
+                           ghost))))))))
+             )))))))
 
 
 (defun apply-ghost-cells-new (mesh cell-a cell-b ghost-factor)
@@ -818,7 +922,7 @@
                        (h cl-mpm/mesh::mesh-resolution))
           mesh
         (declare (double-float h ghost-factor))
-        (let ((gf (* 1d0 ghost-factor (expt h 3))))
+        (let ((gf (* 1d0 ghost-factor (expt h 2))))
           (cl-mpm::iterate-over-cells
            mesh
            (lambda (cell)
@@ -829,3 +933,58 @@
                           (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
                             (incf (cl-mpm/mesh::node-mass n)
                                   gf))))))))))))
+
+
+(defun build-ghost-cache (sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm:sim-mps)
+                   (ghost-cache cl-mpm::sim-ghost-cache))
+      sim
+    (if ghost-cache
+        (setf (fill-pointer ghost-cache) 0)
+      (setf ghost-cache (make-array 0 :adjustable t :fill-pointer t)))
+    (with-accessors ((cells cl-mpm/mesh::mesh-cells)
+                     (nd cl-mpm/mesh:mesh-nd))
+        mesh
+      (locate-ghost-elements sim)
+      (let ((mut (sb-thread:make-mutex)))
+        (cl-mpm::iterate-over-cells
+         mesh
+         (lambda (cell)
+           (let* ((index (cl-mpm/mesh::cell-index cell))
+                  (cell (cl-mpm/mesh::get-cell mesh index)))
+             (when (cl-mpm/mesh::cell-ghost-element cell)
+               (loop for direction from 0 below nd
+                     do
+                        (let ((ind-dir (list 0 0 0)))
+                          (setf (nth direction ind-dir) 1)
+                          (let ((index-b (mapcar #'+ index ind-dir)))
+                            (when (cl-mpm/mesh::in-bounds-cell mesh index-b)
+                              (let ((cell-a cell)
+                                    (cell-b (cl-mpm/mesh::get-cell mesh index-b)))
+                                (when
+                                    (and
+                                     (and
+                                      (cl-mpm/mesh::cell-active cell-a)
+                                      (cl-mpm/mesh::cell-active cell-b))
+                                     (not (cl-mpm/mesh::cell-partial cell-a))
+                                     (not (cl-mpm/mesh::cell-partial cell-b))
+                                     (and
+                                      (cl-mpm/mesh::cell-ghost-element cell-a)
+                                      (cl-mpm/mesh::cell-ghost-element cell-b)))
+                                  (sb-thread:with-mutex (mut)
+                                    (vector-push-extend (list cell-a cell-b) ghost-cache))))))))))))))))
+
+(defun apply-ghost-cached (sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm:sim-mps)
+                   (ghost-factor cl-mpm::sim-ghost-factor)
+                   (ghost-cache cl-mpm::sim-ghost-cache))
+      sim
+    (when ghost-factor
+      (when ghost-cache
+        (lparallel:pdotimes (i (length ghost-cache))
+          (destructuring-bind (cell-a cell-b) (aref ghost-cache i)
+            (apply-ghost-cells-new mesh cell-a cell-b ghost-factor)
+            ;; (apply-ghost-cells-undeformed mesh cell-a cell-b ghost-factor)
+            ))))))

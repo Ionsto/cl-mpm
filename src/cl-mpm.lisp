@@ -136,6 +136,9 @@
     :accessor sim-ghost-factor
     :initarg :ghost-factor
     :initform nil)
+   (ghost-cache
+    :accessor sim-ghost-cache
+    :initform nil)
    (nonlocal-damage
     :type boolean
     :accessor sim-nonlocal-damage

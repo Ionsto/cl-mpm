@@ -127,10 +127,10 @@
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
                (bcs-force-list cl-mpm::bcs-force-list)
-               (ghost-factor cl-mpm::ghost-factor)
                (initial-setup initial-setup)
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)
                (damping cl-mpm::damping-factor)
+               (ghost-factor cl-mpm::ghost-factor)
                (vel-algo cl-mpm::velocity-algorithm))
       sim
 
@@ -141,6 +141,8 @@
     (when (> mass-filter 0d0)
       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
     (cl-mpm::filter-cells sim)
+    (when ghost-factor
+      (cl-mpm/ghost::build-ghost-cache sim))
     (cl-mpm::iterate-over-nodes
      mesh
      (lambda (n)
@@ -208,7 +210,8 @@
           do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
 
     (when ghost-factor
-      (cl-mpm/ghost::apply-ghost sim ghost-factor)
+      ;; (cl-mpm/ghost::apply-ghost sim ghost-factor)
+      (cl-mpm/ghost::apply-ghost-cached sim)
       (cl-mpm::apply-bcs mesh bcs dt))
 
     (incf solve-count)
@@ -282,7 +285,7 @@
 
     (incf solve-count)
     (when ghost-factor
-      (cl-mpm/ghost::apply-ghost sim ghost-factor)
+      (cl-mpm/ghost::apply-ghost-cached sim)
       (cl-mpm::apply-bcs mesh bcs dt))
 
     (when (= (mod solve-count mass-update-iter) 0)

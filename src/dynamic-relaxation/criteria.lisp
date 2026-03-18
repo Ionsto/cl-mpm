@@ -907,8 +907,8 @@
    #'max))
 
 (defun damage-increment-criteria (sim)
-  (compute-max-damage-energy-crit sim)
-  ;; (damage-increment-criteria-mp sim)
+  ;; (compute-max-damage-energy-crit sim)
+  (damage-increment-criteria-mp sim)
   ;; (damage-increment-criteria-mesh sim)
   )
 

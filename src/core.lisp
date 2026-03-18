@@ -440,7 +440,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         node
       (declare (double-float mass damage volume))
       (progn
-        (setf damage (/ damage volume))
+        ;; (setf damage (/ damage volume))
         (cl-mpm/fastmaths::fast-scale! vel (/ 1.0d0 mass))))))
 
 (defgeneric update-node-kinematics (sim))

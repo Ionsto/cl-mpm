@@ -478,7 +478,7 @@
             (sqrt k))))))
 
 (defun mohr-coloumb-coheasion-to-tensile (coheasion angle)
-  (let (
+  (let ((angle (cl-mpm/utils::deg-to-rad angle))
         (k (/ (+ 1d0 (sin angle))
               (- 1d0 (sin angle)))))
     (the double-float

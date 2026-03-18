@@ -81,6 +81,43 @@
     :initform 0d0))
   (:documentation "A mp with damage influanced elastic model"))
 
+(defclass particle-elastic-damage-tcs (particle-elastic-damage)
+  ((shear-residual-ratio
+    :accessor mp-shear-residual-ratio
+    :initarg :g-res-ratio
+    :initform (- 1d0 1d-9))
+   (k-tensile-residual-ratio
+    :accessor mp-k-tensile-residual-ratio
+    :initarg :kt-res-ratio
+    :initform (- 1d0 1d-9))
+   (k-compressive-residual-ratio
+    :accessor mp-k-compressive-residual-ratio
+    :initarg :kc-res-ratio
+    :initform 0d0)
+   (damage-tension
+    :accessor mp-damage-tension
+    :initarg :damage-tension
+    :initform 0d0)
+   (damage-compression
+    :accessor mp-damage-compression
+    :initarg :damage-compression
+    :initform 0d0)
+   (damage-shear
+    :accessor mp-damage-shear
+    :initarg :damage-shear
+    :initform 0d0))
+  (:documentation "A mp with damage influanced elastic model"))
+
+(defclass particle-damage-frictional (particle-elastic-damage-tcs)
+  ((friction-angle
+    :accessor mp-friction-angle
+    :initarg :friction-angle
+    :initform 30d0)
+   (model
+    :accessor mp-friction-model
+    :initarg :friction-model
+    :initform :MC)))
+
 (defmethod cl-mpm/particle::reset-loadstep-mp ((mp particle-elastic-damage))
   (with-accessors ((k    cl-mpm/particle::mp-history-stress)
                    (k-n    cl-mpm/particle::mp-history-stress-n)
@@ -105,6 +142,7 @@
   (with-accessors ((k    cl-mpm/particle::mp-history-stress)
                    (k-n    cl-mpm/particle::mp-history-stress-n)
                    (damage    cl-mpm/particle::mp-damage)
+                   (damage-prev    cl-mpm/particle::mp-damage-prev-trial)
                    (damage-n    cl-mpm/particle::mp-damage-n))
       mp
     (setf k-n k
@@ -179,10 +217,12 @@
     stress))
 
 (defun apply-isotropic-degredation (mp)
-  (with-accessors ((damage        cl-mpm/particle::mp-damage)
-                   (stress        cl-mpm/particle::mp-stress)
+  (with-accessors ((damage cl-mpm/particle::mp-damage)
+                   (stress-undamaged cl-mpm/particle::mp-undamaged-stress)
+                   (stress cl-mpm/particle::mp-stress)
+                   (def cl-mpm/particle::mp-deformation-gradient)
                    (enable-damage cl-mpm/particle::mp-enable-damage)
-                   (p-mod cl-mpm/particle::mp-p-modulus)
+                   ;; (p-mod cl-mpm/particle::mp-p-modulus)
                    (e cl-mpm/particle::mp-e)
                    (nu cl-mpm/particle::mp-nu))
       mp
@@ -190,10 +230,13 @@
     (when (and
            enable-damage
            (> damage 0.0d0))
-      (cl-mpm/fastmaths:fast-scale! stress (- 1d0 damage))
+      (cl-mpm/utils:voigt-copy-into stress-undamaged stress)
+      (cl-mpm/fastmaths:fast-scale! stress (/ (- 1d0 damage) (cl-mpm/fastmaths:det-3x3 def)))
       (setf (cl-mpm/particle::mp-p-modulus-0 mp)
             (*
-             (- 1d0 damage)
+             (max
+              1d-6
+              (- 1d0 damage))
              (cl-mpm/particle::compute-p-modulus mp)))
       )))
 
@@ -557,3 +600,44 @@
       mp
     (setf y (cl-mpm/damage::tensile-energy-norm strain E de))))
 
+
+(defmethod cl-mpm/damage::compute-damage ((mp cl-mpm/particle::particle-elastic-damage-tcs))
+  (with-accessors ((k cl-mpm/particle::mp-history-stress)
+                   (k-n cl-mpm/particle::mp-history-stress-n)
+                   (E cl-mpm/particle::mp-e)
+                   (damage cl-mpm/particle:mp-damage)
+                   (init-stress cl-mpm/particle::mp-initiation-stress)
+                   (ductility cl-mpm/particle::mp-ductility)
+                   (damage-tension cl-mpm/particle::mp-damage-tension)
+                   (damage-shear cl-mpm/particle::mp-damage-shear)
+                   (damage-compression cl-mpm/particle::mp-damage-compression)
+                   (kc-r cl-mpm/particle::mp-k-compressive-residual-ratio)
+                   (kt-r cl-mpm/particle::mp-k-tensile-residual-ratio)
+                   (g-r cl-mpm/particle::mp-shear-residual-ratio))
+   mp
+   (declare (double-float kt-r kc-r g-r damage k k-n))
+   ;; Directly compute the damage from K
+   (let ()
+     (setf damage (cl-mpm/damage::damage-response-exponential k E init-stress ductility))
+     (setf
+      damage-tension (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility kt-r)
+      damage-shear (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility g-r)
+      damage-compression (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility kc-r)))))
+
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-elastic-damage-tcs) dt)
+  (cl-mpm/damage::apply-tcs-degredation mp))
+
+(defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-damage-frictional) dt)
+  (with-accessors ((strain cl-mpm/particle::mp-strain)
+                   (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
+                   (E cl-mpm/particle::mp-e)
+                   (y cl-mpm/particle::mp-damage-y-local)
+                   (angle cl-mpm/particle::mp-friction-angle)
+                   (model cl-mpm/particle::mp-friction-model)
+                   (de cl-mpm/particle::mp-elastic-matrix))
+      mp
+    (setf
+     y
+     (ecase model
+       (:DP (cl-mpm/damage::drucker-prager-criterion undamaged-stress angle))
+       (:MC (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile undamaged-stress angle))))))
