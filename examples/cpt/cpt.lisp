@@ -199,7 +199,7 @@
 (defun run ()
   (defparameter *data-disp* (list))
   (defparameter *data-load* (list))
-  (let* ((lstps 50)
+  (let* ((lstps 10)
          (total-disp -5d0)
          (delta (/ total-disp lstps))
          (current-disp 0d0))
@@ -230,7 +230,7 @@
        :criteria 1d-3
        :save-vtk-dr t
        :save-vtk-loadstep t
-       :dt-scale 0.5d0
+       :dt-scale 1d0
        :post-conv-step
        (lambda (sim)
          (push current-disp *data-disp*)
@@ -252,7 +252,7 @@
 ;;   (vgplot:plot (reverse *data-disp*) (reverse *data-load*)))
 
 (defun test ()
-  (setup :mps 3 :refine 2)
+  (setup :mps 3 :refine 1)
   (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static)
   (run)
   ;; (run-real-time)

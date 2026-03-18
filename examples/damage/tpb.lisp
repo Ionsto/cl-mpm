@@ -77,6 +77,7 @@
 (declaim (notinline setup-test-column))
 (defun setup-test-column (size block-size offset &key (e-scale 1) (mp-scale 1)
                                                    (epsilon-scale 1d2)
+                                                   (pinned-edge nil)
                                                    )
   (let* ((sim (cl-mpm/setup::make-simple-sim
                (/ 1d0 e-scale)
@@ -235,7 +236,6 @@
              (list
               left-smooth
               right-smooth))
-            
             ;; (cl-mpm/penalty::make-bc-penalty-distance-point
             ;;  sim
             ;;  (cl-mpm/utils:vector-from-list '(0d0 -1d0 0d0))
@@ -255,11 +255,15 @@
          sim
          :left '(0 nil nil))
 
-        ;; (cl-mpm::add-bcs
-        ;;  sim
-        ;;  (cl-mpm/bc::make-bc-fixed
-        ;;   right-node-pos
-        ;;   '(nil 0 nil)))
+        (if pinned-edge
+            (cl-mpm::add-bcs
+             sim
+             (cl-mpm/bc::make-bc-fixed
+              right-node-pos
+              '(nil 0 nil)))
+            (cl-mpm:add-bcs-force-list
+             sim
+             *penalty-point*))
         ;; (cl-mpm::add-bcs
         ;;  sim
         ;;  (cl-mpm/bc::make-bc-fixed
@@ -279,7 +283,6 @@
 
 
       (defparameter *displacement* 0d0)
-      
 
       (let* ((hx h-x)
              (ly 1d-2)
@@ -332,9 +335,9 @@
         ;; (cl-mpm/bc:make-bcs-from-list
         ;;  (list
         ;;   *penalty-controller*))
-        (cl-mpm/bc:make-bcs-from-list
-         (list
-          *penalty-point*))
+        ;; (cl-mpm/bc:make-bcs-from-list
+        ;;  (list
+        ;;   *penalty-point*))
         (cl-mpm/bc:make-bcs-from-list
          (list
           *penalty*))))
@@ -351,7 +354,9 @@
 (defun setup (&key
                 (refine 1d0)
                 (mps 2)
-                (epsilon-scale 1d2))
+                (epsilon-scale 1d2)
+                (pinned-edge nil)
+                )
   (let* ((mesh-size (/ 0.0102 (* refine 1.0)))
          (mps-per-cell mps)
          (shelf-height 0.102d0)
@@ -372,6 +377,7 @@
                          :e-scale (/ 1d0 mesh-size)
                          :mp-scale mps-per-cell
                          :epsilon-scale epsilon-scale
+                         :pinned-edge pinned-edge
                          ))
     (let ((cut-depth (* 0.4d0 shelf-height))
           (cut-width (* 1 mesh-size)))
@@ -741,10 +747,10 @@
             (* (cl-mpm/penalty::resolve-load *penalty*) 2d0))))
 (defun test ()
   (defparameter *displacement* 0d0)
-  (let* ((lstps 10)
+  (let* ((lstps 50)
          (total-disp -0.2d-3)
          (output-dir (format nil "./output-se/")))
-    (setup :refine 5 :mps 2)
+    (setup :refine 2 :mps 3 :epsilon-scale 1d1 :pinned-edge t)
     (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
     (setf cl-mpm/damage::*enable-reflect-x* t)
     (setf (cl-mpm::sim-gravity *sim*) 0d4)
@@ -776,7 +782,7 @@
                        (output-disp-data output-dir))
      :load-steps lstps
      :enable-damage t
-     :damping 1d0
+     :damping (sqrt 2)
      :substeps 20
      :criteria 1d-3
      :max-adaptive-steps 10
