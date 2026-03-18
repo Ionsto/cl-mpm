@@ -23,7 +23,7 @@
   (vgplot:plot
    (reverse *data-displacement*)
    (reverse *data-load*)
-   "MPM"
+   "MOM"
    )
   ;; (plot-domain sim)
   )
@@ -40,15 +40,15 @@
       mp
     (declare (double-float E nu))
     (progn
-      (let* ((angle 30d0)
+      (let* ((angle 60d0)
              (stress (cl-mpm/fastmaths:fast-scale!
                       (cl-mpm/constitutive:linear-elastic-mat strain de)
                       1d0
                       ;; (/ 1d0 (magicl:det def))
                       )))
         (setf y
-              (cl-mpm/damage::tensile-energy-norm strain E de)
-              ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
+              ;; (cl-mpm/damage::tensile-energy-norm strain E de)
+              (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
               ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
               ;; (cl-mpm/damage::criterion-modified-vm strain k E nu)
               )))))
@@ -68,7 +68,7 @@
          (init-stress 1d5)
          (length-scale 1d0)
          (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E gf-scale))
-         ;; (ductility 10d0)
+         ;; (ductility 50d0)
          )
     (when (<= ductility 1d0)
       (error "Ductility must be greater than 1"))
@@ -227,22 +227,30 @@
        (push *displacement* *data-displacement*)
        (output-disp-data output-dir))
      :load-steps lstps
-     :enable-damage nil
+     :enable-damage t
      :enable-plastic t
      :damping 1d0;(sqrt 2)
-     :substeps 10
-     :criteria 1d-3
+     :substeps 50
+     :criteria 1d-6
      :max-adaptive-steps 10
-     :save-vtk-dr t
+     :save-vtk-dr nil
      :save-vtk-loadstep t
-     :max-damage-inc 0.1d0
+     :max-damage-inc 1.1d0
      :dt-scale 1d0)))
 
 (defun test ()
-  (let* ((output-dir (format nil "./output-vm/")))
-    (setup-plastic :refine 8 :mps 3)
+  (let* ((output-dir (format nil "./output-60/")))
+    (setup :refine 2 :mps 3)
     ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
     ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
+    (run :output-dir output-dir)
+    ))
+
+(defun test-ekl ()
+  (let* ((output-dir (format nil "./output-ekl/")))
+    (setup :refine 4 :mps 3)
+    ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
+    (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
     (run :output-dir output-dir)
     ))
 
@@ -259,3 +267,11 @@
     (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
     (run :output-dir "./output-ekl/")
     ))
+
+(defun test-refine ()
+  (dolist (r (list 1 2 4))
+    (let* ((output-dir (format nil "./output-~D/" r)))
+      (setup :refine r :mps 2)
+      ;; (setf (cl-mpm::sim-nonlocal-damage *sim*) nil)
+      (run :output-dir output-dir)
+      )))
