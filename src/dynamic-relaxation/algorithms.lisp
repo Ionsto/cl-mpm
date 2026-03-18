@@ -1208,6 +1208,7 @@
      (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-displacement mp)))))
 
 (defun elastic-static-solution (sim &key (crit 1d-3)
+                                      (elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static)
                                       (substeps 10)
                                       (dt-scale 1d0)
                                       (post-iter-step
@@ -1216,7 +1217,8 @@
   "Take a sim, switch it to implicit quasi-static, disable elastic and plastic and converge switch the class back to the original then enable damage and plastic"
   (let ((vel-algo (cl-mpm::sim-velocity-algorithm sim))
         (sim-type (class-of sim)))
-    (change-class sim 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul)
+    (when (not (subtypep (type-of sim) 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
+      (change-class sim elastic-solver))
     (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
     (set-mp-plastic-damage sim :enable-damage nil :enable-plastic nil)

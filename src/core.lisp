@@ -433,14 +433,14 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   (when (cl-mpm/mesh:node-active node)
     (with-accessors ((mass  node-mass)
                      (vel   node-velocity)
-                     (disp   cl-mpm/mesh::node-displacment)
                      (damage cl-mpm/mesh::node-damage)
+                     (disp   cl-mpm/mesh::node-displacment)
                      (volume cl-mpm/mesh::node-volume)
                      )
         node
-      (declare (double-float mass damage volume))
+      (declare (double-float mass volume))
       (progn
-        ;; (setf damage (/ damage volume))
+        (setf damage (/ damage volume))
         (cl-mpm/fastmaths::fast-scale! vel (/ 1.0d0 mass))))))
 
 (defgeneric update-node-kinematics (sim))

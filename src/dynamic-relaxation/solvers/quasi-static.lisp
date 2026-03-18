@@ -201,6 +201,7 @@
         (setf ke 0d0
               ke-prev 0d0)))
     (setf dt 1d0)
+    
     (cl-mpm/penalty::reset-penalty sim)
     (cl-mpm::reset-nodes-force sim)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
@@ -296,6 +297,7 @@
     (cl-mpm::apply-bcs mesh bcs dt)
     (cl-mpm::update-dynamic-stats sim)
     (cl-mpm::g2p mesh mps dt damping :TRIAL)
+    
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
     ))
 (defmethod cl-mpm::update-node-forces ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))

@@ -884,7 +884,7 @@
     (setf mass-t 0d0)
     (setf volume 0d0)
     (setf p-wave 0d0)
-    ;; (setf damage 0d0)
+    (setf damage 0d0)
     (setf svp-sum 0d0)
     (setf j 0d0)
     (setf j-inc 0d0)

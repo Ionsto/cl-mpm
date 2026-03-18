@@ -21,7 +21,14 @@
                 (refine 1)
                 (mps 3)
                 (enable-fbar t)
-                (multigrid-refines 0))
+                (multigrid-refines 0)
+                (angle 20d0)
+                (angle-r 0d0)
+                (rt 1d0)
+                (rc 0d0)
+                (l-scale 1d0)
+                (gf 0.1d3)
+                )
 
   (let* ((refine (* refine (expt 2 (- multigrid-refines))))
          (height 10d0)
@@ -55,18 +62,19 @@
         ;; :refinement multigrid-refines
         )))
     (setf h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
-    (let* ((angle 20d0)
-           (angle-r 00d0)
-           (c 40d3)
+    (let* ((c 40d3)
            (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile c angle))
-           (rt 1d0)
-           (rc 0d0)
            (rs (cl-mpm/damage::est-shear-from-angle angle angle-r rc))
+           (L (* h l-scale))
+           (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf L init-stress E))
            ;; (rt 1d0)
            ;; (rc 1d0)
            ;; (rs 1d0)
            )
+      (when (< ductility 1d0)
+        (error "Ductility less than 1"))
       (format t "Init stress ~E~%" init-stress)
+      (format t "Ductility ~E~%" ductility)
       (format t "rc ~E~%rt ~E~%rs ~E~%" rc rt rs)
       (format t "Angle ~E residual ~E~%" angle angle-r)
       (cl-mpm:add-mps
@@ -79,8 +87,8 @@
         'cl-mpm/particle::particle-damage-frictional
         :E E
         :nu nu
-        :local-length (* 4 h)
-        :ductility 10d0
+        :local-length L
+        :ductility ductility
         :friction-angle (cl-mpm/utils:deg-to-rad angle)
         :initiation-stress init-stress
         :friction-model :DP
@@ -204,7 +212,8 @@
 (defun run (&key (output-dir (format nil "./output/"))
               (csv-dir (format nil "./output/"))
               (csv-filename (format nil "load-disp.csv")))
-
+  (ensure-directories-exist output-dir)
+  (ensure-directories-exist csv-dir)
   (cl-mpm/dynamic-relaxation::elastic-static-solution
    *sim*)
   (let* ((lstps 50)
@@ -242,7 +251,7 @@
         (save-csv csv-dir csv-filename *data-disp* *data-load*)
         (incf step))
       :load-steps lstps
-      :max-adaptive-steps 10
+      :max-adaptive-steps 20
       :enable-plastic t
       :enable-damage t
       :damping 1d0;(sqrt 2d0)
@@ -254,7 +263,7 @@
       :dt-scale 1d0))))
 
 (defun test ()
-  (setup :mps 4 :refine 1 :enable-fbar t :multigrid-refines 0)
+  (setup :mps 3 :refine 1 :enable-fbar t :multigrid-refines 0 :gf 10000d0)
   ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
   (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
   (run)
@@ -263,3 +272,6 @@
   ;;   (save-csv "./examples/fbar/rigid-footing/" (format nil "data_fbar_~A.csv" fbar) *data-disp* *data-load*)
   ;;   )
   )
+
+
+

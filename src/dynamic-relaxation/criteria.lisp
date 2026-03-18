@@ -895,7 +895,8 @@
      (lambda (n)
        (when (cl-mpm/mesh::node-active n)
          (setf damage-max (max damage-max (cl-mpm/mesh::node-damage n))))))
-    damage-max))
+    damage-max)
+  (cl-mpm/damage::g2p-damage sim))
 
 (defun damage-increment-criteria-mp (sim)
   (cl-mpm::reduce-over-mps
