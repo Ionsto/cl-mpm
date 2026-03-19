@@ -103,8 +103,7 @@
    (shear-residual-ratio
     :accessor mp-shear-residual-ratio
     :initarg :g-res-ratio
-    :initform 1d-9
-    )
+    :initform 1d-9)
    (k-tensile-residual-ratio
     :accessor mp-k-tensile-residual-ratio
     :initarg :kt-res-ratio
@@ -214,19 +213,32 @@
           ;; (cl-mpm/fastmaths:fast-.- strain pressure-strain strain)
           ;; (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
           (multiple-value-bind (sig eps-e f inc pmod)
-              (cl-mpm/ext::constitutive-mohr-coulomb
-               stress-u
-               de
-               strain
-               E
-               nu
-               phi
-               psi
-               (max 0d0
-                    (+
-                     coheasion
-                     (* pressure
-                        damage-pressure))))
+              ;; (cl-mpm/ext::constitutive-mohr-coulomb
+              ;;  stress-u
+              ;;  de
+              ;;  strain
+              ;;  E
+              ;;  nu
+              ;;  phi
+              ;;  psi
+              ;;  (max 0d0
+              ;;       (+
+              ;;        coheasion
+              ;;        (* pressure
+              ;;           damage-pressure))))
+            (cl-mpm/ext::constitutive-drucker-prager
+             stress-u
+             strain
+             de
+             E
+             nu
+             phi
+             psi
+             (max 0d0
+                  (+
+                   coheasion
+                   (* pressure
+                      damage-pressure))))
               ;; (cl-mpm/constitutive::vm-plastic stress-u
               ;;                                  de
               ;;                                  strain

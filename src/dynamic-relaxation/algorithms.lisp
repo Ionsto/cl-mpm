@@ -466,6 +466,7 @@
                        global-step
                        &key
                          (target-time 1d0)
+                         (step-time 100d0)
                          (plotter (lambda (sim)))
                          (dt-scale 0.5)
                          (output-dir "./output/")
@@ -508,9 +509,8 @@
                   while (and (cl-mpm::sim-run-sim sim)
                              (or (>= energy e-crit)
                                  (>= oobf oobf-crit)
-                                 ;; (< step 4)
                                  (not intertial-passed)
-                                 ))
+                                 (< step (/ step-time target-time))))
                   do
                      (let ((substeps (round target-time (cl-mpm:sim-dt sim))))
                        (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_real_~5,'0d_~5,'0d.vtk" global-step step)) sim)
@@ -764,6 +764,7 @@
                                        :damping-0 damping-0
                                        :damping explicit-damping-factor
                                        :target-time (* 0.1d0 dt-loadstep)
+                                       :step-time (* dt-loadstep adaption-constant)
                                        :enable-damage enable-damage
                                        :enable-plastic enable-plastic)
                        (change-class sim quasi-static-solver)

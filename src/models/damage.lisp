@@ -118,6 +118,7 @@
     :initarg :friction-model
     :initform :MC)))
 
+
 (defclass particle-porodamage (particle-elastic-damage)
   ())
 
@@ -663,3 +664,91 @@
    mp
    (* (cl-mpm/particle::mp-pressure mp)
       (cl-mpm/particle::mp-damage mp))))
+
+
+(defclass particle-plastic-damage-frictional (particle-damage-frictional particle-mc)
+  ((oversize-scale
+    :accessor mp-oversize-scale
+    :initarg :oversize
+    :initform (- 1d0 1d-3))
+   (residual-friction
+    :accessor mp-residual-friction
+    :initarg :residual-friction
+    :initform 0d0)))
+
+(defmethod initialize-instance :after ((mp particle-plastic-damage-frictional) &key)
+  (with-accessors ((ductility cl-mpm/particle::mp-ductility)
+                   (angle cl-mpm/particle::mp-friction-angle)
+                   (angle-r cl-mpm/particle::mp-residual-friction)
+                   (rc mp-shear-residual-ratio)
+                   (init-stress mp-initiation-stress)
+                   (oversize mp-oversize-scale))
+      mp
+    (let* ((c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress angle))
+           (rs (cl-mpm/damage::est-shear-from-angle (rad-to-deg angle) (rad-to-deg angle-r) rc))
+           (oversize-ratio (cl-mpm/damage::compute-oversize-factor oversize ductility)))
+      (setf
+       (cl-mpm/particle::mp-phi mp) angle
+       (mp-c mp) (* oversize-ratio c)
+       (mp-shear-residual-ratio mp) rs)
+      )))
+
+
+(defmethod constitutive-model ((mp particle-plastic-damage-frictional) strain dt)
+  "Strain intergrated elsewhere, just using elastic tensor"
+  (with-accessors ((E mp-e)
+                   (nu mp-nu)
+                   (de mp-elastic-matrix)
+                   (stress mp-stress)
+                   (stress-undamaged mp-undamaged-stress)
+                   (def mp-deformation-gradient)
+                   (enable-plasticity mp-enable-plasticity)
+                   (phi mp-phi)
+                   (psi mp-psi)
+                   (coheasion mp-c)
+                   (model cl-mpm/particle::mp-friction-model)
+                   (p-wave cl-mpm/particle::mp-p-modulus-0)
+                   (ps-vm mp-strain-plastic-vm)
+                   (ps-vm-inc mp-strain-plastic-vm-inc)
+                   (ps-vm-1 mp-strain-plastic-vm-1)
+                   (yield-func mp-yield-func)
+                   (damage mp-damage))
+      mp
+    (declare (double-float damage))
+    (setf (cl-mpm/particle::mp-p-modulus-0 mp) (cl-mpm/particle::compute-p-modulus mp))
+    (cl-mpm/constitutive::linear-elastic-mat strain de stress-undamaged)
+    (when enable-plasticity
+      (multiple-value-bind (sig eps-e f inc pmod)
+          (ecase model
+            (:MC
+             (cl-mpm/ext::constitutive-mohr-coulomb
+              stress-undamaged
+              de
+              strain
+              E
+              nu
+              phi
+              psi
+              coheasion
+              ))
+            (:DP
+             (cl-mpm/ext::constitutive-drucker-prager
+              stress-undamaged
+              strain
+              de
+              E
+              nu
+              phi
+              psi
+              coheasion)))
+        ;; (setf sig (cl-mpm/constitutive::linear-elastic-mat eps-e de sig))
+        (setf
+         stress-undamaged sig
+         strain eps-e
+         yield-func f
+         p-wave (* 1.0d0 pmod))
+        (setf ps-vm (+ ps-vm-1 inc))
+        (setf ps-vm-inc inc)
+        ))
+    (cl-mpm/utils::voigt-copy-into stress-undamaged stress)
+    stress))

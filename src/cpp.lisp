@@ -159,13 +159,19 @@
             (error "Kirchoff strain update failed - eigensolver error ~A ~A" strain-matrix df-matrix)))
         (values))
 
-      (defun constitutive-drucker-prager (strain de E nu phi psi c)
+      (defun constitutive-drucker-prager (stress strain de E nu phi psi c)
         (declare (double-float E nu phi psi c))
         (let ((str (cl-mpm/utils::voigt-copy strain)))
-          (magicl.cffi-types:with-array-pointers ((sp (cl-mpm/utils:fast-storage str)))
+          (magicl.cffi-types:with-array-pointers ((sp (cl-mpm/utils:fast-storage strain)))
             (unless (CppDruckerPrager sp E nu phi psi c)
               (error "Drucker-Prager failed")))
-          (values (magicl:@ de str) str 0d0 t)))
+          (values (cl-mpm/fastmaths::@-tensor-voigt-lisp de strain stress)
+                  str
+                  0d0
+                  (cl-mpm/fastmaths::voigt-j2
+                   (cl-mpm/utils::deviatoric-voigt
+                    (cl-mpm/fastmaths:fast-.- str strain)))
+                  (cl-mpm/utils::calculate-p-wave-modulus E nu))))
       (defun constitutive-mohr-coulomb (stress de strain E nu phi psi c)
         "Mohr-coulomb, in-place update strain, return a new stress, yield function and ps inc"
         (declare (double-float E nu phi psi c))

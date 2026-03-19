@@ -388,13 +388,13 @@
 
 (declaim (ftype (function (double-float double-float) double-float) calculate-bulk-modulus))
 (defun calculate-bulk-modulus (E nu)
-  (/ E (* 3 (- 1d0 (* 2 nu)))))
+  (cl-mpm/utils::calculate-bulk-modulus E nu))
 (declaim (ftype (function (double-float double-float) double-float) calculate-shear-modulus))
 (defun calculate-shear-modulus (E nu)
-  (/ E (* 2 (+ 1d0 nu))))
+  (cl-mpm/utils::calculate-shear-modulus E nu))
 (declaim (ftype (function (double-float double-float) double-float) calculate-p-wave-modulus))
 (defun calculate-p-wave-modulus (E nu)
-  (/ (* (- 1d0 nu) E) (* (+ 1d0 nu) (- 1d0 (* 2d0 nu)))))
+  (cl-mpm/utils::calculate-p-wave-modulus E nu))
 
 (defun compute-p-modulus (particle)
   (with-accessors ((E  mp-E)
