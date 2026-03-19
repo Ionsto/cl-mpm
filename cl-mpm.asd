@@ -295,9 +295,7 @@
                "cl-mpm/mpi"
                )
   :description ""
-  :components (
-               (:file "src/bc/buoyancy")
-               ))
+  :components ((:file "src/bc/buoyancy")))
 
 (defsystem "cl-mpm/erosion"
   :depends-on ("cl-mpm"
