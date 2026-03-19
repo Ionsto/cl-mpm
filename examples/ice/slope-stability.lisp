@@ -3,7 +3,6 @@
    :cl-mpm/example))
 (in-package :cl-mpm/examples/ice/slope-stability)
 
-
 (declaim (notinline plot-domain))
 (defun plot-domain ()
   (when *sim*
@@ -22,7 +21,7 @@
                 (mps 3)
                 (enable-fbar t)
                 (multigrid-refines 0)
-                (angle 20d0)
+                (angle 15d0)
                 (angle-r 0d0)
                 (rt 1d0)
                 (rc 0d0)
@@ -53,20 +52,22 @@
        ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
        :args-list
        (list
-        :enable-aggregate nil
-        :ghost-factor (* E 1d-4)
-        ;; :enable-aggregate t
-        ;; :ghost-factor nil
-        :enable-split nil
+        ;; :enable-aggregate nil
+        ;; :ghost-factor (* E 1d-4)
+        :enable-aggregate t
+        :ghost-factor nil
+        :enable-split t
         :enable-fbar enable-fbar
         ;; :refinement multigrid-refines
         )))
     (setf h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
-    (let* ((c 40d3)
+    (let* ((c 80d3)
            (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile c angle))
            (rs (cl-mpm/damage::est-shear-from-angle angle angle-r rc))
            (L (* h l-scale))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf L init-stress E))
+           (oversize-factor (- 1d0 1d-1))
+           (oversize (cl-mpm/damage::compute-oversize-factor oversize-factor  ductility))
            ;; (rt 1d0)
            ;; (rc 1d0)
            ;; (rs 1d0)
@@ -75,6 +76,7 @@
         (error "Ductility less than 1"))
       (format t "Init stress ~E~%" init-stress)
       (format t "Ductility ~E~%" ductility)
+      (format t "Oversize ~E~%" oversize)
       (format t "rc ~E~%rt ~E~%rs ~E~%" rc rt rs)
       (format t "Angle ~E residual ~E~%" angle angle-r)
       (cl-mpm:add-mps
@@ -84,20 +86,31 @@
         block-size
         (mapcar (lambda (e) (* (/ e h) mps)) block-size)
         density
-        'cl-mpm/particle::particle-damage-frictional
+        ;; 'cl-mpm/particle::particle-damage-frictional
+        ;; :E E
+        ;; :nu nu
+        ;; :local-length L
+        ;; :ductility ductility
+        ;; :friction-angle (cl-mpm/utils:deg-to-rad angle)
+        ;; :initiation-stress init-stress
+        ;; :friction-model :MC
+        ;; :kt-res-ratio rt
+        ;; :kc-res-ratio rc
+        ;; :g-res-ratio rs
+
+        'cl-mpm/particle::particle-plastic-damage-frictional
         :E E
         :nu nu
         :local-length L
         :ductility ductility
         :friction-angle (cl-mpm/utils:deg-to-rad angle)
+        :residual-friction (cl-mpm/utils:deg-to-rad angle-r)
         :initiation-stress init-stress
         :friction-model :DP
+        :oversize oversize-factor
         :kt-res-ratio rt
         :kc-res-ratio rc
-        :g-res-ratio rs
-        ;; :delay-time 100d0
-        ;; :delay-exponent 2d0
-
+        :psi 0d0
         ;; 'cl-mpm/particle::particle-elastic
         ;; :E E
         ;; :nu nu
@@ -252,10 +265,10 @@
         (incf step))
       :load-steps lstps
       :max-adaptive-steps 20
-      :enable-plastic t
+      :enable-plastic nil
       :enable-damage t
       :damping 1d0;(sqrt 2d0)
-      :max-damage-inc 0.5d0
+      :max-damage-inc 1000d0
       :substeps 10
       :criteria 1d-3
       :save-vtk-dr t
@@ -263,9 +276,15 @@
       :dt-scale 1d0))))
 
 (defun test ()
-  (setup :mps 3 :refine 1 :enable-fbar t :multigrid-refines 0 :gf 10000d0)
-  ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
-  (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
+  (setup :mps 3
+         :refine 1
+         :enable-fbar t
+         :multigrid-refines 0
+         :gf 10000d0
+         :l-scale 1d0
+         )
+  (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+  ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
   (run)
   ;; (save-csv "./examples/fbar/rigid-footing/" (format nil "data_fbaradjust_~A.csv" t) *data-disp* *data-load*)
   ;; (dolist (fbar (list t nil))
