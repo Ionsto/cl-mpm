@@ -480,7 +480,7 @@
   (let ((state :dynamic)
         (mass-scaler 1d1))
     (setf (cl-mpm:sim-mass-scale sim) 1d0)
-    (if enable-mass-scaling 
+    (when enable-mass-scaling 
         (setf
          state :accelerate
          (cl-mpm:sim-mass-scale sim) mass-scaler))
@@ -538,10 +538,14 @@
                            (setf energy 0d0)
                            (setf energy (abs (/ energy work))))
 
-                       (when (or (> energy e-crit)
-                                 (> oobf oobf-crit))
-                         (cl-mpm:sim-format sim t "Inertia passed~%")
-                         (setf intertial-passed t))
+                       (let* ((hist 1d0)
+                              (hist-power 0.5d0)
+                              (hist-energy (* hist (expt e-crit hist-power)))
+                              (hist-oobf (* hist (expt e-crit hist-power))))
+                         (when (or (> energy hist-energy)
+                                   (> oobf hist-oobf))
+                           (cl-mpm:sim-format sim t "Inertia passed~%")
+                           (setf intertial-passed t)))
                        (when enable-mass-scaling
                          (let* (
                                 (hist 2d0)
@@ -569,7 +573,7 @@
                                  (cl-mpm:sim-dt sim) (* (cl-mpm:sim-dt sim) (sqrt mass-scaler))))))))
                        (cl-mpm:sim-format sim t "Residuals ~E ~E ~%" energy oobf)
                        (setf (cl-mpm::sim-stats-oobf sim) oobf)
-                       (save-timestep sim output-dir global-step :DYNAMIC)
+                       (save-timestep sim output-dir global-step state)
                        (funcall plotter sim)
                        (swank.live:update-swank)))))))
 

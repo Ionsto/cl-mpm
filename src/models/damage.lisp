@@ -118,6 +118,10 @@
     :initarg :friction-model
     :initform :MC)))
 
+(defclass particle-porodamage (particle-elastic-damage)
+  ())
+
+
 (defmethod cl-mpm/particle::reset-loadstep-mp ((mp particle-elastic-damage))
   (with-accessors ((k    cl-mpm/particle::mp-history-stress)
                    (k-n    cl-mpm/particle::mp-history-stress-n)
@@ -636,3 +640,26 @@
      (ecase model
        (:DP (cl-mpm/damage::drucker-prager-criterion undamaged-stress angle))
        (:MC (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile undamaged-stress angle))))))
+
+(defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-damage-frictional) dt)
+  (with-accessors ((strain cl-mpm/particle::mp-strain)
+                   (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
+                   (E cl-mpm/particle::mp-e)
+                   (y cl-mpm/particle::mp-damage-y-local)
+                   (angle cl-mpm/particle::mp-friction-angle)
+                   (model cl-mpm/particle::mp-friction-model)
+                   (de cl-mpm/particle::mp-elastic-matrix))
+      mp
+    (setf
+     y
+     (ecase model
+       (:DP (cl-mpm/damage::drucker-prager-criterion undamaged-stress angle))
+       (:MC (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile undamaged-stress angle))))))
+
+
+
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-porodamage) dt)
+  (cl-mpm/damage::apply-isotropic-porodamage-degredation
+   mp
+   (* (cl-mpm/particle::mp-pressure mp)
+      (cl-mpm/particle::mp-damage mp))))

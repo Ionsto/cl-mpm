@@ -115,6 +115,10 @@
     :initarg :kc-res-ratio
     :initform 1d-9
     )
+   (damage-pressure
+    :accessor mp-damage-pressure
+    :initarg :damage-tension
+    :initform 0d0)
    (damage-tension
     :accessor mp-damage-tension
     :initarg :damage-tension
@@ -158,6 +162,7 @@
                    (strain mp-strain)
                    (trial-elastic-strain mp-trial-strain)
                    (damage mp-damage)
+                   (damage-pressure mp-damage-pressure)
                    (damage-t mp-damage-tension)
                    (damage-c mp-damage-compression)
                    (damage-s mp-damage-shear)
@@ -197,7 +202,15 @@
     (when enable-plasticity
         (let* (;; (epstr (voigt-copy strain))
                (K (/ e (* 3 (- 1d0 (* 2 nu)))))
-               (pressure-strain (cl-mpm/utils::voigt-eye (/ pressure (* 3d0 K (/ 1d0 (magicl:det def)))))))
+               (pressure-strain (cl-mpm/utils::voigt-eye (/ pressure (* 3d0 K (/ 1d0 (magicl:det def))))))
+               (p (/ (cl-mpm/constitutive::voight-trace stress-u) 3d0))
+               )
+          (setf
+           damage-pressure
+           (if (> p 0d0)
+               (- 1d0 damage-t)
+               (- 1d0 damage-c)))
+
           ;; (cl-mpm/fastmaths:fast-.- strain pressure-strain strain)
           ;; (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
           (multiple-value-bind (sig eps-e f inc pmod)
@@ -209,7 +222,11 @@
                nu
                phi
                psi
-               coheasion)
+               (max 0d0
+                    (+
+                     coheasion
+                     (* pressure
+                        damage-pressure))))
               ;; (cl-mpm/constitutive::vm-plastic stress-u
               ;;                                  de
               ;;                                  strain

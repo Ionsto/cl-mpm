@@ -2,6 +2,8 @@
 
 (defun apply-isotropic-degredation (mp)
   (with-accessors ((damage        cl-mpm/particle::mp-damage)
+                   (undamaged-stress        cl-mpm/particle::mp-undamaged-stress)
+                   (def cl-mpm/particle::mp-deformation-gradient)
                    (stress        cl-mpm/particle::mp-stress)
                    (enable-damage cl-mpm/particle::mp-enable-damage)
                    (p-mod cl-mpm/particle::mp-p-modulus-0)
@@ -12,7 +14,8 @@
     (when (and
            enable-damage
            (> damage 0.0d0))
-      (cl-mpm/fastmaths:fast-scale! stress (- 1d0 damage))
+      (cl-mpm/utils:voigt-copy-into undamaged-stress stress)
+      (cl-mpm/fastmaths:fast-scale! stress (/ (- 1d0 damage) (cl-mpm/fastmaths::det-3x3 def)))
       (setf (cl-mpm/particle::mp-p-modulus mp)
             (*
              (- 1d0 damage)
@@ -228,3 +231,30 @@
        (* (- 1d0 rc)
           (/ (tan angle-plastic-residual)
              (tan angle-plastic))))))
+
+
+(defun apply-isotropic-porodamage-degredation (mp pressure)
+  (with-accessors ((damage        cl-mpm/particle::mp-damage)
+                   (undamaged-stress        cl-mpm/particle::mp-undamaged-stress)
+                   (def cl-mpm/particle::mp-deformation-gradient)
+                   (stress        cl-mpm/particle::mp-stress)
+                   (enable-damage cl-mpm/particle::mp-enable-damage)
+                   (p-mod cl-mpm/particle::mp-p-modulus-0)
+                   (e cl-mpm/particle::mp-e)
+                   (nu cl-mpm/particle::mp-nu))
+      mp
+    (declare (double-float damage))
+    (when (and
+           enable-damage
+           (> damage 0.0d0))
+      (cl-mpm/utils:voigt-copy-into undamaged-stress stress)
+      (cl-mpm/fastmaths:fast-scale! stress (/ (- 1d0 damage) (cl-mpm/fastmaths::det-3x3 def)))
+      (cl-mpm/fastmaths::fast-.-
+       stress
+       (cl-mpm/constitutive::voight-eye pressure)
+       stress)
+      (setf (cl-mpm/particle::mp-p-modulus mp)
+            (*
+             (- 1d0 damage)
+             (cl-mpm/particle::compute-p-modulus mp)))))
+  )
