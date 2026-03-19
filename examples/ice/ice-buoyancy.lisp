@@ -90,6 +90,7 @@
                (cl-mpm/fastmaths:fast-.+
                 stress
                 (cl-mpm/utils:voigt-eye (*
+                                         0d0
                                          (magicl:det def)
                                          (/ (- pressure) 3))))))
         (setf y
@@ -100,7 +101,8 @@
                 ;; (cl-mpm/damage::criterion-j2 stress)
                 ;; (cl-mpm/damage::tensile-energy-norm strain e de)
                 ;; (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure (* angle (/ pi 180d0)))
-                (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress-pressure (* angle (/ pi 180d0)))
+                ;(cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress-pressure (* angle (/ pi 180d0)))
+                (cl-mpm/damage::drucker-prager-criterion stress-pressure (* angle (/ pi 180d0)))
                 )))))))
 
 
@@ -112,13 +114,7 @@
            (ms-x (first ms))
            (ms-y (second ms)))
       (vgplot:format-plot t "set object 1 rect from 0,0 to ~f,~f fc rgb 'blue' fs transparent solid 0.5 noborder behind" ms-x *water-height*)
-      (vgplot:format-plot t "set object 2 rect from 0,0 to ~f,~f fc rgb 'black' fs transparent solid 1 noborder behind" ms-x *offset*)
-      )
-    ;; (cl-mpm::g2p (cl-mpm:sim-mesh *sim*)
-    ;;              (cl-mpm:sim-mps *sim*)
-    ;;              (cl-mpm:sim-dt *sim*)
-    ;;              0d0
-    ;;              :TRIAL)
+      (vgplot:format-plot t "set object 2 rect from 0,0 to ~f,~f fc rgb 'black' fs transparent solid 1 noborder behind" ms-x *offset*))
     (cl-mpm/plotter:simple-plot
      *sim*
      :plot :deformed
@@ -134,7 +130,7 @@
 
 (defparameter *angle* 40d0)
 (defparameter *angle-r* 10d0)
-(defparameter *angle-psi* 0d0)
+(defparameter *angle-psi* 10d0)
 (defparameter *rt* (- 1d0 1d-9))
 (defparameter *rc* 0d0)
 (defparameter *rs* 1d0)
@@ -519,7 +515,7 @@
          (H 400d0)
          (density 918d0)
          (explicit-dt-scale 0.5d0)
-         (water-damping 1d0)
+         (water-damping 2d0)
          (output-dir "./output/"))
     (setup
      :refine 0.25
@@ -533,7 +529,7 @@
      :cryo-static t
      :melange nil
      :aspect 2d0
-     :slope 0.00d0
+     :slope 0.05d0
      :floatation-ratio 0.7d0
      :use-penalty t
      :stick-base nil
@@ -585,7 +581,7 @@
        :max-adaptive-steps 14
        :adaption-constant 4
        :max-damage-inc 0.9d0;0.95d0
-       :min-damage-inc 0.05d0
+       ;; :min-damage-inc 0.005d0
        :substeps 10
        :total-time 1d7
        :save-vtk-loadstep t
@@ -615,10 +611,10 @@
        (lambda (sim)
          (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
          (setf
-          ;; (cl-mpm/aggregate::sim-enable-aggregate sim) t
-          ;; (cl-mpm::sim-ghost-factor *sim*) nil
-          (cl-mpm/aggregate::sim-enable-aggregate sim) nil
-          (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-6)
+          (cl-mpm/aggregate::sim-enable-aggregate sim) t
+          (cl-mpm::sim-ghost-factor *sim*) nil
+          ;; (cl-mpm/aggregate::sim-enable-aggregate sim) nil
+          ;; (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-4)
           ;; (cl-mpm/damage::sim-enable-ekl *sim*) t
           ;; (cl-mpm/damage::sim-enable-length-localisation *sim*) nil
           ;; (cl-mpm/aggregate::sim-enable-aggregate sim) nil
@@ -711,15 +707,17 @@
        :conv-criteria 1d-3
        :save-vtk-loadstep t
        :initial-quasi-static t
-       :post-conv-step (lambda (sim)
-                         (setf
-                          (cl-mpm/damage::sim-enable-length-localisation *sim*) t
-                          ;; (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
-                          ;; (cl-mpm::sim-ghost-factor *sim*) nil
-                          (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
-                          (cl-mpm::sim-ghost-factor *sim*) (* density 1d-6)
-                          ;; (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-9)
-                          ))
+       :post-conv-step
+       (lambda (sim)
+         (setf
+          (cl-mpm/damage::sim-enable-length-localisation *sim*) t
+          (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
+          (cl-mpm::sim-ghost-factor *sim*) nil
+          ;; (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
+          ;; (cl-mpm::sim-ghost-factor *sim*) (* density 1d-4)
+          ;; (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-9)
+          ))
+
        :plotter
        (lambda (sim)
          (plot-domain)
