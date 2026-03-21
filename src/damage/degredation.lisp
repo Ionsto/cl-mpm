@@ -186,7 +186,7 @@
                    (damage-t      cl-mpm/particle::mp-damage-tension)
                    (damage-c      cl-mpm/particle::mp-damage-compression)
                    (damage-s      cl-mpm/particle::mp-damage-shear)
-                   (stress-u        cl-mpm/particle::mp-undamaged-stress)
+                   (stress-u      cl-mpm/particle::mp-undamaged-stress)
                    (stress        cl-mpm/particle::mp-stress)
                    (p-mod         cl-mpm/particle::mp-p-modulus-0)
                    (def cl-mpm/particle::mp-deformation-gradient)
@@ -202,7 +202,6 @@
              (stress-uc (cl-mpm/fastmaths:fast-scale-voigt stress-u (/ 1d0 (cl-mpm/fastmaths:det-3x3 def))))
              (p (/ (cl-mpm/constitutive::voight-trace stress-uc) 3d0))
              (pind p)
-             ;; (pind p)
              (s (cl-mpm/constitutive::deviatoric-voigt stress-uc)))
         (declare (double-float damage-t damage-c damage-s))
         (setf p
@@ -227,6 +226,8 @@
           (setf p-mod (max (* P-0 1d-9) (+ K (* 4/3 G)))))))))
 
 (defun est-shear-from-angle (angle angle-r rc)
+  ;; (assert (< angle (/ pi 2)))
+  ;; (assert (< angle-r (/ pi 2)))
   (let* ((angle-plastic (cl-mpm/utils:deg-to-rad angle))
          (angle-plastic-residual (cl-mpm/utils:deg-to-rad angle-r)))
     (- 1d0

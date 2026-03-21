@@ -1,9 +1,9 @@
 (defpackage :cl-mpm/ghost
   (:use :cl
    :cl-mpm
-        :cl-mpm/particle
+   :cl-mpm/particle
    :cl-mpm/mesh
-        :cl-mpm/utils
+   :cl-mpm/utils
    :cl-mpm/fastmaths
    )
   (:import-from
@@ -17,6 +17,8 @@
 (in-package :cl-mpm/ghost)
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
+
+(defparameter *ghost-exp* 2)
 
 
 (defun find-local-coord (cell pos)
@@ -66,6 +68,10 @@
        (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads (cl-mpm/mesh::node-displacment node) dF)))
     dF))
 
+(defun get-node-trial-position (node)
+  (cl-mpm/fastmaths:fast-.+ (cl-mpm/mesh::node-position node)
+                           (cl-mpm/mesh::node-displacment node)))
+
 (defun iterate-over-face-gps-2d (mesh cell-a cell-b func)
   (declare (function func))
   (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
@@ -90,8 +96,8 @@
          (length (sqrt
                   (max 0d0
                        (cl-mpm/fastmaths::diff-norm
-                        (cl-mpm/mesh::node-position (cl-mpm/mesh:get-node mesh root))
-                        (cl-mpm/mesh::node-position (cl-mpm/mesh:get-node
+                        (get-node-trial-position (cl-mpm/mesh:get-node mesh root))
+                        (get-node-trial-position (cl-mpm/mesh:get-node
                                                      mesh
                                                      end)))))))
     ;; (format t "~A ~A ~A~%" normal root end)
@@ -305,94 +311,6 @@
    (lambda (node weight grads) (funcall func cell-b node weight grads -1d0))))
 
 (defparameter *write-lock* (sb-thread:make-mutex))
-(defun apply-ghost-cells (mesh cell-a cell-b ghost-factor)
-  (when
-      (and
-       (and
-        (cl-mpm/mesh::cell-active cell-a)
-        (cl-mpm/mesh::cell-active cell-b))
-       (not (cl-mpm/mesh::cell-partial cell-a))
-       (not (cl-mpm/mesh::cell-partial cell-b))
-       (or
-        (cl-mpm/mesh::cell-ghost-element cell-a)
-        (cl-mpm/mesh::cell-ghost-element cell-b)))
-    (with-accessors ((h cl-mpm/mesh:mesh-resolution))
-        mesh
-      (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
-        (iterate-over-face-gps
-         mesh
-         cell-a
-         cell-b
-         (lambda (gp-loc gp-weight normal normal-trial face-length)
-           (let* ((nx (varef normal-trial 0))
-                  (ny (varef normal-trial 1))
-                  (nz (varef normal-trial 2))
-                  (dsvp-adjuster (magicl:transpose! (cl-mpm/utils::arb-matrix-from-list
-                                                     (list
-                                                      nx  0d0 0d0
-                                                      0d0 ny  0d0
-                                                      0d0 0d0 nz
-                                                      0d0 nz  ny
-                                                      nz  0d0 nx
-                                                      ny  nx  0d0)
-                                                     3
-                                                     6))))
-             (cl-mpm/ghost::iterate-over-bicell-nodes
-              mesh
-              cell-a
-              cell-b
-              gp-loc
-              (lambda (cell-p node weight grads fact-p)
-                (when (cl-mpm/mesh::node-active node)
-                  ;;Iterate over every node in A and B
-                  (with-accessors ((ghost cl-mpm/mesh::node-ghost-force)
-                                   (f-int cl-mpm/mesh::node-internal-force)
-                                   (f-ext cl-mpm/mesh::node-external-force)
-                                   (node-lock cl-mpm/mesh::node-lock)
-                                   (disp cl-mpm/mesh::node-displacment))
-                      node
-                    (let ((dsvp-p
-                            (fast-scale!
-                             (magicl:transpose (cl-mpm/shape-function::assemble-dsvp-3d grads))
-                             ;; 1d0
-                             fact-p
-                             )))
-                      (iterate-over-bicell-nodes
-                       mesh
-                       cell-a
-                       cell-b
-                       gp-loc
-                       (lambda (cell-n node-b weight-b grads-b fact-n)
-                         (when (cl-mpm/mesh::node-active node-b)
-                           (with-accessors ((disp-b cl-mpm/mesh::node-displacment)
-                                            (ghost-b cl-mpm/mesh::node-ghost-force))
-                               node-b
-                             (let* ((dsvp-n
-                                      (fast-scale!
-                                       (magicl:transpose
-                                        (cl-mpm/shape-function::assemble-dsvp-3d grads-b))
-                                       fact-n
-                                       )))
-                               (let ((ghost-mat
-                                       (cl-mpm/fastmaths:fast-scale!
-                                        (magicl:@
-                                         dsvp-p
-                                         dsvp-adjuster
-                                         (magicl:transpose dsvp-adjuster)
-                                         (magicl:transpose dsvp-n))
-                                        (*
-                                         -1d0
-                                         (/ (* ghost-factor (expt h 2)) 6)
-                                         ;; face-length
-                                         gp-weight))))
-                                 (sb-thread:with-mutex (node-lock)
-                                   (cl-mpm/fastmaths:fast-.+
-                                    (magicl:@
-                                     ghost-mat
-                                     disp-b)
-                                    ghost
-                                    ghost
-                                    ))))))))))))))))))))
 
 (defun apply-ghost-cells-undeformed (mesh cell-a cell-b ghost-factor)
   (when
@@ -487,7 +405,7 @@
                                 gradient-terms)
                                (*
                                 -1d0
-                                (/ (* ghost-factor (expt h 2)) 6)
+                                (/ (* ghost-factor (expt h *ghost-exp*)) 6)
                                 ;; face-length
                                 gp-weight))))
                         (sb-thread:with-mutex (node-lock)
@@ -589,7 +507,7 @@
                                 gradient-terms)
                                (*
                                 -1d0
-                                (/ (* ghost-factor (expt h 2)) 6)
+                                (/ (* ghost-factor (expt h *ghost-exp*)) 6)
                                 ;; face-length
                                 gp-weight))))
                         (sb-thread:with-mutex (node-lock)
@@ -690,7 +608,7 @@
                                 gradient-terms)
                                (*
                                 -1d0
-                                (/ (* ghost-factor (expt h 4)) 6)
+                                (/ (* ghost-factor (expt h *ghost-exp*)) 6)
                                 ;; face-length
                                 gp-weight))))
                         (sb-thread:with-mutex (node-lock)
@@ -700,6 +618,31 @@
                            ghost)))))))))))))))
 
 
+(defun iterate-over-ghost-pairs (sim func)
+  (declare (function func))
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm:sim-mps)
+                   )
+      sim
+    (with-accessors ((cells cl-mpm/mesh::mesh-cells)
+                     (h cl-mpm/mesh::mesh-resolution)
+                     (nd cl-mpm/mesh:mesh-nd))
+        mesh
+      (cl-mpm::filter-cells sim)
+      (locate-ghost-elements sim)
+      (cl-mpm::iterate-over-cells
+       mesh
+        (lambda (cell)
+          (let* ((index (cl-mpm/mesh::cell-index cell))
+                 (cell (cl-mpm/mesh::get-cell mesh index)))
+            (when (cl-mpm/mesh::cell-ghost-element cell)
+                (loop for direction from 0 below nd
+                      do
+                         (let ((ind-dir (list 0 0 0)))
+                           (setf (nth direction ind-dir) 1)
+                           (let ((index-b (mapcar #'+ index ind-dir)))
+                             (when (cl-mpm/mesh::in-bounds-cell mesh index-b)
+                               (funcall func cell (cl-mpm/mesh::get-cell mesh index-b)))))))))))))
 
 
 (declaim (notinline apply-ghost))
@@ -910,29 +853,74 @@
       (cl-mpm/ghost::apply-ghost-accel sim ghost-factor)
       ;; (cl-mpm/ghost::apply-ghost sim ghost-factor)
       (update-node-forces-ghost sim dt)
-      (cl-mpm::apply-bcs mesh bcs dt)
-      )))
+      (cl-mpm::apply-bcs mesh bcs dt))))
+
+(defun estimate-ul-enhancement (cell)
+  (with-accessors ((df cl-mpm/mesh::cell-deformation-gradient))
+      cell
+    (let* ((grads (cl-mpm::gradient-push-forwards (list 1d0 1d0 1d0) df))
+           (peak-grad (abs (reduce #'max (mapcar (lambda (x) (expt x 2)) grads)))))
+      peak-grad)))
 
 (defun apply-ghost-stiffness (sim)
   (with-accessors ((ghost-factor cl-mpm::sim-ghost-factor)
+                   (ghost-cache cl-mpm::sim-ghost-cache)
                    (mesh cl-mpm::sim-mesh))
       sim
     (when ghost-factor
       (with-accessors ((cells cl-mpm/mesh::mesh-cells)
                        (h cl-mpm/mesh::mesh-resolution))
           mesh
-        (declare (double-float h ghost-factor))
-        (let ((gf (* 1d0 ghost-factor (expt h 2))))
-          (cl-mpm::iterate-over-cells
-           mesh
-           (lambda (cell)
-             (when (and (cl-mpm/mesh::cell-active cell)
-                        (cl-mpm/mesh::cell-ghost-element cell))
-               (loop for n in (cl-mpm/mesh::cell-nodes cell)
-                     do (when (cl-mpm/mesh::node-active n)
-                          (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
-                            (incf (cl-mpm/mesh::node-mass n)
-                                  gf))))))))))))
+        (let ((gf (* 2d0 ghost-factor (expt h 0;; (- *ghost-exp* 3)
+                                            ))))
+          (flet ((apply-stiffness (cell-a cell-b)
+                   (let ((node-list (make-array 8 :adjustable t :fill-pointer 0 :element-type t)))
+                     (dolist (cell (list cell-a cell-b))
+                       (let ((ul (estimate-ul-enhancement cell)))
+                         (cl-mpm/ghost::iterate-over-cell-nodes
+                          mesh
+                          cell
+                          (lambda (n)
+                            (declare (cl-mpm/mesh::node n))
+                            (unless (position n node-list)
+                              (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+                                (setf (cl-mpm/mesh::node-mass n)
+                                      (+
+                                       (cl-mpm/mesh::node-mass n)
+                                       (* ul
+                                          gf))))
+                              (vector-push-extend n node-list)))))))))
+            (if ghost-cache
+                (iterate-over-ghost-cache
+                 sim
+                 #'apply-stiffness)
+                (iterate-over-ghost-pairs
+                 sim
+                 #'apply-stiffness)))))
+      ;; (with-accessors ((cells cl-mpm/mesh::mesh-cells)
+      ;;                  (h cl-mpm/mesh::mesh-resolution))
+      ;;     mesh
+      ;;   (declare (double-float h ghost-factor))
+      ;;   (let ((gf (* 4d0 ghost-factor (expt h 0;; (- *ghost-exp* 3)
+      ;;                                       )
+      ;;                )))
+      ;;     (cl-mpm::iterate-over-cells
+      ;;      mesh
+      ;;      (lambda (cell)
+      ;;        (when (and (cl-mpm/mesh::cell-active cell)
+      ;;                   (cl-mpm/mesh::cell-ghost-element cell))
+      ;;          (let ((ul (estimate-ul-enhancement cell)))
+      ;;            ;; (pprint ul)
+      ;;            (loop for n in (cl-mpm/mesh::cell-nodes cell)
+      ;;                  do
+      ;;                     (when (cl-mpm/mesh::node-active n)
+      ;;                       (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+      ;;                         (setf (cl-mpm/mesh::node-mass n)
+      ;;                               (max
+      ;;                                (cl-mpm/mesh::node-mass n)
+      ;;                                (* ul
+      ;;                                 gf))))))))))))
+      )))
 
 
 (defun build-ghost-cache (sim)
@@ -974,6 +962,18 @@
                                       (cl-mpm/mesh::cell-ghost-element cell-b)))
                                   (sb-thread:with-mutex (mut)
                                     (vector-push-extend (list cell-a cell-b) ghost-cache))))))))))))))))
+
+(defun iterate-over-ghost-cache (sim func)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm:sim-mps)
+                   (ghost-factor cl-mpm::sim-ghost-factor)
+                   (ghost-cache cl-mpm::sim-ghost-cache))
+      sim
+    (unless ghost-cache
+      (build-ghost-cache sim))
+    (lparallel:pdotimes (i (length ghost-cache))
+      (destructuring-bind (cell-a cell-b) (aref ghost-cache i)
+        (funcall func cell-a cell-b)))))
 
 (defun apply-ghost-cached (sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)

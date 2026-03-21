@@ -10,7 +10,6 @@
       mp
     (* 0.5d0 volume damage-inc (cl-mpm/fastmaths:dot stress strain))))
 
-(defgeneric set-mp-damage (mp d))
 (defmethod set-mp-damage ((mp cl-mpm/particle::particle-damage) d)
   (setf
    (cl-mpm/particle::mp-damage mp) d
@@ -36,7 +35,6 @@
     (cl-mpm/damage::compute-damage mp)
     (call-next-method)))
 
-(defgeneric cl-mpm/particle::post-damage-step (mp dt))
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle) dt))
 
 (declaim
@@ -219,7 +217,6 @@
 
 
 
-(defgeneric calculate-damage (sim dt))
 
 (defmethod calculate-damage ((sim mpm-sim-damage) dt)
   (with-accessors ((mps cl-mpm:sim-mps)
@@ -416,81 +413,7 @@
     )
   )
 
-(declaim
- (notinline diff-damaged)
- (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-damaged))
-(defun diff-damaged (mesh mp-a mp-b)
-  (flet ((node-dam (node)
-           (if (cl-mpm/mesh::node-active node)
-               (min 1d0 (max 0d0 (the double-float (cl-mpm/mesh::node-damage node))))
-               0d0)))
-    (with-accessors
-          ((h cl-mpm/mesh::mesh-resolution))
-        mesh
-      (let* ((pos-a (cl-mpm/particle:mp-position mp-a))
-             (pos-b (cl-mpm/particle:mp-position mp-b))
-             (diff (cl-mpm/utils:vector-zeros))
-             (epsilon 1d-8)
-             (final-distance 0d0)
-             )
-        (declare (double-float h final-distance epsilon))
-        (cl-mpm/fastmaths:fast-.- pos-b pos-a diff)
-        (let* ((length (sqrt (diff-squared mp-a mp-b))))
 
-          ;; Sample damage at midpoint and integrated with constant damage assumption
-          ;; Can utilise linear shape function damage assumption but produced a nasty looking intergral
-          (declare (double-float h length final-distance))
-          (when (> length 0d0)
-            (let* ((step-norm (cl-mpm/utils::vector-copy diff))
-                   ;; (step-norm (magicl:scale diff (/ 1d0 length)))
-                   ;;Start at point a and step through to b
-                   (step-point (cl-mpm/utils::vector-copy pos-a))
-                   ;;Resolution of our midpoint integration
-                   (step-size (/ h 2d0))
-                   )
-              (cl-mpm/fastmaths:fast-scale! step-norm (/ 1d0 length))
-              (multiple-value-bind (steps remainder) (floor length step-size)
-                (when (> steps 0)
-                  (let* ((dhstep (cl-mpm/utils::vector-copy step-norm)))
-                    (cl-mpm/fastmaths:fast-scale! dhstep (* 0.5d0 step-size))
-                    (loop for i fixnum from 0 below steps
-                          do
-                             (progn
-                               (cl-mpm/fastmaths::fast-.+ step-point dhstep step-point)
-                               (let ((damage 0d0))
-                                 (declare (double-float damage))
-                                 (cl-mpm::iterate-over-neighbours-point-linear
-                                  mesh
-                                  step-point
-                                  (lambda (m node weight grads)
-                                    (declare (double-float damage weight))
-                                    (incf damage
-                                          (* (node-dam node)
-                                             weight))))
-                                 (incf final-distance
-                                       (* step-size
-                                          (/ 1d0 (max epsilon (sqrt (max 0d0 (min 1d0 (- 1d0 damage)))))))))
-                               (cl-mpm/fastmaths::fast-.+ step-point dhstep step-point)
-                               )
-                          )))
-                (let* ((step-size remainder)
-                       (dhstep (cl-mpm/utils::vector-copy step-norm)))
-                  (magicl:scale! dhstep (* 0.5d0 step-size))
-                  (progn
-                    (cl-mpm/fastmaths::fast-.+ step-point dhstep step-point)
-                    (let ((damage 0d0))
-                      (cl-mpm::iterate-over-neighbours-point-linear
-                       mesh
-                       step-point
-                       (lambda (m node weight grads)
-                         (declare (double-float damage weight))
-                         (incf damage
-                               (* (node-dam node) weight))))
-                      (incf final-distance (* step-size
-                                              (/ 1d0
-                                                 (max epsilon
-                                                      (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 damage)))))))))))))))
-          (max 0d0 (* final-distance final-distance)))))))
 
 
 
@@ -532,18 +455,6 @@
 
 (defun weight-func-pos (mesh pos-a pos-b length)
   (weight-func (the double-float (cl-mpm/fastmaths::dot-vector pos-a pos-b)) length))
-
-(declaim
- (notinline weight-func-mps-damaged)
- (ftype (function (cl-mpm/mesh::mesh
-                   cl-mpm/particle:particle
-                   cl-mpm/particle:particle
-                   double-float
-                   ) double-float)
-        weight-func-mps-damaged
-        ))
-(defun weight-func-mps-damaged (mesh mp-a mp-b length)
-  (weight-func (diff-damaged mesh mp-a mp-b) length))
 
 (defun patch-in-bounds-2d (mesh pos bound)
   (destructuring-bind (x y z) pos
@@ -815,23 +726,7 @@ Calls the function with the mesh mp and node"
            (setf damage-ybar (calculate-delocalised-damage mesh mp local-length-t)))))))
   (values))
 
-(defun delocalise-damage-ekl (sim)
-  ;; (declare (optimize (speed 3)))
-  (with-accessors ((mps cl-mpm::sim-mps)
-                   (mesh cl-mpm:sim-mesh))
-      sim
-    (g2p-damage sim)
-    ;; Calculate the delocalised damage for each damage particle
-    (cl-mpm:iterate-over-mps
-     mps
-     (lambda (mp)
-       (when (typep mp 'cl-mpm/particle:particle-damage)
-         (with-accessors ((damage-ybar cl-mpm/particle::mp-damage-ybar)
-                          (damage cl-mpm/particle::mp-damage)
-                          (local-length-t cl-mpm/particle::mp-local-length))
-             mp
-           (setf damage-ybar (calculate-delocalised-damage-ekl mesh mp local-length-t)))))))
-  (values))
+
 
 (defun localise-damage (mesh mps dt)
   "Apply local damage model"
@@ -919,7 +814,6 @@ Calls the function with the mesh mp and node"
    :type DOUBLE-FLOAT)
   )
 
-(defgeneric damage-model-calculate-y (mp dt))
 
 (defmethod damage-model-calculate-y ((mp cl-mpm/particle::particle) dt)
   0d0)
@@ -1030,79 +924,7 @@ Calls the function with the mesh mp and node"
 ;;             ))))))
 
 
-(defgeneric damage-model-update-damage (mp damage-model dt))
 
-(defmethod damage-model-update-damage (mp damage-model dt))
-
-(defmethod damage-model-update-damage (mp (dm damage-model-creep) dt)
-  (with-accessors ((stress cl-mpm/particle:mp-stress)
-                   (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
-                   (damage cl-mpm/particle:mp-damage)
-                   (damage-inc cl-mpm/particle::mp-damage-increment)
-                   (ybar cl-mpm/particle::mp-damage-ybar)
-                   (critical-damage cl-mpm/particle::mp-critical-damage)
-                   (pressure cl-mpm/particle::mp-pressure)
-                   ) mp
-    (with-accessors ((damage-rate damage-model-creep-damage-rate)
-                     (init-stress damage-model-creep-initiation-stress))
-        dm
-      (declare (double-float damage damage-inc dt critical-damage))
-      (progn
-        ;;Damage increment holds the delocalised driving factor
-        (setf ybar damage-inc)
-        (setf damage-inc (* dt (damage-rate-profile damage-inc damage damage-rate init-stress)))
-        (when (>= damage 1d0)
-          ;; (setf damage-inc 0d0)
-          (setf ybar 0d0))
-        (incf damage damage-inc)
-        (setf damage (max 0d0 (min 1d0 damage)))
-        (when (> damage critical-damage)
-          (setf damage 1d0)
-          (setf damage-inc 0d0))))
-  (values)))
-
-(defmethod damage-model-update-damage (mp (dm damage-model-rankine) dt)
-  (with-accessors ((stress cl-mpm/particle:mp-stress)
-                   (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
-                   (damage cl-mpm/particle:mp-damage)
-                   (damage-inc cl-mpm/particle::mp-damage-increment)
-                   (ybar cl-mpm/particle::mp-damage-ybar)
-                   (critical-damage cl-mpm/particle::mp-critical-damage)
-                   (pressure cl-mpm/particle::mp-pressure)
-                   ) mp
-    (with-accessors (;(damage-rate damage-model-creep-damage-rate)
-                     (init-stress damage-model-rankine-initiation-stress)
-                     (crit-stress damage-model-rankine-failure-stress)
-                     (y-history damage-model-rankine-y-history)
-                     )
-        dm
-      (declare (double-float damage damage-inc dt critical-damage))
-      (progn
-        ;;Damage increment holds the delocalised driving factor
-        (setf ybar damage-inc)
-        (setf y-history (max y-history ybar))
-        (setf damage (/ (- y-history init-stress) crit-stress))
-        (when (>= damage 1d0)
-          ;; (setf damage-inc 0d0)
-          (setf ybar 0d0))
-
-        (incf damage damage-inc)
-        (setf damage (max 0d0 (min 1d0 damage)))
-        (when (> damage critical-damage)
-          (setf damage 1d0)
-          (setf damage-inc 0d0))))
-  (values)))
-
-
-
-
-(defgeneric compute-dt-damage-inc (mp current-dt damage-inc))
-
-(defmethod compute-dt-damage-inc ((mp cl-mpm/particle::particle) current-dt damage-inc)
-  current-dt)
-
-;; (defmethod compute-dt-damage-inc ((mp cl-mpm/particle::particle-elastic-damage) current-dt damage-inc)
-;;   )
 
 
 (defun compute-damage-delta (sim)
@@ -1136,13 +958,9 @@ Calls the function with the mesh mp and node"
         (sqrt (/ delta-ds delta-incs))
         0d0)))
 
-(defgeneric compute-damage (mp))
-(defmethod compute-damage ((mp cl-mpm/particle::particle))
-  )
-(defmethod compute-damage ((mp cl-mpm/particle::particle-damage))
-  )
+(defmethod compute-damage ((mp cl-mpm/particle::particle)))
+(defmethod compute-damage ((mp cl-mpm/particle::particle-damage)))
 
-(defgeneric update-damage (mp dt))
 (defmethod update-damage ((mp cl-mpm/particle::particle) dt))
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-damage) dt)
@@ -1301,31 +1119,8 @@ Calls the function with the mesh mp and node"
 ;;     (when (> damage-1 (* damage-0 1.1d0))
 ;;       (break "Staggered error"))))
 
-(defun calculate-delocalised-damage-ekl (mesh mp length)
-  (let ((damage-inc 0d0)
-        (mass-total 0d0))
-    (declare (double-float damage-inc mass-total))
-    (iterate-over-neighour-mps
-     mesh mp
-     (cl-mpm/particle::mp-local-length mp)
-     (lambda (mesh mp mp-other dist)
-       (with-accessors ((d cl-mpm/particle::mp-damage)
-                        (m cl-mpm/particle:mp-volume)
-                        (ll cl-mpm/particle::mp-local-length)
-                        (p cl-mpm/particle:mp-position))
-           mp-other
-         (let ((weight (weight-func-mps-damaged mesh mp mp-other (cl-mpm/particle::mp-local-length mp))))
-           (declare (double-float weight m d mass-total damage-inc))
-           (incf mass-total (* weight m))
-           (incf damage-inc
-                 (* (the double-float (cl-mpm/particle::mp-damage-y-local mp-other))
-                    weight m))))))
-    (when (> mass-total 0d0)
-      (setf damage-inc (/ damage-inc mass-total)))
-    damage-inc))
 
-(defun calculate-debug-ekl (mesh mp length)
-  )
+
 
 (defun get-nonlocal-interactions (sim mp)
   (g2p-damage sim)

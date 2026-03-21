@@ -165,13 +165,16 @@
           (magicl.cffi-types:with-array-pointers ((sp (cl-mpm/utils:fast-storage strain)))
             (unless (CppDruckerPrager sp E nu phi psi c)
               (error "Drucker-Prager failed")))
-          (values (cl-mpm/fastmaths::@-tensor-voigt-lisp de strain stress)
-                  str
+          (cl-mpm/fastmaths::@-tensor-voigt-lisp de strain stress)
+          (values stress
+                  strain
                   0d0
+                  ;; 0d0
                   (cl-mpm/fastmaths::voigt-j2
                    (cl-mpm/utils::deviatoric-voigt
                     (cl-mpm/fastmaths:fast-.- str strain)))
                   (cl-mpm/utils::calculate-p-wave-modulus E nu))))
+
       (defun constitutive-mohr-coulomb (stress de strain E nu phi psi c)
         "Mohr-coulomb, in-place update strain, return a new stress, yield function and ps inc"
         (declare (double-float E nu phi psi c))

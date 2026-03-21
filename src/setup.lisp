@@ -310,13 +310,19 @@
             (max (varef dist-vec 0)
                  (varef dist-vec 1)))))))
 
-(defun ellipse-sdf (position x-l y-l)
+(defun guassian-sdf (position sigma shift)
+  (let ((pos-vec (cl-mpm/utils:vector-from-list position)))
+    (lambda (pos)
+      (let* ((dist-vec (magicl:.- pos-vec pos))
+             (distance (cl-mpm/fastmaths::mag dist-vec)))
+        (- (exp (- (expt (/ distance (* (sqrt 2) sigma)) 2))) shift)))))
+
+(defun ellipse-sdf (position x-l y-l &key (transform-matrix (cl-mpm/utils:matrix-eye 1d0)))
   (let ((aspect (/ x-l y-l))
-        (pos-vec (cl-mpm/utils:vector-from-list position))
-        )
+        (pos-vec (cl-mpm/utils:vector-from-list position)))
     (lambda (pos)
       (let* ((dist-vec (cl-mpm/fastmaths::fast-.*
-                        (magicl:.- pos-vec pos)
+                        (magicl:@ transform-matrix (magicl:.- pos-vec pos))
                         (cl-mpm/utils:vector-from-list (list 1d0 aspect 1d0))))
              (distance (sqrt (magicl:tref (magicl:@ (magicl:transpose dist-vec)
                                                     dist-vec) 0 0))))

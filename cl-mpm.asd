@@ -132,6 +132,7 @@
                   :components ((:file "package")
                                (:file "softening")
                                (:file "criteria")
+                               (:file "ekl")
                                (:file "damage")
                                (:file "delay-damage")
                                (:file "degredation")
@@ -812,3 +813,8 @@
   :serial t
   :components ((:file "examples/ice/slope-stability")))
 
+
+(defsystem "cl-mpm/examples/damage/biaxial"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/damage/biaxial")))

@@ -1266,7 +1266,9 @@
                            (save-vtk-loadstep t)
                            (max-adaptive-steps 5)
                            (min-adaptive-steps 0)
+                           (adaption-constant 2)
                            (max-damage-inc 0.3d0)
+                           (min-damage-inc 0d0)
                            (dt-scale 1d0))
   (uiop:ensure-all-directories-exist (list output-dir))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
@@ -1275,6 +1277,7 @@
   (funcall pre-step)
   ;; (save-conv-step sim output-dir 0 0 0d0 0d0)
   (setf lparallel:*debug-tasks-p* nil)
+  (cl-mpm:iterate-over-mps (cl-mpm::sim-mps sim) (lambda (mp)))
   (defparameter *total-iter* 0)
   (with-accessors ((mps cl-mpm:sim-mps))
       sim
@@ -1287,13 +1290,15 @@
                                        (* load percent)))))
       (setf (cl-mpm::sim-dt-scale sim) dt-scale)
       (let* ((initial-load-step-size (/ (- 1d0 initial-load) load-steps))
+             (prev-steps-easy (list t t))
+             (prev-step-iter 0)
              (load-step-size initial-load-step-size)
              (current-load initial-load)
              (current-adaptivity 0)
              )
         (loop for step from 1; to load-steps
               while (and (cl-mpm::sim-run-sim sim)
-                         (<= current-load 1d0))
+                         (< current-load 1d0))
               do
                  (progn
                    (cl-mpm:sim-format sim t "Load step ~D~%" step)
@@ -1347,7 +1352,9 @@
                          (loop for i from 0 to max-adaptive-steps
                                while (not quasi-conv)
                                do (progn
-                                    (setf load-step-size (* initial-load-step-size (expt 2 (- current-adaptivity))))
+                                    (setf load-step-size
+                                          (min (- 1d0 current-load)
+                                               (* initial-load-step-size (expt adaption-constant (- current-adaptivity)))))
                                     (cl-mpm:sim-format sim t "Load step size ~E adapted by ~D~%" load-step-size current-adaptivity)
                                     (setf quasi-conv (trial-solve))
                                     (unless quasi-conv
@@ -1358,10 +1365,18 @@
                                           (loop-finish))))
                                finally (progn
                                          (cl-mpm:sim-format sim t "Finished with ~D adaptions- conv ~A~%" (- i 1) quasi-conv)
-                                         (when (and (= i 1))
-                                           (setf current-adaptivity
-                                                 (max min-adaptive-steps
-                                                      (- current-adaptivity 1))))
+                                         (when (> min-damage-inc 0d0)
+                                           (format t "Easy damage inc criteria ~E true ~E~%" min-damage-inc (damage-increment-criteria sim)))
+                                         (when (and (= i 1)
+                                                    (if (> min-damage-inc 0d0)
+                                                        (< (damage-increment-criteria sim) min-damage-inc)
+                                                        t))
+                                           (setf (nth (mod prev-step-iter (length prev-steps-easy)) prev-steps-easy) t)
+                                           (cl-mpm:sim-format sim t "Potential adaption easy steps ~A~%" prev-steps-easy)
+                                           (when (every #'identity prev-steps-easy)
+                                             (setf current-adaptivity
+                                                   (max min-adaptive-steps
+                                                        (- current-adaptivity 1)))))
                                          ))
                          (unless quasi-conv;(>= current-adaptivity max-adaptive-steps)
                            (cl-mpm:sim-format sim t "Solve failed completly~%" )

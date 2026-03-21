@@ -463,9 +463,9 @@
              (max
               (- (* k s1) s3)
               (- (* k s1) s2)
-              (- (* k s2) s3))
-             k)
-           ))))
+              (- (* k s2) s3)
+              )
+             k)))))
 
 (defun criterion-mohr-coloumb-stress-will (stress angle)
   (multiple-value-bind (s1 s2 s3) (principal-stresses-3d stress)
@@ -478,6 +478,7 @@
             (sqrt k))))))
 
 (defun mohr-coloumb-coheasion-to-tensile (coheasion angle)
+  "Take a coheasive strength and a friction angle in degrees, return equivilant tensile strength"
   (let ((angle (cl-mpm/utils::deg-to-rad angle))
         (k (/ (+ 1d0 (sin angle))
               (- 1d0 (sin angle)))))
@@ -487,11 +488,13 @@
           (+ 1d0 (sin angle))))))
 
 (defun mohr-coloumb-tensile-to-coheasion (tensile angle)
-  (let ((k (/ (+ 1d0 (sin angle))
-              (- 1d0 (sin angle)))))
-    (the double-float
-         (/ (* tensile (+ 1d0 (sin angle)))
-          (* 2 (cos angle))))))
+  "Take a tensile strength and a friction angle in degrees, return equivilant coheasion"
+  (let ((angle (cl-mpm/utils::deg-to-rad angle)))
+    (let ((k (/ (+ 1d0 (sin angle))
+                (- 1d0 (sin angle)))))
+      (the double-float
+           (/ (* tensile (+ 1d0 (sin angle)))
+              (* 2 (cos angle)))))))
 
 
 ;; (let* ((stress (cl-mpm/utils:voigt-from-list (list 1d0 0d0 0d0

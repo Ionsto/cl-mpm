@@ -155,6 +155,15 @@
           damage-prev damage)
     (call-next-method)))
 
+(defmethod cl-mpm/damage::set-mp-damage ((mp cl-mpm/particle::particle-damage) d)
+  (let ((k (cl-mpm/damage::find-k-damage-mp mp d)))
+    ;; (pprint k)
+    (setf (cl-mpm/particle::mp-history-stress mp) k)
+    (setf (cl-mpm/particle::mp-history-stress-n mp) k)
+    (cl-mpm/damage::compute-damage mp)
+    (setf
+     (cl-mpm/particle::mp-damage-n mp) (cl-mpm/particle::mp-damage mp))))
+
 (defclass particle-elastic-damage-delayed (particle-elastic-damage)
    ((delay-time
      :accessor mp-delay-time
@@ -569,15 +578,11 @@
   (when (cl-mpm/particle::mp-enable-damage mp)
     (with-accessors ((damage cl-mpm/particle:mp-damage)
                      (damage-n cl-mpm/particle::mp-damage-n)
-                     (E cl-mpm/particle::mp-e)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
                      (ybar cl-mpm/particle::mp-damage-ybar)
                      (ybar-prev cl-mpm/particle::mp-damage-ybar-prev)
-                     (init-stress cl-mpm/particle::mp-initiation-stress)
-                     (length cl-mpm/particle::mp-local-length)
                      (k cl-mpm/particle::mp-history-stress)
                      (k-n cl-mpm/particle::mp-history-stress-n)
-                     (critical-damage cl-mpm/particle::mp-critical-damage)
                      (ductility cl-mpm/particle::mp-ductility))
         mp
       (declare (double-float damage damage-inc k ybar dt))
@@ -633,29 +638,19 @@
                    (E cl-mpm/particle::mp-e)
                    (y cl-mpm/particle::mp-damage-y-local)
                    (angle cl-mpm/particle::mp-friction-angle)
-                   (model cl-mpm/particle::mp-friction-model)
-                   (de cl-mpm/particle::mp-elastic-matrix))
+                   (def cl-mpm/particle::mp-deformation-gradient)
+                   (model cl-mpm/particle::mp-friction-model))
       mp
-    (setf
-     y
-     (ecase model
-       (:DP (cl-mpm/damage::drucker-prager-criterion undamaged-stress angle))
-       (:MC (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile undamaged-stress angle))))))
+    (let ((stress
+            undamaged-stress
+            ;; (cl-mpm/fastmaths:fast-scale-voigt undamaged-stress (/ 1d0 (cl-mpm/fastmaths:det-3x3 def)))
+                  ))
+      (setf
+       y
+       (ecase model
+         (:DP (cl-mpm/damage::drucker-prager-criterion stress angle))
+         (:MC (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress angle)))))))
 
-(defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-damage-frictional) dt)
-  (with-accessors ((strain cl-mpm/particle::mp-strain)
-                   (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
-                   (E cl-mpm/particle::mp-e)
-                   (y cl-mpm/particle::mp-damage-y-local)
-                   (angle cl-mpm/particle::mp-friction-angle)
-                   (model cl-mpm/particle::mp-friction-model)
-                   (de cl-mpm/particle::mp-elastic-matrix))
-      mp
-    (setf
-     y
-     (ecase model
-       (:DP (cl-mpm/damage::drucker-prager-criterion undamaged-stress angle))
-       (:MC (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile undamaged-stress angle))))))
 
 
 
@@ -684,14 +679,13 @@
                    (init-stress mp-initiation-stress)
                    (oversize mp-oversize-scale))
       mp
-    (let* ((c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress angle))
+    (let* ((c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (rad-to-deg angle)))
            (rs (cl-mpm/damage::est-shear-from-angle (rad-to-deg angle) (rad-to-deg angle-r) rc))
            (oversize-ratio (cl-mpm/damage::compute-oversize-factor oversize ductility)))
       (setf
        (cl-mpm/particle::mp-phi mp) angle
        (mp-c mp) (* oversize-ratio c)
-       (mp-shear-residual-ratio mp) rs)
-      )))
+       (mp-shear-residual-ratio mp) rs))))
 
 
 (defmethod constitutive-model ((mp particle-plastic-damage-frictional) strain dt)
@@ -719,28 +713,38 @@
     (cl-mpm/constitutive::linear-elastic-mat strain de stress-undamaged)
     (when enable-plasticity
       (multiple-value-bind (sig eps-e f inc pmod)
-          (ecase model
-            (:MC
-             (cl-mpm/ext::constitutive-mohr-coulomb
-              stress-undamaged
-              de
-              strain
-              E
-              nu
-              phi
-              psi
-              coheasion
-              ))
-            (:DP
-             (cl-mpm/ext::constitutive-drucker-prager
-              stress-undamaged
-              strain
-              de
-              E
-              nu
-              phi
-              psi
-              coheasion)))
+          (cl-mpm/ext::constitutive-mohr-coulomb
+           stress-undamaged
+           de
+           strain
+           E
+           nu
+           phi
+           psi
+           coheasion
+           )
+          ;; (ecase model
+          ;;   (:MC
+          ;;    (cl-mpm/ext::constitutive-mohr-coulomb
+          ;;     stress-undamaged
+          ;;     de
+          ;;     strain
+          ;;     E
+          ;;     nu
+          ;;     phi
+          ;;     psi
+          ;;     coheasion
+          ;;     ))
+          ;;   (:DP
+          ;;    (cl-mpm/ext::constitutive-drucker-prager
+          ;;     stress-undamaged
+          ;;     strain
+          ;;     de
+          ;;     E
+          ;;     nu
+          ;;     phi
+          ;;     psi
+          ;;     coheasion)))
         ;; (setf sig (cl-mpm/constitutive::linear-elastic-mat eps-e de sig))
         (setf
          stress-undamaged sig

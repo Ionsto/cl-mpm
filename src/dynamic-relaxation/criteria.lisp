@@ -907,9 +907,15 @@
          0d0))
    #'max))
 
-(defun damage-increment-criteria (sim)
-  (compute-max-damage-energy-crit sim)
-  ;; (damage-increment-criteria-mp sim)
+(defgeneric damage-increment-criteria (sim)
+  (:documentation "Damage criteria")
+  )
+
+(defmethod damage-increment-criteria ((sim t))
+  0d0)
+(defmethod damage-increment-criteria ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
+  ;; (compute-max-damage-energy-crit sim)
+  (damage-increment-criteria-mp sim)
   ;; (damage-increment-criteria-mesh sim)
   )
 
@@ -977,7 +983,7 @@
                     (* 0.5d0 volume (- 1d0 damage) (cl-mpm/fastmaths:dot stress strain)))
                   0d0))
             #'+)))
-    (format t "Energy reduction ~E - undamaged energy ~E ~%" energy undamaged-energy)
+    ;; (format t "Energy reduction ~E - undamaged energy ~E ~%" energy undamaged-energy)
     (if (> undamaged-energy 0d0)
         (/ energy undamaged-energy)
         0d0)))

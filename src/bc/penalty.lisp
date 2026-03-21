@@ -338,6 +338,19 @@
 
 (defmethod penalty-contact-valid ((bc bc-penalty) point)
   t)
+
+(defun clip-radial (point normal center-point radius)
+  (let* ((p-d (cl-mpm/fastmaths:dot point normal))
+         (c-d (cl-mpm/fastmaths:dot center-point normal))
+         (diff
+           (cl-mpm/fastmaths::fast-.-
+            (cl-mpm/fastmaths:fast-.- point (cl-mpm/fastmaths:fast-scale-vector normal p-d))
+            (cl-mpm/fastmaths:fast-.- center-point (cl-mpm/fastmaths:fast-scale-vector normal c-d)))))
+    (<=
+     (cl-mpm/fastmaths::mag
+      diff)
+     radius)))
+
 (defmethod penalty-contact-valid ((bc bc-penalty-distance) point)
   (let* ((normal (bc-penalty-normal bc))
          (center-point (bc-penalty-distance-center-point bc))
@@ -354,9 +367,10 @@
 
 
 
-(defun make-bc-penalty (sim datum epsilon friction)
-  (let ((normal (cl-mpm/fastmaths::norm (cl-mpm/utils:vector-zeros))))
-    (setf (magicl:tref normal (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)) 0) 1d0)
+(defun make-bc-penalty (sim normal datum epsilon friction)
+  (let (;; (normal (cl-mpm/fastmaths::norm (cl-mpm/utils:vector-zeros)))
+        )
+    ;; (setf (magicl:tref normal (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)) 0) 1d0)
     (setf normal (cl-mpm/fastmaths::norm normal))
     (make-instance 'bc-penalty
                    :index nil
@@ -364,7 +378,6 @@
                    :datum datum
                    :normal normal
                    :epsilon epsilon
-                   ;; :margin (cl-mpm/mesh::mesh-resolution (cl-mpm::sim-mesh sim))
                    :friction friction)))
 
 (defun make-bc-penalty-point-normal (sim normal point epsilon friction &optional (damping 0d0))
@@ -1108,7 +1121,7 @@
          (trial-plane-point (cl-mpm/fastmaths:fast-.- point (cl-mpm/fastmaths:fast-scale-vector normal p-d)))
          (a-b (bc-penalty-square-diag-a bc))
          (b-c (bc-penalty-square-diag-b bc))
-         (a-trial (cl-mpm/fastmaths:fast-.- (cl-mpm/fastmaths:fast-.+ trial-center-point a-b) trial-plane-point ))
+         (a-trial (cl-mpm/fastmaths:fast-.- trial-plane-point (cl-mpm/fastmaths:fast-.+ trial-center-point a-b) ))
          (b-trial (cl-mpm/fastmaths:fast-.- (cl-mpm/fastmaths:fast-.+ trial-center-point b-c) trial-plane-point ))
          )
     ;; (break)
@@ -1297,63 +1310,71 @@
     :accessor bc-penalty-disp-contacts
     :initform (make-array 0 :adjustable t :fill-pointer 0))))
 
-(defun make-bc-penalty-displacment (sim normal epsilon)
-  ;; (let ((normal (cl-mpm/fastmaths::norm (cl-mpm/utils:vector-zeros))))
-  ;;   (setf (magicl:tref normal (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)) 0) 1d0)
-  ;;   (setf normal (cl-mpm/fastmaths::norm normal)))
-  (let ((max-datum (cl-mpm::reduce-over-mps
-                    (cl-mpm:sim-mps sim)
-                    (lambda (mp)
-                      (cl-mpm/fastmaths::dot
-                       normal
-                       (cl-mpm/fastmaths:fast-.+
-                        (cl-mpm/particle::mp-position mp)
-                        (cl-mpm/fastmaths:fast-scale (cl-mpm/particle::mp-domain-size mp) 0.5d0))))
-                    #'max))
-        (contacts (make-array 0 :adjustable t :fill-pointer 0))
-        (mutex (sb-thread:make-mutex))
-        )
-    (let ((bc (make-instance 'bc-penalty-displacment
-                             :index nil
-                             :sim sim
-                             :datum max-datum
-                             :normal normal
-                             :epsilon epsilon
-                             :friction 0d0)))
-      (cl-mpm:iterate-over-mps
-       (cl-mpm:sim-mps sim)
-       (lambda (mp)
-         (when (< (abs (- max-datum
-                          (cl-mpm/fastmaths::dot
-                           normal
-                           (cl-mpm/fastmaths:fast-.+
-                            (cl-mpm/particle::mp-position mp)
-                            (cl-mpm/fastmaths:fast-scale (cl-mpm/particle::mp-domain-size mp) 0.5d0)
-                            ))))
-                  1d-9
-                  )
-           (let ((corner (cl-mpm/fastmaths:fast-.+
-                          (cl-mpm/particle::mp-position mp)
-                          (cl-mpm/fastmaths:fast-scale
-                           normal
-                           (cl-mpm/fastmaths:dot
+(defun make-bc-penalty-displacment (sim normal epsilon &key (clip-function (lambda (point) t)))
+  (flet ((get-contact-point (mp)
+           (cl-mpm/fastmaths:fast-.+
+            (cl-mpm/particle::mp-position mp)
+            (cl-mpm/fastmaths:fast-scale
+             normal
+             (* 0.5d0
+                (cl-mpm/fastmaths:dot
+                 (cl-mpm/fastmaths::element-wise-map
+                  (cl-mpm/utils::vector-copy
+                   normal)
+                  #'abs)
+                 (cl-mpm/particle::mp-domain-size mp)))))))
+    (let ((contact-mps (remove-if-not (lambda (mp) (funcall clip-function (get-contact-point mp))) (cl-mpm:sim-mps sim))))
+      (when (= (length contact-mps) 0)
+        (format t "No contact mps!~%"))
+      (let* ((max-datum (cl-mpm::reduce-over-mps
+                         contact-mps
+                         (lambda (mp)
+                           (cl-mpm/fastmaths::dot
                             normal
-                            (cl-mpm/fastmaths:fast-scale (cl-mpm/particle::mp-domain-size mp) 0.5d0)
-                            )))))
-             (sb-thread:with-mutex (mutex)
-               (let ((contact (make-contact
-                               corner
-                               max-datum
-                               0d0
-                               normal
-                               bc)))
-                 (setf (contact-mp contact) mp)
-                 (vector-push-extend
-                  contact
-                  contacts)))))))
-      (setf (bc-penalty-disp-contacts bc) contacts)
-      bc
-      )))
+                            (get-contact-point mp)))
+                         #'max))
+             (contacts (make-array 0 :adjustable t :fill-pointer 0))
+             (mutex (sb-thread:make-mutex)))
+        (let ((bc (make-instance 'bc-penalty-displacment
+                                 :index nil
+                                 :sim sim
+                                 :datum max-datum
+                                 :normal normal
+                                 :epsilon epsilon
+                                 :friction 0d0)))
+          (cl-mpm:iterate-over-mps
+           (cl-mpm:sim-mps sim)
+           (lambda (mp)
+             (when (and (< (abs (- max-datum
+                                   (cl-mpm/fastmaths::dot
+                                    normal
+                                    (get-contact-point mp))))
+                           1d-9
+                           )
+                        (funcall clip-function (get-contact-point mp)))
+               ;; (cl-mpm/fastmaths:fast-.+
+               ;;  (cl-mpm/particle::mp-position mp)
+               ;;  (cl-mpm/fastmaths:fast-scale
+               ;;   normal
+               ;;   (cl-mpm/fastmaths:dot
+               ;;    normal
+               ;;    (cl-mpm/fastmaths:fast-scale (cl-mpm/particle::mp-domain-size mp) 0.5d0)
+               ;;    )))
+               (let ((corner (get-contact-point mp)))
+                 (sb-thread:with-mutex (mutex)
+                   (let ((contact (make-contact
+                                   corner
+                                   max-datum
+                                   0d0
+                                   normal
+                                   bc)))
+                     (setf (contact-mp contact) mp)
+                     (vector-push-extend
+                      contact
+                      contacts)))))))
+          (setf (bc-penalty-disp-contacts bc) contacts)
+          bc
+          )))))
 
 (defmethod bc-increment-center ((bc bc-penalty-displacment) delta-center)
   (incf (bc-penalty-datum bc)

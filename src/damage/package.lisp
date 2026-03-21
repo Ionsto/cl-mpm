@@ -44,3 +44,14 @@
 (defclass mpm-sim-agg-damage (mpm-sim-damage cl-mpm/aggregate::mpm-sim-aggregated)
   ()
   (:documentation "Explicit damage simulation"))
+
+(defgeneric calculate-damage (sim dt)
+  (:documentation "Conditionally update the state of damage for a whole simulation, and apply post-damage effects unconditionally"))
+(defgeneric compute-damage (mp)
+  (:documentation "Recompute damage from internal variables (stateless)"))
+(defgeneric update-damage (mp dt)
+  (:documentation "Update the damage model internal variables of an MP"))
+(defgeneric set-mp-damage (mp d))
+(defgeneric cl-mpm/particle::post-damage-step (mp dt))
+(defgeneric damage-model-calculate-y (mp dt))
+
