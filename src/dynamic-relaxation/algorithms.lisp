@@ -1096,6 +1096,7 @@
           (vel-algo (cl-mpm::sim-velocity-algorithm sim))
           (sim-type (class-of sim)))
       (when (not (subtypep (type-of sim) elastic-solver))
+        (format t "Changed class from ~A to ~A~%" (type-of sim) elastic-solver)
         (change-class sim elastic-solver))
       (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
       (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
@@ -1222,7 +1223,8 @@
   "Take a sim, switch it to implicit quasi-static, disable elastic and plastic and converge switch the class back to the original then enable damage and plastic"
   (let ((vel-algo (cl-mpm::sim-velocity-algorithm sim))
         (sim-type (class-of sim)))
-    (when (not (subtypep (type-of sim) 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
+    (unless (subtypep (type-of sim) elastic-solver)
+      (format t "Changed class from ~A to ~A~%" (type-of sim) elastic-solver)
       (change-class sim elastic-solver))
     (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)

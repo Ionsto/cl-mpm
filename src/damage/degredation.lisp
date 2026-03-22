@@ -230,10 +230,14 @@
   ;; (assert (< angle-r (/ pi 2)))
   (let* ((angle-plastic (cl-mpm/utils:deg-to-rad angle))
          (angle-plastic-residual (cl-mpm/utils:deg-to-rad angle-r)))
-    (- 1d0
-       (* (- 1d0 rc)
-          (/ (tan angle-plastic-residual)
-             (tan angle-plastic))))))
+    (let ((rs (- 1d0
+                 (* (- 1d0 rc)
+                    (/ (tan angle-plastic-residual)
+                       (tan angle-plastic))))))
+      ;;Special case to avoid issues with fp tan
+      (when (= angle-r 0d0)
+        (setf rs 1d0))
+      rs)))
 
 
 (defun apply-isotropic-porodamage-degredation (mp pressure)

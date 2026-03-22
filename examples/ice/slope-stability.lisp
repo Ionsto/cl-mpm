@@ -27,17 +27,18 @@
                 (rc 0d0)
                 (l-scale 1d0)
                 (gf 0.1d3)
+                (oversize-factor (- 1d0 1d-1))
                 )
 
   (let* ((refine (* refine (expt 2 (- multigrid-refines))))
          (height 10d0)
-         (width 20d0)
+         (width (* height 2))
          (h (/ 1d0 refine))
-         (density 2.04d3)
+         (density 20d3)
          (E 10d6)
          (nu 0.4d0)
-         (domain-width 30d0)
-         (domain-height (+ domain-width (* 2 h)))
+         (domain-width (+ width height))
+         (domain-height (+ height (* 2 h)))
          (domain-size (list domain-width domain-height))
          (element-count (mapcar (lambda (x) (round x h)) domain-size))
          (block-size (list width height)))
@@ -52,22 +53,21 @@
        ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
        :args-list
        (list
-        ;; :enable-aggregate nil
-        ;; :ghost-factor (* E 1d-4)
-        :enable-aggregate t
-        :ghost-factor nil
-        :enable-split t
+        :enable-aggregate nil
+        :ghost-factor (* E 1d-3)
+        ;; :enable-aggregate t
+        ;; :ghost-factor nil
+        :enable-split nil
         :enable-fbar enable-fbar
         ;; :refinement multigrid-refines
         )))
     (setf h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
-    (let* ((c 80d3)
+    (let* ((c 40d3)
            (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile c angle))
            (rs (cl-mpm/damage::est-shear-from-angle angle angle-r rc))
            (L (* h l-scale))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf L init-stress E))
-           (oversize-factor (- 1d0 1d-1))
-           (oversize (cl-mpm/damage::compute-oversize-factor oversize-factor  ductility))
+           (oversize (cl-mpm/damage::compute-oversize-factor oversize-factor ductility))
            ;; (rt 1d0)
            ;; (rc 1d0)
            ;; (rs 1d0)
@@ -98,6 +98,25 @@
         ;; :kc-res-ratio rc
         ;; :g-res-ratio rs
 
+        ;; 'cl-mpm/particle::particle-ice-brittle
+        ;; :E E
+        ;; :nu nu
+
+        ;; :kt-res-ratio rt
+        ;; :kc-res-ratio rc
+        ;; :g-res-ratio rs
+
+        ;; :initiation-stress init-stress;18d3
+        ;; :friction-angle angle
+        ;; :psi (cl-mpm/utils:deg-to-rad angle)
+        ;; :phi (cl-mpm/utils:deg-to-rad angle)
+        ;; :c (* c oversize)
+
+        ;; :ductility ductility
+        ;; :local-length L
+        ;; :enable-plasticity nil
+        ;; :enable-damage t
+
         'cl-mpm/particle::particle-plastic-damage-frictional
         :E E
         :nu nu
@@ -106,37 +125,30 @@
         :friction-angle (cl-mpm/utils:deg-to-rad angle)
         :residual-friction (cl-mpm/utils:deg-to-rad angle-r)
         :initiation-stress init-stress
-        :friction-model :DP
+        :friction-model :MC
         :oversize oversize-factor
         :kt-res-ratio rt
         :kc-res-ratio rc
         :psi 0d0
-        ;; 'cl-mpm/particle::particle-elastic
-        ;; :E E
-        ;; :nu nu
-        ;; 'cl-mpm/particle::particle-vm
-        ;; :E E
-        ;; :nu nu
-        ;; :rho (* 1d4 (sqrt 3/2))
-        ;; :rho 1d6
-        ;; :rho 1d6
+
         ;; 'cl-mpm/particle::particle-mc
         ;; :E E
-        ;; :nu 0.25d0
-        ;; :psi (* 30d0 (/ pi 180))
-        ;; :phi (* 30d0 (/ pi 180))
-        ;; :c 1d3
-        )))
+        ;; :nu nu
+        ;; :psi 0d0;(cl-mpm/utils:deg-to-rad angle)
+        ;; :phi (cl-mpm/utils:deg-to-rad angle)
+        ;; :c c
+        )
+       ))
     (cl-mpm/setup:remove-sdf
      *sim*
      (lambda (p)
        (cl-mpm/setup::plane-point-point-sdf
         p
-        (cl-mpm/utils:vector-from-list (list 10d0 10d0 0d0))
-        (cl-mpm/utils:vector-from-list (list 20d0 0d0 0d0))))
+        (cl-mpm/utils:vector-from-list (list height height 0d0))
+        (cl-mpm/utils:vector-from-list (list width 0d0 0d0))))
      :refine 1)
 
-    (setf (cl-mpm::sim-gravity *sim*) -9.8d0)
+    (setf (cl-mpm::sim-gravity *sim*) -1d0)
     (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-15)
     (cl-mpm/setup::setup-bcs
      *sim*
@@ -145,11 +157,11 @@
      :bottom '(0 0 nil))
 
 
-    (let* ((friction 0d0)
-           (epsilon-scale 1d0)
+    (let* ((friction 1d0)
+           (epsilon-scale 1d2)
            (epsilon (* (cl-mpm/particle::calculate-p-wave-modulus E nu) epsilon-scale))
-           (width 2d0)
-           (offset 8d0)
+           (penalty-width 2d0)
+           (offset (- height penalty-width))
            )
       (format t "Penalty parameter ~E~%" epsilon)
       (defparameter *penalty-down*
@@ -160,7 +172,7 @@
                                          offset
                                          height
                                          0d0))
-         width
+         penalty-width
          epsilon
          friction
          0d0))
@@ -169,10 +181,10 @@
          *sim*
          (cl-mpm/utils:vector-from-list '(1d0 0d0 0d0))
          (cl-mpm/utils:vector-from-list (list
-                                         (+ offset (* width))
-                                         (+ height (/ width 2))
+                                         (+ offset (* penalty-width))
+                                         (+ height (/ penalty-width 2))
                                          0d0))
-         (/ width 2)
+         (/ penalty-width 2)
          epsilon
          friction
          0d0))
@@ -181,10 +193,10 @@
          *sim*
          (cl-mpm/utils:vector-from-list '(-1d0 0d0 0d0))
          (cl-mpm/utils:vector-from-list (list
-                                         (- offset (* width))
-                                         (+ height (/ width 2))
+                                         (- offset (* penalty-width))
+                                         (+ height (/ penalty-width 2))
                                          0d0))
-         (/ width 2)
+         (/ penalty-width 2)
          epsilon
          friction
          0d0))
@@ -198,7 +210,20 @@
           *penalty-left*
           *penalty-down*
           *penalty-right*
-          ))))
+          )))
+      ;; (let ((normal (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))))
+      ;;   (defparameter *penalty*
+      ;;     (cl-mpm/penalty::make-bc-penalty-displacment
+      ;;      *sim*
+      ;;      normal
+      ;;      epsilon
+      ;;      :clip-function (lambda (p) (cl-mpm/penalty::clip-radial
+      ;;                                  p
+      ;;                                  normal
+      ;;                                  (cl-mpm/utils:vector-from-list (list offset height 0d0))
+      ;;                                  penalty-width)))))
+
+      )
     (cl-mpm:add-bcs-force-list
      *sim*
      *penalty*)
@@ -227,19 +252,27 @@
               (csv-filename (format nil "load-disp.csv")))
   (ensure-directories-exist output-dir)
   (ensure-directories-exist csv-dir)
-  (cl-mpm/dynamic-relaxation::elastic-static-solution
-   *sim*)
-  (let* ((lstps 50)
+  (let ((eps (cl-mpm/penalty::bc-penalty-epsilon *penalty*)))
+    (setf (cl-mpm/penalty::bc-penalty-epsilon *penalty*) 1d-15)
+    (cl-mpm/dynamic-relaxation::elastic-static-solution
+     *sim*
+     :elastic-solver (type-of *sim*))
+    (setf (cl-mpm/penalty::bc-penalty-epsilon *penalty*) eps))
+  (let* ((lstps 20)
          (total-disp -1d0)
          (current-disp 0d0)
-         (disp-0 (cl-mpm::reduce-over-mps (cl-mpm:sim-mps *sim*)
+         (disp-0
+           (cl-mpm::reduce-over-mps (cl-mpm:sim-mps *sim*)
                                           (lambda (mp)
                                             (cl-mpm/utils:get-vector (cl-mpm/particle::mp-displacement mp) :y))
-                                          #'min))
+                                          #'min)
+                 )
          (step 0))
-    (defparameter *data-disp* (list 0d0))
-    (defparameter *data-load* (list 0d0))
+    (defparameter *data-disp* (list))
+    (defparameter *data-load* (list))
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
+    (push disp-0 *data-disp*)
+    (push (get-load) *data-load*)
 
     (vgplot:close-all-plots)
     (time
@@ -265,11 +298,11 @@
         (incf step))
       :load-steps lstps
       :max-adaptive-steps 20
-      :enable-plastic nil
+      :enable-plastic t
       :enable-damage t
-      :damping 1d0;(sqrt 2d0)
-      :max-damage-inc 1000d0
-      :substeps 10
+      :damping 1d0;(sort 2d0)
+      :max-damage-inc 0.5d0
+      :substeps 50
       :criteria 1d-3
       :save-vtk-dr t
       :save-vtk-loadstep t
@@ -277,14 +310,18 @@
 
 (defun test ()
   (setup :mps 3
-         :refine 1
+         :refine 3
          :enable-fbar t
          :multigrid-refines 0
          :gf 10000d0
-         :l-scale 1d0
-         )
-  (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
-  ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
+         :l-scale 4d0
+         :angle 16.7d0
+         :angle-r 10d0
+         :rt 1d0
+         :rc 0d0)
+  ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+  ;; (setf (cl-mpm::sim-nonlocal-damage *sim*) t)
+  (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
   (run)
   ;; (save-csv "./examples/fbar/rigid-footing/" (format nil "data_fbaradjust_~A.csv" t) *data-disp* *data-load*)
   ;; (dolist (fbar (list t nil))

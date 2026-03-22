@@ -462,8 +462,8 @@
             (/
              (max
               (- (* k s1) s3)
-              (- (* k s1) s2)
-              (- (* k s2) s3)
+              ;; (- (* k s1) s2)
+              ;; (- (* k s2) s3)
               )
              k)))))
 
@@ -471,11 +471,12 @@
   (multiple-value-bind (s1 s2 s3) (principal-stresses-3d stress)
     (declare (double-float angle s1 s2 s3))
     (let ((k (/ (+ 1d0 (sin angle))
-                (- 1d0 (sin angle))
-                )))
-      (* 0.5d0
-         (/ (- (* k s1) s3)
-            (sqrt k))))))
+                (- 1d0 (sin angle)))))
+      (max 0d0
+           (* ;(/ 2d0 (sqrt k)) 
+            (* 0.5d0
+               (/ (- (* k s1) s3)
+                  (sqrt k))))))))
 
 (defun mohr-coloumb-coheasion-to-tensile (coheasion angle)
   "Take a coheasive strength and a friction angle in degrees, return equivilant tensile strength"

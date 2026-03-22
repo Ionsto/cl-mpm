@@ -649,7 +649,9 @@
        y
        (ecase model
          (:DP (cl-mpm/damage::drucker-prager-criterion stress angle))
-         (:MC (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress angle)))))))
+         (:MC (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress angle))
+         ;; (:MC (cl-mpm/damage::criterion-mohr-coloumb-stress-will stress angle))
+         )))))
 
 
 
@@ -709,7 +711,7 @@
                    (damage mp-damage))
       mp
     (declare (double-float damage))
-    (setf (cl-mpm/particle::mp-p-modulus-0 mp) (cl-mpm/particle::compute-p-modulus mp))
+    (setf p-wave (cl-mpm/particle::compute-p-modulus mp))
     (cl-mpm/constitutive::linear-elastic-mat strain de stress-undamaged)
     (when enable-plasticity
       (multiple-value-bind (sig eps-e f inc pmod)
