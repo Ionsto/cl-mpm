@@ -1296,11 +1296,10 @@
              (prev-step-iter 0)
              (load-step-size initial-load-step-size)
              (current-load initial-load)
-             (current-adaptivity 0)
-             )
+             (current-adaptivity 0))
         (loop for step from 1; to load-steps
               while (and (cl-mpm::sim-run-sim sim)
-                         (< current-load 1d0))
+                         (< (+ 1d-15 current-load) 1d0))
               do
                  (progn
                    (cl-mpm:sim-format sim t "Load step ~D~%" step)
@@ -1311,7 +1310,7 @@
                               (handler-case
                                   (progn
                                     (cl-mpm:sim-format sim t "Load applied ~E~%" (min 1d0 (+ current-load load-step-size)))
-                                    (funcall loading-function (min 1d0 (+ current-load load-step-size)))
+                                    (funcall loading-function (+ current-load load-step-size))
                                     (time
                                      (;cl-mpm/dynamic-relaxation:converge-quasi-static
                                       generalised-staggered-solve
@@ -1343,13 +1342,16 @@
                                 (cl-mpm/errors:error-simulation (c)
                                   (princ c)
                                   (cl-mpm::reset-loadstep sim)
-                                  (values nil 0))
-                                (error (c)
-                                  (cl-mpm:sim-format sim t "A non simulation error was thrown!")
-                                  (princ c)
-                                  (cl-mpm::reset-loadstep sim)
-                                  (cl-mpm::sim-run-sim sim) nil
-                                  (values nil 0)))))
+                                  (values nil 0)
+                                  )
+                                ;; (error (c)
+                                ;;   (cl-mpm:sim-format sim t "A non simulation error was thrown!")
+                                ;;   (princ c)
+                                ;;   (cl-mpm::reset-loadstep sim)
+                                ;;   (cl-mpm::sim-run-sim sim) nil
+                                ;;   (return-from run-adaptive-load-control)
+                                ;;   (values nil 0))
+                                )))
                        (let ((quasi-conv nil))
                          (loop for i from 0 to max-adaptive-steps
                                while (not quasi-conv)

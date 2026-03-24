@@ -505,16 +505,23 @@ Calls the function with the mesh mp and node"
         (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 1d0)
                                                         (the double-float (cl-mpm/mesh:mesh-resolution mesh))))))))
     (declare (dynamic-extent node-id))
-    (loop for dx fixnum from (- node-reach) to node-reach
-          do (loop for dy fixnum from (- node-reach) to node-reach
-                   do
-                      (loop for dz fixnum from (- node-reach) to node-reach
-                            do
-                               (let ((idx (mapcar #'+ node-id (list dx dy dz))))
-                                 (declare (dynamic-extent idx))
-                                 (when (cl-mpm/mesh:in-bounds mesh idx)
-                                   (let ((node (cl-mpm/mesh:get-node mesh idx)))
-                                     (funcall func mesh mp node)))))))))
+    (destructuring-bind (ix iy iz) node-id
+      (declare (fixnum ix iy iz))
+      (loop for dx fixnum from (- node-reach) to node-reach
+            do
+               (when (cl-mpm/mesh::in-bounds-1d mesh (+ ix dx) 0)
+                 (loop for dy fixnum from (- node-reach) to node-reach
+                       do
+                          (when (cl-mpm/mesh::in-bounds-1d mesh (+ iy dy) 1)
+                            (loop for dz fixnum from (- node-reach) to node-reach
+                                  do
+                                     (when (cl-mpm/mesh::in-bounds-1d mesh (+ iz dz) 2)
+                                       (let ((idx (list (+ ix dx)
+                                                        (+ iy dy)
+                                                        (+ iz dz))))
+                                         (declare (dynamic-extent idx))
+                                         (let ((node (cl-mpm/mesh:get-node mesh idx)))
+                                           (funcall func mesh mp node))))))))))))
 
 (defparameter *enable-reflect-x* nil)
 (defparameter *enable-reflect-y* nil)

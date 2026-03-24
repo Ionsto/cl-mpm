@@ -178,6 +178,16 @@
        (filter-cell mesh cell dt)
        (update-cell mesh cell dt)))))
 
+(defgeneric update-filtered-cells (sim))
+(defmethod update-filtered-cells (sim)
+  (with-accessors ((mesh sim-mesh)
+                   (dt sim-dt))
+      sim
+    (iterate-over-cells
+     mesh
+     (lambda (cell)
+       (update-cell mesh cell dt)))))
+
 (defgeneric update-nodes (sim))
 (defmethod update-nodes (sim)
   (with-accessors ((mesh sim-mesh)
@@ -488,8 +498,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   (declare (cl-mpm/mesh::mesh mesh))
   (with-accessors ((nodes  mesh-nodes)
                    (nD     mesh-nD)
-                   (mc     mesh-count)) mesh
-                                        ;each bc is a list (pos value)
+                   )
+      mesh
     (lparallel:pdotimes (i (length bcs))
       (let ((bc (aref bcs i)))
         (when bc

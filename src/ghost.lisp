@@ -100,18 +100,6 @@
                         (get-node-trial-position (cl-mpm/mesh:get-node
                                                      mesh
                                                      end)))))))
-    ;; (format t "~A ~A ~A~%" normal root end)
-    ;; (format t "Face basis")
-    ;; (pprint face-basis)
-    ;; (format t "~%")
-    ;; (format t "Midpoint")
-    ;; (pprint midpoint)
-    ;; (format t "~%")
-    ;; (loop for gp in (list 0d0)
-    ;;       do (progn
-    ;;            (let ((gp-loc midpoint)
-    ;;                  (gp-weight 2d0))
-    ;;              (funcall func gp-loc gp-weight normal normal-trial length))))
     ;;2 GPs
     (let* ((nd (cl-mpm/mesh::mesh-nd mesh))
            (J (expt 2 (- nd 1))))
@@ -121,8 +109,7 @@
                                 midpoint
                                 (magicl:scale face-basis (/ (* gp 0.5d0 h) (sqrt 3)))))
                        (gp-weight 1d0))
-                   (funcall func gp-loc (* gp-weight 1d0) normal normal-trial length)))))
-    ))
+                   (funcall func gp-loc (* gp-weight 1d0) normal normal-trial length)))))))
 
 
 (defun iterate-over-cell-nodes (mesh cell func)

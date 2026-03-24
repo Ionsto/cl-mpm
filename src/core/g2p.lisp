@@ -138,7 +138,6 @@
                            (incf svp-sum svp)
                            (cl-mpm/shape-function::@-combi-assemble-dstretch-3d
                             grads
-                            ;; (cl-mpm::gradient-push-forwards-cached grads df-inc-inv)
                             node-vel vel-grad)
                            ;; (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-vel vel-grad)
                            ;;With special operations we want to include this operation

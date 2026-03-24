@@ -323,6 +323,8 @@
      :initform 0d0
      )))
 
+
+(deftype array-fixnum-3 () '(simple-array fixnum (3)))
 (defclass mesh ()
   ((nodes
     :accessor mesh-nodes
@@ -333,6 +335,10 @@
    (mesh-count
     :accessor mesh-count
     :initarg :mesh-count)
+   (mesh-count-array
+    :accessor mesh-count-array
+    :type array-fixnum-3 
+    :initform (coerce  #(0 0 0) 'array-fixnum-3))
    (mesh-size
     :accessor mesh-mesh-size
     :initarg :mesh-size)
@@ -352,6 +358,14 @@
     :accessor mesh-boundary-order
     :initarg :boundary-order))
     (:documentation "MPM computational mesh"))
+
+(defmethod (setf mesh-count) :after (value (mesh mesh))
+  (setf (mesh-count-array mesh) (make-array 3 :initial-element 0 :element-type 'fixnum))
+  (loop for v in value
+        for i from 0
+        do (setf (aref (mesh-count-array mesh) i) v)))
+(defmethod initialize-instance :after ((mesh mesh) &key)
+  (setf (mesh-count mesh) (mesh-count mesh)))
 
 (defclass mesh-subset (mesh)
   ((full-nodes
@@ -616,22 +630,38 @@
            ))
         mesh))))
 
+
+(declaim (inline in-bounds-cell-1d))
+(defun in-bounds-cell-1d (mesh value dim)
+  (declare (fixnum value)
+           ((integer 0 2) dim))
+  "Check a single dimension is inside a mesh"
+  (and (>= value 0) (< value (max 1 (- (the fixnum (aref (the array-fixnum-3 (mesh-count-array mesh)) dim))
+                                       1)))))
+
 (defun in-bounds-cell (mesh index)
   (destructuring-bind (x y z) index
-    (and
-     (and (>= x 0) (< x (max 1 (- (nth 0 (mesh-count mesh)) 1))))
-     (and (>= y 0) (< y (max 1 (- (nth 1 (mesh-count mesh)) 1))))
-     (and (>= z 0) (< z (max 1 (- (nth 2 (mesh-count mesh)) 1))))
-     )))
+    (let ((mc (mesh-count-array mesh)))
+      (declare (array-fixnum-3 mc)
+               (fixnum x y z))
+      (and
+       ;; (and (>= x 0) (< x (max 1 (- (aref mc 0) 1))))
+       ;; (and (>= y 0) (< y (max 1 (- (aref mc 1) 1))))
+       ;; (and (>= z 0) (< z (max 1 (- (aref mc 2) 1))))
+       (in-bounds-cell-1d mesh x 0)
+       (in-bounds-cell-1d mesh y 1)
+       (in-bounds-cell-1d mesh z 2)
+       ))))
 
 (defun query-boundary-shapes (mesh index)
   (not (member index (mesh-boundary-shapes mesh) :test #'equal)))
 
 (declaim (inline in-bounds-1d))
 (defun in-bounds-1d (mesh value dim)
-  (declare (fixnum value))
+  (declare (fixnum value)
+           ((integer 0 2) dim))
   "Check a single dimension is inside a mesh"
-  (and (>= value 0) (< value (the fixnum (nth dim (mesh-count mesh))))))
+  (and (>= value 0) (< value (the fixnum (aref (the array-fixnum-3 (mesh-count-array mesh)) dim)))))
 (declaim
  (inline in-bounds)
  (ftype (function(mesh list) boolean) in-bounds))
@@ -641,21 +671,20 @@
   "Check a position (list) is inside a mesh"
   (destructuring-bind (x y z) pos
     (declare (fixnum x y z))
-    (let ((mc (mesh-count mesh)))
+    (let ((mc (mesh-count-array mesh)))
       (declare (fixnum x y)
-               (list mc))
-      (and (>= x 0) (< x (the fixnum (nth 0 mc)))
-           (>= y 0) (< y (the fixnum (nth 1 mc)))
-           (>= z 0) (< z (the fixnum (nth 2 mc)))
+               (array-fixnum-3 mc))
+      (and (>= x 0) (< x (the fixnum (aref mc 0)))
+           (>= y 0) (< y (the fixnum (aref mc 1)))
+           (>= z 0) (< z (the fixnum (aref mc 2)))
            ))))
 (declaim (ftype (function (mesh (simple-array fixnum))) in-bounds-array))
 (defun in-bounds-array (mesh pos)
   (declare (type (simple-array fixnum) pos))
   "Check a position (list) is inside a mesh"
-  (in-bounds mesh (list (aref pos 0)
-                        (aref pos 1)
-                        (aref pos 2)))
-  )
+  (and (in-bounds-1d mesh (aref pos 0) 0)
+       (in-bounds-1d mesh (aref pos 1) 1)
+       (in-bounds-1d mesh (aref pos 2) 2)))
 
 (defun in-bounds-mp (mesh pos)
   (declare (optimize (speed 3))
@@ -663,13 +692,14 @@
   "Check a position (list) is inside a mesh"
   (destructuring-bind (x y z) pos
     (declare (fixnum x y z))
-    (let ((mc (mesh-count mesh))
+    (let ((mc (mesh-count-array mesh))
           (h (mesh-resolution mesh)))
       (declare (fixnum x y)
-               (list mc))
-      (and (>= x 0) (<= x (* h (the fixnum (nth 0 mc))))
-           (>= y 0) (<= y (* h (the fixnum (nth 1 mc))))
-           (>= z 0) (<= z (* h (the fixnum (nth 2 mc))))))))
+               (double-float h)
+               (array-fixnum-3 mc))
+      (and (>= x 0) (<= x (* h (the fixnum (aref mc 0))))
+           (>= y 0) (<= y (* h (the fixnum (aref mc 1))))
+           (>= z 0) (<= z (* h (the fixnum (aref mc 2))))))))
 
 (declaim
  (inline position-to-index-array)

@@ -324,8 +324,7 @@
       (let* ((dist-vec (cl-mpm/fastmaths::fast-.*
                         (magicl:@ transform-matrix (magicl:.- pos-vec pos))
                         (cl-mpm/utils:vector-from-list (list 1d0 aspect 1d0))))
-             (distance (sqrt (magicl:tref (magicl:@ (magicl:transpose dist-vec)
-                                                    dist-vec) 0 0))))
+             (distance (cl-mpm/fastmaths:mag dist-vec)))
         (- distance x-l)))))
 
 (defun circle-sdf (position radius)

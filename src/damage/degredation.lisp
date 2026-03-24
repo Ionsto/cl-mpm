@@ -22,8 +22,10 @@
              (cl-mpm/particle::compute-p-modulus mp))))))
 
 (defun apply-tensile-stress-degredation (mp)
-  (with-accessors ((damage        cl-mpm/particle::mp-damage)
-                   (stress        cl-mpm/particle::mp-stress)
+  (with-accessors ((damage cl-mpm/particle::mp-damage)
+                   (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
+                   (stress cl-mpm/particle::mp-stress)
+                   (def cl-mpm/particle::mp-deformation-gradient)
                    (enable-damage cl-mpm/particle::mp-enable-damage)
                    (p-mod cl-mpm/particle::mp-p-modulus-0)
                    (e cl-mpm/particle::mp-e)
@@ -32,6 +34,8 @@
       mp
     (let ()
       (when (> damage 0.0d0)
+        (cl-mpm/utils::copy-into undamaged-stress stress)
+        (cl-mpm/fastmaths:fast-scale! stress (/ 1d0 (cl-mpm/fastmaths:det-3x3 def)))
         (multiple-value-bind (l v) (cl-mpm/utils::eig
                                     (voight-to-matrix
                                      stress))
@@ -41,14 +45,14 @@
                   do (let* ((sii (nth i l)))
                        (when (> sii 0d0)
                          ;;Tensile damage -> unbounded
-                         (setf (nth i l) (* sii (max 1d-9 degredation))))))
+                         (setf (nth i l) (* sii degredation)))))
             (setf stress
                   (cl-mpm/utils:matrix-to-voight
                    (magicl:@
                     v
                     (cl-mpm/utils::matrix-diag l)
-                    (magicl:transpose v))))
-            ))))))
+                    (magicl:transpose v))
+                   stress))))))))
 
 (defun apply-tensile-strain-degredation (mp)
   (with-accessors ((damage        cl-mpm/particle::mp-damage)
@@ -70,13 +74,7 @@
                      ;;Tensile damage -> unbounded
                      (when (> sii 0d0)
                        (setf (nth i l) (* (nth i l)
-                                          (- 1d0 damage)
-                                          ;; (max 1d-6 degredation)
-                                          )))
-                     ;; (when (< esii 0d0)
-                     ;;   (setf (nth i l) (* esii (max 1d-1 degredation)))
-                     ;;   )
-                     ))
+                                          (- 1d0 damage))))))
           ;; (pprint strain)
           (let ((strain+ (cl-mpm/utils:matrix-to-voigt
                           (magicl:@
@@ -85,10 +83,6 @@
                            (magicl:transpose v)))))
             ;; (pprint strain+)
             (setf stress
-                  ;; (magicl:@
-                  ;;  de
-                  ;;  strain+
-                  ;;  )
                   (cl-mpm/constitutive::linear-elastic-mat
                    (cl-mpm/utils:matrix-to-voigt
                     (magicl:@
@@ -96,8 +90,7 @@
                      (cl-mpm/utils::matrix-diag l)
                      (magicl:transpose v)))
                    de
-                   stress)
-                  )
+                   stress))
             (cl-mpm/fastmaths:fast-scale! stress (* 1d0 (cl-mpm/fastmaths:det-3x3 def)))))))))
 
 
@@ -223,6 +216,51 @@
                     (* (- 1d0 (expt damage-t exponent)) K)
                     (* (- 1d0 (expt damage-c exponent)) K)))
           (setf G (* G (- 1d0 (expt damage-s exponent))))
+          (setf p-mod (max (* P-0 1d-9) (+ K (* 4/3 G)))))))))
+
+(defun apply-tcs-strain-degredation (mp)
+  (with-accessors ((damage        cl-mpm/particle::mp-damage)
+                   (damage-t      cl-mpm/particle::mp-damage-tension)
+                   (damage-c      cl-mpm/particle::mp-damage-compression)
+                   (damage-s      cl-mpm/particle::mp-damage-shear)
+                   (stress-u      cl-mpm/particle::mp-undamaged-stress)
+                   (stress        cl-mpm/particle::mp-stress)
+                   (strain        cl-mpm/particle::mp-strain)
+                   (p-mod         cl-mpm/particle::mp-p-modulus-0)
+                   (def cl-mpm/particle::mp-deformation-gradient)
+                   (E cl-mpm/particle::mp-e)
+                   (nu cl-mpm/particle::mp-nu)
+                   (de cl-mpm/particle::mp-elastic-matrix)
+                   (enable-damage cl-mpm/particle::mp-enable-damage))
+      mp
+    (declare (double-float damage damage-t damage-c damage-s))
+    (when (and
+           enable-damage
+           (> damage 0.0d0))
+      (let* ((ep (/ (cl-mpm/constitutive::voight-trace strain) 3d0))
+             (pind ep)
+             (es (cl-mpm/constitutive::deviatoric-voigt strain)))
+        (declare (double-float damage-t damage-c damage-s))
+        (setf ep
+              (if (> pind 0d0)
+                  (* (- 1d0 damage-t) ep)
+                  (* (- 1d0 damage-c) ep)))
+        (setf stress
+              (cl-mpm/constitutive::linear-elastic-mat
+               (cl-mpm/fastmaths:fast-.+
+                (cl-mpm/constitutive::voight-eye ep)
+                (cl-mpm/fastmaths:fast-scale! es (- 1d0 damage-s)))
+               de
+               stress
+               ))
+        (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
+               (G (/ e (* 2 (+ 1d0 nu))))
+               (P-0 (+ K (* 4/3 G))))
+          (setf K
+                (if (> pind 0d0)
+                    (* (- 1d0 damage-t) K)
+                    (* (- 1d0 damage-c) K)))
+          (setf G (* G (- 1d0 damage-s)))
           (setf p-mod (max (* P-0 1d-9) (+ K (* 4/3 G)))))))))
 
 (defun est-shear-from-angle (angle angle-r rc)

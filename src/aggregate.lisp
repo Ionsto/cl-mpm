@@ -51,13 +51,18 @@
       sim
     (with-accessors ((index cl-mpm/mesh::node-index))
         node
-      (loop for dx from (- (+ ring-size 1)) to ring-size
-            do
-               (loop for dy from (- (+ ring-size 1)) to ring-size
-                     do
-                        (let ((cell-index (mapcar #'+ index (list dx dy 0))))
-                          (when (cl-mpm/mesh::in-bounds-cell mesh cell-index)
-                            (funcall func (cl-mpm/mesh::get-cell mesh cell-index)))))))))
+      (destructuring-bind (ix iy iz) index
+        (declare (fixnum ix iy)
+                 (ignore iz))
+        (loop for dx from (- (+ ring-size 1)) to ring-size
+              do
+                 (when (cl-mpm/mesh::in-bounds-cell-1d mesh (+ ix dx) 0)
+                   (loop for dy from (- (+ ring-size 1)) to ring-size
+                         do
+                            (when (cl-mpm/mesh::in-bounds-cell-1d mesh (+ iy dy) 1)
+                              (let ((cell-index (mapcar #'+ index (list dx dy 0))))
+                                ;; (when (cl-mpm/mesh::in-bounds-cell mesh cell-index))
+                                (funcall func (cl-mpm/mesh::get-cell mesh cell-index)))))))))))
 
 (defun iterate-over-cell-patch-3d (sim node ring-size func)
   (declare (function func))
@@ -65,15 +70,19 @@
       sim
     (with-accessors ((index cl-mpm/mesh::node-index))
         node
-      (loop for dx from (- ring-size 1) to ring-size
-            do
-               (loop for dy from (- ring-size 1) to ring-size
-                     do
-                        (loop for dz from (- ring-size 1) to ring-size
-                              do
-                                 (let ((cell-index (mapcar #'+ index (list dx dy dz))))
-                                   (when (cl-mpm/mesh::in-bounds-cell mesh cell-index)
-                                     (funcall func (cl-mpm/mesh::get-cell mesh cell-index))))))))))
+      (destructuring-bind (ix iy iz) index
+        (loop for dx from (- ring-size 1) to ring-size
+              do
+                 (when (cl-mpm/mesh::in-bounds-cell-1d mesh (+ ix dx) 0)
+                   (loop for dy from (- ring-size 1) to ring-size
+                         do
+                            (when (cl-mpm/mesh::in-bounds-cell-1d mesh (+ iy dy) 1)
+                              (loop for dz from (- ring-size 1) to ring-size
+                                    do
+                                       (when (cl-mpm/mesh::in-bounds-cell-1d mesh (+ iz dz) 2)
+                                         (let ((cell-index (mapcar #'+ index (list dx dy dz))))
+                                           ;; (when (cl-mpm/mesh::in-bounds-cell mesh cell-index))
+                                           (funcall func (cl-mpm/mesh::get-cell mesh cell-index)))))))))))))
 
 (defun iterate-over-cell-patch (sim node ring-size func)
   (declare (function func))
