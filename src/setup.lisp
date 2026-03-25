@@ -231,9 +231,8 @@
                     (* res (+ (/ 1 (* 2 mps)))))
                       position))
 
-
-(defun remove-sdf (sim sdf &key (index nil)
-                             (refine 0))
+(defun refine-sdf (sim sdf &key (index nil)
+                             (refine 1))
 
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
@@ -262,7 +261,60 @@
                            (setf value (or value (apply-sdf-pos pos mp)))
                            (setf not-partial (and not-partial (apply-sdf-pos pos mp))))))
                       (when (and value (not not-partial))
-                        dir))))))
+                        dir)))))))))
+
+(defun remove-sdf (sim sdf &key (index nil)
+                             (refine 0))
+
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (flet ((apply-sdf-pos (pos mp)
+             (and
+              (< (funcall sdf pos) 0)
+              (if index
+                  (= (cl-mpm/particle::mp-index mp) index)
+                  t))))
+      (dotimes (i refine)
+        ;; (cl-mpm::split-mps-criteria
+        ;;  sim
+        ;;  (lambda (mp h)
+        ;;    (let ((value nil)
+        ;;          (not-partial t))
+        ;;      (when (or (not index) (= index index))
+        ;;        (with-accessors ((pos cl-mpm/particle:mp-position)
+        ;;                         (domain-size cl-mpm/particle::mp-domain-size)
+        ;;                         (index cl-mpm/particle::mp-index))
+        ;;            mp
+        ;;          (let ((max-domain-size (max
+        ;;                                  (cl-mpm/utils::get-vector domain-size :x)
+        ;;                                  (cl-mpm/utils::get-vector domain-size :y)
+        ;;                                  (cl-mpm/utils::get-vector domain-size :z))))
+        ;;            (setf value (< (funcall sdf pos mp) max-domain-size))
+        ;;            (setf not-partial (< (funcall sdf pos mp) (- max-domain-size))))
+        ;;          ))
+        ;;      (if (and value (not not-partial))
+        ;;          :xy
+        ;;          nil))))
+        (loop for j from 0 below (cl-mpm/mesh:mesh-nd mesh)
+              for dir in (list :x :y :z)
+              do
+                 (cl-mpm::split-mps-criteria
+                  sim
+                  (lambda (mp h)
+                    (let ((value nil)
+                          (not-partial t))
+                      (with-accessors ((pos cl-mpm/particle:mp-position)) mp
+                        (setf value (or value (apply-sdf-pos pos mp)))
+                        (setf not-partial (and not-partial (apply-sdf-pos pos mp)))
+                        (cl-mpm:iterate-over-corners
+                         mesh
+                         mp
+                         (lambda (pos)
+                           (setf value (or value (apply-sdf-pos pos mp)))
+                           (setf not-partial (and not-partial (apply-sdf-pos pos mp))))))
+                      (when (and value (not not-partial))
+                        dir)))))
+        )
       (cl-mpm::remove-mps-func
        sim
        (lambda (mp)
@@ -310,10 +362,10 @@
             (max (varef dist-vec 0)
                  (varef dist-vec 1)))))))
 
-(defun guassian-sdf (position sigma shift)
+(defun guassian-sdf (position sigma shift  &key (transform-matrix (cl-mpm/utils:matrix-eye 1d0)))
   (let ((pos-vec (cl-mpm/utils:vector-from-list position)))
     (lambda (pos)
-      (let* ((dist-vec (magicl:.- pos-vec pos))
+      (let* ((dist-vec (magicl:@ transform-matrix (magicl:.- pos-vec pos)))
              (distance (cl-mpm/fastmaths::mag dist-vec)))
         (- (exp (- (expt (/ distance (* (sqrt 2) sigma)) 2))) shift)))))
 

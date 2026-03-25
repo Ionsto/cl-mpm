@@ -1,47 +1,18 @@
-(defpackage :cl-mpm/examples/damage/biaxial
+(defpackage :cl-mpm/examples/damage/triaxial
   (:use :cl
    :cl-mpm/example
         :cl-mpm/utils))
-(in-package :cl-mpm/examples/damage/biaxial)
+(in-package :cl-mpm/examples/damage/triaxial)
 
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-;; (defmethod cl-mpm/dynamic-relaxation::damage-increment-criteria ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
-;;   (cl-mpm/dynamic-relaxation::damage-increment-criteria sim))
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
+(setf cl-mpm/settings::*optimise-setting* cl-mpm/settings::*optimise-speed*)
 
 (declaim (notinline plot-domain))
-
-
-(defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-plastic-damage-frictional) dt)
-  (with-accessors ((strain cl-mpm/particle::mp-strain)
-                   (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
-                   (E cl-mpm/particle::mp-e)
-                   (de cl-mpm/particle::mp-elastic-matrix)
-                   (y cl-mpm/particle::mp-damage-y-local)
-                   (angle cl-mpm/particle::mp-friction-angle)
-                   (def cl-mpm/particle::mp-deformation-gradient)
-                   (model cl-mpm/particle::mp-friction-model)
-                   (pd-inc cl-mpm/particle::mp-plastic-damage-evolution)
-                   (ps-vm cl-mpm/particle::mp-strain-plastic-vm)
-                   )
-      mp
-    (let ((stress
-            undamaged-stress
-            ;; (cl-mpm/fastmaths:fast-scale-voigt undamaged-stress (/ 1d0 (cl-mpm/fastmaths:det-3x3 def)))
-                  )
-          (ps-y (sqrt (* E (expt ps-vm 2))))
-          )
-      (setf
-       y
-       (+
-        (if pd-inc ps-y 0d0)
-        (ecase model
-          (:SE (cl-mpm/damage::tensile-energy-norm strain e de))
-          (:DP (cl-mpm/damage::drucker-prager-criterion stress angle))
-          (:MC (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress angle))
-          (:MCR (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress angle))
-          ))))))
 
 
 (defun plot-domain ()
@@ -72,13 +43,15 @@
          (height 170d-3)
          (h (/ 0.01d0 refine))
          (offset width)
-         (domain-height (* height 1.25))
+         (domain-height (* height 1.25d0))
          (density 1d3)
          (E 1.3d7)
          (nu 0.30d0)
-         (domain-size (list (* 3 width) domain-height))
+         (domain-size (list (* 3 width)
+                            domain-height
+                            (* 3 width)))
          (element-count (mapcar (lambda (x) (round x h)) domain-size))
-         (block-size (list width height)))
+         (block-size (list width height width)))
     (format t "Mesh size ~E~%" h)
     (setf
      *sim*
@@ -90,20 +63,22 @@
       ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
       :args-list
       (list
-       ;; :enable-aggregate t
-       ;; :ghost-factor nil
        :enable-aggregate nil
-       :ghost-factor (* E 1d-2)
+       :ghost-factor nil
+       :mass-update-count 1
+       ;; :enable-aggregate nil
+       ;; :ghost-factor (* E 1d-2)
+       ;; :enable-aggregate nil
+       ;; :ghost-factor nil
        :enable-split t
-       :max-split-depth 8
+       :max-split-depth 2
        :enable-fbar enable-fbar
        ;; :refinement multigrid-refines
        )))
 
     (setf h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
     (let* ((init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 40d3 angle))
-           ;; (L 10d-3)
-           (L h)
+           (L 10d-3)
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf L init-stress E)))
       (format t "Ductility ~E~%" ductility)
       (assert (> ductility 1d0))
@@ -112,7 +87,7 @@
       (cl-mpm:add-mps
        *sim*
        (cl-mpm/setup:make-block-mps
-        (list width 0d0)
+        (list offset 0d0 offset)
         block-size
         (mapcar (lambda (e) (* (/ e h) mps)) block-size)
         density
@@ -136,12 +111,12 @@
         :friction-angle (cl-mpm/utils:deg-to-rad angle)
         :residual-friction (cl-mpm/utils:deg-to-rad angle-r)
         :initiation-stress init-stress
-        :friction-model :MC
+        :friction-model :DP
         :oversize oversize-factor
         :kt-res-ratio kt
         :kc-res-ratio kc
         :psi 0d0
-        :plastic-damage-evolution nil
+        :plastic-damage-evolution t
 
 
         ;; 'cl-mpm/particle::particle-vm
@@ -160,54 +135,45 @@
         ;; :c 1d5
         )
        ))
-    (let ((angle 10d0)
-          (scale 1d0)
+    (let ((angle 45d0)
+          (scale 1.5d0)
           )
-      ;; (cl-mpm/setup::remove-sdf
-      ;;  *sim*
-      ;;  (cl-mpm/setup::ellipse-sdf
-      ;;   (list (* width 1.5d0) (* height 0.5d0) 0d0)
-      ;;   (* 8d-3 scale)
-      ;;   (* 2d-3 scale)
-      ;;   :transform-matrix (cl-mpm/utils::rotation-matrix angle)
-      ;;   )
-      ;;  :refine 1
-      ;;  )
-      ;; (cl-mpm/setup::apply-sdf
-      ;;  *sim*
-      ;;  (cl-mpm/setup::guassian-sdf
-      ;;   (list (* width 1.5d0) (* height 0.5d0) 0d0)
-      ;;   ;;Size
-      ;;   4d-3
-      ;;   ;;Cutoff
-      ;;   1d-3
-      ;;   :transform-matrix (magicl:@
-      ;;                      (cl-mpm/utils::rotation-matrix angle)
-      ;;                      (cl-mpm/utils::matrix-diag (list 1d0 4d0 1d0)))
-      ;;   )
-      ;;  (lambda (mp sdf)
-      ;;    ;; (setf (cl-mpm/particle::mp-damage mp) sdf)
-      ;;    (when (>= sdf 0d0)
-      ;;      ;; (pprint sdf)
-      ;;      ;; (setf (cl-mpm/particle::mp-damage mp) sdf)
-      ;;      (cl-mpm/damage::set-mp-damage mp sdf)
-      ;;      )
-      ;;    )
-      ;;  )
       (cl-mpm/setup::remove-sdf
        *sim*
-       (cl-mpm/setup::ellipse-sdf
-        (list (* width 1.5d0) (* height 0.5d0) 0d0)
-        (* 4d-3 scale)
-        (* 1d-3 scale))
-       :transform-matrix (cl-mpm/utils::rotation-matrix angle)
-       :refine 2)
+       (lambda (p)
+         (-
+          (funcall
+           (cl-mpm/setup::circle-sdf
+            (list (* width 1.5d0)
+                  0d0
+                  (* width 1.5d0)
+                  )
+            (* 0.5d0 width))
+           (cl-mpm/fastmaths:fast-.*
+            p
+            (cl-mpm/utils:vector-from-list (list 1d0 0d0 1d0))))))
+       :refine 1)
+
+      (cl-mpm/setup::apply-sdf
+       *sim*
+       (cl-mpm/setup::guassian-sdf
+        (list (* width 1.5d0) (* height 0.5d0) (* width 1.5d0))
+        10d-3
+        1d-3)
+       (lambda (mp sdf)
+         ;; (setf (cl-mpm/particle::mp-damage mp) sdf)
+         (when (>= sdf 0d0)
+           ;; (pprint sdf)
+           ;; (setf (cl-mpm/particle::mp-damage mp) sdf)
+           (cl-mpm/damage::set-mp-damage mp sdf)
+           )
+         ))
       ;; (cl-mpm/setup::apply-sdf
       ;;  *sim*
       ;;  (cl-mpm/setup::ellipse-sdf
       ;;   (list (* width 1.5d0) (* height 0.5d0) 0d0)
       ;;   (* 4d-3 scale)
-      ;;   (* 1d-3 scale))
+      ;;   (* 4d-3 scale))
       ;;   (lambda (mp sdf)
       ;;     (when (<= sdf 0d0)
       ;;       (pprint sdf)
@@ -216,17 +182,17 @@
 
 
     (setf (cl-mpm::sim-gravity *sim*) 0d0)
-    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-15)
+    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-3)
     (cl-mpm/setup::setup-bcs
      *sim*
-     :left '(0 nil nil)
-     :right '(0 nil nil)
+     ;; :left '(0 nil nil)
+     ;; :right '(0 nil nil)
      :bottom '(nil 0 nil))
-    (cl-mpm::add-bcs
-     *sim*
-     (cl-mpm/bc::make-bc-fixed
-      (list (round offset h) 0 0)
-      '(0 0 nil)))
+    ;; (cl-mpm::add-bcs
+    ;;  *sim*
+    ;;  (cl-mpm/bc::make-bc-fixed
+    ;;   (list (round offset h) 0 (round (+ (* 0.5d0 width) offset) h))
+    ;;   '(0 0 0)))
 
     (let* ((friction 0d0)
            (epsilon-scale 1d1)
@@ -338,30 +304,31 @@
       :enable-damage t
       :damping (sqrt 1d0)
       :min-adaptive-steps 0
-      :max-adaptive-steps 10
+      :max-adaptive-steps 5
       :adaption-constant 4
-      :max-damage-inc 0.10d0
-      :min-damage-inc 0.001d0
-      :substeps (* refine 50)
+      :max-damage-inc 0.50d0
+      :min-damage-inc 0.05d0
+      :substeps (round (* refine 10))
       :criteria 1d-3
       :save-vtk-dr t
       :save-vtk-loadstep t
       :dt-scale 1d0))))
 
 (defun test ()
-  (dolist (refine (list 1))
-    (setup :mps 3
-           :refine refine
-           :enable-fbar t
+  (dolist (refine (list 2))
+    (setup :mps 2 :refine refine :enable-fbar t :multigrid-refines 0
            :angle 30d0
            :angle-r 0d0
-           :gf 1000d0
-           :kt (- 1d0 1d-6)
+           :gf 100d0
            )
     ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
     ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
-    (run :output-dir (format nil "./output-tcs-~D/" refine)
+    (run :output-dir (format nil "./output-~D/" refine)
          :refine refine))
+  ;; (save-csv "./examples/fbar/rigid-footing/" (format nil "data_fbaradjust_~A.csv" t) *data-disp* *data-load*)
+  ;; (dolist (fbar (list t nil))
+  ;;   (save-csv "./examples/fbar/rigid-footing/" (format nil "data_fbar_~A.csv" fbar) *data-disp* *data-load*)
+  ;;   )
   )
 
 (defun test-oversize ()
@@ -410,34 +377,19 @@
            :enable-plastic nil
            )))
   )
-
-(defun test-degredation ()
-  (let ((refine 2)
-        (mps 3))
-    (dolist (particle (list
-                       ;; 'cl-mpm/particle::particle-fpd-isotropic
-                       'cl-mpm/particle::particle-fpd-tcs
-                       ;; 'cl-mpm/particle::particle-fpd-isotropic
-                       ;; 'cl-mpm/particle::particle-fpd-tcs-strain
-                       ;; 'cl-mpm/particle::particle-fpd-spectral
-                       ;; 'cl-mpm/particle::particle-fpd-spectral-strain
-                       ))
-      (setup :mps mps
-             :refine refine
-             :enable-fbar t
-             :multigrid-refines 0
-             :gf 10d0
-             :angle 15d0
-             :angle-r 10d0
-             :oversize-factor (- 1d0 1d-3)
-             ;; :kt (- 1d0 1d-3)
-             )
-      (cl-mpm::iterate-over-mps
-       (cl-mpm:sim-mps *sim*)
-       (lambda (mp)
-         (change-class mp particle)))
-      (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
-      ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
-      (run :output-dir (format nil "./output-~D-~A/" refine particle)
-           :refine refine
-           :enable-plastic t))))
+;; (defun profile ()
+;;   (setup :refine 0.5 :mps 2)
+;;   (cl-mpm::update-sim *sim*)
+;;   (sb-profile:profile "CL-MPM")
+;;   (sb-profile:profile "CL-MPM/PARTICLE")
+;;   (sb-profile:profile "CL-MPM/AGGREGATE")
+;;   (sb-profile:profile "CL-MPM/MESH")
+;;   (sb-profile:profile "CL-MPM/SHAPE-FUNCTION")
+;;   (sb-profile:profile "CL-MPM/DAMAGE")
+;;   (sb-profile:reset)
+;;   (setf (cl-mpm::sim-enable-damage *sim*) nil)
+;;   (time
+;;    (dotimes (i 10)
+;;      (cl-mpm::update-sim *sim*)))
+;;   (sb-profile:report)
+;;   )

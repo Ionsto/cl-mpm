@@ -789,12 +789,13 @@
                    (model cl-mpm/particle::mp-friction-model)
                    (pd-inc cl-mpm/particle::mp-plastic-damage-evolution)
                    (ps-vm cl-mpm/particle::mp-strain-plastic-vm)
+                   (de cl-mpm/particle::mp-elastic-matrix)
                    )
       mp
     (let ((stress
             undamaged-stress
             ;; (cl-mpm/fastmaths:fast-scale-voigt undamaged-stress (/ 1d0 (cl-mpm/fastmaths:det-3x3 def)))
-                  )
+            )
           (ps-y (sqrt (* E (expt ps-vm 2))))
           )
       (setf
@@ -802,5 +803,34 @@
        (+
         (if pd-inc ps-y 0d0)
         (ecase model
+          (:SE (cl-mpm/damage::tensile-energy-norm strain e de))
           (:DP (cl-mpm/damage::drucker-prager-criterion stress angle))
           (:MC (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress angle))))))))
+
+;;A range of test cases that are used in the thesis
+
+
+
+(defclass cl-mpm/particle::particle-fpd-isotropic (cl-mpm/particle::particle-plastic-damage-frictional)
+  ())
+(defclass cl-mpm/particle::particle-fpd-tcs (cl-mpm/particle::particle-plastic-damage-frictional)
+  ())
+(defclass cl-mpm/particle::particle-fpd-spectral (cl-mpm/particle::particle-plastic-damage-frictional)
+  ())
+
+(defclass cl-mpm/particle::particle-fpd-spectral-strain (cl-mpm/particle::particle-plastic-damage-frictional)
+  ())
+
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-fpd-tcs) dt)
+  (cl-mpm/damage::apply-tcs-degredation mp))
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-fpd-spectral) dt)
+  ;; (setf (cl-mpm/particle::mp-damage mp) (cl-mpm/particle::mp-damage-tension mp))
+  (cl-mpm/damage::apply-tensile-stress-degredation mp))
+
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-fpd-spectral-strain) dt)
+  (setf (cl-mpm/particle::mp-damage mp) (cl-mpm/particle::mp-damage-tension mp))
+  (cl-mpm/damage::apply-tensile-strain-degredation mp))
+
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-fpd-isotropic) dt)
+  (setf (cl-mpm/particle::mp-damage mp) (cl-mpm/particle::mp-damage-tension mp))
+  (cl-mpm/damage::apply-isotropic-degredation mp))

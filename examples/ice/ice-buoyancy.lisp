@@ -90,7 +90,7 @@
                (cl-mpm/fastmaths:fast-.+
                 stress
                 (cl-mpm/utils:voigt-eye (*
-                                         0d0
+                                         1d0
                                          (magicl:det def)
                                          (/ (- pressure) 3))))))
         (setf y
@@ -130,13 +130,13 @@
 
 (defparameter *angle* 40d0)
 (defparameter *angle-r* 10d0)
-(defparameter *angle-psi* 10d0)
-(defparameter *rt* (- 1d0 1d-9))
+(defparameter *angle-psi* 5d0)
+(defparameter *rt* 1d0)
 (defparameter *rc* 0d0)
 (defparameter *rs* 1d0)
 (defparameter *enable-plastic-damage* nil)
 (defparameter *delay-time* 1d4)
-(defparameter *delay-exponent* 2d0)
+(defparameter *delay-exponent* 3d0)
 (defparameter *enable-viscosity* nil)
 (defparameter *length-scaler* 2d0)
 (defparameter *gf* 10000d0)
@@ -197,7 +197,7 @@
                                                 :enable-aggregate t
                                                 :mass-update-count 1
                                                 :split-factor (* 1.2d0 (sqrt 2) (/ 1d0 mps))
-                                                :max-split-depth 2)))
+                                                :max-split-depth 0)))
 
     (setf mesh-resolution (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
     (setf h-fine mesh-resolution)
@@ -514,7 +514,7 @@
          (dt 1d2)
          (H 400d0)
          (density 918d0)
-         (explicit-dt-scale 0.5d0)
+         (explicit-dt-scale 0.9d0)
          (water-damping 2d0)
          (output-dir "./output/"))
     (setup
@@ -529,7 +529,7 @@
      :cryo-static t
      :melange nil
      :aspect 2d0
-     :slope 0.05d0
+     :slope 0.00d0
      :floatation-ratio 0.7d0
      :use-penalty t
      :stick-base nil
@@ -657,7 +657,7 @@
            :melange nil
            :aspect 2d0
            :slope 0d0
-           :floatation-ratio 0.7d0
+           :floatation-ratio 0.70d0
            :use-penalty t
            :stick-base t
            )
@@ -673,16 +673,16 @@
      ;; (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-6)
      ;; (cl-mpm/dynamic-relaxation::sim-convergence-critera *sim*) 1d-3
      )
-    ;; (let ((d 0.9d0))
-    ;;   (cl-mpm:iterate-over-mps
-    ;;    (cl-mpm:sim-mps *sim*)
-    ;;    (lambda (mp)
-    ;;      (let ((k (cl-mpm/damage::find-k-damage-mp mp d)))
-    ;;        (setf (cl-mpm/particle::mp-history-stress mp)
-    ;;              k
-    ;;              (cl-mpm/particle::mp-history-stress-n mp) k
-    ;;              ))
-    ;;      (cl-mpm/damage::compute-damage mp))))
+    (let ((d 0.1d0))
+      (cl-mpm:iterate-over-mps
+       (cl-mpm:sim-mps *sim*)
+       (lambda (mp)
+         (let ((k (cl-mpm/damage::find-k-damage-mp mp d)))
+           (setf (cl-mpm/particle::mp-history-stress mp)
+                 k
+                 (cl-mpm/particle::mp-history-stress-n mp) k
+                 ))
+         (cl-mpm/damage::compute-damage mp))))
 
     (setf lparallel:*debug-tasks-p* nil)
     (setf (cl-mpm::sim-allow-mp-damage-removal *sim*) nil)
@@ -690,7 +690,7 @@
     (setf (cl-mpm/damage::sim-enable-ekl *sim*) nil)
     (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
     (setf (cl-mpm:sim-enable-damage *sim*) nil)
-    (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-9)
+    (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
     (setf (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND)
     ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic)
@@ -701,7 +701,7 @@
        :dt 0.5d0
        :total-time 1d5
        :dt-scale 0.5d0
-       :damping 1d-4
+       :damping 1d-2
        :enable-plastic t
        :enable-damage t
        :conv-criteria 1d-3

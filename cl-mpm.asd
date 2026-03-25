@@ -818,3 +818,8 @@
   :depends-on ("cl-mpm/example")
   :serial t
   :components ((:file "examples/damage/biaxial")))
+(defsystem "cl-mpm/examples/damage/triaxial"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/damage/triaxial")))
+

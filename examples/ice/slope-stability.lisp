@@ -3,6 +3,38 @@
    :cl-mpm/example))
 (in-package :cl-mpm/examples/ice/slope-stability)
 
+
+
+(defclass cl-mpm/particle::particle-fpd-isotropic (cl-mpm/particle::particle-plastic-damage-frictional)
+  ())
+(defclass cl-mpm/particle::particle-fpd-tcs (cl-mpm/particle::particle-plastic-damage-frictional)
+  ())
+(defclass cl-mpm/particle::particle-fpd-tcs-strain (cl-mpm/particle::particle-plastic-damage-frictional)
+  ())
+(defclass cl-mpm/particle::particle-fpd-spectral (cl-mpm/particle::particle-plastic-damage-frictional)
+  ())
+
+(defclass cl-mpm/particle::particle-fpd-spectral-strain (cl-mpm/particle::particle-plastic-damage-frictional)
+  ())
+
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-fpd-tcs) dt)
+  (cl-mpm/damage::apply-tcs-degredation mp))
+
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-fpd-tcs-strain) dt)
+  (cl-mpm/damage::apply-tcs-strain-degredation mp))
+
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-fpd-spectral) dt)
+  ;; (setf (cl-mpm/particle::mp-damage mp) (cl-mpm/particle::mp-damage-tension mp))
+  (cl-mpm/damage::apply-tensile-stress-degredation mp))
+
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-fpd-spectral-strain) dt)
+  (setf (cl-mpm/particle::mp-damage mp) (cl-mpm/particle::mp-damage-tension mp))
+  (cl-mpm/damage::apply-tensile-strain-degredation mp))
+
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-fpd-isotropic) dt)
+  (setf (cl-mpm/particle::mp-damage mp) (cl-mpm/particle::mp-damage-tension mp))
+  (cl-mpm/damage::apply-isotropic-degredation mp))
+
 (declaim (notinline plot-domain))
 (defun plot-domain ()
   (when *sim*
@@ -54,7 +86,7 @@
        :args-list
        (list
         :enable-aggregate nil
-        :ghost-factor (* E 1d-3)
+        :ghost-factor (* E 1d-2)
         ;; :enable-aggregate t
         ;; :ghost-factor nil
         :enable-split nil
@@ -130,6 +162,7 @@
         :kt-res-ratio rt
         :kc-res-ratio rc
         :psi 0d0
+        :plastic-damage-evolution nil
 
         ;; 'cl-mpm/particle::particle-mc
         ;; :E E
@@ -248,8 +281,11 @@
           do (format stream "~E,~E~%" (float disp 0e0) (float load 0e0)))))
 (declaim (notinline run))
 (defun run (&key (output-dir (format nil "./output/"))
-              (csv-dir (format nil "./output/"))
+              (csv-dir nil)
+              (enable-plastic t)
               (csv-filename (format nil "load-disp.csv")))
+  (unless csv-dir
+    (setf csv-dir output-dir))
   (ensure-directories-exist output-dir)
   (ensure-directories-exist csv-dir)
   (let ((eps (cl-mpm/penalty::bc-penalty-epsilon *penalty*)))
@@ -258,8 +294,8 @@
      *sim*
      :elastic-solver (type-of *sim*))
     (setf (cl-mpm/penalty::bc-penalty-epsilon *penalty*) eps))
-  (let* ((lstps 20)
-         (total-disp -1d0)
+  (let* ((lstps 10)
+         (total-disp -0.4d0)
          (current-disp 0d0)
          (disp-0
            (cl-mpm::reduce-over-mps (cl-mpm:sim-mps *sim*)
@@ -298,15 +334,67 @@
         (incf step))
       :load-steps lstps
       :max-adaptive-steps 20
-      :enable-plastic t
+      :enable-plastic enable-plastic
       :enable-damage t
       :damping 1d0;(sort 2d0)
-      :max-damage-inc 0.5d0
+      :max-damage-inc 1.1d0
       :substeps 50
       :criteria 1d-3
       :save-vtk-dr t
       :save-vtk-loadstep t
       :dt-scale 1d0))))
+;; (defun run-gravity (&key (output-dir (format nil "./output/"))
+;;               (csv-dir nil)
+;;               (enable-plastic t)
+;;               (csv-filename (format nil "load-disp.csv")))
+;;   (unless csv-dir
+;;     (setf csv-dir output-dir))
+;;   (ensure-directories-exist output-dir)
+;;   (ensure-directories-exist csv-dir)
+;;   (let* ((lstps 50)
+;;          (gravity -5d0)
+;;          (step 0))
+;;     (setf (cl-mpm::sim-gravity *sim*) gravity)
+;;     (defparameter *data-disp* (list))
+;;     (defparameter *data-load* (list))
+;;     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
+
+;;     (vgplot:close-all-plots)
+;;     (time
+;;      (cl-mpm/dynamic-relaxation::run-adaptive-load-control
+;;       *sim*
+;;       :output-dir output-dir
+;;       ;:plotter (lambda (sim) (plot-load-disp))
+;;       :plotter (lambda (sim) (plot-domain))
+;;       :load-steps lstps
+;;       :max-adaptive-steps 10
+;;       :adaption-constant 2
+;;       :enable-plastic enable-plastic
+;;       :enable-damage t
+;;       :damping 1d0;(sort 2d0)
+;;       :max-damage-inc 1.1d0
+;;       :substeps 20
+;;       :criteria 1d-3
+;;       :post-conv-step
+;;       (lambda (sim)
+;;         (push
+;;          (/
+;;           (cl-mpm::reduce-over-mps
+;;            (cl-mpm:sim-mps *sim*)
+;;            (lambda (mp)
+;;              (cl-mpm/fastmaths:mag (cl-mpm/particle::mp-displacement mp)))
+;;            #'+)
+;;           (length (cl-mpm::sim-mps *sim*)))
+;;          *data-disp*)
+;;         (let ((load (cl-mpm::sim-gravity *sim*)))
+;;           (format t "Load ~E~%" load)
+;;           (push load *data-load*))
+;;         (plot-load-disp)
+;;         (save-csv csv-dir csv-filename *data-disp* *data-load*)
+;;         (incf step))
+;;       :save-vtk-dr t
+;;       :save-vtk-loadstep t
+;;       :dt-scale 1d0))))
 
 (defun test ()
   (setup :mps 3
@@ -331,3 +419,31 @@
 
 
 
+
+(defun test-degredation ()
+  (let ((refine 2)
+        (mps 3))
+    (dolist (particle (list
+                       'cl-mpm/particle::particle-fpd-tcs-strain
+                       'cl-mpm/particle::particle-fpd-tcs
+                       ;; 'cl-mpm/particle::particle-fpd-spectral
+                       ;; 'cl-mpm/particle::particle-fpd-spectral-strain
+                       ;; 'cl-mpm/particle::particle-fpd-isotropic
+                       ))
+      (setup :mps mps
+             :refine refine
+             :oversize-factor (- 1d0 1d-2)
+             :gf 10000d0
+             :l-scale 2d0
+             :angle 16.7d0
+             :angle-r 10d0
+             :rt 1d0)
+      (cl-mpm::iterate-over-mps
+       (cl-mpm:sim-mps *sim*)
+       (lambda (mp)
+         (change-class mp particle)))
+      ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+      (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
+      (ignore-errors
+       (run :output-dir (format nil "./output-ekl-~D-~A/" refine particle)
+                    :enable-plastic nil)))))

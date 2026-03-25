@@ -2,6 +2,7 @@
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
+
 (defmethod cl-mpm/particle::compute-mp-energy-release ((mp cl-mpm/particle::particle-damage))
   (with-accessors ((volume cl-mpm/particle::mp-volume)
                    (stress cl-mpm/particle::mp-undamaged-stress)

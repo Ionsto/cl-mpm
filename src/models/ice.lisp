@@ -213,32 +213,34 @@
           ;; (cl-mpm/fastmaths:fast-.- strain pressure-strain strain)
           ;; (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
           (multiple-value-bind (sig eps-e f inc pmod)
-              ;; (cl-mpm/ext::constitutive-mohr-coulomb
-              ;;  stress-u
-              ;;  de
-              ;;  strain
-              ;;  E
-              ;;  nu
-              ;;  phi
-              ;;  psi
-              ;;  (max 0d0
-              ;;       (+
-              ;;        coheasion
-              ;;        (* pressure
-              ;;           damage-pressure))))
-            (cl-mpm/ext::constitutive-drucker-prager
-             stress-u
-             strain
-             de
-             E
-             nu
-             phi
-             psi
-             (max 0d0
-                  (+
-                   coheasion
-                   (* pressure
-                      damage-pressure))))
+              (cl-mpm/ext::constitutive-mohr-coulomb
+               stress-u
+               de
+               strain
+               E
+               nu
+               phi
+               psi
+               (max 0d0
+                    (+
+                     coheasion
+                     (*
+                      0d0
+                      pressure
+                        damage-pressure))))
+            ;; (cl-mpm/ext::constitutive-drucker-prager
+            ;;  stress-u
+            ;;  strain
+            ;;  de
+            ;;  E
+            ;;  nu
+            ;;  phi
+            ;;  psi
+            ;;  (max 0d0
+            ;;       (+
+            ;;        coheasion
+            ;;        (* pressure
+            ;;           damage-pressure))))
               ;; (cl-mpm/constitutive::vm-plastic stress-u
               ;;                                  de
               ;;                                  strain
