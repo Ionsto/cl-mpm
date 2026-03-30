@@ -35,7 +35,7 @@ for i in folders:
     print("loading folder: ",i)
     mpm = get_load("./{}/disp.csv".format(i))
     if len(mpm["load"]) > 0:
-        plt.plot(mpm["disp"].values*1e3,mpm["load"].values,label=i)
+        plt.plot(mpm["disp"].values*1e3,mpm["load"].values,label=i,marker="x")
         print("GF ",i," :",calculate_gf(mpm["disp"],mpm["load"]))
 plt.xlabel("Displacement (mm)")
 plt.ylabel("Load (N)")
