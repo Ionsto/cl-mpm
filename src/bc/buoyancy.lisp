@@ -1545,8 +1545,7 @@
      (cl-mpm:sim-mps sim)
      (cl-mpm:sim-mesh sim)
      (lambda (pos) (abs (* (max 0d0 (- datum (varef pos 1))) rho (cl-mpm:sim-gravity sim))))
-     clip-func)
-    )
+     clip-func))
   ;; (apply-force-mps-3d mesh mps
   ;;                     (lambda (mp) (calculate-val-mp mp func-stress))
   ;;                     (lambda (mp) (calculate-val-mp mp func-div))

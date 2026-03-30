@@ -1298,11 +1298,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                    (corner (cl-mpm/utils:vector-zeros)))
                                (cl-mpm/fastmaths::fast-.+-vector
                                 position
-                                (magicl:scale!
-                                 (magicl:.*
+                                (cl-mpm/fastmaths::fast-scale!
+                                 (cl-mpm/fastmaths:fast-.*
                                   (vector-from-list (list x y z))
-                                  domain
-                                  ) 0.5d0) corner)
+                                  domain) 0.5d0) corner)
                                (funcall func corner))))))
 
 (declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values)) iterate-over-corners))

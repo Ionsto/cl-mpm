@@ -815,9 +815,11 @@
                    (damage-s      cl-mpm/particle::mp-damage-shear)
                    (stress        cl-mpm/particle::mp-stress)
                    (undamaged-stress-kirchoff cl-mpm/particle::mp-undamaged-stress)
+                   (strain cl-mpm/particle::mp-strain)
                    (p-mod         cl-mpm/particle::mp-p-modulus-0)
                    (E cl-mpm/particle::mp-e)
                    (nu cl-mpm/particle::mp-nu)
+                   (de cl-mpm/particle::mp-elastic-matrix)
                    (def cl-mpm/particle::mp-deformation-gradient)
                    (enable-damage cl-mpm/particle::mp-enable-damage))
       mp
@@ -825,7 +827,9 @@
     (when (and
            enable-damage
            (> damage 0.0d0))
-      (let* ((undamaged-stress (cl-mpm/fastmaths:fast-scale-voigt undamaged-stress-kirchoff (/ 1d0 (magicl:det def))))
+      (let* ((undamaged-stress (cl-mpm/fastmaths:fast-scale-voigt
+                                (cl-mpm/constitutive::linear-elastic-mat strain de)
+                                (/ 1d0 (magicl:det def))))
              (exponent 1)
              (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
              (pind (- p pressure))
@@ -874,8 +878,7 @@
                    (stress cl-mpm/particle::mp-stress)
                    (damage cl-mpm/particle::mp-damage)
                    (enable-damage cl-mpm/particle::mp-enable-damage)
-                   (p-mod cl-mpm/particle::mp-p-modulus)
-                   )
+                   (p-mod cl-mpm/particle::mp-p-modulus))
       mp
     (when enable-damage
       ;; (pprint "hello")
@@ -885,7 +888,7 @@
       (apply-vol-pressure-degredation mp dt (* -1d0
                                                ;; (/ 1d0 (magicl:det def))
                                                (/ p 1)
-                                               damage
+                                               (expt damage 1)
                                                ))
       ;; (let ((pd  (* -1d0
       ;;               (/ p 3)

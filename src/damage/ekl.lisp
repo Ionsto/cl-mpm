@@ -1,4 +1,12 @@
 (in-package :cl-mpm/damage)
+(defun remap-pos (position)
+  (when (and *enable-reflect-x* (< (varef position 0) 0d0))
+    (setf (varef position 0) (* -1d0 (varef position 0))))
+  (when (and *enable-reflect-y* (< (varef position 1) 0d0))
+    (setf (varef position 1) (* -1d0 (varef position 1))))
+  (when (and *enable-reflect-z* (< (varef position 2) 0d0))
+    (setf (varef position 2) (* -1d0 (varef position 2)))))
+
 (declaim
  (notinline diff-damaged)
  (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-damaged))
@@ -10,16 +18,21 @@
            (get-damage (position)
              (let ((damage 0d0)
                    (weight 0d0))
-               (cl-mpm::iterate-over-neighbours-point-linear
-                mesh
-                position
-                (lambda (m node weight grads)
-                  (declare (double-float damage weight))
-                  (if (cl-mpm/mesh::node-active node)
-                    (incf damage
-                          (* (node-dam node)
-                             weight))
-                    (incf damage (* 1d0 weight)))))
+               ;; (when (and *enable-reflect-x* (< (varef position 0) 0d0))
+               ;;   )
+               (let ((true-pos position))
+                 (when (or *enable-reflect-x* *enable-reflect-y* *enable-reflect-z*)
+                   (setf true-pos (remap-pos true-pos)))
+                 (cl-mpm::iterate-over-neighbours-point-linear
+                  mesh
+                  true-pos
+                  (lambda (m node weight grads)
+                    (declare (double-float damage weight))
+                    (if (cl-mpm/mesh::node-active node)
+                        (incf damage
+                              (* (node-dam node)
+                                 weight))
+                        (incf damage (* 1d0 weight))))))
                damage)
              )
            )

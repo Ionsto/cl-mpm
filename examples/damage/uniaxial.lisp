@@ -1,4 +1,4 @@
-(defpackage :cl-mpm/examples/uniaxial
+(defpackage :cl-mpm/examples/damage/uniaxial
   (:use :cl
         :cl-mpm/example))
 (sb-ext:restrict-compiler-policy 'speed  0 0)
@@ -8,7 +8,7 @@
 ;; (sb-ext:restrict-compiler-policy 'debug  0 0)
 ;; (sb-ext:restrict-compiler-policy 'safety 0 0)
 ;; (setf *block-compile-default* t)
-(in-package :cl-mpm/examples/uniaxial)
+(in-package :cl-mpm/examples/damage/uniaxial)
 
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
@@ -47,14 +47,16 @@
                       ;; (/ 1d0 (magicl:det def))
                       )))
         (setf y
-              ;; (cl-mpm/damage::tensile-energy-norm strain E de)
-              (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
+              (cl-mpm/damage::tensile-energy-norm strain E de)
+              ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
               ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
               ;; (cl-mpm/damage::criterion-modified-vm strain k E nu)
               )))))
+
 (declaim (notinline setup))
 (defun setup (&key (refine 1) (mps 2)
                 (epsilon-scale 1d2)
+                (gf 100d0)
                 (gf-scale 1d0)
                 )
   (let* ((h (/ 1d0 refine))
@@ -64,7 +66,6 @@
          (block-size (list L))
          (density 1d3)
          (E 1d9)
-         (gf 100d0)
          (init-stress 1d5)
          (length-scale 1d0)
          (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E gf-scale))
@@ -78,7 +79,7 @@
                  element-count
                  :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
                  :args-list (list :enable-aggregate t
-                                  :enable-fbar nil
+                                  :enable-fbar t
                                   ;; :ghost-factor (* E 1d-3)
                                   )))
     (defparameter *h* h)
@@ -96,6 +97,7 @@
       :initiation-stress init-stress
       :local-length length-scale
       :ductility ductility
+      ;; :residual-strength 1d0
       ))
     (cl-mpm::iterate-over-mps
      (cl-mpm:sim-mps *sim*)
@@ -238,6 +240,64 @@
      :max-damage-inc 1.1d0
      :dt-scale 1d0)))
 
+
+(defun list-interp (p points)
+  (let (;; (points (list 0d0 1d0 -1d0))
+        )
+    (flet ((interp (p0 p1 dx)
+             (+ (* p0 (- 1 dx))
+                (* p1 dx))))
+      (let* ((point-count (- (length points) 1))
+             (point-gap (/ 1d0 point-count))
+             (p0 (floor p point-gap))
+             (p1 (ceiling p point-gap)))
+        (interp (nth p0 points) (nth p1 points) (/ (- p (* p0 point-gap)) point-gap))))))
+
+(defun load-unload (p dist)
+  (list-interp p (list 0d0 dist (- dist))))
+
+(defun run-mcr (&key (output-dir (format nil "./output/")))
+  (let ((lstps 25)
+        (total-disp 2.5d-3))
+    (defparameter *displacement* 0d0)
+    (defparameter *data-displacement* '(0d0))
+    (defparameter *data-load* '(0d0))
+    (vgplot:close-all-plots)
+    (cl-mpm/dynamic-relaxation::run-adaptive-load-control
+     *sim*
+     :output-dir output-dir
+     :plotter
+     (lambda (sim)
+       (plot *sim*)
+       (format t "Load ~E ~%" (cl-mpm/penalty::resolve-load *penalty*)))
+     :loading-function
+     (lambda (percent)
+       (setf *displacement* (load-unload percent total-disp))
+       ;(setf *displacement* (* total-disp percent))
+       (cl-mpm/penalty::bc-set-displacement
+        *penalty*
+        (cl-mpm/utils:vector-from-list (list *displacement* 0d0 0d0))))
+     :pre-step
+     (lambda ()
+       (output-disp-header output-dir)
+       (output-disp-data output-dir))
+     :post-conv-step
+     (lambda (sim)
+       (push (get-load) *data-load*)
+       (push *displacement* *data-displacement*)
+       (output-disp-data output-dir))
+     :load-steps lstps
+     :enable-damage t
+     :enable-plastic nil
+     :damping 1d0;(sqrt 2)
+     :substeps 50
+     :criteria 1d-6
+     :max-adaptive-steps 10
+     :save-vtk-dr nil
+     :save-vtk-loadstep t
+     :max-damage-inc 1.1d0
+     :dt-scale 1d0)))
+
 (defun test ()
   (let* ((output-dir (format nil "./output-60/")))
     (setup :refine 2 :mps 3)
@@ -274,4 +334,47 @@
       (setup :refine r :mps 2)
       ;; (setf (cl-mpm::sim-nonlocal-damage *sim*) nil)
       (run :output-dir output-dir)
+      )))
+
+
+(defclass cl-mpm/particle::particle-elastic-damage-tcs (cl-mpm/particle::particle-elastic-damage)
+  ())
+
+(defclass cl-mpm/particle::particle-elastic-damage-spectral (cl-mpm/particle::particle-elastic-damage)
+  ())
+
+(defclass cl-mpm/particle::particle-elastic-damage-spectral-strain (cl-mpm/particle::particle-elastic-damage)
+  ())
+
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-elastic-damage-tcs) dt)
+  (setf (cl-mpm/particle::mp-k-tensile-residual-ratio mp) (- 1d0 1d-9))
+  (setf (cl-mpm/particle::mp-k--residual-ratio mp) (- 1d0 1d-9))
+  (setf (cl-mpm/particle::mp-k-compressive-residual-ratio mp) 0d0)
+  (cl-mpm/damage::apply-tcs-degredation mp))
+
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-elastic-damage-spectral) dt)
+  (cl-mpm/damage::apply-tensile-stress-degredation mp))
+
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-elastic-damage-spectral-strain) dt)
+  (cl-mpm/damage::apply-tensile-strain-degredation mp))
+
+(defun test-mcr ()
+  (dolist (particle (list
+                     ;; 'cl-mpm/particle::particle-elastic-damage
+                     ;; 'cl-mpm/particle::particle-elastic-damage-tcs
+                     'cl-mpm/particle::particle-elastic-damage-spectral
+                     'cl-mpm/particle::particle-elastic-damage-spectral-strain
+                     ))
+
+    (let* ()
+      (setup :refine 1 :mps 3
+             :gf 100d0)
+      (cl-mpm::iterate-over-mps
+       (cl-mpm:sim-mps *sim*)
+       (lambda (mp)
+         (change-class mp particle)))
+      ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+      ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
+      (run-mcr :output-dir (format nil "./output-~A/" particle)
+               )
       )))

@@ -370,6 +370,17 @@
          (expt (max 0d0 s_2) 2)
          (expt (max 0d0 s_3) 2)))
      ))
+(defun criterion-rankine (stress)
+  (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
+    (max s_1 s_2 s_3)))
+
+(defun criterion-rankine-smooth (stress)
+  (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
+    (sqrt
+     (+ (expt (max 0d0 s_1) 2)
+        (expt (max 0d0 s_2) 2)
+        (expt (max 0d0 s_3) 2)))))
+
 (defun criterion-max-principal-stress (stress)
   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
     (declare (double-float s_1 s_2 s_3))

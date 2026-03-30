@@ -63,7 +63,7 @@
       ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
       :args-list
       (list
-       :enable-aggregate nil
+       :enable-aggregate t
        :ghost-factor nil
        :mass-update-count 1
        ;; :enable-aggregate nil
@@ -78,7 +78,8 @@
 
     (setf h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
     (let* ((init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 40d3 angle))
-           (L 10d-3)
+           ;; (L 10d-3)
+           (L h)
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf L init-stress E)))
       (format t "Ductility ~E~%" ductility)
       (assert (> ductility 1d0))
@@ -152,7 +153,7 @@
            (cl-mpm/fastmaths:fast-.*
             p
             (cl-mpm/utils:vector-from-list (list 1d0 0d0 1d0))))))
-       :refine 1)
+       :refine 0)
 
       (cl-mpm/setup::apply-sdf
        *sim*
@@ -182,17 +183,17 @@
 
 
     (setf (cl-mpm::sim-gravity *sim*) 0d0)
-    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-3)
+    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-15)
     (cl-mpm/setup::setup-bcs
      *sim*
      ;; :left '(0 nil nil)
      ;; :right '(0 nil nil)
      :bottom '(nil 0 nil))
-    ;; (cl-mpm::add-bcs
-    ;;  *sim*
-    ;;  (cl-mpm/bc::make-bc-fixed
-    ;;   (list (round offset h) 0 (round (+ (* 0.5d0 width) offset) h))
-    ;;   '(0 0 0)))
+    (cl-mpm::add-bcs
+     *sim*
+     (cl-mpm/bc::make-bc-fixed
+      (list (round offset h) 0 (round (+ (* 0.5d0 width) offset) h))
+      '(0 0 0)))
 
     (let* ((friction 0d0)
            (epsilon-scale 1d1)
@@ -267,7 +268,7 @@
               (csv-filename (format nil "load-disp.csv")))
   (unless csv-dir
     (setf csv-dir output-dir))
-  (let* ((lstps 10)
+  (let* ((lstps 20)
          (total-disp -10d-3)
          (current-disp 0d0)
          (step 0))
@@ -302,28 +303,29 @@
       :load-steps lstps
       :enable-plastic enable-plastic
       :enable-damage t
-      :damping (sqrt 1d0)
+      :damping (sqrt 2d0)
       :min-adaptive-steps 0
       :max-adaptive-steps 5
       :adaption-constant 4
       :max-damage-inc 0.50d0
       :min-damage-inc 0.05d0
-      :substeps (round (* refine 10))
+      :substeps (round (* refine 50))
       :criteria 1d-3
-      :save-vtk-dr t
+      :save-vtk-dr nil
       :save-vtk-loadstep t
       :dt-scale 1d0))))
 
 (defun test ()
-  (dolist (refine (list 2))
-    (setup :mps 2 :refine refine :enable-fbar t :multigrid-refines 0
+  (dolist (refine (list 0.5))
+    (setup :mps 4 :refine refine :enable-fbar t :multigrid-refines 0
            :angle 30d0
            :angle-r 0d0
-           :gf 100d0
+           :gf 10d0
            )
-    ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+    (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
     ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
-    (run :output-dir (format nil "./output-~D/" refine)
+    (run :output-dir (format nil "./output-agg-~D/" refine)
+         :enable-plastic nil
          :refine refine))
   ;; (save-csv "./examples/fbar/rigid-footing/" (format nil "data_fbaradjust_~A.csv" t) *data-disp* *data-load*)
   ;; (dolist (fbar (list t nil))

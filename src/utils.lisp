@@ -767,6 +767,14 @@
                    do (setf (mtref m x y) (mtref mat x y))))
     m))
 
+(defun slice-matrix-nd (mat nd)
+  (ecase nd
+    (1 (arb-matrix-from-list (list (mtref mat 0 0)) 1 1))
+    (2 (slice-matrix-2d mat))
+    (3 mat)
+    )
+  )
+
 (defun matrix-column (mat i)
   (magicl:vector->column-matrix (magicl:column mat i)))
 

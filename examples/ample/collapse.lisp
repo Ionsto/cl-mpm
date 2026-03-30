@@ -16,11 +16,11 @@
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
-  (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar))
+  (cl-mpm::update-stress-kirchoff mesh mp dt fbar))
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
-  (cl-mpm::update-domain-polar-2d mesh mp dt))
+  (cl-mpm::update-domain-polar mesh mp dt))
 
 (defun plot-load-disp ()
   (vgplot:semilogy *data-steps* *data-energy*))
@@ -65,6 +65,7 @@
          ;; (mp-scale (if multigrid-enabled (* mp-scale (expt 2 (- multigrid-refinement 1)))
          ;;               mp-scale))
          (E 1d6)
+         (density 1d3)
          (sim (cl-mpm/setup::make-simple-sim
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
@@ -79,7 +80,8 @@
                  :split-factor (* 2d0 (/ 1d0 mp-scale))
                  :enable-fbar t
                  :enable-aggregate nil
-                 :ghost-factor (* E 1d-4)
+                 :ghost-factor (* E 1d-2)
+                 ;; :ghost-factor (* density 1d-6)
                  :max-split-depth 6
                  :enable-split t
                  :gravity -10d0
@@ -90,7 +92,7 @@
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
-         (density 1d3)
+         
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size))
          (offset (* h 0)))
     (declare (double-float h density))
@@ -112,7 +114,7 @@
           'cl-mpm/particle::particle-vm
           :E E
           :nu 0.3d0
-          :rho 20d3
+          :rho 40d3
           ;; 'cl-mpm/particle::particle-mc
           ;; :E 1d6
           ;; :nu 0.3d0
@@ -159,13 +161,12 @@
       (defparameter *density* density)
       (cl-mpm/setup::set-mass-filter sim density :proportion 1d-15)
 
-      (let ((dt-scale 1d0))
-        (setf
-         (cl-mpm:sim-dt sim)
-         (* dt-scale h
-            (sqrt (cl-mpm::sim-mass-scale sim))
-            (sqrt (/ density (cl-mpm/particle::mp-p-modulus (aref (cl-mpm:sim-mps sim) 0)))))))
-
+      ;; (let ((dt-scale 1d0))
+      ;;   (setf
+      ;;    (cl-mpm:sim-dt sim)
+      ;;    (* dt-scale h
+      ;;       (sqrt (cl-mpm::sim-mass-scale sim))
+      ;;       (sqrt (/ density (cl-mpm/particle::mp-p-modulus (aref (cl-mpm:sim-mps sim) 0)))))))
       (format t "Estimated dt ~F~%" (cl-mpm:sim-dt sim))
 
       (cl-mpm/setup::setup-bcs
@@ -195,7 +196,10 @@
                 (multigrid-refine 0))
   (defparameter *sim* nil)
   (let ((mps-per-dim mps))
-    (setf *sim* (setup-test-column '(32 16) '(8 8) sim-type refine mps-per-dim multigrid-refine)))
+    (setf *sim* (setup-test-column '(32 16) '(8 8) sim-type refine mps-per-dim multigrid-refine))
+    ;; (setf *sim* (setup-test-column '(32 32 16) '(8 8 8) sim-type refine mps-per-dim multigrid-refine))
+    ;; (setf *sim* (setup-test-column '(64 32) '(16 16) sim-type refine mps-per-dim multigrid-refine))
+    )
   ;; (cl-mpm/setup::initialise-stress-self-weight
   ;;  *sim*
   ;;  15d0
@@ -293,12 +297,20 @@
   )
 
 (defun test-real-time ()
-  (setup :mps 2)
-  (let ((output-dir (format nil "./output-0.25/")))
+  (setup :mps 2 :refine 1)
+  (let ((output-dir (format nil "./output-TFLIP/")))
     (vgplot:close-all-plots)
     ;; (change-class *sim* 'cl-mpm/aggregate::mpm-sim-agg-usf)
-    (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic)
+    (change-class *sim* 'cl-mpm/aggregate::mpm-sim-usf)
+    ;; (change-class *sim* 'cl-mpm/aggregate::mpm-sim-musl)
+    ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic)
+    ;; (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil)
+    ;(setf (cl-mpm::sim-velocity-algorithm *sim*) :TFLIP)
+    ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND)
+    (setf (cl-mpm::sim-ghost-factor *sim*) (* 1d3 1d-6))
+    ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :PIC)
     (setf (cl-mpm::sim-velocity-algorithm *sim*) :BLEND)
+    (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-9)
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
     (let ((step 0))
       (cl-mpm/dynamic-relaxation::run-time
@@ -307,13 +319,12 @@
        :plotter (lambda (sim)
                   (plot *sim*)
                   (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
-                  (incf step)
-                  )
+                  (incf step))
        :total-time 100d0
-       :damping 1d-3
-       :dt 1d0
+       :damping 1d-4
+       :dt 0.5d0
        :initial-quasi-static nil
-       :dt-scale 5d0))))
+       :dt-scale 0.5d0))))
 
 (defun test-dt ()
   (dolist (r (list 1.5d0 1d0 0.5d0 0.25d0))
@@ -339,23 +350,45 @@
          :initial-quasi-static nil
          :dt-scale r)))))
 
+(defun test-load-control-agg ()
+  (dolist (agg (list nil))
+    (dolist (r (list 2 3 4))
+      (setup :mps 2 :refine r :multigrid-refine 0)
+      (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-15)
+      (when agg
+        (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
+              (cl-mpm::sim-ghost-factor *sim*) nil))
+      (setf (cl-mpm::sim-gravity *sim*) -1d0)
+      (cl-mpm/dynamic-relaxation::run-load-control
+       *sim*
+       :output-dir (format nil "./output-agg-~A-~D/" agg r)
+       :plotter #'plot
+       :load-steps 3
+       :damping 1d0;(sqrt 2)
+       :substeps 10
+       :criteria 1d-3
+       :save-vtk-dr t
+       :save-vtk-loadstep t
+       :dt-scale 1d0))))
+
 (defun test-load-control ()
-  (setup :mps 3 :refine 1 :multigrid-refine 0)
-  (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-15)
-  ;; (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t)
-  (setf (cl-mpm::sim-gravity *sim*) -10d0)
-  ;; (setf (cl-mpm::sim-gravity *sim*) -1000d0)
-  (cl-mpm/dynamic-relaxation::run-load-control
-   *sim*
-   :output-dir (format nil "./output/")
-   :plotter #'plot
-   :load-steps 50
-   :damping 1d0;(sqrt 2)
-   :substeps 10
-   :criteria 1d-3
-   :save-vtk-dr t
-   :save-vtk-loadstep t
-   :dt-scale 1d0))
+  (dolist (r (list 1 2 3 4 5))
+    (setup :mps 2 :refine r :multigrid-refine 0)
+    (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-15)
+    (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil)
+    (setf (cl-mpm::sim-ghost-factor *sim*) (* 1d6 1d0))
+    (setf (cl-mpm::sim-gravity *sim*) -1d0)
+    (cl-mpm/dynamic-relaxation::run-load-control
+     *sim*
+     :output-dir (format nil "./output-ghost-~D/" r)
+     :plotter #'plot
+     :load-steps 3
+     :damping 1d0;(sqrt 2)
+     :substeps (* 10 r)
+     :criteria 1d-3
+     :save-vtk-dr t
+     :save-vtk-loadstep t
+     :dt-scale 1d0)))
 
 
 (defun test-3d ()
@@ -384,6 +417,29 @@
                        (push e res))
 
      :dt-scale 0.5d0)))
+
+(defun test-3d-real-time ()
+  (setup :mps 2 :refine 1)
+  (let ((output-dir (format nil "./output-TFLIP/")))
+    (vgplot:close-all-plots)
+    (change-class *sim* 'cl-mpm/aggregate::mpm-sim-agg-usf)
+    (setf (cl-mpm::sim-velocity-algorithm *sim*) :TFLIP)
+    (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil)
+    (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
+    (let ((step 0))
+      (cl-mpm/dynamic-relaxation::run-time
+       *sim*
+       :output-dir output-dir
+       :plotter (lambda (sim)
+                  (plot *sim*)
+                  (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
+                  (incf step))
+       :total-time 100d0
+       :damping 1d-2
+       :dt 0.1d0
+       :initial-quasi-static nil
+       :dt-scale 0.9d0))))
+
 
 
 

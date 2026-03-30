@@ -182,8 +182,7 @@
   (values))
 
 (declaim (notinline p2g-force-mp-2d)
-         (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float) (values)) p2g-force-mp-2d)
-         )
+         (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float) (values)) p2g-force-mp-2d))
 (defun p2g-force-mp-fs-2d (mesh mp gravity)
   "Map particle forces to the grid for one mp"
   (declare (cl-mpm/mesh::mesh mesh)

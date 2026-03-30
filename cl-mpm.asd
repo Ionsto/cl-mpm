@@ -138,8 +138,8 @@
                                (:file "degredation")
                                (:file "output")
                                (:file "solver")))
-                 (:file "models/damage"))
-               )))
+                 (:file "models/damage")
+                 (:file "models/damage-frictional")))))
 (defsystem "cl-mpm/eigenerosion"
   :depends-on ("cl-mpm/magicl"
                "cl-mpm"
@@ -624,7 +624,7 @@
                "cl-mpm/ghost"))
 
 
-(defsystem "cl-mpm/examples/uniaxial"
+(defsystem "cl-mpm/examples/damage/uniaxial"
   :depends-on ("cl-mpm/models/chalk"
                "cl-mpm/example")
   :serial t

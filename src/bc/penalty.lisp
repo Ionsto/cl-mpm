@@ -77,7 +77,8 @@
     :initform (cl-mpm/utils:vector-zeros))
    (stiffness-scale
     :accessor bc-penalty-stiffness-scale
-    :initform 1d0)
+    :initform 1d0
+    :initarg :stiffness-scale)
    (load-lock
     :accessor bc-penalty-load-lock
     :initform (sb-thread:make-mutex)))
@@ -489,7 +490,7 @@
                        (mp-normal-force cl-mpm/particle::mp-penalty-normal-force))
           mp
         (let* ((penetration (penetration-distance-point point datum normal))
-               (contact-area (expt volume (/ (- nd 1) nd)))
+               (contact-area (* 1d0 (expt volume (/ (- nd 1) nd))))
                (exponent 1)
                (normal-force (* ;(signum penetration) (expt (* (abs penetration)) 1.5d0)
                               ;; (* h (expt (/ (max 0d0 penetration) h) exponent))
@@ -713,7 +714,7 @@
                                  0d0
                                  nil
                                  nil)))
-             (;;cl-mpm::iterate-over-corners
+             (;cl-mpm::iterate-over-corners
               cl-mpm::iterate-over-midpoints
               mesh
               mp
@@ -836,7 +837,7 @@
            (when t;(early-sweep-intersection bc mp)
              (
               cl-mpm::iterate-over-midpoints
-              ;;cl-mpm::iterate-over-corners
+              ;; cl-mpm::iterate-over-corners
               mesh
               mp
               (lambda (corner-trial)
@@ -1167,8 +1168,7 @@
                        (*
                         stiffness-scale
                         svp
-                        (dr-contact-point-stiffness contact)))))))))))))
-    ))
+                        (dr-contact-point-stiffness contact)))))))))))))))
 
 (declaim (notinline assemble-penalty-stiffness-matrix))
 (defun assemble-penalty-stiffness-matrix (sim)
@@ -1262,7 +1262,7 @@
                        (mp-normal-force cl-mpm/particle::mp-penalty-normal-force))
           mp
         (let* ((penetration (penetration-distance-point point datum normal))
-               (contact-area (expt volume (/ (- nd 1) nd)))
+               (contact-area (* 1d0 (expt volume (/ (- nd 1) nd))))
                (normal-force (*
                               penetration
                               epsilon
@@ -1383,6 +1383,15 @@
 (defmethod reset-load ((bc bc-penalty-displacment))
   (setf (fill-pointer (bc-penalty-contact-points bc)) 0)
   (setf (bc-penalty-load bc) 0d0))
+
+;; (defmethod get-contact-points ((bc bc-penalty-displacment))
+;;   ;; (let ((contact-list (loop for sub-bc in (bc-penalty-structure-sub-bcs bc)
+;;   ;;                           collect (get-contact-points sub-bc))))
+;;   ;;   (apply #'concatenate
+;;   ;;          'vector
+;;   ;;          contact-list))
+;;   (bc-penalty-disp-contacts bc)
+;;   )
 
 (defmethod cl-mpm/bc::apply-bc ((bc bc-penalty-displacment) node mesh dt)
   (with-accessors ((epsilon bc-penalty-epsilon)

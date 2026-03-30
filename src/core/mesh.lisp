@@ -1179,3 +1179,12 @@
                    (max 0d0 (min
                              (the double-float (coerce (nth i mesh-size) 'double-float))
                              (the double-float (varef point i))))))))
+
+;; (defun point-in-bounds (mesh point)
+;;   (with-accessors ((mesh-size cl-mpm/mesh::mesh-mesh-size))
+;;       mesh
+;;     (loop for i from 0 to 2
+;;           do (setf (the double-float (varef point i))
+;;                    (max 0d0 (min
+;;                              (the double-float (coerce (nth i mesh-size) 'double-float))
+;;                              (the double-float (varef point i))))))))

@@ -547,9 +547,8 @@
                            (cl-mpm:sim-format sim t "Inertia passed~%")
                            (setf intertial-passed t)))
                        (when enable-mass-scaling
-                         (let* (
-                                (hist 2d0)
-                                (hist-power 0.8d0)
+                         (let* ((hist 2d0)
+                                (hist-power 0.6d0)
                                 (hist-energy (expt e-crit hist-power))
                                 (hist-oobf (expt e-crit hist-power)))
                            (format t "Current state ~A - ~E ~E~%" state hist-energy hist-oobf)
@@ -1255,6 +1254,7 @@
                            (load-steps 10)
                            (initial-load 0d0)
                            (substeps 50)
+                           (sub-conv-steps 50)
                            (damping 1d0)
                            (kinetic-damping nil)
                            (criteria 1d-3)
@@ -1320,6 +1320,7 @@
                                       :output-dir output-dir
                                       :dt-scale dt-scale
                                       :substeps substeps
+                                      :sub-conv-steps sub-conv-steps
                                       :enable-damage enable-damage
                                       :enable-plastic enable-plastic
                                       :max-damage-inc max-damage-inc

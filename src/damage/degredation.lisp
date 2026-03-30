@@ -16,7 +16,7 @@
            (> damage 0.0d0))
       (cl-mpm/utils:voigt-copy-into undamaged-stress stress)
       (cl-mpm/fastmaths:fast-scale! stress (/ (- 1d0 damage) (cl-mpm/fastmaths::det-3x3 def)))
-      (setf (cl-mpm/particle::mp-p-modulus mp)
+      (setf (cl-mpm/particle::mp-p-modulus-0 mp)
             (*
              (- 1d0 damage)
              (cl-mpm/particle::compute-p-modulus mp))))))
@@ -195,21 +195,27 @@
              (stress-uc (cl-mpm/fastmaths:fast-scale-voigt stress-u (/ 1d0 (cl-mpm/fastmaths:det-3x3 def))))
              (p (/ (cl-mpm/constitutive::voight-trace stress-uc) 3d0))
              (pind p)
+             (p-degredation 0d0)
              (s (cl-mpm/constitutive::deviatoric-voigt stress-uc)))
         (declare (double-float damage-t damage-c damage-s))
-        (setf p
+
+        (setf p-degredation
               (if (> pind 0d0)
-                  (* (- 1d0 (expt damage-t exponent)) p)
-                  (* (- 1d0 (expt damage-c exponent)) p)))
+                  (- 1d0 (expt damage-t exponent))
+                  (- 1d0 (expt damage-c exponent))))
+        ;; (setf p
+        ;;       (if (> pind 0d0)
+        ;;           (* (- 1d0 (expt damage-t exponent)) p)
+        ;;           (* (- 1d0 (expt damage-c exponent)) p)))
         ;; (pprint pressure)
         ;; (break)
         (setf stress
               (cl-mpm/fastmaths:fast-.+
-               (cl-mpm/constitutive::voight-eye p)
+               (cl-mpm/constitutive::voight-eye (* p-degredation p))
                (cl-mpm/fastmaths:fast-scale! s (- 1d0 (expt damage-s exponent)))
                stress))
-        (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
-               (G (/ e (* 2 (+ 1d0 nu))))
+        (let* ((K (cl-mpm/utils::calculate-bulk-modulus e nu))
+               (G (cl-mpm/utils::calculate-shear-modulus e nu))
                (P-0 (+ K (* 4/3 G))))
           (setf K
                 (if (> pind 0d0)

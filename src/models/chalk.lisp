@@ -76,6 +76,14 @@
    (history-stress
     :accessor mp-history-stress
     :initform 0d0)
+   (oversize-scale
+    :accessor mp-oversize-scale
+    :initarg :oversize
+    :initform (- 1d0 1d-3))
+   (residual-friction
+    :accessor mp-residual-friction
+    :initarg :residual-friction
+    :initform 0d0)
    (delay-time
     :accessor mp-delay-time
     :initform 1d0
@@ -190,6 +198,25 @@
         ))
     stress
     ))
+(defmethod initialize-instance :after ((mp particle-chalk-brittle) &key)
+  (with-accessors ((ductility cl-mpm/particle::mp-ductility)
+                   (angle cl-mpm/particle::mp-friction-angle)
+                   (angle-r cl-mpm/particle::mp-residual-friction)
+                   (rc mp-shear-residual-ratio)
+                   (init-stress mp-initiation-stress)
+                   (oversize mp-oversize-scale))
+      mp
+    (let* ((c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (rad-to-deg angle)))
+           (rs (cl-mpm/damage::est-shear-from-angle (rad-to-deg angle) (rad-to-deg angle-r) rc))
+           ;; (residual-strength (mp-residual-strength mp))
+           (oversize-ratio (cl-mpm/damage::compute-oversize-factor oversize ductility)))
+      (setf
+       (cl-mpm/particle::mp-phi mp) angle
+       (mp-c mp) (* oversize-ratio c)
+       (mp-shear-residual-ratio mp) rs)
+      ;; (setf (mp-shear-residual-ratio mp) (min (mp-shear-residual-ratio mp) residual-strength)
+      ;;       (mp-k-tensile-residual-ratio mp) (min residual-strength (mp-k-tensile-residual-ratio mp)))
+      )))
 (defmethod constitutive-model ((mp particle-chalk-brittle) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
   (with-accessors ((de mp-elastic-matrix)
@@ -701,7 +728,8 @@
     ;; (apply-tensile-vol-degredation mp dt)
     ;; (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (cl-mpm/particle::compute-p-modulus mp)))
     (when enable-damage
-      (apply-vol-degredation mp dt)
+      (cl-mpm/damage::apply-tcs-degredation mp)
+      ;; (apply-vol-degredation mp dt)
       ;(apply-vol-pressure-degredation mp dt (* 1d0 (magicl:det def) (/ p 3)))
       ;; (apply-vol-pressure-degredation mp dt (* -1d0 (/ 1d0 (magicl:det def)) (/ p 1)))
       ;; (setf stress (cl-mpm/constitutive::voight-eye p))
@@ -800,22 +828,9 @@
                                                        tau
                                                        tau-exp
                                                        s-dt)))
-                   ))
-            ;; (setf
-            ;;  k
-            ;;  (cl-mpm/damage::huen-integration
-            ;;   k-n
-            ;;   ybar-prev
-            ;;   ybar
-            ;;   k0
-            ;;   tau
-            ;;   tau-exp
-            ;;   dt
-            ;;   ))
-            ))
+                   ))))
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))
-
         (incf (the double-float (cl-mpm/particle::mp-time-averaged-damage-inc mp)) (* damage-inc dt))
         (incf (the double-float (cl-mpm/particle::mp-time-averaged-ybar mp)) ybar)
         (incf (the double-float (cl-mpm/particle::mp-time-averaged-counter mp)))

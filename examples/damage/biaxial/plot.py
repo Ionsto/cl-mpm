@@ -7,6 +7,9 @@ import re
 
 from scipy import integrate
 
+width = 80e-3
+height = 170e-3
+
 def extract_vals(f):
     output,refine,load = f.split("-")
     #refine = float(refine)
@@ -16,7 +19,7 @@ from scipy import integrate
 def calculate_gf(disp,load):
     i = np.argmax(load)
     print("Max at {}mm".format(disp[i]*1e3))
-    return integrate.trapz(load[i:],disp[i:])
+    return integrate.trapz(load[i::-1],disp[i::-1])
 
 top_dir = "../../../"
 regex = re.compile(r'^output.*')
@@ -25,11 +28,12 @@ plt.figure(1)
 def get_load(filename):
     mpm = pd.read_csv(top_dir+filename)
     mpm["disp"] = mpm["disp"].abs()
-    mpm["load"] = mpm["load"].abs()
+    mpm["load"] = 1 * mpm["load"]
     return mpm
 
 
 folders.sort()
+
 
 for i in folders:
     loadfile = "./{}/load-disp.csv".format(i)

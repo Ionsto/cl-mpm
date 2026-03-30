@@ -586,7 +586,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   (:documentation "End of step update"))
 (defmethod update-particle (mesh (mp cl-mpm/particle:particle) dt)
   (update-particle-kirchoff mesh mp dt)
-  (cl-mpm::update-domain-polar-2d mesh mp dt)
+  (cl-mpm::update-domain-polar mesh mp dt)
   ;; (update-domain-corner mesh mp dt)
   ;; (update-domain-stretch mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)

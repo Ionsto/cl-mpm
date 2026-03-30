@@ -293,28 +293,28 @@
            )
       (declare (type (simple-array double-float (3)) f-s b-s g-s))
       ;;Manually unrolled
-      #+:sb-simd
-      (progn
-        (setf
-         (sb-simd-avx:f64.2-aref f-s 0)
-         (sb-simd-avx:f64.2+
-          (sb-simd-avx:f64.2-aref f-s 0)
-          (sb-simd-avx:f64.2*
-           (sb-simd-avx:f64.2+
-            (sb-simd-avx:f64.2*
-             (sb-simd-avx:f64.2-aref g-s 0)
-             (* mass gravity))
-            (sb-simd-avx:f64.2*
-             (sb-simd-avx:f64.2-aref b-s 0)
-             volume))
-           svp)))
-        (incf (aref f-s 2)
-              (*
-               (+
-                (* mass gravity (aref g-s 2))
-                (* volume (aref b-s 2)))
-               svp)))
-      #-:sb-simd
+      ;; #+:sb-simd
+      ;; (progn
+      ;;   (setf
+      ;;    (sb-simd-avx:f64.2-aref f-s 0)
+      ;;    (sb-simd-avx:f64.2+
+      ;;     (sb-simd-avx:f64.2-aref f-s 0)
+      ;;     (sb-simd-avx:f64.2*
+      ;;      (sb-simd-avx:f64.2+
+      ;;       (sb-simd-avx:f64.2*
+      ;;        (sb-simd-avx:f64.2-aref g-s 0)
+      ;;        (* mass gravity))
+      ;;       (sb-simd-avx:f64.2*
+      ;;        (sb-simd-avx:f64.2-aref b-s 0)
+      ;;        volume))
+      ;;      svp)))
+      ;;   (incf (aref f-s 2)
+      ;;         (*
+      ;;          (+
+      ;;           (* mass gravity (aref g-s 2))
+      ;;           (* volume (aref b-s 2)))
+      ;;          svp)))
+      ;; #-:sb-simd
       (progn
         (dotimes (i 3)
           (incf (aref f-s i)
@@ -322,8 +322,7 @@
                  (+
                   (* mass gravity (aref g-s i))
                   (* volume (aref b-s i)))
-                 svp)))
-        )
+                 svp))))
       f-out)))
 
 (declaim
