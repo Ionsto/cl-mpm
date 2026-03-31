@@ -254,7 +254,7 @@
         (interp (nth p0 points) (nth p1 points) (/ (- p (* p0 point-gap)) point-gap))))))
 
 (defun load-unload (p dist)
-  (list-interp p (list 0d0 dist (- dist))))
+  (list-interp p (list 0d0 dist (* -0.5 dist))))
 
 (defun run-mcr (&key (output-dir (format nil "./output/")))
   (let ((lstps 25)
