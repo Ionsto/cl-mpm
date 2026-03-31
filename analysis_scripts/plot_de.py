@@ -39,17 +39,16 @@ ax_damage.plot(time,df["damage"].values,label="Damage",c="red",marker="x")
 # ax.plot(df["time"].values,df["energy"].values/df["work"].values,label="Energy",c="orange")
 ax.plot(df["time"].values,df["oobf"].values,label="OOBF",c="green")
 # ax.plot(df["time"].values,df["energy"].values,label="energy",c="orange")
-quasi_point = None
-for i in range(len(df)-1):
-    if df["step-type"].iloc[i] == "DYNAMIC":
-        if quasi_point == None:
-            quasi_point = time[i]
-    else:
-        if quasi_point:
-            plt.axvspan(quasi_point,time[i+1],alpha=0.25,color="black")
-            quasi_point = None
-if quasi_point:
-    plt.axvspan(quasi_point,time[i+1],alpha=0.25,color="black")
+colour_map = {"QUASI-STATIC":"none","DYNAMIC":"black","ACCELERATE":"green"}
+quasi_point = time[0] 
+quasi_type = df["step-type"].iloc[0]
+for i in range(1,len(df)):
+    step_type = df["step-type"].iloc[i]
+    if not quasi_type == step_type:
+        plt.axvspan(quasi_point,time[i-1],alpha=0.25,color=colour_map[quasi_type])
+        quasi_type = step_type
+        quasi_point = time[i-1]
+plt.axvspan(quasi_point,time[i],alpha=0.25,color=colour_map[quasi_type])
 # for i in range(len(df)-1):
 #     if df["step-type"].iloc[i] != df["step-type"].iloc[i+1]:
 #         ##Transition found

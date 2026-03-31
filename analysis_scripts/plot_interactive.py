@@ -52,7 +52,7 @@ def get_data(filename):
     return pd.DataFrame({"coord_x":xy[:,0], "coord_y":xy[:,1],"lx":lx,"ly":ly,"damage":damage})
 
 def get_data_all(folder,frame_number):
-    regex = re.compile(r'sim_conv(_0+)?_{}'.format(frame_number))
+    regex = re.compile(r'sim_(_0+)?_{}'.format(frame_number))
     files = list(filter(regex.search,os.listdir(folder)))
     subframes = [get_data(folder + "/" + f) for f in files]
     df = pd.concat(subframes)

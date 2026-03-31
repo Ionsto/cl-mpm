@@ -38,30 +38,24 @@ for out in output_list:
     output_dir = "{}./{}/".format(top_dir,out)
     df = pd.read_csv(output_dir+"conv.csv")
     # df = df[df["step"]==1]
-    # x,y = out.split("-")[-1].split(".")[0].split("_")
-    # refine = int(x)
+    x = out.split("-")[-1]
+    refine = float(x)
     # mps = int(y)
-    # h = 1/ float((refine)**1)
+    h = 1 / float((refine)**1)
+    # h=1
     # iters = df["iter"].values
     # oobf = df["oobf"].values
     # plt.plot(iters,oobf,label=out)
     c = None
     for name,group in df.groupby("step"):
-        iters = group["iter"].values
+        iters = group["iter"].values * h
         oobf = group["oobf"].values
         if c == None:
             l = plt.plot(iters,oobf,label=out)
             c = l[0].get_color()
         else:
             plt.plot(iters,oobf,c=c)
-        # ind = group["sub_index"].values
-        # ind = ind - ind[0]
-        # res = group["oobf"].values
-        # res = np.log10(res)
 
-#thresh_scale = 1e-9
-#plt.axhline(thresh_scale,c="green",ls="--")
-# ax.set_ylim(bottom=0,top=thresh_scale_damage*2)
 plt.xlabel("Iterations")
 plt.ylabel("Convergence criteria")
 plt.yscale("log")
