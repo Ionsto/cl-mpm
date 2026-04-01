@@ -89,7 +89,7 @@
     beta))
 
 
-(defun estimate-ductility-jirsek2004 (GF R ft E &optional (k 1d0))
+(defun estimate-ductility-jirsek2004 (GF R ft E &optional (k 2d0))
   "Simple estimate of ductility from key elastic parameters"
   (declare (double-float GF R ft E k))
   (let* ((e0 (/ ft E))

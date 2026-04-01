@@ -15,18 +15,20 @@
 
 (defun criterion-modified-vm (strain k E nu)
   ;; (assert (< nu 0.5d0))
-  (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d strain)
-    (let ((i1 (+ s_1 s_2 s_3))
-          (j2 (cl-mpm/constitutive::voigt-j2 (cl-mpm/constitutive::deviatoric-voigt strain)))
-          (k-factor (/ (- k 1d0)
-                       (- 1d0 (* 2d0 nu))))
-          )
-      (*
-       E
-       (/ 1d0 (* 2d0 k))
-       (+ (* i1 k-factor)
-          (sqrt (+ (expt (* k-factor i1) 2)
-                   (* (/ (* 12d0 k) (expt (- 1d0 nu) 2)) j2))))))))
+  ;; (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d strain))
+  (let ((i1 (cl-mpm/utils:trace-voigt strain)
+          ;; (+ s_1 s_2 s_3)
+            )
+        (j2 (cl-mpm/constitutive::voigt-j2 (cl-mpm/constitutive::deviatoric-voigt strain)))
+        (k-factor (/ (- k 1d0)
+                     (- 1d0 (* 2d0 nu))))
+        )
+    (*
+     E
+     (/ 1d0 (* 2d0 k))
+     (+ (* i1 k-factor)
+        (sqrt (+ (expt (* k-factor i1) 2)
+                 (* (/ (* 12d0 k) (expt (- 1d0 nu) 2)) j2)))))))
 
 (defun criterion-mc (strain angle E nu)
   (multiple-value-bind (e_1 e_2 e_3) (principal-stresses-3d

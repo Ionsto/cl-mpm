@@ -63,9 +63,9 @@
                       )))
         (setf y
               ;; (cl-mpm/damage::tensile-energy-norm strain E de)
-              (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
               ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
-              ;; (cl-mpm/damage::criterion-modified-vm strain k E nu)
+              ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
+              (cl-mpm/damage::criterion-modified-vm strain k E nu)
               )))))
 
 (defparameter *current-load* 0d0)
@@ -79,7 +79,7 @@
                                                    (epsilon-scale 1d2)
                                                    (pinned-edge nil)
                                                    )
-  (let* ((E 15.3d9)
+  (let* ((E (* 15.3d9 1.27d0))
          (nu 0.15d0)
          (sim (cl-mpm/setup::make-simple-sim
                (/ 1d0 e-scale)
@@ -102,7 +102,7 @@
                (crack-scale 1.0d0)
                ;; (length-scale 5.3d-3)
                                         ;(length-scale (* 5.4d-3 (sqrt 7)))
-               (length-scale (* 5.4d-3 1d0))
+               (length-scale (* 5.4d-3 2d0))
                (gf (* 1d0 48d0))
                (init-stress 3.45d6)
                (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E)))
@@ -196,8 +196,8 @@
         (format t "Fixed node ~A ~%" left-node-pos)
         (format t "Roller node ~A ~%" right-node-pos)
 
-        (let* ((hx (* 0.5d0 h-x))
-               (epsilon (* 15.3d9 epsilon-scale))
+        (let* ((hx (* 0.25d0 h-x))
+               (epsilon (* E epsilon-scale))
                (friction 0d0)
                (damping 0d0)
                (smoothness 1)
@@ -252,10 +252,11 @@
                                  p
                                  normal
                                  center
-                                 hx)))))
-          )
-        (cl-mpm/penalty::bc-increment-center *penalty-point*
-                                             (cl-mpm/utils:vector-from-list (list 0d0 1d-6 0d0)))
+                                 hx))))
+            ;; (cl-mpm/penalty::bc-increment-center *penalty-point*
+            ;;                                      (cl-mpm/utils:vector-from-list (list 0d0 1d-6 0d0)))
+            ))
+        
 
         (cl-mpm/setup::setup-bcs
          sim
@@ -290,9 +291,9 @@
 
       (defparameter *displacement* 0d0)
 
-      (let* ((hx h-x)
+      (let* ((hx (* 0.25 h-x))
              (ly 1d-2)
-             (epsilon (* 15.3d9 1d2))
+             (epsilon (* E epsilon-scale))
              (friction 0d0)
              (damping 0d0)
              (penlist
@@ -304,26 +305,42 @@
                  (cl-mpm/utils:vector-from-list (list 0d0 (float (+ (second block-size) (second offset)) 0d0) 0d0))
                  )
                 epsilon friction damping)))
-        (defparameter *penalty*
-          (cl-mpm/penalty::make-bc-penalty-structure
-           sim
-           epsilon
-           friction
-           damping
-           penlist
-           )
-          ;; (cl-mpm/penalty::make-bc-penalty-distance-point
-          ;;  sim
-          ;;  (cl-mpm/utils:vector-from-list '(0d0 -1d0 0d0))
-          ;;  (cl-mpm/utils:vector-from-list (list 0d0
-          ;;                                       (+ (second block-size) (second offset))
-          ;;                                       0d0))
-          ;;  h-x
-          ;;  (* 15.3d9 1d2)
-          ;;  0d0
-          ;;  0d0
-          ;;  )
-          ))
+        ;; (defparameter *penalty*)
+        ;; (cl-mpm/penalty::make-bc-penalty-structure
+        ;;  sim
+        ;;  epsilon
+        ;;  friction
+        ;;  damping
+        ;;  penlist
+        ;;  )
+        (let ((normal (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0)))
+              )
+          (defparameter *penalty*
+            (cl-mpm/penalty::make-bc-penalty-displacment
+             sim
+             normal
+             epsilon
+             :clip-function (lambda (p)
+                              (cl-mpm/penalty::clip-radial
+                               p
+                               normal
+                               (cl-mpm/utils:vector-from-list (list 0d0 (float (+ (second block-size) (second offset)) 0d0) 0d0))
+                               hx))))
+          ;; (cl-mpm/penalty::bc-increment-center *penalty*
+          ;;                                      (cl-mpm/utils:vector-from-list (list 0d0 1d-6 0d0)))
+          )
+        ;; (cl-mpm/penalty::make-bc-penalty-distance-point
+        ;;  sim
+        ;;  (cl-mpm/utils:vector-from-list '(0d0 -1d0 0d0))
+        ;;  (cl-mpm/utils:vector-from-list (list 0d0
+        ;;                                       (+ (second block-size) (second offset))
+        ;;                                       0d0))
+        ;;  h-x
+        ;;  (* 15.3d9 1d2)
+        ;;  0d0
+        ;;  0d0
+        ;;  )
+        )
       (defparameter *displacement* 0d0)
       (defparameter *last-pos* 0d0)
       (defparameter *penalty-controller*
@@ -739,21 +756,23 @@
     )
   )
 
+(defun get-load ()
+  (* (cl-mpm/penalty::resolve-load *penalty*) 2d0 -1d0))
 
 
 (defun output-disp-header (output-dir)
   (with-open-file (stream (merge-pathnames "disp.csv" output-dir) :direction :output :if-exists :supersede)
     (format stream "disp,load~%")))
 
-(defparameter *disp* 0d0)
+(defparameter *disp* 0)
 (defun output-disp-data (output-dir)
   (with-open-file (stream (merge-pathnames "disp.csv" output-dir) :direction :output :if-exists :append)
     (format stream "~f,~f~%"
             *displacement*
-            (* (cl-mpm/penalty::resolve-load *penalty*) 2d0))))
+            (get-load))))
 (defun test ()
   (defparameter *displacement* 0d0)
-  (let* ((lstps 10)
+  (let* ((lstps 20)
          (total-disp -0.2d-3)
          (output-dir (format nil "./output-pen/")))
     (setup :refine 0.5 :mps 3 :epsilon-scale 1d1 :pinned-edge nil)
@@ -771,7 +790,7 @@
      :plotter (lambda (sim)
                 ;; (plot-domain sim)
                 (plot-load-disp)
-                (format t "Load ~E ~%" (cl-mpm/penalty::resolve-load *penalty*)))
+                (format t "Load ~E ~%" (get-load)))
      :loading-function (lambda (percent)
                          (setf *displacement* (* total-disp percent))
                          (let ((delta (- *displacement* *last-pos*)))
@@ -783,12 +802,12 @@
                  (output-disp-data output-dir))
      :post-conv-step (lambda (sim)
                        ;;Save data
-                       (push (* 2d0 (cl-mpm/penalty::resolve-load *penalty*)) *data-load*)
+                       (push (get-load) *data-load*)
                        (push *displacement* *data-displacement*)
                        (output-disp-data output-dir))
      :load-steps lstps
      :enable-damage t
-     :damping (sqrt 2)
+     :damping 1d0;(sqrt 2)
      :substeps 20
      :criteria 1d-3
      :max-adaptive-steps 10

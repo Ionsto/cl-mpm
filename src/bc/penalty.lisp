@@ -1360,7 +1360,7 @@
                ;;    (cl-mpm/fastmaths:fast-scale (cl-mpm/particle::mp-domain-size mp) 0.5d0)
                ;;    )))
                (let ((corner (get-contact-point mp)))
-                 (pprint corner)
+                 ;; (pprint corner)
                  (sb-thread:with-mutex (mutex)
                    (let ((contact (make-contact
                                    corner

@@ -68,7 +68,7 @@
          (E 1d9)
          (init-stress 1d5)
          (length-scale 1d0)
-         (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E gf-scale))
+         (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
          ;; (ductility 50d0)
          )
     (when (<= ductility 1d0)
@@ -97,7 +97,7 @@
       :initiation-stress init-stress
       :local-length length-scale
       :ductility ductility
-      ;; :residual-strength 1d0
+      :residual-strength 1d0
       ))
     (cl-mpm::iterate-over-mps
      (cl-mpm:sim-mps *sim*)
@@ -200,7 +200,7 @@
             (get-load))))
 
 (defun run (&key (output-dir (format nil "./output/")))
-  (let ((lstps 50)
+  (let ((lstps 10)
         (total-disp 5d-3))
   (defparameter *displacement* 0d0)
     (defparameter *data-displacement* '(0d0))
@@ -232,12 +232,12 @@
      :enable-damage t
      :enable-plastic t
      :damping 1d0;(sqrt 2)
-     :substeps 50
-     :criteria 1d-6
+     :substeps 10
+     :criteria 1d-3
      :max-adaptive-steps 10
      :save-vtk-dr nil
      :save-vtk-loadstep t
-     :max-damage-inc 1.1d0
+     :max-damage-inc 0.5d0
      :dt-scale 1d0)))
 
 
@@ -256,9 +256,19 @@
 (defun load-unload (p dist)
   (list-interp p (list 0d0 dist (* -0.5 dist))))
 
+(defun multi-load-unload (p dist)
+  (let ((factor 1.25))
+    (list-interp p (list 0d0
+                         dist
+                         (* -0.5 dist)
+                         (* factor dist)
+                         (* -0.5 dist)
+                         (* (expt factor 2) dist)
+                         (* -0.5 dist)))))
+
 (defun run-mcr (&key (output-dir (format nil "./output/")))
-  (let ((lstps 25)
-        (total-disp 2.5d-3))
+  (let ((lstps 200)
+        (total-disp 2d-3))
     (defparameter *displacement* 0d0)
     (defparameter *data-displacement* '(0d0))
     (defparameter *data-load* '(0d0))
@@ -272,7 +282,7 @@
        (format t "Load ~E ~%" (cl-mpm/penalty::resolve-load *penalty*)))
      :loading-function
      (lambda (percent)
-       (setf *displacement* (load-unload percent total-disp))
+       (setf *displacement* (multi-load-unload percent total-disp))
        ;(setf *displacement* (* total-disp percent))
        (cl-mpm/penalty::bc-set-displacement
         *penalty*
@@ -290,7 +300,7 @@
      :enable-damage t
      :enable-plastic nil
      :damping 1d0;(sqrt 2)
-     :substeps 50
+     :substeps 10
      :criteria 1d-6
      :max-adaptive-steps 10
      :save-vtk-dr nil
@@ -300,7 +310,7 @@
 
 (defun test ()
   (let* ((output-dir (format nil "./output-60/")))
-    (setup :refine 2 :mps 3)
+    (setup :refine 1 :mps 3 :gf 150d0)
     ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
     ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
     (run :output-dir output-dir)
@@ -337,33 +347,30 @@
       )))
 
 
-(defclass cl-mpm/particle::particle-elastic-damage-tcs (cl-mpm/particle::particle-elastic-damage)
+(defclass cl-mpm/particle::particle-elastic-damage-1d-tcs (cl-mpm/particle::particle-elastic-damage-tcs)
   ())
 
-(defclass cl-mpm/particle::particle-elastic-damage-spectral (cl-mpm/particle::particle-elastic-damage)
+(defclass cl-mpm/particle::particle-elastic-damage-1d-spectral (cl-mpm/particle::particle-elastic-damage)
   ())
 
-(defclass cl-mpm/particle::particle-elastic-damage-spectral-strain (cl-mpm/particle::particle-elastic-damage)
-  ())
+;; (defclass cl-mpm/particle::particle-elastic-damage-1d-spectral-strain (cl-mpm/particle::particle-elastic-damage)
+;;   ())
 
-(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-elastic-damage-tcs) dt)
-  (setf (cl-mpm/particle::mp-k-tensile-residual-ratio mp) (- 1d0 1d-9))
-  (setf (cl-mpm/particle::mp-k--residual-ratio mp) (- 1d0 1d-9))
-  (setf (cl-mpm/particle::mp-k-compressive-residual-ratio mp) 0d0)
-  (cl-mpm/damage::apply-tcs-degredation mp))
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-elastic-damage-1d-tcs) dt)
+  (cl-mpm/damage::apply-tcs-1d mp))
 
-(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-elastic-damage-spectral) dt)
-  (cl-mpm/damage::apply-tensile-stress-degredation mp))
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-elastic-damage-1d-spectral) dt)
+  (cl-mpm/damage::apply-spectral-1d mp))
 
-(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-elastic-damage-spectral-strain) dt)
-  (cl-mpm/damage::apply-tensile-strain-degredation mp))
+;; (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-elastic-damage-spectral-strain) dt)
+;;   (cl-mpm/damage::apply-tensile-strain-degredation mp))
 
 (defun test-mcr ()
   (dolist (particle (list
                      ;; 'cl-mpm/particle::particle-elastic-damage
-                     ;; 'cl-mpm/particle::particle-elastic-damage-tcs
-                     'cl-mpm/particle::particle-elastic-damage-spectral
-                     'cl-mpm/particle::particle-elastic-damage-spectral-strain
+                     'cl-mpm/particle::particle-elastic-damage-1d-tcs
+                     ;; 'cl-mpm/particle::particle-elastic-damage-1d-spectral
+                     ;; 'cl-mpm/particle::particle-elastic-damage-spectral-strain
                      ))
 
     (let* ()

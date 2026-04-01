@@ -14,9 +14,9 @@ def extract_vals(f):
 
 from scipy import integrate
 def calculate_gf(disp,load):
-    i = np.argmax(load)
-    print("Max at {}mm".format(disp[i]*1e3))
-    return integrate.trapz(load[i:],disp[i:])
+    # i = np.argmax(load)
+    # print("Max at {}mm".format(disp[i]*1e3))
+    return integrate.trapz(load,disp)
 
 top_dir = "../../../"
 regex = re.compile(r'^output.*')
@@ -24,7 +24,7 @@ folders = list(filter(regex.search,os.listdir(top_dir)))
 plt.figure(1)
 def get_load(filename):
     mpm = pd.read_csv(top_dir+filename)
-    mpm["disp"] = mpm["disp"]
+    mpm["disp"] = 1*mpm["disp"]
     mpm["load"] = mpm["load"]
     return mpm
 
