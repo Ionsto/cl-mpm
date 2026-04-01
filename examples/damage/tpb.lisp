@@ -79,13 +79,17 @@
                                                    (epsilon-scale 1d2)
                                                    (pinned-edge nil)
                                                    )
-  (let* ((sim (cl-mpm/setup::make-simple-sim
+  (let* ((E 15.3d9)
+         (nu 0.15d0)
+         (sim (cl-mpm/setup::make-simple-sim
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
-               :args-list (list :enable-aggregate t
-                                :enable-damage t)))
+               :args-list (list
+                           ;; :enable-aggregate t
+                           :ghost-factor (* 1d-2 (cl-mpm/utils::calculate-p-wave-modulus E nu))
+                           :enable-damage t)))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
@@ -97,10 +101,9 @@
         (let* (;(crack-scale 7d0)
                (crack-scale 1.0d0)
                ;; (length-scale 5.3d-3)
-               ;(length-scale (* 5.4d-3 (sqrt 7)))
+                                        ;(length-scale (* 5.4d-3 (sqrt 7)))
                (length-scale (* 5.4d-3 1d0))
                (gf (* 1d0 48d0))
-               (E 15.3d9)
                (init-stress 3.45d6)
                (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E)))
 
@@ -126,7 +129,7 @@
             ;; :ductility ductility
             'cl-mpm/particle::particle-limestone
             :E E
-            :nu 0.15d0
+            :nu nu
             :initiation-stress init-stress
             ;;Material parameter
             :local-length length-scale
@@ -227,27 +230,30 @@
                   damping
                   ))
                )
-          (defparameter *penalty-point*
-            (cl-mpm/penalty::make-bc-penalty-structure
-             sim
-             epsilon
-             friction
-             damping
-             (list
-              left-smooth
-              right-smooth))
-            ;; (cl-mpm/penalty::make-bc-penalty-distance-point
-            ;;  sim
-            ;;  (cl-mpm/utils:vector-from-list '(0d0 -1d0 0d0))
-            ;;  (cl-mpm/utils:vector-from-list (list 0d0
-            ;;                                       (+ (second block-size) (second offset))
-            ;;                                       0d0))
-            ;;  h-x
-            ;;  (* 15.3d9 1d2)
-            ;;  0d0
-            ;;  0d0
-            ;;  )
-            ))
+          ;; (defparameter *penalty-point*
+          ;;   (cl-mpm/penalty::make-bc-penalty-structure
+          ;;    sim
+          ;;    epsilon
+          ;;    friction
+          ;;    damping
+          ;;    (list
+          ;;     left-smooth
+          ;;     right-smooth))
+          ;;   )
+
+          (let ((normal (cl-mpm/utils:vector-from-list '(0d0 -1d0 0d0))))
+            (defparameter *penalty-point*
+              (cl-mpm/penalty::make-bc-penalty-displacment
+               sim
+               normal
+               epsilon
+               :clip-function (lambda (p)
+                                (cl-mpm/penalty::clip-radial
+                                 p
+                                 normal
+                                 center
+                                 hx)))))
+          )
         (cl-mpm/penalty::bc-increment-center *penalty-point*
                                              (cl-mpm/utils:vector-from-list (list 0d0 1d-6 0d0)))
 
@@ -747,10 +753,10 @@
             (* (cl-mpm/penalty::resolve-load *penalty*) 2d0))))
 (defun test ()
   (defparameter *displacement* 0d0)
-  (let* ((lstps 50)
+  (let* ((lstps 10)
          (total-disp -0.2d-3)
-         (output-dir (format nil "./output-se/")))
-    (setup :refine 2 :mps 3 :epsilon-scale 1d1 :pinned-edge t)
+         (output-dir (format nil "./output-pen/")))
+    (setup :refine 0.5 :mps 3 :epsilon-scale 1d1 :pinned-edge nil)
     (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
     (setf cl-mpm/damage::*enable-reflect-x* t)
     (setf (cl-mpm::sim-gravity *sim*) 0d4)

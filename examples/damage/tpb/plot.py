@@ -16,7 +16,7 @@ from scipy import integrate
 def calculate_gf(disp,load):
     return integrate.trapz(load,disp)/(0.102*0.6*13e-3)
 
-top_dir = "../../"#"./paper-1/damage-mc/"
+top_dir = "../../../"#"./paper-1/damage-mc/"
 #top_dir = "./paper-1/damage-mc/"
 regex = re.compile(r'^output.*')
 folders = list(filter(regex.search,os.listdir(top_dir)))

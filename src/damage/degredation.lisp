@@ -309,3 +309,92 @@
              (- 1d0 damage)
              (cl-mpm/particle::compute-p-modulus mp)))))
   )
+
+(defun apply-isotropic-1d (mp)
+  (with-accessors ((damage        cl-mpm/particle::mp-damage)
+                   (undamaged-stress        cl-mpm/particle::mp-undamaged-stress)
+                   (def cl-mpm/particle::mp-deformation-gradient)
+                   (stress        cl-mpm/particle::mp-stress)
+                   (enable-damage cl-mpm/particle::mp-enable-damage)
+                   (p-mod cl-mpm/particle::mp-p-modulus-0)
+                   (e cl-mpm/particle::mp-e)
+                   (nu cl-mpm/particle::mp-nu))
+      mp
+    (declare (double-float damage))
+    (when (and
+           enable-damage
+           (> damage 0.0d0))
+      (cl-mpm/utils:voigt-copy-into undamaged-stress stress)
+      (setf (cl-mpm/utils:varef stress 0)
+            (* (cl-mpm/utils:varef undamaged-stress 0)
+               (/ (- 1d0 damage) (cl-mpm/fastmaths::det-3x3 def))))
+      (setf (cl-mpm/particle::mp-p-modulus-0 mp)
+            (*
+             (- 1d0 damage)
+             (cl-mpm/particle::compute-p-modulus mp))))))
+
+
+(defun apply-tcs-1d (mp)
+  (with-accessors ((damage        cl-mpm/particle::mp-damage)
+                   (damage-t      cl-mpm/particle::mp-damage-tension)
+                   (damage-c      cl-mpm/particle::mp-damage-compression)
+                   (undamaged-stress        cl-mpm/particle::mp-undamaged-stress)
+                   (def cl-mpm/particle::mp-deformation-gradient)
+                   (stress        cl-mpm/particle::mp-stress)
+                   (enable-damage cl-mpm/particle::mp-enable-damage)
+                   (p-mod cl-mpm/particle::mp-p-modulus-0)
+                   (e cl-mpm/particle::mp-e)
+                   (nu cl-mpm/particle::mp-nu))
+      mp
+    (declare (double-float damage))
+    (when (and
+           enable-damage
+           (> damage 0.0d0))
+      (let ((stress-x (/ (cl-mpm/utils:varef undamaged-stress 0) (cl-mpm/fastmaths::det-3x3 def)))
+            (deg 0d0)
+            )
+        (setf
+         deg
+         (- 1d0
+            (if (> stress-x 0d0)
+                damage-t
+                damage-c)))
+        (setf (cl-mpm/utils:varef stress 0)
+              (* stress-x
+                 deg
+                 ))
+        (setf (cl-mpm/particle::mp-p-modulus-0 mp)
+              (*
+               deg
+               (cl-mpm/particle::compute-p-modulus mp)))))))
+
+(defun apply-spectral-1d (mp)
+  (with-accessors ((damage        cl-mpm/particle::mp-damage)
+                   (undamaged-stress        cl-mpm/particle::mp-undamaged-stress)
+                   (def cl-mpm/particle::mp-deformation-gradient)
+                   (stress        cl-mpm/particle::mp-stress)
+                   (enable-damage cl-mpm/particle::mp-enable-damage)
+                   (p-mod cl-mpm/particle::mp-p-modulus-0)
+                   (e cl-mpm/particle::mp-e)
+                   (nu cl-mpm/particle::mp-nu))
+      mp
+    (declare (double-float damage))
+    (when (and
+           enable-damage
+           (> damage 0.0d0))
+      (cl-mpm/utils:voigt-copy-into undamaged-stress stress)
+      (let ((stress-x (/ (cl-mpm/utils:varef undamaged-stress 0) (cl-mpm/fastmaths::det-3x3 def)))
+            (deg 0d0)
+            )
+        (setf deg
+              (- 1d0
+                 (if (> stress-x 0d0)
+                     damage
+                     0d0)))
+        (setf (cl-mpm/utils:varef stress 0)
+              (* stress-x
+                 deg))
+        (setf (cl-mpm/particle::mp-p-modulus-0 mp)
+              (*
+               deg
+               (cl-mpm/particle::compute-p-modulus mp)))))))

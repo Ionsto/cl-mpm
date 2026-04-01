@@ -1349,8 +1349,7 @@
                                    (cl-mpm/fastmaths::dot
                                     normal
                                     (get-contact-point mp))))
-                           1d-9
-                           )
+                           1d-9)
                         (funcall clip-function (get-contact-point mp)))
                ;; (cl-mpm/fastmaths:fast-.+
                ;;  (cl-mpm/particle::mp-position mp)
@@ -1361,6 +1360,7 @@
                ;;    (cl-mpm/fastmaths:fast-scale (cl-mpm/particle::mp-domain-size mp) 0.5d0)
                ;;    )))
                (let ((corner (get-contact-point mp)))
+                 (pprint corner)
                  (sb-thread:with-mutex (mutex)
                    (let ((contact (make-contact
                                    corner
@@ -1412,27 +1412,41 @@
         sim
       (let ((contacts (bc-penalty-disp-contacts bc)))
         (lparallel:pdotimes (i (length contacts))
-          (let ((contact (aref contacts i)))
-            (let* ((mp (contact-mp contact))
-                   (corner-trial
-                    (cl-mpm/fastmaths:fast-.+
-                     (cl-mpm/particle::mp-position mp)
-                     (cl-mpm/fastmaths:fast-scale
-                      normal
-                      (* 0.5d0
-                         (cl-mpm/fastmaths:dot
-                          normal
-                          (cl-mpm/particle::mp-domain-size mp)))))))
-              (let* ((disp (compute-corner-displacement mesh corner-trial))
-                     (corner (cl-mpm/fastmaths:fast-.+ corner-trial disp)))
-                (cl-mpm/mesh::clamp-point-to-bounds mesh corner)
-                ;; (pprint contact)
-                (apply-penalty-displacment-point
-                 mesh
-                 bc
-                 mp
-                 corner
-                 corner-trial
-                 disp
-                 dt)
-                ))))))))
+          (flet ((get-contact-point (mp)
+                   (cl-mpm/fastmaths:fast-.+
+                    (cl-mpm/particle::mp-position mp)
+                    (cl-mpm/fastmaths:fast-scale
+                     normal
+                     (* 0.5d0
+                        (cl-mpm/fastmaths:dot
+                         (cl-mpm/fastmaths::element-wise-map
+                          (cl-mpm/utils::vector-copy
+                           normal)
+                          #'abs)
+                         (cl-mpm/particle::mp-domain-size mp)))))))
+            (let ((contact (aref contacts i)))
+              (let* ((mp (contact-mp contact))
+                     (corner-trial
+                       (get-contact-point mp)
+                       ;; (cl-mpm/fastmaths:fast-.+
+                       ;;  (cl-mpm/particle::mp-position mp)
+                       ;;  (cl-mpm/fastmaths:fast-scale
+                       ;;   normal
+                       ;;   (* 0.5d0
+                       ;;      (cl-mpm/fastmaths:dot
+                       ;;       normal
+                       ;;       (cl-mpm/particle::mp-domain-size mp)))))
+                       ))
+                (let* ((disp (compute-corner-displacement mesh corner-trial))
+                       (corner (cl-mpm/fastmaths:fast-.+ corner-trial disp)))
+                  (cl-mpm/mesh::clamp-point-to-bounds mesh corner)
+                  ;; (pprint contact)
+                  (apply-penalty-displacment-point
+                   mesh
+                   bc
+                   mp
+                   corner
+                   corner-trial
+                   disp
+                   dt)
+                  )))))))))
