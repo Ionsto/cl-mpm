@@ -62,10 +62,10 @@
                       ;; (/ 1d0 (magicl:det def))
                       )))
         (setf y
-              ;; (cl-mpm/damage::tensile-energy-norm strain E de)
+              (cl-mpm/damage::tensile-energy-norm strain E de)
               ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
               ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
-              (cl-mpm/damage::criterion-modified-vm strain k E nu)
+              ;; (cl-mpm/damage::criterion-modified-vm strain k E nu)
               )))))
 
 (defparameter *current-load* 0d0)
@@ -79,7 +79,7 @@
                                                    (epsilon-scale 1d2)
                                                    (pinned-edge nil)
                                                    )
-  (let* ((E (* 15.3d9 1.27d0))
+  (let* ((E (* 15.3d9 1.16d0))
          (nu 0.15d0)
          (sim (cl-mpm/setup::make-simple-sim
                (/ 1d0 e-scale)
@@ -87,7 +87,7 @@
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
                :args-list (list
-                           ;; :enable-aggregate t
+                           :enable-aggregate nil
                            :ghost-factor (* 1d-2 (cl-mpm/utils::calculate-p-wave-modulus E nu))
                            :enable-damage t)))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -775,7 +775,7 @@
   (let* ((lstps 20)
          (total-disp -0.2d-3)
          (output-dir (format nil "./output-pen/")))
-    (setup :refine 0.5 :mps 3 :epsilon-scale 1d1 :pinned-edge nil)
+    (setup :refine 1 :mps 3 :epsilon-scale 1d2 :pinned-edge nil)
     (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
     (setf cl-mpm/damage::*enable-reflect-x* t)
     (setf (cl-mpm::sim-gravity *sim*) 0d4)
