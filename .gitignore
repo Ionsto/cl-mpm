@@ -17,3 +17,5 @@
 mpi-worker
 ]
 2
+*.swp
+

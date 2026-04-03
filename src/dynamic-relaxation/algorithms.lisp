@@ -890,6 +890,7 @@
                            (damping 1d0)
                            (kinetic-damping nil)
                            (criteria 1d-3)
+                           (conv-steps 50)
                            (post-conv-step (lambda (sim)))
                            (post-iter-step (lambda (sub-iter oobf energy)))
                            (pre-step (lambda ()))
@@ -943,7 +944,7 @@
                        :dt-scale dt-scale
                        :substeps substeps
                        :damping damping
-                       ;; :conv-steps 1000
+                       :conv-steps conv-steps
                        :post-iter-step
                        (lambda (i energy oobf)
                          (funcall post-iter-step i energy oobf)
@@ -1265,6 +1266,7 @@
                            (enable-damage t)
                            (enable-plastic t)
                            (save-vtk-dr t)
+                           (true-stagger nil)
                            (save-vtk-loadstep t)
                            (max-adaptive-steps 5)
                            (min-adaptive-steps 0)
@@ -1324,6 +1326,7 @@
                                       :enable-damage enable-damage
                                       :enable-plastic enable-plastic
                                       :max-damage-inc max-damage-inc
+                                      :true-stagger true-stagger
                                       :post-iter-step
                                       (lambda (i-g energy oobf)
                                         (incf i-total)
