@@ -100,10 +100,10 @@
       ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
       :args-list
       (list
-       :enable-aggregate t
-       :ghost-factor nil
-       ;; :enable-aggregate nil
-       ;; :ghost-factor (* (cl-mpm/utils::calculate-p-wave-modulus E nu) 1d-4)
+       ;; :enable-aggregate t
+       ;; :ghost-factor nil
+       :enable-aggregate nil
+       :ghost-factor (* (cl-mpm/utils::calculate-p-wave-modulus E nu) 1d-3)
        :mass-update-count 50
        :enable-split t
        :max-split-depth 8
@@ -356,7 +356,7 @@
       :min-damage-inc 0.1d0
       :substeps (round (* refine 50))
       :sub-conv-steps 50
-      :criteria 1d-6
+      :criteria 1d-3
       :true-stagger nil
       :save-vtk-dr nil
       :save-vtk-loadstep t
@@ -408,9 +408,10 @@
 
 (defun test-oversize ()
   (let ((refine 1)
-        (mps 3))
+        (mps 4))
     (dolist (oversize (list
-                       (- 1d0 1d-1)
+                       0d0
+                       ;; (- 1d0 1d-1)
                        ;; (- 1d0 1d-2)
                        ;; (- 1d0 1d-3)
                        ))
@@ -423,10 +424,14 @@
              :angle-r 10d0
              :oversize-factor oversize)
       ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
-      (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
+      ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
       (run :output-dir (format nil "./output-pdinc-tensile-~F/" oversize)
            :refine refine
-           :tensile t))))
+           :enable-damage nil
+           :enable-plastic t
+           :lstps 50
+           ;; :tensile t
+           ))))
 
 (defun test-tension-compression ()
   (let ((refine 2)

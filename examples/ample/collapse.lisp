@@ -80,7 +80,7 @@
                  :split-factor (* 2d0 (/ 1d0 mp-scale))
                  :enable-fbar t
                  :enable-aggregate nil
-                 :ghost-factor (* E 1d-2)
+                 :ghost-factor (* E 1d-0)
                  ;; :ghost-factor (* density 1d-6)
                  :max-split-depth 6
                  :enable-split t
@@ -372,23 +372,34 @@
        :dt-scale 1d0))))
 
 (defun test-load-control ()
-  (dolist (r (list 1 2 3 4 5))
-    (setup :mps 2 :refine r :multigrid-refine 0)
-    (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-15)
+  (dolist (r (list 1))
+    (setup :mps 3 :refine r :multigrid-refine 0)
     (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil)
     (setf (cl-mpm::sim-ghost-factor *sim*) (* 1d6 1d0))
-    (setf (cl-mpm::sim-gravity *sim*) -1d0)
-    (cl-mpm/dynamic-relaxation::run-load-control
-     *sim*
-     :output-dir (format nil "./output-ghost-~D/" r)
-     :plotter #'plot
-     :load-steps 3
-     :damping 1d0;(sqrt 2)
-     :substeps (* 10 r)
-     :criteria 1d-3
-     :save-vtk-dr t
-     :save-vtk-loadstep t
-     :dt-scale 1d0)))
+    (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-9)
+    (setf (cl-mpm::sim-gravity *sim*) -10d0)
+    (let ((step (list))
+          (res (list))
+          (total-step 0)
+          )
+      (vgplot:close-all-plots)
+      (cl-mpm/dynamic-relaxation::run-load-control
+       *sim*
+       :output-dir (format nil "./output-ghost-~D/" r)
+       ;; :plotter #'plot
+       :load-steps 20
+       :damping 1d0;(sqrt 2)
+       :substeps (* 50 r)
+       :criteria 1d-9
+       :conv-steps 1000
+       :plotter (lambda (sim) (vgplot:semilogy (reverse step) (reverse res)))
+       :post-iter-step (lambda (i o e)
+                         (push total-step step)
+                         (incf total-step)
+                         (push e res))
+       :save-vtk-dr t
+       :save-vtk-loadstep t
+       :dt-scale 1d0))))
 
 
 (defun test-3d ()

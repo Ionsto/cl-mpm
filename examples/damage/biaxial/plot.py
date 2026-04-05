@@ -19,7 +19,7 @@ from scipy import integrate
 def calculate_gf(disp,load):
     i = np.argmax(load)
     print("Max at {}mm".format(disp[i]*1e3))
-    return integrate.trapz(load[i::-1],disp[i::-1])
+    return integrate.trapz(load[::-1],disp[::-1])
 
 top_dir = "../../../"
 regex = re.compile(r'^output.*')
