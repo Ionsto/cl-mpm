@@ -69,12 +69,13 @@
                 (enable-fbar t)
                 (multigrid-refines 0)
                 (gf 10d0)
-                (kt 1d0)
+                (kt (- 1d0 1d-6))
                 (kc 0d0)
                 (angle 40d0)
                 (angle-r 0d0)
                 (oversize-factor (- 1d0 1d-2))
                 (local-length 0.01d0)
+                (epsilon-scale 1d2)
                 (model :MC)
                 )
   (let* ((width   80d-3)
@@ -102,7 +103,8 @@
        ;; :enable-aggregate t
        ;; :ghost-factor nil
        :enable-aggregate nil
-       :ghost-factor (* (cl-mpm/utils::calculate-p-wave-modulus E nu) 1d-2)
+       :ghost-factor (* (cl-mpm/utils::calculate-p-wave-modulus E nu) 1d-3)
+       :mass-update-count 50
        :enable-split t
        :max-split-depth 8
        :split-factor (* 1d0 (sqrt 2) (/ 1d0 mps))
@@ -111,7 +113,8 @@
        )))
 
     (setf h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
-    (let* ((init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 40d3 angle))
+    (let* (;; (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 40d3 angle))
+           (init-stress 46d3)
            ;; (L 10d-3)
            ;; (L h)
            (L local-length)
@@ -140,8 +143,9 @@
         ;; :kc-res-ratio 0d0
         ;; :g-res-ratio 1d0
 
-        'cl-mpm/particle::particle-plastic-damage-frictional
+        ;; 'cl-mpm/particle::particle-plastic-damage-frictional
         ;; 'cl-mpm/particle::particle-fpd-isotropic
+        'cl-mpm/particle::particle-fpd-tcs
         :E E
         :nu nu
         :local-length L
@@ -155,7 +159,7 @@
         :kc-res-ratio kc
         :psi (cl-mpm/utils:deg-to-rad angle-r)
         :plastic-damage-evolution nil
-        :residual-strength (- 1d0 1d-9)
+        :residual-strength (- 1d0 1d-3)
 
         ;; :phi (cl-mpm/utils:deg-to-rad angle)
         ;; :phi-r (cl-mpm/utils:deg-to-rad angle-r)
@@ -231,7 +235,7 @@
 
 
     (setf (cl-mpm::sim-gravity *sim*) 0d0)
-    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-15)
+    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-9)
     (cl-mpm/setup::setup-bcs
      *sim*
      :left '(0 nil nil)
@@ -244,7 +248,6 @@
       '(0 0 nil)))
 
     (let* ((friction 0d0)
-           (epsilon-scale 1d2)
            (normal (cl-mpm/utils:vector-from-list '(0d0 -1d0 0d0)))
            (epsilon (* (cl-mpm/particle::calculate-p-wave-modulus E nu) epsilon-scale)))
       ;; (defparameter *penalty*
@@ -345,22 +348,23 @@
       :load-steps lstps
       :enable-plastic enable-plastic
       :enable-damage enable-damage
-      :damping 1d0;(sqrt 2d0)
+      :damping (sqrt 1d0)
       :min-adaptive-steps 0
-      :max-adaptive-steps 10
-      :adaption-constant 2
-      :max-damage-inc 0.50d0
+      :max-adaptive-steps 2
+      :adaption-constant 4
+      :max-damage-inc 0.90d0
       :min-damage-inc 0.1d0
       :substeps (round (* refine 50))
-      :sub-conv-steps 200
+      :sub-conv-steps 50
       :criteria 1d-3
-      :save-vtk-dr t
+      :true-stagger nil
+      :save-vtk-dr nil
       :save-vtk-loadstep t
       :dt-scale 1d0))))
 
 (defun test ()
-  (dolist (refine (list 1))
-    (setup :mps 3
+  (dolist (refine (list 2))
+    (setup :mps 4
            :refine refine
            :enable-fbar t
            :angle 16d0
@@ -404,9 +408,10 @@
 
 (defun test-oversize ()
   (let ((refine 1)
-        (mps 3))
+        (mps 4))
     (dolist (oversize (list
-                       (- 1d0 1d-1)
+                       0d0
+                       ;; (- 1d0 1d-1)
                        ;; (- 1d0 1d-2)
                        ;; (- 1d0 1d-3)
                        ))
@@ -419,10 +424,14 @@
              :angle-r 10d0
              :oversize-factor oversize)
       ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
-      (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
+      ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
       (run :output-dir (format nil "./output-pdinc-tensile-~F/" oversize)
            :refine refine
-           :tensile t))))
+           :enable-damage nil
+           :enable-plastic t
+           :lstps 50
+           ;; :tensile t
+           ))))
 
 (defun test-tension-compression ()
   (let ((refine 2)
@@ -553,26 +562,43 @@
 
 (defun test-angle ()
    (dolist (refine (list 1))
-     (dolist (angle (list
-                     5d0
-                     15d0
-                     30d0
-                     ))
-       (setup :mps 2
-              :refine refine
-              :enable-fbar t
-              :angle angle
-              :angle-r 1d0
-              :gf 40d0
-              :kt 1d0
-              :local-length 1d-2
-              )
-       (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
-       ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
-       (run :output-dir (format nil "./output-~F-~D/" angle refine)
-            :enable-plastic nil
-            :enable-plastic nil
-            :refine refine))))
+     (dolist (model (list :MC
+                          :DP
+                          ))
+       (dolist (angle (list
+                       ;; 5d0
+                       15d0
+                       30d0
+                       45d0
+                       60d0
+                       ))
+         (setup :mps 3
+                :refine refine
+                :enable-fbar t
+                :angle angle
+                :angle-r 1d0
+                :gf 40d0
+                :model model
+                :epsilon-scale 1d2
+                )
+         ;; (cl-mpm::iterate-over-mps
+         ;;  (cl-mpm::sim-mps *sim*)
+         ;;  (lambda (mp)
+         ;;    (cl-mpm/fastmaths:fast-.+ (cl-mpm/particle::mp-position mp)
+         ;;                              (cl-mpm/utils::vector-from-list (list 1d-6 0d0 0d0))
+         ;;                              (cl-mpm/particle::mp-position mp)
+         ;;                              ))
+         ;;  )
+         ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+         ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
+         (let ((output-dir (format nil "./output-~A-~F-~D/" model angle refine)))
+           (format t "Testing ~A~%" output-dir)
+           (time
+            (run :output-dir output-dir
+                 :lstps 10
+                 :total-disp -5d-3
+                 :enable-damage t
+                 :refine refine)))))))
 
 
 ;; (let ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))

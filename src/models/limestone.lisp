@@ -50,9 +50,7 @@
     (declare (double-float damage))
     ;; Non-objective stress intergration
     (setf stress-undamaged (cl-mpm/constitutive::linear-elastic-mat strain de stress-undamaged))
-    (setf stress (cl-mpm/utils:voigt-copy-into stress-undamaged stress))
-    ;; (when (> damage 0.0d0)
-    ;;   (cl-mpm/fastmaths::fast-scale! stress (- 1d0 (* (- 1d0 1d-9) damage))))
+    (cl-mpm/utils:voigt-copy-into stress-undamaged stress)
     stress))
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-limestone) dt)
   (cl-mpm/damage::apply-isotropic-degredation mp))

@@ -73,6 +73,76 @@
           (values energy oobf power)
           (values 0d0 0d0 0d0)))))
 
+(defun combi-stats-mass-factor (sim)
+  (destructuring-bind (mass
+                       energy
+                       oobf-num
+                       oobf-denom
+                       power)
+      (cl-mpm::reduce-over-nodes
+       (cl-mpm:sim-mesh sim)
+       (lambda (node)
+         (if (and (cl-mpm/mesh:node-active node))
+             (with-accessors ((active cl-mpm/mesh::node-active)
+                              (f-ext cl-mpm/mesh::node-external-force)
+                              (res cl-mpm/mesh::node-force)
+                              (mass cl-mpm/mesh::node-mass)
+                              (volume cl-mpm/mesh::node-volume)
+                              (volume-t cl-mpm/mesh::node-volume-true)
+                              (vel cl-mpm/mesh::node-velocity)
+                              (disp cl-mpm/mesh::node-displacment)
+                              )
+                 node
+               (declare (double-float mass))
+               (let (;(mass 1d0)
+                     (scale-factor (expt mass 1))
+                     ;; (scale-factor 1d0)
+                     ;; (scale-factor (/ volume volume-t))
+                     )
+                 (list
+                  scale-factor
+                  (* scale-factor (* 0.5d0 mass (cl-mpm/fastmaths::mag-squared vel)))
+                  ;(* scale-factor (cl-mpm/fastmaths::mag (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
+                  (* scale-factor (cl-mpm/fastmaths::mag-squared res))
+                  (* scale-factor (cl-mpm/fastmaths::mag-squared f-ext))
+                  (* scale-factor
+                     (cl-mpm/fastmaths:dot
+                      disp f-ext)))))
+             (list 0d0 0d0 0d0 0d0 0d0)))
+       (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
+    (declare (double-float mass energy oobf-num oobf-denom power))
+    (let ((oobf 0d0))
+      ;; (format t "OOBF norms ~E ~E~%" oobf-num oobf-denom)
+      (if (> oobf-denom 0d0)
+          (setf oobf (sqrt (/ oobf-num oobf-denom)))
+          (setf oobf (if (> oobf-num 0d0) sb-ext:double-float-positive-infinity 0d0)))
+      (when (and *debug-oobf*
+                 (> oobf-denom 0d0))
+        (cl-mpm::iterate-over-nodes
+         (cl-mpm:sim-mesh sim)
+         (lambda (node)
+           (with-accessors ((active cl-mpm/mesh::node-active)
+                            (agg cl-mpm/mesh::node-agg)
+                            ;; (f-ext cl-mpm/mesh::node-external-force)
+                            (res cl-mpm/mesh::node-residual)
+                            (n-mass cl-mpm/mesh::node-mass)
+                            (node-oobf cl-mpm/mesh::node-oobf))
+               node
+             (if (and active
+                        (or
+                         (not agg) (cl-mpm/mesh::node-interior node)))
+               (when t
+                 (setf node-oobf
+                       (if (> oobf 0d0)
+                           (/ (* n-mass (cl-mpm/fastmaths::mag res))
+                               oobf-denom)
+                           0d0)))
+               (setf node-oobf 0d0))))))
+      (if (> mass 0d0)
+          (values (/ energy mass) oobf (/ power mass))
+          ;; (values energy oobf power)
+          (values 0d0 0d0 0d0)))))
+
 (defun combi-stats-aggregated (sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (sim-agg cl-mpm/aggregate::sim-enable-aggregate))
@@ -118,7 +188,6 @@
                   (E (cl-mpm/aggregate::sim-global-e sim))
                   (ma (cl-mpm/aggregate::sim-global-ma sim))
                   (mv (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-mass))
-
                   (vi (magicl:@
                        (magicl:transpose E)
                        (cl-mpm/fastmaths:fast-.*
@@ -711,12 +780,18 @@
             stats-oobf o
             stats-power p)
       (incf stats-work p))
-    ;; (if (cl-mpm/aggregate::sim-enable-aggregate sim))
-    ;; (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats sim)
-    ;;   (setf stats-energy e
-    ;;         stats-oobf o
-    ;;         stats-power p)
-    ;;   (incf stats-work p))
+    ;; (if (cl-mpm/aggregate::sim-enable-aggregate sim)
+    ;;     (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats-aggregated sim)
+    ;;       (setf stats-energy e
+    ;;             stats-oobf o
+    ;;             stats-power p)
+    ;;       (incf stats-work p))
+    ;;     (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats-mass-factor sim)
+    ;;       (setf stats-energy e
+    ;;             stats-oobf o
+    ;;             stats-power p)
+    ;;       (incf stats-work p))
+    ;;     )
     ;; (setf stats-oobf (res-norm-aggregated sim))
     ))
 

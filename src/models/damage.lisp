@@ -620,12 +620,13 @@
                    (damage-compression cl-mpm/particle::mp-damage-compression)
                    (kc-r cl-mpm/particle::mp-k-compressive-residual-ratio)
                    (kt-r cl-mpm/particle::mp-k-tensile-residual-ratio)
+                   (residual-strength cl-mpm/particle::mp-residual-strength)
                    (g-r cl-mpm/particle::mp-shear-residual-ratio))
    mp
    (declare (double-float kt-r kc-r g-r damage k k-n))
    ;; Directly compute the damage from K
    (let ()
-     (setf damage (cl-mpm/damage::damage-response-exponential k E init-stress ductility))
+     (setf damage (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility residual-strength))
      (setf
       damage-tension (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility kt-r)
       damage-shear (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility g-r)

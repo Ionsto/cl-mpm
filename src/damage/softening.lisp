@@ -127,10 +127,12 @@
   (declare (optimize (speed 0) (debug 3)))
   (when (< ductility 1d0)
     (error "Ductility ~A cannot be less than 1" ductility))
-  (let* ((eta ductility)
-         (value (/ (* 2d0 (exp (/ 2d0 (- eta 1d0))))
-                   (* (- 1d0 damage-final) (- eta 1d0)))))
-    (* 0.5d0 (- eta 1d0) (cl-mpm/fastmaths::lambert-w-0 value))))
+  (if (= damage-final 0d0)
+    1d0
+    (let* ((eta ductility)
+           (value (/ (* 2d0 (exp (/ 2d0 (- eta 1d0))))
+                     (* (- 1d0 damage-final) (- eta 1d0)))))
+      (* 0.5d0 (- eta 1d0) (cl-mpm/fastmaths::lambert-w-0 value)))))
 
 (defun brittle-concrete-linear-d (stress E Gf length init-stress)
   (let* ((hsl (/ (expt init-stress 2) (* 2 E Gf)))

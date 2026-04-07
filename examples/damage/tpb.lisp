@@ -62,16 +62,20 @@
                       ;; (/ 1d0 (magicl:det def))
                       )))
         (setf y
-              ;; (cl-mpm/damage::tensile-energy-norm strain E de)
+              (cl-mpm/damage::tensile-energy-norm strain E de)
               ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
               ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
-              (cl-mpm/damage::criterion-modified-vm strain k E nu)
+              ;; (cl-mpm/damage::criterion-modified-vm strain k E nu)
               )))))
 
 (defparameter *current-load* 0d0)
 
 (defparameter *target-displacement* 0d0)
 (defparameter *tip-velocity* -0.000d-3)
+(defparameter *length-scale*
+  5.3d-3
+  ;; 3.4d-3
+  )
 ;; (defparameter *gf* 48d0)
 
 (declaim (notinline setup-test-column))
@@ -79,15 +83,17 @@
                                                    (epsilon-scale 1d2)
                                                    (pinned-edge nil)
                                                    )
-  (let* ((E (* 15.3d9 1.27d0))
+  (let* ((E (* 15.3d9 ;1.16d0
+               ))
          (nu 0.15d0)
+         (lc *length-scale*)
          (sim (cl-mpm/setup::make-simple-sim
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
                :args-list (list
-                           ;; :enable-aggregate t
+                           :enable-aggregate nil
                            :ghost-factor (* 1d-2 (cl-mpm/utils::calculate-p-wave-modulus E nu))
                            :enable-damage t)))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -102,7 +108,10 @@
                (crack-scale 1.0d0)
                ;; (length-scale 5.3d-3)
                                         ;(length-scale (* 5.4d-3 (sqrt 7)))
-               (length-scale (* 5.4d-3 2d0))
+               (length-scale
+                 lc
+                 ;; (* 5.4d-3 2d0)
+                             )
                (gf (* 1d0 48d0))
                (init-stress 3.45d6)
                (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E)))
@@ -380,9 +389,11 @@
                 (epsilon-scale 1d2)
                 (pinned-edge nil)
                 )
-  (let* ((mesh-size (/ 0.0102 (* refine 1.0)))
-         (mps-per-cell mps)
+  (let* (
          (shelf-height 0.102d0)
+         ;; (shelf-height 0.051d0)
+         (mesh-size (/ (* shelf-height 1e-1) (* refine 1.0)))
+         (mps-per-cell mps)
          (shelf-length (* shelf-height 2.0))
          ;; (shelf-length 0.225d0)
          (domain-length (+ (* shelf-length 2)
@@ -403,7 +414,8 @@
                          :pinned-edge pinned-edge
                          ))
     (let ((cut-depth (* 0.4d0 shelf-height))
-          (cut-width (* 1 mesh-size)))
+          (cut-width ;; (* 1 mesh-size)
+            (* 2 *length-scale*)))
       (format t "Crack width:~F~%" (* 1d0 cut-width))
       (cl-mpm/setup::remove-sdf
        *sim*
@@ -638,7 +650,6 @@
 
 
 
-
 (defparameter *calibration-ductility* 
   (list
    2.0042060175857923
@@ -772,10 +783,10 @@
             (get-load))))
 (defun test ()
   (defparameter *displacement* 0d0)
-  (let* ((lstps 20)
+  (let* ((lstps 10)
          (total-disp -0.2d-3)
          (output-dir (format nil "./output-pen/")))
-    (setup :refine 0.5 :mps 3 :epsilon-scale 1d1 :pinned-edge nil)
+    (setup :refine 1 :mps 3 :epsilon-scale 1d2 :pinned-edge nil)
     (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
     (setf cl-mpm/damage::*enable-reflect-x* t)
     (setf (cl-mpm::sim-gravity *sim*) 0d4)
@@ -793,9 +804,12 @@
                 (format t "Load ~E ~%" (get-load)))
      :loading-function (lambda (percent)
                          (setf *displacement* (* total-disp percent))
-                         (let ((delta (- *displacement* *last-pos*)))
-                           (cl-mpm/penalty::bc-increment-center *penalty* (cl-mpm/utils:vector-from-list (list 0d0 delta 0d0)))
-                           (setf *last-pos* *displacement*))
+                         (cl-mpm/penalty::bc-set-displacement
+                          *penalty*
+                          (cl-mpm/utils:vector-from-list (list 0d0 *displacement* 0d0)))
+                         ;; (let ((delta (- *displacement* *last-pos*)))
+                         ;;   (cl-mpm/penalty::bc-increment-center *penalty* (cl-mpm/utils:vector-from-list (list 0d0 delta 0d0)))
+                         ;;   (setf *last-pos* *displacement*))
                          )
      :pre-step (lambda ()
                  (output-disp-header output-dir)

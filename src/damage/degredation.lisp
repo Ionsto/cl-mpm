@@ -12,7 +12,7 @@
       mp
     (declare (double-float damage))
     (when (and
-           enable-damage
+           ;; enable-damage
            (> damage 0.0d0))
       (cl-mpm/utils:voigt-copy-into undamaged-stress stress)
       (cl-mpm/fastmaths:fast-scale! stress (/ (- 1d0 damage) (cl-mpm/fastmaths::det-3x3 def)))
@@ -105,7 +105,7 @@
       mp
     (declare (double-float damage))
     (when (and
-           enable-damage
+           ;; enable-damage
            (> damage 0.0d0))
       (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
             (s (cl-mpm/constitutive::deviatoric-voigt stress)))
@@ -137,7 +137,7 @@
       mp
     (declare (double-float damage damage-t damage-c damage-s))
     (when (and
-           enable-damage
+           ;; enable-damage
            (> damage 0.0d0))
       (let* ((exponent 1)
             (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
@@ -189,7 +189,7 @@
       mp
     (declare (double-float damage damage-t damage-c damage-s))
     (when (and
-           enable-damage
+           ;; enable-damage
            (> damage 0.0d0))
       (let* ((exponent 1)
              (stress-uc (cl-mpm/fastmaths:fast-scale-voigt stress-u (/ 1d0 (cl-mpm/fastmaths:det-3x3 def))))
@@ -241,7 +241,7 @@
       mp
     (declare (double-float damage damage-t damage-c damage-s))
     (when (and
-           enable-damage
+           ;; enable-damage
            (> damage 0.0d0))
       (let* ((ep (/ (cl-mpm/constitutive::voight-trace strain) 3d0))
              (pind ep)
@@ -296,7 +296,7 @@
       mp
     (declare (double-float damage))
     (when (and
-           enable-damage
+           ;; enable-damage
            (> damage 0.0d0))
       (cl-mpm/utils:voigt-copy-into undamaged-stress stress)
       (cl-mpm/fastmaths:fast-scale! stress (/ (- 1d0 damage) (cl-mpm/fastmaths::det-3x3 def)))
@@ -322,7 +322,7 @@
       mp
     (declare (double-float damage))
     (when (and
-           enable-damage
+           ;; enable-damage
            (> damage 0.0d0))
       (cl-mpm/utils:voigt-copy-into undamaged-stress stress)
       (setf (cl-mpm/utils:varef stress 0)
@@ -348,7 +348,7 @@
       mp
     (declare (double-float damage))
     (when (and
-           enable-damage
+           ;; enable-damage
            (> damage 0.0d0))
       (let ((stress-x (/ (cl-mpm/utils:varef undamaged-stress 0) (cl-mpm/fastmaths::det-3x3 def)))
             (deg 0d0)
@@ -380,7 +380,7 @@
       mp
     (declare (double-float damage))
     (when (and
-           enable-damage
+           ;; enable-damage
            (> damage 0.0d0))
       (cl-mpm/utils:voigt-copy-into undamaged-stress stress)
       (let ((stress-x (/ (cl-mpm/utils:varef undamaged-stress 0) (cl-mpm/fastmaths::det-3x3 def)))

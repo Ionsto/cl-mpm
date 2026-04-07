@@ -18,8 +18,10 @@
          (psi 0.05d0)
          (c 1d0)
          (strain (cl-mpm/constitutive::swizzle-coombs->voigt (voigt-from-list strain-list)))
-         (de (cl-mpm/constitutive:linear-elastic-matrix E nu)))
-    (multiple-value-bind (sig eps f) (cl-mpm/ext::constitutive-drucker-prager strain de E nu phi psi c)
+         (de (cl-mpm/constitutive:linear-elastic-matrix E nu))
+         (stress (magicl:@ de strain))
+         )
+    (multiple-value-bind (sig eps f psinc pmod) (cl-mpm/ext::constitutive-mohr-coulomb stress strain de E nu phi psi c)
       (cl-mpm/constitutive::swizzle-voigt->coombs eps))))
 
 (deftest test-ext-drucker-prager ()
