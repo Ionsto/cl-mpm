@@ -95,7 +95,11 @@
                :args-list (list
                            :enable-aggregate nil
                            :ghost-factor (* 1d-2 (cl-mpm/utils::calculate-p-wave-modulus E nu))
-                           :enable-damage t)))
+                           :enable-damage t
+                           :enable-split t
+                           :max-split-depth 8
+                           :split-factor (* (sqrt 2) (/ 1d0 mp-scale))
+                           )))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
@@ -148,7 +152,6 @@
       (setf (cl-mpm::sim-gravity sim) 0d0)
       ;; (calculate-ductility-param 18d9  48d0 5.3d-3 3.4d6)
       ;calculate-ductility-param (E Gf l-c f-t)
-      (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
