@@ -1,5 +1,5 @@
 (in-package :cl-mpm)
-;;MP splitting code goes in here
+;;MP splitting code
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
 
@@ -188,21 +188,26 @@
   (let* ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
          (split-factor (cl-mpm::sim-split-factor sim))
-         (crit (* h split-factor))
-         )
+         (crit (* h split-factor)))
+    (pprint crit)
     (split-mps-vector
      sim
      (lambda (mp)
        (let ((split-dir nil))
          (let ((td (cl-mpm/particle::mp-true-domain mp)))
-           (multiple-value-bind (l v) (cl-mpm/utils:eig (cl-mpm/utils::slice-matrix-nd td nd))
+           (multiple-value-bind (l v) (cl-mpm/utils:eig
+                                       td
+                                       ;; (cl-mpm/utils::slice-matrix-nd td nd)
+                                                        )
+             ;; (pprint crit)
+             ;; (pprint l)
+             ;; (pprint v)
              (let* ((abs-l (mapcar #'abs l))
                     (max-l (reduce #'max abs-l))
                     (min-l (reduce #'min (remove 0d0 abs-l))))
                (when (> max-l crit)
                  (let* ((pos (position max-l abs-l))
-                        (vec (magicl::vector->column-matrix (magicl:column v pos)))
-                        )
+                        (vec (magicl::vector->column-matrix (magicl:column v pos))))
                    (setf split-dir (cl-mpm/fastmaths:norm
                                     (cl-mpm/utils:vector-from-list (list (varef vec 0) (varef vec 1) (varef vec 2))))))))))
          split-dir)))))

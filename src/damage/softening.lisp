@@ -191,3 +191,16 @@
       0d0))
 
 
+(defun damage-response-linear (stress E Gf length init-stress ductility)
+   (declare (double-float stress E Gf length init-stress ductility))
+   "Linear softening"
+   (let* ((ft init-stress)
+          (e0 (/ ft E))
+          (ef (* e0 ductility))
+          (k (/ stress E)))
+     (if (> k e0)
+         (min 1d0
+              (if (> k e0)
+                  (* (/ e0 (- ef e0))
+                     (- 1d0 (/ e0 k)))))
+         0d0)))

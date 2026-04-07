@@ -106,7 +106,8 @@
            stress-undamaged sig
            strain eps-e
            yield-func f
-           p-wave (* 1.0d0 pmod))
+           p-wave (* 1.0d0 pmod)
+           )
           (when (cl-mpm/particle::mp-plastic-strain-tensile mp)
             (setf inc (expt (* 1/3 (max 0d0
                                         (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
