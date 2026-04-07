@@ -76,7 +76,7 @@
   5.3d-3
   ;; 3.4d-3
   )
-;; (defparameter *gf* 48d0)
+(defparameter *pad-size* 5d-3)
 
 (declaim (notinline setup-test-column))
 (defun setup-test-column (size block-size offset &key (e-scale 1) (mp-scale 1)
@@ -205,7 +205,7 @@
         (format t "Fixed node ~A ~%" left-node-pos)
         (format t "Roller node ~A ~%" right-node-pos)
 
-        (let* ((hx (* 0.25d0 h-x))
+        (let* ((hx *pad-size*)
                (epsilon (* E epsilon-scale))
                (friction 0d0)
                (damping 0d0)
@@ -300,7 +300,7 @@
 
       (defparameter *displacement* 0d0)
 
-      (let* ((hx (* 0.25 h-x))
+      (let* ((hx *pad-size*)
              (ly 1d-2)
              (epsilon (* E epsilon-scale))
              (friction 0d0)
