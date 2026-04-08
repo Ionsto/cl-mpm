@@ -766,14 +766,26 @@
              (loop for y from 0 below 2
                    do (setf (mtref m x y) (mtref mat x y))))
     m))
+(defun pad-matrix-1d (mat)
+  (let* ((nd 3)
+         (m (arb-matrix nd nd)))
+    (loop for x from 0 below 1
+          do
+             (loop for y from 0 below 1
+                   do (setf (mtref m x y) (mtref mat x y))))
+    m))
 
 (defun slice-matrix-nd (mat nd)
   (ecase nd
     (1 (arb-matrix-from-list (list (mtref mat 0 0)) 1 1))
     (2 (slice-matrix-2d mat))
-    (3 mat)
-    )
-  )
+    (3 mat)))
+
+(defun pad-matrix-nd (mat nd)
+  (ecase nd
+    (1 (pad-matrix-1d mat))
+    (2 (pad-matrix-2d mat))
+    (3 mat)))
 
 (defun matrix-column (mat i)
   (magicl:vector->column-matrix (magicl:column mat i)))

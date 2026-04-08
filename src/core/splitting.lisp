@@ -196,13 +196,11 @@
        (let ((split-dir nil))
          (let ((td (cl-mpm/particle::mp-true-domain mp)))
            (multiple-value-bind (l v) (cl-mpm/utils:eig
-                                       td
-                                       ;; (cl-mpm/utils::slice-matrix-nd td nd)
+                                       ;; td
+                                       (cl-mpm/utils::slice-matrix-nd td nd)
                                                         )
-             ;; (pprint crit)
-             ;; (pprint l)
-             ;; (pprint v)
-             (let* ((abs-l (mapcar #'abs l))
+             (let* ((v (cl-mpm/utils::pad-matrix-nd v nd))
+                    (abs-l (mapcar #'abs l))
                     (max-l (reduce #'max abs-l))
                     (min-l (reduce #'min (remove 0d0 abs-l))))
                (when (> max-l crit)
