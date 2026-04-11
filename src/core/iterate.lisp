@@ -310,8 +310,8 @@ Calls func with only the node"
 
 
 
-(defgeneric iterate-over-neighbours-shape (mesh shape-func mp func)
-  (:documentation "For a given shape function iterate over relevant nodes and call func with mesh, mp, node, weight and gradients"))
+;; (defgeneric iterate-over-neighbours-shape (mesh shape-func mp func)
+;;   (:documentation "For a given shape function iterate over relevant nodes and call func with mesh, mp, node, weight and gradients"))
 
 (declaim
 (inline iterate-over-neighbours)
@@ -432,13 +432,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                   )))
 
 ;;This is one method of dispatching over different types of shape functions
-(defmethod iterate-over-neighbours-shape (mesh (shape-func cl-mpm/shape-function:shape-function-linear) mp func)
-  (iterate-over-neighbours-shape-linear mesh mp func))
+;; (defmethod iterate-over-neighbours-shape (mesh (shape-func cl-mpm/shape-function:shape-function-linear) mp func)
+;;   (iterate-over-neighbours-shape-linear mesh mp func))
 
-(defmethod iterate-over-neighbours-shape (mesh (shape-func cl-mpm/shape-function:shape-function-bspline) mp func)
-  (declare (cl-mpm/mesh::mesh mesh)
-           (cl-mpm/shape-function::shape-function-bspline shape-func))
-  (iterate-over-neighbours-shape-bspline mesh mp func))
+;; (defmethod iterate-over-neighbours-shape (mesh (shape-func cl-mpm/shape-function:shape-function-bspline) mp func)
+;;   (declare (cl-mpm/mesh::mesh mesh)
+;;            (cl-mpm/shape-function::shape-function-bspline shape-func))
+;;   (iterate-over-neighbours-shape-bspline mesh mp func))
 
 (declaim (inline iterate-over-neighbours-shape-linear))
 (defun iterate-over-neighbours-shape-linear (mesh mp func)

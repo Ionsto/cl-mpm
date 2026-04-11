@@ -4,26 +4,28 @@
    #:order
    #:svp
    #:dsvp
-   #:shape-function
-   #:shape-function-linear
-   #:shape-function-bspline
-   #:shape-function-gimp
-   #:make-shape-function-linear
-   #:make-shape-function-bspline
+   ;; #:shape-function
+   ;; #:shape-function-linear
+   ;; #:shape-function-bspline
+   ;; #:shape-function-gimp
+   ;; #:make-shape-function-linear
+   ;; #:make-shape-function-bspline
    #:assemble-dsvp
    #:assemble-dsvp-2d
    #:shape-bspline
    #:shape-bspline-dsvp
-   ))
+   #:shape-linear
+   #:shape-linear-dsvp
+   #:shape-gimp
+   #:shape-gimp-dsvp
+   #:shape-gimp-fast
+   )
+)
 (in-package :cl-mpm/shape-function)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;; (declaim #.cl-mpm/settings:*optimise-setting*)
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
-(defmacro shape-linear-form (x)
-  `(quote (- 1d0 (abs ,x))))
-;; (defun shape-linear (x h)
-;;   (- 1d0 (abs (/ x h))))
 
 (declaim (inline shape-linear)
          (ftype (function (double-float double-float) double-float) shape-linear))
@@ -368,12 +370,12 @@
 ;;    ))
 
 
-(defmacro create-svp (arg form)
-  `(lambda (,arg) ,form))
+;; (defmacro create-svp (arg form)
+;;   `(lambda (,arg) ,form))
 
-(defmacro create-dsvp (arg form)
-  (let ((dx (symbolic-derivation:derive arg form)))
-    `(lambda (,arg) ,dx)))
+;; (defmacro create-dsvp (arg form)
+;;   (let ((dx (symbolic-derivation:derive arg form)))
+;;     `(lambda (,arg) ,dx)))
 
 
 (defun svp-1d (svp dsvp)
@@ -443,43 +445,43 @@
      :initarg :dsvp)
    ))
 
-(defclass shape-function-linear (shape-function)
-  ((order :initform 1)))
+;; (defclass shape-function-linear (shape-function)
+;;   ((order :initform 1)))
 
-(defclass shape-function-gimp (shape-function)
-  ((order :initform 1)))
+;; (defclass shape-function-gimp (shape-function)
+;;   ((order :initform 1)))
 
-(defclass shape-function-bspline (shape-function)
-  ((order :initform 2)))
+;; (defclass shape-function-bspline (shape-function)
+;;   ((order :initform 2)))
 
-(defclass shape-function-bspline-c2 (shape-function)
-  ((order :initform 3)))
+;; (defclass shape-function-bspline-c2 (shape-function)
+;;   ((order :initform 3)))
 
-(defmacro make-shape-function (arg shape-form nD order &optional (shape-class 'shape-function))
-  `(let ((svp (create-svp ,arg ,shape-form))
-         (dsvp (create-dsvp ,arg ,shape-form)))
-     (make-instance ,shape-class
-                    :nD ,nD
-                    :order ,order
-                    :svp nil;(nd-svp ,nD svp dsvp)
-                    :dsvp nil;(nd-dsvp ,nD svp dsvp)
-                    )))
+;; (defmacro make-shape-function (arg shape-form nD order &optional (shape-class 'shape-function))
+;;   `(let ((svp (create-svp ,arg ,shape-form))
+;;          (dsvp (create-dsvp ,arg ,shape-form)))
+;;      (make-instance ,shape-class
+;;                     :nD ,nD
+;;                     :order ,order
+;;                     :svp nil;(nd-svp ,nD svp dsvp)
+;;                     :dsvp nil;(nd-dsvp ,nD svp dsvp)
+;;                     )))
 
 
-(defun make-shape-function-linear (nD h)
-  (make-shape-function x (- 1d0 (abs (/ x h))) nD 1 'shape-function-linear))
+;; (defun make-shape-function-linear (nD h)
+;;   (make-shape-function x (- 1d0 (abs (/ x h))) nD 1 'shape-function-linear))
 
-(defun make-shape-function-bspline (nD h)
-  (make-shape-function x
-      (if (< (abs x) (/ h 2))
-          (- (/ 3 4) (expt (/ (abs x) h) 2))
-          (* (/ 1 8) (expt (- 3 (/ (* 2 (abs x)) h)) 2)))
-                       nD 2 'shape-function-bspline))
+;; (defun make-shape-function-bspline (nD h)
+;;   (make-shape-function x
+;;       (if (< (abs x) (/ h 2))
+;;           (- (/ 3 4) (expt (/ (abs x) h) 2))
+;;           (* (/ 1 8) (expt (- 3 (/ (* 2 (abs x)) h)) 2)))
+;;                        nD 2 'shape-function-bspline))
 
-(defun make-shape-function-gimp (nD h)
-  (make-instance
-   'shape-function-gimp
-   :nD nD))
+;; (defun make-shape-function-gimp (nD h)
+;;   (make-instance
+;;    'shape-function-gimp
+;;    :nD nD))
 
 ;; (symbolic-derivation:derive 'x
 ;;       '(if (< (abs x) (/ h 2)) 

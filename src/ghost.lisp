@@ -164,27 +164,57 @@
          (pos-trial-a (cl-mpm/mesh::cell-trial-centroid cell-a))
          (pos-trial-b (cl-mpm/mesh::cell-trial-centroid cell-b))
          (normal-trial (cl-mpm/fastmaths:norm (cl-mpm/fastmaths:fast-.- pos-trial-a pos-trial-b)))
+         ;; (midpoint (cl-mpm/fastmaths::fast-scale! (cl-mpm/fastmaths:fast-.+ pos-a pos-b) 0.5d0))
+         ;; (root (cl-mpm/mesh::position-to-index mesh midpoint #'floor))
+
          (midpoint (cl-mpm/fastmaths::fast-scale! (cl-mpm/fastmaths:fast-.+ pos-a pos-b) 0.5d0))
-         (root (cl-mpm/mesh::position-to-index mesh midpoint #'floor))
-         (length (expt h 2)))
+         (root (get-root-node mesh cell-a cell-b))
+         )
     (destructuring-bind (fb-1 fb-2) (get-basis-3d mesh cell-a cell-b)
       ;;2 GPs
-      (let* ((nd (cl-mpm/mesh::mesh-nd mesh))
-             (J (expt 2 (- nd 1))))
-        (loop for gp-1 in (list -1d0 1d0)
-              do
-                 (loop for gp-2 in (list -1d0 1d0)
-                       do
-                          (progn
-                            (let ((gp-loc (cl-mpm/fastmaths:fast-.+
-                                           midpoint
-                                           (cl-mpm/fastmaths:fast-.+
-                                            (cl-mpm/fastmaths:fast-scale-vector fb-1 (/ (* gp-1 0.5d0 h) (sqrt 3)))
-                                            (cl-mpm/fastmaths:fast-scale-vector fb-2 (/ (* gp-2 0.5d0 h) (sqrt 3))))))
-                                  (gp-weight 1d0)
-                                  (detJ (/ (* length length) 4))
-                                  )
-                              (funcall func gp-loc (* gp-weight detJ) normal normal-trial length)))))))))
+      (let* (
+             (end-1 (mapcar #'+ root
+                            (list
+                             (round (varef fb-1 0))
+                             (round (varef fb-1 1))
+                             (round (varef fb-1 2)))))
+             (length-1 (sqrt
+                        (max 0d0
+                             (cl-mpm/fastmaths::diff-norm
+                              (get-node-trial-position (cl-mpm/mesh:get-node mesh root))
+                              (get-node-trial-position (cl-mpm/mesh:get-node mesh end-1))))))
+
+             (end-2 (mapcar #'+ root
+                            (list
+                             (round (varef fb-2 0))
+                             (round (varef fb-2 1))
+                             (round (varef fb-2 2)))))
+             (length-2 (sqrt
+                        (max 0d0
+                             (cl-mpm/fastmaths::diff-norm
+                              (get-node-trial-position (cl-mpm/mesh:get-node mesh root))
+                              (get-node-trial-position (cl-mpm/mesh:get-node mesh end-2)))))
+                       )
+             (length (max length-1 length-2))
+             (area (* length-1 length-2))
+             )
+        (let* ((nd (cl-mpm/mesh::mesh-nd mesh))
+               ;; (J (expt 2 (- nd 1)))
+               )
+          (loop for gp-1 in (list -1d0 1d0)
+                do
+                   (loop for gp-2 in (list -1d0 1d0)
+                         do
+                            (progn
+                              (let ((gp-loc (cl-mpm/fastmaths:fast-.+
+                                             midpoint
+                                             (cl-mpm/fastmaths:fast-.+
+                                              (cl-mpm/fastmaths:fast-scale-vector fb-1 (/ (* gp-1 0.5d0 h) (sqrt 3)))
+                                              (cl-mpm/fastmaths:fast-scale-vector fb-2 (/ (* gp-2 0.5d0 h) (sqrt 3))))))
+                                    (gp-weight 1d0)
+                                    (detJ (/ area 4))
+                                    )
+                                (funcall func gp-loc (* gp-weight detJ) normal normal-trial length))))))))))
 
 
 (defun iterate-over-cell-nodes (mesh cell func)
@@ -1151,7 +1181,10 @@
                                 -1d0
                                 ghost-factor
                                 (expt face-length (- *ghost-exp* 1))
-                                gp-weight))))
+                                gp-weight)))
+                            (h (cl-mpm/mesh:mesh-resolution mesh))
+                            (nd (cl-mpm/mesh:mesh-nd mesh))
+                            )
                         (sb-thread:with-mutex (node-lock)
                           (incf (cl-mpm/mesh::node-mass node)
                                 ;; ghost-factor
@@ -1164,7 +1197,10 @@
                                       0.5d0
                                       ghost-factor
                                       ;; (/ 1d0 h)
-                                      (expt face-length (- *ghost-exp* 2))
-                                      gp-weight
+                                      ;; (expt face-length (- *ghost-exp* 2))
+                                      ;; (expt face-length 1)
+                                      (/
+                                       gp-weight
+                                       (expt h (- nd 1)))
                                       ))
                                 )))))))))))))))

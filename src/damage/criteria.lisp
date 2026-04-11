@@ -486,7 +486,7 @@
     (let ((k (/ (+ 1d0 (sin angle))
                 (- 1d0 (sin angle)))))
       (max 0d0
-           (* ;(/ 2d0 (sqrt k)) 
+           (* ;(/ 2d0 (sqrt k))
             (* 0.5d0
                (/ (- (* k s1) s3)
                   (sqrt k))))))))

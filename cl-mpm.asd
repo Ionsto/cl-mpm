@@ -1,10 +1,10 @@
 (in-package :asdf-user)
 
-(defsystem "symbolic-derivation"
-  :description "Symbolic derivation library from #TODO"
-  :author "Aleksander Ksiazek"
-  :serial t
-  :components ((:file "src/core/symbolic-derivation")))
+;; (defsystem "symbolic-derivation"
+;;   :description "Symbolic derivation library from #TODO"
+;;   :author "Aleksander Ksiazek"
+;;   :serial t
+;;   :components ((:file "src/core/symbolic-derivation")))
 
 (defsystem "cl-mpm/settings"
   :components ((:file "src/settings"))
@@ -162,7 +162,8 @@
 
 (defsystem "cl-mpm/shape-function"
   :depends-on ("cl-mpm/magicl"
-               "symbolic-derivation")
+               ;; "symbolic-derivation"
+               )
   :description "MPM shape function definitions"
   :serial t
   :components ((:file "src/core/shape-function")))
@@ -232,7 +233,7 @@
                "local-time"
                "array-operations"
                "lparallel"
-               "symbolic-derivation"
+               ;; "symbolic-derivation"
                "cl-mpm/constitutive"
                "cl-mpm/particle"
                "cl-mpm/shape-function"
@@ -274,7 +275,7 @@
                "lparallel"
                "cl-intbytes"
                "ieee-floats"
-               "symbolic-derivation"
+               ;; "symbolic-derivation"
                "cl-mpm/constitutive"
                "cl-mpm/particle"
                "cl-mpm/shape-function"
@@ -585,7 +586,11 @@
                "vgplot"
                "swank.live")
   :serial t
-  :components ((:file "examples/damage/tpb")))
+  :components ((:module "examples"
+                :components
+                ((:module "damage"
+                  :components
+                  ((:file "tpb")))))))
 
 (defsystem "cl-mpm/examples/lbar"
   :depends-on ("cl-mpm"
@@ -817,9 +822,18 @@
 (defsystem "cl-mpm/examples/damage/biaxial"
   :depends-on ("cl-mpm/example")
   :serial t
-  :components ((:file "examples/damage/biaxial")))
+  :components ((:module "examples"
+                :components
+                ((:module "damage"
+                  :components
+                  ((:file "biaxial")))))))
+
 (defsystem "cl-mpm/examples/damage/triaxial"
   :depends-on ("cl-mpm/example")
   :serial t
-  :components ((:file "examples/damage/triaxial")))
+  :components ((:module "examples"
+                :components
+                ((:module "damage"
+                  :components
+                  ((:file "triaxial")))))))
 
