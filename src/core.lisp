@@ -155,9 +155,9 @@
          (lambda (mesh node weight grads)
            (declare (double-float weight))
            (when (cl-mpm::node-active node)
-             (incf w weight)
+             ;; (incf w weight)
              (let ((ndisp (cl-mpm/mesh::node-displacment node)))
-               (incf (cl-mpm/mesh::cell-volume-current cell) (* w (cl-mpm/mesh::node-volume node)))
+               (incf (cl-mpm/mesh::cell-volume-current cell) (* weight (cl-mpm/mesh::node-volume node)))
                (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads ndisp df)
                (cl-mpm/fastmaths:fast-fmacc
                 disp

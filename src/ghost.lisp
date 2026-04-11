@@ -109,7 +109,7 @@
 
 (defun get-node-trial-position (node)
   (cl-mpm/fastmaths:fast-.+ (cl-mpm/mesh::node-position node)
-                           (cl-mpm/mesh::node-displacment node)))
+                            (cl-mpm/mesh::node-displacment node)))
 
 (defun iterate-over-face-gps-2d (mesh cell-a cell-b func)
   (declare (function func))
@@ -134,12 +134,9 @@
                        (round (varef face-basis 1))
                        0)))
          ;; (length h)
-         (length (sqrt
-                  (max 0d0
-                       (cl-mpm/fastmaths::diff-norm
-                        (get-node-trial-position (cl-mpm/mesh:get-node mesh root))
-                        (get-node-trial-position (cl-mpm/mesh:get-node mesh end))))))
-         )
+         (length (cl-mpm/fastmaths::diff-mag
+                  (get-node-trial-position (cl-mpm/mesh:get-node mesh root))
+                  (get-node-trial-position (cl-mpm/mesh:get-node mesh end)))))
     ;; (format t "~A ~A ~%" root end)
     ;; (break)
     ;;2 GPs
@@ -553,7 +550,8 @@
                                      ;; grads
                                      (cl-mpm::gradient-push-forwards
                                       grads
-                                      (cl-mpm/mesh::cell-deformation-gradient cell-p))))
+                                      (cl-mpm/mesh::cell-deformation-gradient cell-p))
+                                     ))
                                    fact
                                    )))
                       (cl-mpm/fastmaths:fast-.+
@@ -944,7 +942,7 @@
   (with-accessors ((df cl-mpm/mesh::cell-deformation-gradient))
       cell
     (let* ((grads (cl-mpm::gradient-push-forwards (list 1d0 1d0 1d0) df))
-           (peak-grad (abs (reduce #'max (mapcar (lambda (x) (expt x 2)) grads)))))
+           (peak-grad (abs (reduce #'max (mapcar (lambda (x) (expt x -1)) grads)))))
       peak-grad)))
 
 (declaim (notinline apply-ghost-stiffness))
@@ -957,8 +955,7 @@
       (with-accessors ((cells cl-mpm/mesh::mesh-cells)
                        (h cl-mpm/mesh::mesh-resolution))
           mesh
-        (let ((gf (* 2d0 ghost-factor (expt h 0;; (- *ghost-exp* 3)
-                                            ))))
+        (let ()
           (flet ((apply-stiffness (cell-a cell-b)
                    (apply-stiffness-cells mesh cell-a cell-b ghost-factor)
                    ;; (let ((node-list (make-array 8 :adjustable t :fill-pointer 0 :element-type t)))
@@ -1085,6 +1082,7 @@
             ))
         (build-ghost-cache sim)))))
 
+(declaim (notinline apply-stiffness-cells))
 (defun apply-stiffness-cells (mesh cell-a cell-b ghost-factor)
   (when
       (and
@@ -1098,109 +1096,33 @@
         (cl-mpm/mesh::cell-ghost-element cell-b)))
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
-      (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
+      (let ((h (cl-mpm/mesh:mesh-resolution mesh))
+            )
         (iterate-over-face-gps
          mesh
          cell-a
          cell-b
          (lambda (gp-loc gp-weight normal normal-trial face-length)
-           (let* ((nx (varef normal-trial 0))
-                  (ny (varef normal-trial 1))
-                  (nz (varef normal-trial 2))
-                  (dsvp-adjuster (magicl:transpose! (cl-mpm/utils::arb-matrix-from-list
-                                                     (list
-                                                      nx  0d0 0d0
-                                                      0d0 ny  0d0
-                                                      0d0 0d0 nz
-                                                      0d0 nz  ny
-                                                      nz  0d0 nx
-                                                      ny  nx  0d0)
-                                                     3
-                                                     6)))
-                  (gradient-terms (cl-mpm/utils:vector-zeros)))
-             ;; (cl-mpm/ghost::iterate-over-bicell-nodes
-             ;;  mesh
-             ;;  cell-a
-             ;;  cell-b
-             ;;  gp-loc
-             ;;  (lambda (cell-p node weight grads fact)
-             ;;    (when (cl-mpm/mesh::node-active node)
-             ;;      (with-accessors ((ghost cl-mpm/mesh::node-ghost-force)
-             ;;                       (f-int cl-mpm/mesh::node-internal-force)
-             ;;                       (f-ext cl-mpm/mesh::node-external-force)
-             ;;                       (node-lock cl-mpm/mesh::node-lock)
-             ;;                       (disp cl-mpm/mesh::node-displacment))
-             ;;          node
-             ;;        (let ((dsvp-p (fast-scale!
-             ;;                       (magicl:transpose
-             ;;                        (cl-mpm/shape-function::assemble-dsvp-3d
-             ;;                         (cl-mpm::gradient-push-forwards
-             ;;                          grads
-             ;;                          (cl-mpm/mesh::cell-deformation-gradient cell-p))))
-             ;;                       fact)))
-             ;;          (cl-mpm/fastmaths:fast-.+
-             ;;           (magicl:@
-             ;;            (magicl:transpose dsvp-adjuster)
-             ;;            (magicl:transpose dsvp-p)
-             ;;            (cl-mpm/utils:vector-from-list (list 1d0 1d0 1d0))
-             ;;            ;; disp
-             ;;            )
-             ;;           gradient-terms
-             ;;           gradient-terms))))))
-
-             ;; (break)
-             (iterate-over-bicell-nodes
-              mesh
-              cell-a
-              cell-b
-              gp-loc
-              (lambda (cell node weight grads fact)
-                (when (cl-mpm/mesh::node-active node)
-                  (with-accessors ((disp cl-mpm/mesh::node-displacment)
-                                   (node-lock cl-mpm/mesh::node-lock)
-                                   (ghost cl-mpm/mesh::node-ghost-force))
-                      node
-                    (let* ((dsvp
-                             (fast-scale!
-                              (magicl:transpose
-                               (cl-mpm/shape-function::assemble-dsvp-3d
-                                ;; grads
-                                (cl-mpm::gradient-push-forwards
-                                 grads
-                                 (cl-mpm/mesh::cell-deformation-gradient cell))))
-                              fact)))
-                      (let ((ghost-force
-                              (cl-mpm/fastmaths:fast-scale-vector
-                               (magicl:@
-                                dsvp
-                                dsvp-adjuster
-                                ;; (cl-mpm/fastmaths::element-wise-map #'abs gradient-terms)
-                                gradient-terms
-                                )
-                               (*
-                                -1d0
-                                ghost-factor
-                                (expt face-length (- *ghost-exp* 1))
-                                gp-weight)))
-                            (h (cl-mpm/mesh:mesh-resolution mesh))
-                            (nd (cl-mpm/mesh:mesh-nd mesh))
-                            )
-                        (sb-thread:with-mutex (node-lock)
-                          (incf (cl-mpm/mesh::node-mass node)
-                                ;; ghost-factor
-                                ;; (*
-                                ;;  4d0
-                                ;;  (max
-                                ;;   (* ghost-factor)
-                                ;;   (cl-mpm/fastmaths::mag ghost-force)))
-                                (abs (*
-                                      0.5d0
-                                      ghost-factor
-                                      ;; (/ 1d0 h)
-                                      ;; (expt face-length (- *ghost-exp* 2))
-                                      ;; (expt face-length 1)
-                                      (/
-                                       gp-weight
-                                       (expt h (- nd 1)))
-                                      ))
-                                )))))))))))))))
+           (iterate-over-bicell-nodes
+            mesh
+            cell-a
+            cell-b
+            gp-loc
+            (lambda (cell node weight grads fact)
+              (when (cl-mpm/mesh::node-active node)
+                (with-accessors ((disp cl-mpm/mesh::node-displacment)
+                                 (node-lock cl-mpm/mesh::node-lock)
+                                 (ghost cl-mpm/mesh::node-ghost-force))
+                    node
+                  (sb-thread:with-mutex (node-lock)
+                    (setf (cl-mpm/mesh::node-mass node)
+                          (+
+                           (cl-mpm/mesh::node-mass node)
+                           (abs (*
+                                 4d0
+                                 ghost-factor
+                                 (expt h -2)
+                                 (estimate-ul-enhancement cell-a)
+                                 (estimate-ul-enhancement cell-b)
+                                 (expt face-length *ghost-exp*)
+                                 gp-weight)))))))))))))))
