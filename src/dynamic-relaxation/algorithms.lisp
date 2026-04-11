@@ -928,7 +928,7 @@
                    (let* ((percent (/ (float step) load-steps)))
                      ;; (declare (double-float percent initial-load))
                      (funcall loading-function (+ initial-load (* (- 1d0 initial-load) percent))))
-                   (let ((conv-steps 0)
+                   (let ((iter-conv-steps 0)
                          (i 0))
                      ;; (when damping
                      ;;   (setf (cl-mpm::sim-damping-factor sim)
@@ -944,11 +944,11 @@
                        :dt-scale dt-scale
                        :substeps substeps
                        :damping damping
-                       :conv-steps conv-steps
+                       :sub-conv-steps conv-steps
                        :post-iter-step
                        (lambda (i energy oobf)
                          (funcall post-iter-step i energy oobf)
-                         (setf conv-steps (* substeps i))
+                         (setf iter-conv-steps (* substeps i))
                          (cl-mpm:sim-format sim t "Substep ~D~%" i)
                          (let ((i (+ 0 i)))
                            (when save-vtk-dr
