@@ -103,9 +103,9 @@
        ;; :enable-aggregate t
        ;; :ghost-factor nil
        :enable-aggregate nil
-       :ghost-factor (* (cl-mpm/utils::calculate-p-wave-modulus E nu) 1d-3)
-       :mass-update-count 50
-       :enable-split t
+       :ghost-factor (* (cl-mpm/utils::calculate-p-wave-modulus E nu) 1d-1)
+       :mass-update-count 1
+       :enable-split nil
        :max-split-depth 8
        :split-factor (* 1d0 (sqrt 2) (/ 1d0 mps))
        :enable-fbar enable-fbar
@@ -356,15 +356,15 @@
       :min-damage-inc 0.1d0
       :substeps (round (* refine 50))
       :sub-conv-steps 50
-      :criteria 1d-3
+      :criteria 1d-9
       :true-stagger nil
       :save-vtk-dr nil
       :save-vtk-loadstep t
       :dt-scale 1d0))))
 
 (defun test ()
-  (dolist (refine (list 2))
-    (setup :mps 4
+  (dolist (refine (list 1))
+    (setup :mps 3
            :refine refine
            :enable-fbar t
            :angle 16d0
@@ -374,12 +374,22 @@
            :model :DP
            :local-length 2d-2
            :oversize-factor (- 1d0 1d-2))
+
+    (cl-mpm::iterate-over-mps
+     (cl-mpm::sim-mps *sim*)
+     (lambda (mp)
+       (cl-mpm/fastmaths:fast-.+ (cl-mpm/particle::mp-position mp)
+                                 (cl-mpm/utils::vector-from-list (list 1d-6 0d0 0d0))
+                                 (cl-mpm/particle::mp-position mp)
+                                 ))
+     )
     ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
     ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
-    (run :output-dir (format nil "./output-~D/" refine)
-         :enable-plastic t
+    (run :output-dir (format nil "./output-ghost-~D/" refine)
+         :enable-plastic nil
          :enable-damage t
          :refine refine)))
+
 
 ;; (defun test-plastic ()
 ;;   (dolist (refine (list 2))

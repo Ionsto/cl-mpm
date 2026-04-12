@@ -63,12 +63,12 @@
       ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
       :args-list
       (list
-       :enable-aggregate t
-       :ghost-factor nil
-       :mass-update-count 1
+       ;; :enable-aggregate t
+       ;; :ghost-factor nil
+       ;; :mass-update-count 1
        ;; :enable-aggregate nil
-       ;; :ghost-factor (* E 1d-2)
-       ;; :enable-aggregate nil
+       :ghost-factor (* E 1d-2)
+       :enable-aggregate nil
        ;; :ghost-factor nil
        :enable-split t
        :max-split-depth 2
@@ -137,7 +137,7 @@
         )
        ))
     (let ((angle 45d0)
-          (scale 1.5d0)
+          (scale 4d0)
           )
       (cl-mpm/setup::remove-sdf
        *sim*
@@ -155,20 +155,29 @@
             (cl-mpm/utils:vector-from-list (list 1d0 0d0 1d0))))))
        :refine 0)
 
+      ;; (cl-mpm/setup::apply-sdf
+      ;;  *sim*
+      ;;  (cl-mpm/setup::-sdf
+      ;;   (list (* width 1.5d0) (* height 0.5d0) (* width 1.5d0))
+      ;;   10d-3
+      ;;   1d-3)
+      ;;  (lambda (mp sdf)
+      ;;    ;; (setf (cl-mpm/particle::mp-damage mp) sdf)
+      ;;    (when (<= sdf 0d0)
+      ;;      ;; (pprint sdf)
+      ;;      ;; (setf (cl-mpm/particle::mp-damage mp) sdf)
+      ;;      ;(cl-mpm/damage::set-mp-damage mp sdf)
+      ;;      (cl-mpm/damage::set-mp-damage mp 0.99d0)
+      ;;      )
+      ;;    ))
       (cl-mpm/setup::apply-sdf
        *sim*
-       (cl-mpm/setup::guassian-sdf
+       (cl-mpm/setup::circle-sdf
         (list (* width 1.5d0) (* height 0.5d0) (* width 1.5d0))
-        10d-3
-        1d-3)
+        (* 4d-3 scale))
        (lambda (mp sdf)
-         ;; (setf (cl-mpm/particle::mp-damage mp) sdf)
-         (when (>= sdf 0d0)
-           ;; (pprint sdf)
-           ;; (setf (cl-mpm/particle::mp-damage mp) sdf)
-           (cl-mpm/damage::set-mp-damage mp sdf)
-           )
-         ))
+         (when (<= sdf 0d0)
+           (cl-mpm/damage::set-mp-damage mp 0.99d0))))
       ;; (cl-mpm/setup::apply-sdf
       ;;  *sim*
       ;;  (cl-mpm/setup::ellipse-sdf
@@ -261,9 +270,9 @@
           do (format stream "~E,~E~%" (float disp 0e0) (float load 0e0)))))
 (declaim (notinline run))
 (defun run (&key (output-dir (format nil "./output/"))
-                 (refine 1)
-                 (tensile nil)
-                 (enable-plastic nil)
+              (refine 1)
+              (tensile nil)
+              (enable-plastic nil)
               (csv-dir nil)
               (csv-filename (format nil "load-disp.csv")))
   (unless csv-dir
@@ -303,24 +312,24 @@
       :load-steps lstps
       :enable-plastic enable-plastic
       :enable-damage t
-      :damping (sqrt 2d0)
+      :damping (sqrt 1d0)
       :min-adaptive-steps 0
-      :max-adaptive-steps 5
+      :max-adaptive-steps 3
       :adaption-constant 4
       :max-damage-inc 0.50d0
       :min-damage-inc 0.05d0
-      :substeps (round (* refine 50))
+      :substeps (round (* refine 100))
       :criteria 1d-3
-      :save-vtk-dr nil
+      :save-vtk-dr t
       :save-vtk-loadstep t
       :dt-scale 1d0))))
 
 (defun test ()
-  (dolist (refine (list 0.5))
-    (setup :mps 4 :refine refine :enable-fbar t :multigrid-refines 0
+  (dolist (refine (list 1))
+    (setup :mps 3 :refine refine :enable-fbar t :multigrid-refines 0
            :angle 30d0
            :angle-r 0d0
-           :gf 10d0
+           :gf 60d0
            )
     (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
     ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)

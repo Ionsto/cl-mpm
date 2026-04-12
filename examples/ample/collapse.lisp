@@ -77,7 +77,7 @@
                :args-list
                (append
                 (list
-                 :split-factor (* 2d0 (/ 1d0 mp-scale))
+                 :split-factor (* 1d0 (/ 1d0 mp-scale))
                  :enable-fbar t
                  :enable-aggregate nil
                  :ghost-factor (* E 1d-0)
@@ -372,34 +372,42 @@
        :dt-scale 1d0))))
 
 (defun test-load-control ()
-  (dolist (r (list 1))
-    (setup :mps 3 :refine r :multigrid-refine 0)
-    (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil)
-    (setf (cl-mpm::sim-ghost-factor *sim*) (* 1d6 1d0))
-    (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-9)
-    (setf (cl-mpm::sim-gravity *sim*) -10d0)
-    (let ((step (list))
-          (res (list))
-          (total-step 0)
-          )
-      (vgplot:close-all-plots)
-      (cl-mpm/dynamic-relaxation::run-load-control
-       *sim*
-       :output-dir (format nil "./output-ghost-~D/" r)
-       ;; :plotter #'plot
-       :load-steps 20
-       :damping 1d0;(sqrt 2)
-       :substeps (* 50 r)
-       :criteria 1d-9
-       :conv-steps 1000
-       :plotter (lambda (sim) (vgplot:semilogy (reverse step) (reverse res)))
-       :post-iter-step (lambda (i o e)
-                         (push total-step step)
-                         (incf total-step)
-                         (push e res))
-       :save-vtk-dr t
-       :save-vtk-loadstep t
-       :dt-scale 1d0))))
+  (let ((agg nil))
+    (dolist (r (list 1.25))
+      (setup :mps 3 :refine r :multigrid-refine 0)
+      (if agg
+          (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
+                (cl-mpm::sim-ghost-factor *sim*) nil)
+          (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
+                (cl-mpm::sim-ghost-factor *sim*)
+                (* ;; (cl-mpm/utils::calculate-p-wave-modulus 1d6 0.3d0)
+                 1d6
+                 1d-4
+                 )))
+      (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-9)
+      (setf (cl-mpm::sim-gravity *sim*) -1d0)
+      (let ((step (list))
+            (res (list))
+            (total-step 0))
+        (vgplot:close-all-plots)
+        (cl-mpm/dynamic-relaxation::run-load-control
+         *sim*
+         :output-dir (format nil "./output-~A-~D/" (if agg "AGG" "GHOST") r)
+         :plotter (lambda (sim) (vgplot:semilogy (reverse step) (reverse res)))
+         ;; :plotter #'plot
+         :load-steps 20
+         :damping (sqrt 2)
+         :substeps (round (* 20 r))
+         :criteria 1d-9
+         :conv-steps 5000
+         ;; :sub-conv-steps 1000
+         :post-iter-step (lambda (i o e)
+                           (push total-step step)
+                           (incf total-step)
+                           (push e res))
+         :save-vtk-dr t
+         :save-vtk-loadstep t
+         :dt-scale 1d0)))))
 
 
 (defun test-3d ()
@@ -578,3 +586,15 @@
 ;;   (pprint dsvp-adjuster)
 ;;   (pprint (magicl:@ dsvp dsvp-adjuster))
 ;;   )
+
+;; (let* ((mesh (cl-mpm::sim-mesh *sim*))
+;;        (h (cl-mpm/mesh:mesh-resolution mesh)))
+;;   (cl-mpm/ghost::iterate-over-bicell-nodes
+;;    mesh
+;;    (cl-mpm/mesh::get-cell mesh (list 0 0 0))
+;;    (cl-mpm/mesh::get-cell mesh (list 1 0 0))
+;;    (cl-mpm/utils:vector-from-list (list (/ h 2) 0d0 0d0))
+;;    (lambda (cell node weight grad fact)
+;;      (format t "Node ~A weight ~E grad ~A~%" (cl-mpm/mesh::node-index node) weight grad)
+;;      (format t "~A~%" (cl-mpm/ghost::estimate-ul-enhancement cell))
+;;      )))

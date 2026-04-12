@@ -30,6 +30,7 @@ load_combined = False
 load_clipping = False
 
 data = pd.read_csv("load-disp.csv")
+#data = pd.read_csv("data_0.051.csv")
 
 def get_load(filename):
     mpm = pd.read_csv(top_dir+filename)
@@ -58,8 +59,8 @@ for i in folders:
         #if load_zeroing:
         #    mpm["load"] = mpm["load"] - mpm["load"].values[0]
         #l=plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["load"].values,label=i,marker=".")
-        plt.plot(-1e3*mpm["disp"].values,0.012*mpm["load"].values,label=i)
-        # plt.plot(-1e3*mpm["disp"].values,0.012*mpm["load"].values,label=i)
+        plt.plot(-1e3*mpm["disp"].values,0.013*mpm["load"].values,label=i,marker="x")
+        # plt.plot(-1e3*mpm["disp"].values,0.012mpm["load"].values,label=i)
         print("GF ",i," :",calculate_gf(-1*mpm["disp"],13e-3*mpm["load"]))
         # plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["load-diff"].values,label=i,marker="x",c=l[0].get_color())
         #print("Shear modulus {}GPa".format(1e-9*mpm["load"].max()/mpm["disp"].values[mpm["load"].argmax()]))

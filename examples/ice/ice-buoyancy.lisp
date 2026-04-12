@@ -157,8 +157,8 @@
 
 (defparameter *angle* 40d0)
 (defparameter *angle-r* 10d0)
-(defparameter *angle-psi* 0d0)
-(defparameter *rt* 1d0)
+(defparameter *angle-psi* 5d0)
+(defparameter *rt* (- 1d0 1d-9))
 (defparameter *rc* 0d0)
 (defparameter *rs* 1d0)
 (defparameter *enable-plastic-damage* nil)
@@ -539,25 +539,25 @@
 (defun calving-test ()
   (let* ((mps 3)
          (dt 1d2)
-         (H 800d0)
+         (H 400d0)
          (density 918d0)
          (explicit-dt-scale 0.9d0)
          (water-damping 2d0)
          (output-dir "./output/"))
     (setup
-     :refine 0.125
+     :refine 1
      :multigrid-refines 0
      :friction 0.5d0
-     :bench-length (* 1d0 H)
+     :bench-length (* 0d0 H)
      :bench-extra-cut 10d0
      :ice-height H
      :mps mps
      :hydro-static nil
      :cryo-static t
      :melange nil
-     :aspect 6d0
+     :aspect 1d0
      :slope 0.00d0
-     :floatation-ratio 0.93d0
+     :floatation-ratio 0.8d0
      :use-penalty t
      :stick-base nil
      )
