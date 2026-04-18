@@ -26,29 +26,32 @@
     (find-k-damage E init-stress ductility damage))
   )
 (defun find-k-damage (E init-stress ductility damage)
-  (let* ((e0 init-stress)
-         (d-est 0d0)
-         (k-est e0)
-         (k-max nil)
-         (k-prev e0)
-         )
-    (loop for i from 0 to 10000
-          while (> (abs (- damage d-est)) 1d-8)
-          do
-             (progn
-               (setf d-est (damage-response-exponential k-est E init-stress ductility))
-               ;; (format t "~F ~F~%" d-est k-est)
-               (when (> damage d-est)
-                 (setf k-prev k-est)
-                 (setf k-est
-                       (if k-max
-                           (/ (+ k-prev k-max) 2d0)
-                           (* k-est 2))))
-               (when (< damage d-est)
-                 (setf k-max k-est)
-                 (setf k-est (/ (+ k-prev k-max) 2d0)))
-               ))
-    k-est))
+  (* init-stress
+     (cl-mpm/damage::compute-oversize-factor damage ductility))
+  ;; (let* ((e0 init-stress)
+  ;;        (d-est 0d0)
+  ;;        (k-est e0)
+  ;;        (k-max nil)
+  ;;        (k-prev e0)
+  ;;        )
+  ;;   (loop for i from 0 to 10000
+  ;;         while (> (abs (- damage d-est)) 1d-8)
+  ;;         do
+  ;;            (progn
+  ;;              (setf d-est (damage-response-exponential k-est E init-stress ductility))
+  ;;              ;; (format t "~F ~F~%" d-est k-est)
+  ;;              (when (> damage d-est)
+  ;;                (setf k-prev k-est)
+  ;;                (setf k-est
+  ;;                      (if k-max
+  ;;                          (/ (+ k-prev k-max) 2d0)
+  ;;                          (* k-est 2))))
+  ;;              (when (< damage d-est)
+  ;;                (setf k-max k-est)
+  ;;                (setf k-est (/ (+ k-prev k-max) 2d0)))
+  ;;              ))
+  ;;   k-est)
+  )
 
 (declaim (ftype (function (double-float double-float double-float double-float double-float)
                           double-float) damage-response-exponential-peerlings-residual))

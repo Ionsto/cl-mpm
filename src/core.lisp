@@ -1064,6 +1064,7 @@ This modifies the dt of the simulation in the process
     (split-mps sim))
   (check-mps sim)
   (check-single-mps sim)
+  ;; (cl-mpm/ghost::reset-ghost-cache sim)
   ;; (reset-node-displacement sim)
   )
 

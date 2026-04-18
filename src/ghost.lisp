@@ -21,11 +21,6 @@
 (defparameter *ghost-exp* 1)
 
 
-(defun find-local-coord (cell pos)
-  )
-(defun det-element-derivitives (cell)
-  )
-
 (let ((ex (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))
       (ey (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))
       (ez (cl-mpm/utils:vector-from-list (list 0d0 0d0 1d0))))
@@ -40,7 +35,6 @@
       (2 (list ex ey)))))
 
 (defun get-basis-2d (mesh cell-a cell-b)
-  ;; (basis-vec-2d (if (= 0d0 (aref ) )))
   (let ((index (mapcar #'abs
                        (mapcar #'-
                                (cl-mpm/mesh::cell-index cell-a)
@@ -49,7 +43,6 @@
       (basis-vec-2d dim))))
 
 (defun get-basis-3d (mesh cell-a cell-b)
-  ;; (basis-vec-2d (if (= 0d0 (aref ) )))
   (let ((index (mapcar #'abs
                        (mapcar #'-
                                (cl-mpm/mesh::cell-index cell-a)
@@ -58,12 +51,10 @@
       (basis-vec-3d dim))))
 
 (defun get-root-node (mesh cell-a cell-b)
-  (let* ((index (mapcar (lambda (a b) (round (+ a (max 0d0 (- a b)))))
+  (let* ((index (mapcar (lambda (a b) (round (+ a (max 0d0 (- b a)))))
                         (cl-mpm/mesh::cell-index cell-b)
                         (cl-mpm/mesh::cell-index cell-a))))
-    ;; (mapcar #'+ index-a index)
-    index
-    ))
+    index))
 
 (defun iterate-over-face-gps (mesh cell-a cell-b func)
   (let ((nd (cl-mpm/mesh:mesh-nd mesh)))
@@ -94,22 +85,24 @@
         dF)))
     (* (cl-mpm/mesh::mesh-resolution mesh) (+ 1d0 (cl-mpm/fastmaths::voight-det dF)))))
 
-(defun get-face-df (mesh normal point)
-  (let ((not-normal (cl-mpm/fastmaths:fast-.-
-                     (cl-mpm/utils:vector-from-list (list 1d0 1d0 1d0))
-                     normal))
-        (dF (cl-mpm/utils:matrix-eye 1d0)))
-    (iterate-over-gp-nodes
-     mesh
-     point
-     normal
-     (lambda (node weight grads dface dnorm)
-       (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads (cl-mpm/mesh::node-displacment node) dF)))
-    dF))
+;; (defun get-face-df (mesh normal point)
+;;   (let ((not-normal (cl-mpm/fastmaths:fast-.-
+;;                      (cl-mpm/utils:vector-from-list (list 1d0 1d0 1d0))
+;;                      normal))
+;;         (dF (cl-mpm/utils:matrix-eye 1d0)))
+;;     (iterate-over-gp-nodes
+;;      mesh
+;;      point
+;;      normal
+;;      (lambda (node weight grads dface dnorm)
+;;        (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads (cl-mpm/mesh::node-displacment node) dF)))
+;;     dF))
 
 (defun get-node-trial-position (node)
+  ;; (cl-mpm/mesh::node-position node)
   (cl-mpm/fastmaths:fast-.+ (cl-mpm/mesh::node-position node)
-                            (cl-mpm/mesh::node-displacment node)))
+                            (cl-mpm/mesh::node-displacment node))
+  )
 
 (defun iterate-over-face-gps-2d (mesh cell-a cell-b func)
   (declare (function func))
@@ -120,29 +113,20 @@
          (pos-trial-a (cl-mpm/mesh::cell-trial-centroid cell-a))
          (pos-trial-b (cl-mpm/mesh::cell-trial-centroid cell-b))
          (normal-trial (cl-mpm/fastmaths:norm (cl-mpm/fastmaths:fast-.- pos-trial-a pos-trial-b)))
-
          (face-basis (get-basis-2d mesh cell-a cell-b))
-
          (midpoint (cl-mpm/fastmaths::fast-scale! (cl-mpm/fastmaths:fast-.+ pos-a pos-b) 0.5d0))
-
          (root (get-root-node mesh cell-a cell-b))
-         ;; (root (cl-mpm/mesh::position-to-index mesh midpoint))
-
          (end (mapcar #'+ root
                       (list
                        (round (varef face-basis 0))
                        (round (varef face-basis 1))
                        0)))
-         (length h)
-         ;; (length (cl-mpm/fastmaths::diff-mag
-         ;;          (get-node-trial-position (cl-mpm/mesh:get-node mesh root))
-         ;;          (get-node-trial-position (cl-mpm/mesh:get-node mesh end))))
+         (length (cl-mpm/fastmaths::diff-mag
+                  (get-node-trial-position (cl-mpm/mesh:get-node mesh root))
+                  (get-node-trial-position (cl-mpm/mesh:get-node mesh end))))
          )
-    ;; (format t "~A ~A ~%" root end)
-    ;; (break)
     ;;2 GPs
-    (let* ((nd (cl-mpm/mesh::mesh-nd mesh))
-           (J (expt 2 (- nd 1))))
+    (let* ((nd (cl-mpm/mesh::mesh-nd mesh)))
       (loop for gp in (list -1d0 1d0)
             do (progn
                  (let ((gp-loc (cl-mpm/fastmaths:fast-.+
@@ -162,8 +146,6 @@
          (pos-trial-a (cl-mpm/mesh::cell-trial-centroid cell-a))
          (pos-trial-b (cl-mpm/mesh::cell-trial-centroid cell-b))
          (normal-trial (cl-mpm/fastmaths:norm (cl-mpm/fastmaths:fast-.- pos-trial-a pos-trial-b)))
-         ;; (midpoint (cl-mpm/fastmaths::fast-scale! (cl-mpm/fastmaths:fast-.+ pos-a pos-b) 0.5d0))
-         ;; (root (cl-mpm/mesh::position-to-index mesh midpoint #'floor))
 
          (midpoint (cl-mpm/fastmaths::fast-scale! (cl-mpm/fastmaths:fast-.+ pos-a pos-b) 0.5d0))
          (root (get-root-node mesh cell-a cell-b))
@@ -254,52 +236,52 @@
                             (when (cl-mpm/mesh::node-active node)
                               (funcall func node dface dnorm)))))))))
 
-(defun iterate-over-gp-nodes (mesh gp-point normal func)
-  (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
-    (iterate-over-face-nodes
-     mesh
-     gp-point
-     normal
-     (lambda (node dface dnorm)
-       (let* ((node-pos (cl-mpm/mesh::node-position node))
-              (dist (cl-mpm/fastmaths::fast-.- gp-point node-pos))
-              (weight-x (cl-mpm/shape-function::shape-linear (varef dist 0) h))
-              (weight-y (cl-mpm/shape-function::shape-linear (varef dist 1) h))
-              (weight (* weight-x weight-y))
-              (grads (list
-                      (*
-                       (signum (varef dist 0))
-                       (the double-float (cl-mpm/shape-function::shape-linear-dsvp (varef dist 0) h))
-                       (the double-float weight-y))
-                      (*
-                       (signum (varef dist 1))
-                       (the double-float (cl-mpm/shape-function::shape-linear-dsvp (varef dist 1) h))
-                       (the double-float weight-x))
-                      0d0)))
-         (funcall func node weight grads dface dnorm))))))
-(defun iterate-over-gp-nodes-positive (mesh gp-point normal func)
-  (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
-    (iterate-over-face-nodes-positive
-     mesh
-     gp-point
-     normal
-     (lambda (node dface dnorm)
-       (let* ((node-pos (cl-mpm/mesh::node-position node))
-              (dist (cl-mpm/fastmaths::fast-.- gp-point node-pos))
-              (weight-x (cl-mpm/shape-function::shape-linear (varef dist 0) h))
-              (weight-y (cl-mpm/shape-function::shape-linear (varef dist 1) h))
-              (weight (* weight-x weight-y))
-              (grads (list
-                      (*
-                       (signum (varef dist 0))
-                       (the double-float (cl-mpm/shape-function::shape-linear-dsvp (varef dist 0) h))
-                       (the double-float weight-y))
-                      (*
-                       (signum (varef dist 1))
-                       (the double-float (cl-mpm/shape-function::shape-linear-dsvp (varef dist 1) h))
-                       (the double-float weight-x))
-                      0d0)))
-         (funcall func node weight grads dface dnorm))))))
+;; (defun iterate-over-gp-nodes (mesh gp-point normal func)
+;;   (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
+;;     (iterate-over-face-nodes
+;;      mesh
+;;      gp-point
+;;      normal
+;;      (lambda (node dface dnorm)
+;;        (let* ((node-pos (cl-mpm/mesh::node-position node))
+;;               (dist (cl-mpm/fastmaths::fast-.- gp-point node-pos))
+;;               (weight-x (cl-mpm/shape-function::shape-linear (varef dist 0) h))
+;;               (weight-y (cl-mpm/shape-function::shape-linear (varef dist 1) h))
+;;               (weight (* weight-x weight-y))
+;;               (grads (list
+;;                       (*
+;;                        (signum (varef dist 0))
+;;                        (the double-float (cl-mpm/shape-function::shape-linear-dsvp (varef dist 0) h))
+;;                        (the double-float weight-y))
+;;                       (*
+;;                        (signum (varef dist 1))
+;;                        (the double-float (cl-mpm/shape-function::shape-linear-dsvp (varef dist 1) h))
+;;                        (the double-float weight-x))
+;;                       0d0)))
+;;          (funcall func node weight grads dface dnorm))))))
+;; (defun iterate-over-gp-nodes-positive (mesh gp-point normal func)
+;;   (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
+;;     (iterate-over-face-nodes-positive
+;;      mesh
+;;      gp-point
+;;      normal
+;;      (lambda (node dface dnorm)
+;;        (let* ((node-pos (cl-mpm/mesh::node-position node))
+;;               (dist (cl-mpm/fastmaths::fast-.- gp-point node-pos))
+;;               (weight-x (cl-mpm/shape-function::shape-linear (varef dist 0) h))
+;;               (weight-y (cl-mpm/shape-function::shape-linear (varef dist 1) h))
+;;               (weight (* weight-x weight-y))
+;;               (grads (list
+;;                       (*
+;;                        (signum (varef dist 0))
+;;                        (the double-float (cl-mpm/shape-function::shape-linear-dsvp (varef dist 0) h))
+;;                        (the double-float weight-y))
+;;                       (*
+;;                        (signum (varef dist 1))
+;;                        (the double-float (cl-mpm/shape-function::shape-linear-dsvp (varef dist 1) h))
+;;                        (the double-float weight-x))
+;;                       0d0)))
+;;          (funcall func node weight grads dface dnorm))))))
 
 
 
@@ -373,20 +355,6 @@
                           (setf (cl-mpm/mesh::cell-ghost-element neighbour) t))))
              )))))))
 
-(defun iterate-over-unicell-nodes (mesh cell gp-loc func)
-  (declare (function func))
-  (cl-mpm::iterate-over-cell-shape-local
-   mesh
-   cell
-   gp-loc
-   (lambda (node weight grads) (funcall func cell node weight grads 1d0)))
-  ;; (cl-mpm::iterate-over-cell-shape-local
-  ;;  mesh
-  ;;  cell-b
-  ;;  gp-loc
-  ;;  (lambda (node weight grads) (funcall func cell-b node weight grads -1d0)))
-  )
-
 (defun iterate-over-bicell-nodes (mesh cell-a cell-b gp-loc func)
   (declare (function func))
   (cl-mpm::iterate-over-cell-shape-local
@@ -421,10 +389,10 @@
          cell-a
          cell-b
          (lambda (gp-loc gp-weight normal normal-trial face-length)
-           (let* ((nx (varef normal-trial 0))
-                  (ny (varef normal-trial 1))
-                  (nz (varef normal-trial 2))
-                  (dsvp-adjuster (magicl:transpose! (cl-mpm/utils::arb-matrix-from-list
+           (let* ((nx (varef normal 0))
+                  (ny (varef normal 1))
+                  (nz (varef normal 2))
+                  (dsvp-adjuster (magicl:transpose (cl-mpm/utils::arb-matrix-from-list
                                                      (list
                                                       nx  0d0 0d0
                                                       0d0 ny  0d0
@@ -511,7 +479,6 @@
         (cl-mpm/mesh::cell-ghost-element cell-b)))
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
-      ;; (pprint "Hello")
       (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
         (iterate-over-face-gps
          mesh
@@ -521,7 +488,7 @@
            (let* ((nx (varef normal-trial 0))
                   (ny (varef normal-trial 1))
                   (nz (varef normal-trial 2))
-                  (dsvp-adjuster (magicl:transpose! (cl-mpm/utils::arb-matrix-from-list
+                  (dsvp-adjuster (magicl:transpose (cl-mpm/utils::arb-matrix-from-list
                                                      (list
                                                       nx  0d0 0d0
                                                       0d0 ny  0d0
@@ -582,7 +549,8 @@
                                  grads
                                  (cl-mpm/mesh::cell-deformation-gradient cell))
                                 ))
-                              fact)))
+                              fact
+                              )))
                       (let ((ghost-force
                               (cl-mpm/fastmaths:fast-scale!
                                (magicl:@
@@ -591,6 +559,7 @@
                                 gradient-terms)
                                (*
                                 -1d0
+                                1/3
                                 ghost-factor
                                 (expt face-length *ghost-exp*)
                                 gp-weight))))
@@ -598,8 +567,8 @@
                           (cl-mpm/fastmaths:fast-.+
                            ghost-force
                            ghost
-                           ghost))))))))
-             )))))))
+                           ghost)))))))))))))))
+
 (defun apply-ghost-cells-accel (mesh cell-a cell-b ghost-factor)
   (when
       (and
@@ -622,7 +591,7 @@
            (let* ((nx (varef normal-trial 0))
                   (ny (varef normal-trial 1))
                   (nz (varef normal-trial 2))
-                  (dsvp-adjuster (magicl:transpose! (cl-mpm/utils::arb-matrix-from-list
+                  (dsvp-adjuster (magicl:transpose (cl-mpm/utils::arb-matrix-from-list
                                                      (list
                                                       nx  0d0 0d0
                                                       0d0 ny  0d0
@@ -787,33 +756,33 @@
                                                         ghost-factor)))))))))
       )))
 
-(defun test-markup (sim)
-  (let* ((index (list 10 10 0))
-         (mesh (cl-mpm:sim-mesh sim))
-         (cell (cl-mpm/mesh::get-cell mesh index)))
-    (loop for direction from 0 to 0
-          do
-             (let ((ind-dir (list 0 0 0)))
-               (setf (nth direction ind-dir) 1)
-               (let ((index-b (mapcar #'+ index ind-dir)))
-                 (when (cl-mpm/mesh::in-bounds-cell mesh index-b)
-                   (iterate-over-face-gps
-                    mesh
-                    cell
-                    (cl-mpm/mesh::get-cell mesh index-b)
-                    (lambda (gp-loc gp-weight normal normal-trial)
-                      (pprint gp-loc)
-                      (iterate-over-gp-nodes
-                       mesh
-                       gp-loc
-                       normal
-                       (lambda (node weight grad dface dnorm)
-                         (pprint node)
-                         (setf (cl-mpm/mesh::node-active node) t))
-                       )
-                      )
-                    )
-                   ))))))
+;; (defun test-markup (sim)
+;;   (let* ((index (list 10 10 0))
+;;          (mesh (cl-mpm:sim-mesh sim))
+;;          (cell (cl-mpm/mesh::get-cell mesh index)))
+;;     (loop for direction from 0 to 0
+;;           do
+;;              (let ((ind-dir (list 0 0 0)))
+;;                (setf (nth direction ind-dir) 1)
+;;                (let ((index-b (mapcar #'+ index ind-dir)))
+;;                  (when (cl-mpm/mesh::in-bounds-cell mesh index-b)
+;;                    (iterate-over-face-gps
+;;                     mesh
+;;                     cell
+;;                     (cl-mpm/mesh::get-cell mesh index-b)
+;;                     (lambda (gp-loc gp-weight normal normal-trial)
+;;                       (pprint gp-loc)
+;;                       (iterate-over-gp-nodes
+;;                        mesh
+;;                        gp-loc
+;;                        normal
+;;                        (lambda (node weight grad dface dnorm)
+;;                          (pprint node)
+;;                          (setf (cl-mpm/mesh::node-active node) t))
+;;                        )
+;;                       )
+;;                     )
+;;                    ))))))
 
 (defun calculate-forces-ghost (node damping dt mass-scale)
   "Update forces and nodal velocities with viscous damping"
@@ -1016,6 +985,14 @@
       )))
 
 
+(defun reset-ghost-cache (sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm:sim-mps)
+                   (ghost-cache cl-mpm::sim-ghost-cache))
+      sim
+    (when ghost-cache
+        (setf (fill-pointer ghost-cache) 0))))
+
 (defun build-ghost-cache (sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mps cl-mpm:sim-mps)
@@ -1098,8 +1075,7 @@
         (cl-mpm/mesh::cell-ghost-element cell-b)))
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
-      (let ((h (cl-mpm/mesh:mesh-resolution mesh))
-            )
+      (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
         (iterate-over-face-gps
          mesh
          cell-a
@@ -1117,26 +1093,13 @@
                                  (node-lock cl-mpm/mesh::node-lock)
                                  (ghost cl-mpm/mesh::node-ghost-force))
                     node
-                  (let* ((dsvp
-                           (magicl:transpose
-                            (cl-mpm/shape-function::assemble-dsvp-3d
-                             ;; grads
-                             (cl-mpm::gradient-push-forwards
-                              grads
-                              (cl-mpm/mesh::cell-deformation-gradient cell))
-                             )))
-                         ;; (diff (cl-mpm/fastmaths:fast-.- gp-loc (cl-)))
-                         (ghost-stiffness (abs (*
-                                                1d0
+                  (let* ((ghost-stiffness (abs (*
+                                                0.25d0
+                                                1/3
                                                 ghost-factor
                                                 (expt h -2)
-                                                ;; (expt (reduce #'max (mapcar #'abs grads)) -2)
-                                                ;; (abs (m))
-                                                ;; (estimate-ul-enhancement cell-a)
-                                                ;; (estimate-ul-enhancement cell-b)
                                                 (expt face-length *ghost-exp*)
                                                 gp-weight))))
-                    ;; (pprint (reduce #'max (mapcar #'abs grads)))
                     (sb-thread:with-mutex (node-lock)
                       (setf (cl-mpm/mesh::node-mass node)
                             (+

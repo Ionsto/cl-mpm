@@ -25,7 +25,7 @@
                                     (energy-crit 1d-8)
                                     (oobf-crit 1d-8)
                                     (live-plot nil)
-                                    (dt-scale 0.5d0)
+                                    (dt-scale 1d0)
                                     (substeps 50)
                                     (conv-steps 50)
                                     (post-iter-step nil)

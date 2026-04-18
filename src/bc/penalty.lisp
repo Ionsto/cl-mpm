@@ -1298,7 +1298,7 @@
                   :position (cl-mpm/utils:vector-copy trial-point)
                   :contact-area contact-area
                   :stiffness (*
-                              2d0
+                              4d0
                               epsilon
                               contact-area))
                  (bc-penalty-contact-points bc)))

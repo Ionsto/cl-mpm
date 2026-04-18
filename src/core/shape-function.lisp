@@ -580,47 +580,23 @@
 (defun assemble-dstretch-3d-prealloc (dsvp result)
   (declare (list dsvp)
            (magicl:matrix/double-float result)
-           ;; (optimize (speed 3) (safety 0) (debug 0))
-           )
+           (optimize (speed 3) (safety 0) (debug 0)))
   "Assemble d/di to the strain-displacement matrix"
   (destructuring-bind (dx dy dz) dsvp
     (let* ((s (magicl::matrix/double-float-storage result)))
       (declare (double-float dx dy dz))
       (setf
-                                        ;dx/dx
-       (aref s (+ 0 (* 9 0))) dx
-                                        ;dy/dy
-       (aref s (+ 1 (* 9 1))) dy
-                                        ;dz/dz
-       (aref s (+ 2 (* 9 2))) dz
-                                        ;Dy/dx
-       (aref s (+ 3 (* 9 0))) dy
-                                        ;Dx/dy
-       (aref s (+ 4 (* 9 1))) dx
-                                        ;dz/dx
-       (aref s (+ 5 (* 9 0))) dz
-                                        ;dx/dz
-       (aref s (+ 6 (* 9 2))) dx
-                                        ;Dz/dy
-       (aref s (+ 7 (* 9 1))) dz
-                                        ;Dy/dz
-       (aref s (+ 8 (* 9 2))) dy
+       (aref s (+ 0 (* 9 0))) dx ;dx/dx
+       (aref s (+ 1 (* 9 1))) dy ;dy/dy
+       (aref s (+ 2 (* 9 2))) dz ;dz/dz
+       (aref s (+ 3 (* 9 0))) dy ;Dy/dx
+       (aref s (+ 4 (* 9 1))) dx ;Dx/dy
+       (aref s (+ 5 (* 9 0))) dz ;dz/dx
+       (aref s (+ 6 (* 9 2))) dx ;dx/dz
+       (aref s (+ 7 (* 9 1))) dz ;Dz/dy
+       (aref s (+ 8 (* 9 2))) dy ;Dy/dz
        )
-       ;);)
       result)))
-
-;; (time
-;;  (let ((a (magicl:zeros '(1000 1)))
-;;        (b (magicl:zeros '(1000 1))))
-;;        (dotimes (i 1000000)
-;;          (setf a (cl-mpm/fastmaths::fast-.+ a b))
-;;          )))
-;; (time
-;;  (let ((a (magicl:zeros '(1000 1)))
-;;        (b (magicl:zeros '(1000 1))))
-;;    (dotimes (i 1000000)
-;;      (cl-mpm/fastmaths::fast-.+ a b a)
-;;      )))
 
 (declaim
  (inline assemble-vorticity-2d)

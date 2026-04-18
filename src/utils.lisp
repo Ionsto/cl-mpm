@@ -89,7 +89,6 @@
          (ftype (function (magicl:matrix/double-float fixnum fixnum)
                           (double-float)) mtref))
 (defun mtref (m row col)
-  ;; (magicl:tref m row col)
   (declare (magicl:matrix/double-float m)
            (fixnum row col))
   (policy-cond:with-expectations (> speed safety)
@@ -338,6 +337,15 @@
   (magicl::make-matrix/double-float 6 6 36 :column-major (make-array 36 :element-type 'double-float
                                                                         :initial-contents elements
                                                                         )))
+(defun tensor-voigt-4th-from-diag (elements)
+  "Take a 3 element list and form a diagonal matrix"
+  (destructuring-bind (i1 i2 i3 i4 i5 i6) elements
+    (tensor-voigt-4th-from-list (list i1 0d0 0d0 0d0 0d0 0d0
+                                      0d0 i2 0d0 0d0 0d0 0d0
+                                      0d0 0d0 i3 0d0 0d0 0d0
+                                      0d0 0d0 0d0 i4 0d0 0d0
+                                      0d0 0d0 0d0 0d0 i5 0d0
+                                      0d0 0d0 0d0 0d0 0d0 i6))))
 
 (declaim (inline arb-matrix-from-list)
          (ftype (function (list)

@@ -201,7 +201,6 @@
         (setf ke 0d0
               ke-prev 0d0)))
     (setf dt 1d0)
-    
     (cl-mpm/penalty::reset-penalty sim)
     (cl-mpm::reset-nodes-force sim)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)

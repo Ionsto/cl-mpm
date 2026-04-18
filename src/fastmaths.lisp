@@ -374,20 +374,25 @@
            )
   (let ((a (magicl::matrix/double-float-storage matrix))
         (b (magicl::matrix/double-float-storage vector))
-        (c (magicl::matrix/double-float-storage result-vector))
-        )
+        (c (magicl::matrix/double-float-storage result-vector)))
     (declare ((simple-array double-float (9)) a)
              ((simple-array double-float (3)) b c))
-    (flet ((tref (m x y)
-             (aref m (+ x (* 3 y)))))
-      (loop for i fixnum from 0 below 3
-            do
-               (setf
-                (aref c i)
-                (+
-                 (* (aref b 0) (tref a i 0))
-                 (* (aref b 1) (tref a i 1))
-                 (* (aref b 2) (tref a i 2)))))))
+    (policy-cond:with-expectations (> speed safety)
+        ((assertion (eq (magicl::matrix/double-float-layout matrix) :column-major))
+         (assertion (= 3 (magicl::matrix/double-float-nrows matrix)))
+         (assertion (= 3 (magicl::matrix/double-float-ncols matrix)))
+         (assertion (= 3 (length b)))
+         (assertion (= 3 (length c))))
+      (flet ((tref (m x y)
+               (aref m (+ x (* 3 y)))))
+        (loop for i fixnum from 0 below 3
+              do
+                 (setf
+                  (aref c i)
+                  (+
+                   (* (aref b 0) (tref a i 0))
+                   (* (aref b 1) (tref a i 1))
+                   (* (aref b 2) (tref a i 2))))))))
   result-vector)
 
 

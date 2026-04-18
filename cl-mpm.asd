@@ -775,6 +775,8 @@
   :depends-on ("cl-mpm"
                "cl-mpm/ghost"
                "cl-mpm/aggregate"
+               "cl-mpm/linear-solver"
+               "cl-mpm/all"
                "cl-mpm/utils")
   :description "Implicit mpm test file"
   :serial t

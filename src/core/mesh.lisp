@@ -87,6 +87,9 @@
    (fdc
     :accessor node-agg-fdc
     :initform nil)
+   (stiffness-fd
+    :accessor node-stiffness-fd
+    :initform nil)
    (agg-interior-cell
     :accessor node-agg-interior-cell
     :initform nil)
