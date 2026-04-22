@@ -16,5 +16,5 @@
     (debug 0)
     (compilation-speed 0)))
 
-(defvar *optimise-setting* *optimise-debug*)
-;; (defvar *optimise-setting* *optimise-speed*)
+;; (defvar *optimise-setting* *optimise-debug*)
+(defvar *optimise-setting* *optimise-speed*)

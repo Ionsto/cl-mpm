@@ -1,4 +1,72 @@
 (in-package :cl-mpm/dynamic-relaxation)
+
+;; (defun implicit-assemble-stiffness (sim)
+;;   (with-accessors ((mesh cl-mpm::sim-mesh)
+;;                    (mps cl-mpm::sim-mps))
+;;       sim
+;;     (with-accessors ((nd cl-mpm/mesh::mesh-nd))
+;;         mesh
+;;       (cl-mpm::iterate-over-nodes
+;;        mesh
+;;        (lambda (node)
+;;          (when (cl-mpm/mesh:node-active node)
+;;            (setf (cl-mpm/mesh:node-mass node) 0d0))))
+;;       (let ((mass-scale (the double-float (/ 1d0 (cl-mpm::sim-dt-scale sim)))))
+;;         (cl-mpm::iterate-over-mps
+;;          mps
+;;          (lambda (mp)
+;;            (let ((stiffness (cl-mpm/implicit::assemble-mp-stiffness mesh mp))
+;;                  (df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse mp))
+;;                  (mp-volume (cl-mpm/particle::mp-volume mp))
+;;                  )
+;;              (cl-mpm::iterate-over-neighbours
+;;               mesh
+;;               mp
+;;               (lambda (mesh mpa node svp grads fsvp fgrads)
+;;                 (with-accessors ((node-active  cl-mpm/mesh:node-active)
+;;                                  (node-lock  cl-mpm/mesh:node-lock))
+;;                     node
+;;                   (declare (boolean node-active)
+;;                            (sb-thread:mutex node-lock))
+;;                   (when node-active
+;;                     (let ((g-a (cl-mpm/implicit::assemble-g-3d
+;;                                 (cl-mpm::gradient-push-forwards-cached
+;;                                  grads
+;;                                  df-inv))))
+;;                       (cl-mpm::iterate-over-neighbours
+;;                        mesh
+;;                        mp
+;;                        (lambda (mesh mpb node-b svp-b grads-b fsvp fgrads)
+;;                          (when (cl-mpm::node-active node-b)
+;;                            (let ((g-b (cl-mpm/implicit::assemble-g-3d
+;;                                        (cl-mpm::gradient-push-forwards-cached
+;;                                         grads-b
+;;                                         df-inv))))
+;;                              (let ((stiff (magicl:@ (magicl:transpose g-a) stiffness g-b)))
+;;                                (sb-thread:with-mutex (node-lock)
+;;                                  (loop for v across (cl-mpm/utils:fast-storage stiff)
+;;                                        do
+;;                                           (progn
+;;                                             ;; (incf (cl-mpm/mesh::node-mass node-b)
+;;                                             ;;       (* mp-volume
+;;                                             ;;          (abs v)))
+;;                                             (* 0.25d0
+;;                                                ;; 0.5d0
+;;                                                mass-scale
+;;                                                (incf (cl-mpm/mesh::node-mass node)
+;;                                                      (* mp-volume
+;;                                                         (abs v)))))))
+;;                                ;; (dotimes (i nd)
+;;                                ;;   (dotimes (j nd)
+;;                                ;;     (incf (magicl:tref global-k
+;;                                ;;                        (+ (* nd (cl-mpm/mesh::node-stiffness-fd node)) i)
+;;                                ;;                        (+ (* nd (cl-mpm/mesh::node-stiffness-fd node-b)) j))
+;;                                ;;           (* mp-volume
+;;                                ;;              (magicl:tref stiff i j))))
+;;                                ;;   )
+;;                                ))))))
+;;                     )))))))))))
+
 (defmethod map-stiffness ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mps cl-mpm:sim-mps))
@@ -59,6 +127,7 @@
                    (bcs-force-list cl-mpm::sim-bcs-force-list))
       sim
     (map-stiffness sim)
+    ;; (implicit-assemble-stiffness sim)
     (loop for bcs-f in bcs-force-list
           do (loop for bc across bcs-f
                    do (cl-mpm/bc::assemble-bc-stiffness sim bc)))
@@ -100,7 +169,7 @@
                do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
          (setf (cl-mpm::sim-damping-factor sim) 0d0)
          (update-node-fictious-mass sim)
-         ;; (cl-mpm/aggregate::update-node-forces-agg sim (* -0.5d0 dt))
+         (cl-mpm/aggregate::update-node-forces-agg sim (* -0.5d0 dt))
          (cl-mpm::iterate-over-nodes
           mesh
           (lambda (n)

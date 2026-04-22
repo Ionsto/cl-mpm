@@ -373,6 +373,9 @@
    (elastic-matrix
     :accessor mp-elastic-matrix
     :type magicl:matrix/double-float)
+   (tangent-stiffness
+    :accessor mp-tangent-stiffness
+    :type magicl:matrix/double-float)
    (2d-approximation
     :accessor mp-elastic-approximation
     :initarg :elastic-approxmation
@@ -480,6 +483,7 @@
 
 (defmethod initialize-instance :after ((p particle-elastic) &key)
   (update-elastic-matrix p)
+  (setf (cl-mpm/particle::mp-tangent-stiffness p) (cl-mpm/particle::mp-elastic-matrix p))
   ;; (call-next-method)
   )
 (defmethod (setf mp-elastic-approximation) :after (value (p particle-elastic))

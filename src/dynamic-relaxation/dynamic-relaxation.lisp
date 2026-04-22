@@ -134,7 +134,8 @@
                               (progn
                                 (setf energy-first energy-last)
                                 (setf energy-last energy))))
-                        )))
+                        )
+                      ))
                    (setf energy-total (cl-mpm::sim-stats-energy sim))
                    (if (= *work* 0d0)
                        (setf fnorm 0d0)

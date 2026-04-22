@@ -114,4 +114,27 @@ Eigen::Matrix<double,3,3> stretch_to_matrix(Eigen::Matrix<double,6,1> voigt) {
           0.5*voigt(4), 0.5*voigt(3), voigt(2)).finished();
 }
 
+
+
+  inline
+  double voigt_trace(Eigen::Matrix<double,6,1> voigt) {
+        return voigt(0) + voigt(1) + voigt(2);
+  }
+  inline
+  double voigt_j2(Eigen::Matrix<double,6,1> voigt_dev) {
+    return 0.5*(voigt_dev.dot(voigt_dev)
+                + std::pow(voigt_dev(3),2)
+                + std::pow(voigt_dev(4),2)
+                + std::pow(voigt_dev(5),2));
+  }
+  inline
+  Eigen::Matrix<double,6,1> voigt_deviatoric(Eigen::Matrix<double,6,1> voigt) {
+    const double tr = voigt_trace(voigt)/3;
+    Eigen::Matrix<double,6,1> out = voigt;
+    out(0) -= tr;
+    out(1) -= tr;
+    out(2) -= tr;
+    return out;
+  }
+
 }

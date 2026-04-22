@@ -1130,10 +1130,7 @@
                    (sb-simd-avx:f64.2-aref c 0)
                    (sb-simd-avx:f64.2*
                     (sb-simd-avx:f64.2-aref a (* j 3))
-                    (aref b j)
-                    )
-                   )
-                  )
+                    (aref b j))))
                  (incf
                   (aref c 2)
                   (the double-float (* (aref b j) (tref a 2 j) scale))

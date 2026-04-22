@@ -4,12 +4,12 @@
         :cl-mpm/utils))
 (in-package :cl-mpm/examples/damage/biaxial)
 
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
-;; (sb-ext:restrict-compiler-policy 'speed  0 0)
-;; (sb-ext:restrict-compiler-policy 'debug  3 3)
-;; (sb-ext:restrict-compiler-policy 'safety 3 3)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
 ;; (defmethod cl-mpm/dynamic-relaxation::damage-increment-criteria ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
 ;;   (cl-mpm/dynamic-relaxation::damage-increment-criteria sim))
 
@@ -103,7 +103,7 @@
        ;; :enable-aggregate t
        ;; :ghost-factor nil
        :enable-aggregate nil
-       :ghost-factor (* (cl-mpm/utils::calculate-p-wave-modulus E nu) 1d-1)
+       :ghost-factor (* (cl-mpm/utils::calculate-p-wave-modulus E nu) 1d-6)
        :mass-update-count 1
        :enable-split nil
        :max-split-depth 8
@@ -348,17 +348,18 @@
       :load-steps lstps
       :enable-plastic enable-plastic
       :enable-damage enable-damage
-      :damping (sqrt 1d0)
+      :damping (sqrt 2d0)
       :min-adaptive-steps 0
       :max-adaptive-steps 2
       :adaption-constant 4
       :max-damage-inc 0.90d0
       :min-damage-inc 0.1d0
       :substeps (round (* refine 50))
-      :sub-conv-steps 50
-      :criteria 1d-9
+      ;; :sub-conv-steps 50
+      :sub-conv-steps 1000
+      :criteria 1d-3
       :true-stagger nil
-      :save-vtk-dr nil
+      :save-vtk-dr t
       :save-vtk-loadstep t
       :dt-scale 1d0))))
 
@@ -417,31 +418,65 @@
 ;;          :refine refine)))
 
 (defun test-oversize ()
-  (let ((refine 1)
+  (let ((refine 0.5)
         (mps 4))
-    (dolist (oversize (list
-                       0d0
-                       ;; (- 1d0 1d-1)
-                       ;; (- 1d0 1d-2)
-                       ;; (- 1d0 1d-3)
-                       ))
-      (setup :mps mps
+    (let ((gf 1d-2)
+          (E 1.3d7)
+          (nu 0.30d0))
+      (dolist (oversize (list
+                         0d0
+                         ;; (- 1d0 1d-1)
+                         ;; (- 1d0 1d-2)
+                         ;; (- 1d0 1d-3)
+                         ))
+        (setup :mps mps
+               :refine refine
+               :enable-fbar t
+               :gf 100d0
+               :angle 30d0
+               :angle-r 00d0
+               :oversize-factor oversize)
+        (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
+              (cl-mpm::sim-ghost-factor *sim*) (* gf (cl-mpm/utils::calculate-p-wave-modulus E nu)))
+        ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+        ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
+        (run :output-dir (format nil "./output-~F/" oversize)
              :refine refine
-             :enable-fbar t
-             :multigrid-refines 0
-             :gf 100d0
-             :angle 30d0
-             :angle-r 10d0
-             :oversize-factor oversize)
-      ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
-      ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
-      (run :output-dir (format nil "./output-pdinc-tensile-~F/" oversize)
-           :refine refine
-           :enable-damage nil
-           :enable-plastic t
-           :lstps 50
-           ;; :tensile t
-           ))))
+             :enable-damage nil
+             :enable-plastic t
+             :lstps 20
+             :total-disp -20d-3
+             ;; :tensile t
+             )))))
+
+
+;;   (let ((refine 0.5)
+;;         (mps 3))
+;;     (dolist (gf (list 1d0 1d-2 1d-4 1d-6))
+;;       (let ((E 1.3d7)
+;;             (nu 0.30d0))
+;;         (dolist (oversize (list 0d0))
+;;           (setup :mps mps
+;;                  :refine refine
+;;                  :enable-fbar t
+;;                  :gf 100d0
+;;                  :angle 30d0
+;;                  :angle-r 00d0
+;;                  :oversize-factor oversize)
+;;           ;; (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
+;;           ;;       (cl-mpm::sim-ghost-factor *sim*) (* gf (cl-mpm/utils::calculate-p-wave-modulus E nu)))
+;;           (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
+;;                 (cl-mpm::sim-ghost-factor *sim*) nil)
+;;           ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+;;           ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
+;;           (run :output-dir (format nil "./output-~F/" gf)
+;;                :refine refine
+;;                :enable-damage nil
+;;                :enable-plastic nil
+;;                :lstps 3
+;;                :total-disp -2d-3
+;;                ;; :tensile t
+;;                ))))))
 
 (defun test-tension-compression ()
   (let ((refine 2)
@@ -623,3 +658,15 @@
 ;;                     max-l)))
 ;;               #'max)
 ;;              h)))
+
+
+
+
+
+(pprint
+ (cl-mpm/implicit::tensor-2nd-partial-deriv
+  (cl-mpm/utils:matrix-from-list
+   (list 1d0 0d0 0d0
+         0d0 2d0 0d0
+         0d0 0d0 3d0)
+   ) #'log (lambda (x) (/ 1d0 x))))

@@ -185,8 +185,29 @@
          (cl-mpm/fastmaths:fast-scale! s-tensor -1d0)
          )))))
 
-(defun upsize-agg ()
-  )
+;; (defun upsize-agg (sim)
+;;   (cl-mpm/aggregate::sim-global-e sim)
+;;   )
+(defun update-agg (sim)
+  (setf
+   (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
+   (filter-nodes sim (lambda (n) (or (cl-mpm/mesh::node-interior n)
+                                     (not (cl-mpm/mesh::node-agg n)))))
+
+   (cl-mpm/aggregate::sim-agg-nodes-fd sim)
+   (filter-nodes sim (lambda (n) (or (cl-mpm/mesh::node-agg n)
+                                     (cl-mpm/mesh::node-interior n)))))
+  (let ((fdc 0))
+    (loop for n across (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
+          do (progn
+               (setf (cl-mpm/mesh::node-agg-fdc n) fdc)
+               (incf fdc))))
+  (let ((fd 0))
+    (loop for n across (cl-mpm/aggregate::sim-agg-nodes-fd sim)
+          do (progn
+               (setf (cl-mpm/mesh::node-agg-fd n) fd)
+               (incf fd))))
+  (setf (cl-mpm/aggregate::sim-global-e sim) (cl-mpm/aggregate::assemble-e sim)))
 
 (defun test ()
   (setup-2d :mps 3)
@@ -555,7 +576,7 @@
 (defgeneric assemble-mp-stiffness (mesh mp))
 (defmethod assemble-mp-stiffness (mesh (mp cl-mpm/particle::particle-elastic))
   (let* ((F (cl-mpm/particle::mp-deformation-gradient mp))
-         (D (cl-mpm/particle::mp-elastic-matrix mp))
+         (D (cl-mpm/particle::mp-tangent-stiffness mp))
          (s (cl-mpm/particle::mp-stress mp))
          (b (assemble-b (cl-mpm/particle::mp-strain mp))))
     ;; (pprint F)
@@ -564,6 +585,12 @@
     ;; (pprint b)
     ;; (pprint (cl-mpm/implicit::tensor-2nd-partial-deriv b #'log (lambda (x) (/ 1d0 x))))
     (form-ul-stiffness F D s b)))
+;; (defmethod assemble-mp-stiffness (mesh (mp cl-mpm/particle::particle-elastic))
+;;   (let* ((F (cl-mpm/particle::mp-deformation-gradient mp))
+;;          (D (cl-mpm/particle::mp-elastic-matrix mp))
+;;          (s (cl-mpm/particle::mp-stress mp))
+;;          (b (assemble-b (cl-mpm/particle::mp-strain mp))))
+;;     (form-ul-stiffness F D s b)))
 
 (defun assemble-forces (sim)
   (assemble-global-vec sim #'cl-mpm/mesh::node-force))
@@ -625,7 +652,7 @@
     (with-accessors ((nd cl-mpm/mesh::mesh-nd))
         mesh
       (cl-mpm/fastmaths:fast-zero global-k)
-      (cl-mpm::iterate-over-mps-serial
+      (cl-mpm::iterate-over-mps
        mps
        (lambda (mp)
          (let ((stiffness (assemble-mp-stiffness mesh mp))
@@ -657,15 +684,15 @@
                                       df-inv))))
                            (let ((stiff (magicl:@ (magicl:transpose g-a) stiffness g-b)))
                              ;; (pprint stiff)
-                             ;; (sb-thread:with-mutex (node-lock)
-                             ;;   (sb-thread:with-mutex ((cl-mpm/mesh::node-lock node-b))))
-                             (dotimes (i nd)
-                               (dotimes (j nd)
-                                 (incf (magicl:tref global-k
-                                                    (+ (* nd (cl-mpm/mesh::node-stiffness-fd node)) i)
-                                                    (+ (* nd (cl-mpm/mesh::node-stiffness-fd node-b)) j))
-                                       (* mp-volume
-                                          (magicl:tref stiff i j)))))))))))
+                             (sb-thread:with-mutex (node-lock)
+                               ;; (sb-thread:with-mutex ((cl-mpm/mesh::node-lock node-b)))
+                               (dotimes (i nd)
+                                 (dotimes (j nd)
+                                   (incf (magicl:tref global-k
+                                                      (+ (* nd (cl-mpm/mesh::node-stiffness-fd node)) i)
+                                                      (+ (* nd (cl-mpm/mesh::node-stiffness-fd node-b)) j))
+                                         (* mp-volume
+                                            (magicl:tref stiff i j))))))))))))
                   ))
               ))))))))
 
@@ -715,6 +742,8 @@
                 )))
     (values v)))
 
+
+
 (declaim (notinline setup))
 (defun setup-2d (&key(refine 1) (mps 2))
   (let* ((h (* 1d0 refine))
@@ -739,9 +768,13 @@
                                    block-size
                                    (mapcar (lambda (e) (* (/ e h) mps)) block-size)
                                    1d3
-                                   'cl-mpm/particle::particle-elastic
-                                   :E 1d6
+                                   ;; 'cl-mpm/particle::particle-elastic
+                                   ;; :E 1d6
+                             
+                                   'cl-mpm/particle::particle-vm
+                                   :E 1d0
                                    :nu 0.3d0
+                                   :rho 1d0
                                    )))
   ;; (setf
   ;;  (cl-mpm:sim-gravity *sim*)
@@ -1000,16 +1033,19 @@
     (cl-mpm::apply-bcs mesh bcs dt)
     (assemble-stiffness sim)
     ;;Assemble the global K matrix
-    (let* ((K (sim-global-k sim))
-           (f (assemble-forces sim))
-           ;; (f-int (assemble-global-vec sim #'cl-mpm/mesh::node-internal-force))
-           ;; (f-ext (assemble-global-vec sim #'cl-mpm/mesh::node-external-force))
-           ;; (f (cl-mpm/fastmaths::fast-.+ f-ext f-int))
-           (bcs (assemble-global-bcs sim)))
-      (let ((ddisp (cl-mpm/fastmaths:fast-scale! (linear-solve-with-bcs K f bcs) 1d0)))
-        ;; (pprint f)
-        ;; (pprint ddisp)
-        (increment-global-vec sim ddisp #'cl-mpm/mesh::node-displacment)))
+    (if (cl-mpm/aggregate::sim-enable-aggregate sim)
+        (let* ((E (cl-mpm/aggregate::sim-global-e sim))
+               (K (magicl:@ (magicl:transpose e) (sim-global-k sim) e))
+               (f (magicl:@ (magicl:transpose e) (assemble-forces sim)))
+               (bcs (assemble-global-bcs sim)))
+          (let ((ddisp (cl-mpm/fastmaths:fast-scale! (linear-solve-with-bcs K f bcs) 1d0)))
+            (increment-global-vec sim ddisp #'cl-mpm/mesh::node-displacment)))
+        (let* ((K (sim-global-k sim))
+               (f (assemble-forces sim))
+               (bcs (assemble-global-bcs sim)))
+          (let ((ddisp (cl-mpm/fastmaths:fast-scale! (linear-solve-with-bcs K f bcs) 1d0)))
+            (increment-global-vec sim ddisp #'cl-mpm/mesh::node-displacment)))
+        )
     ;;Do 1 step of linear solver
     (cl-mpm::zero-grid-velocity mesh)
     (cl-mpm::apply-bcs mesh bcs dt)

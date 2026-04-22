@@ -1,12 +1,12 @@
 (defpackage :cl-mpm/examples/collapse
   (:use :cl))
 
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
 ;; (setf *block-compile-default* nil)
 ;(sb-int:set-floating-point-modes :traps '(:overflow :invalid :inexact :divide-by-zero :underflow))
 ;; (sb-int:set-floating-point-modes :traps '(:overflow :divide-by-zero :underflow))
@@ -77,11 +77,12 @@
                :args-list
                (append
                 (list
-                 :split-factor (* 1d0 (/ 1d0 mp-scale))
-                 :enable-fbar t
+                 :split-factor (* (sqrt 2) (/ 1d0 mp-scale))
+                 :enable-fbar nil
                  :enable-aggregate nil
-                 :ghost-factor (* E 1d-0)
+                 :ghost-factor nil;(* E 1d-0)
                  ;; :ghost-factor (* density 1d-6)
+                 ;; :mass-update-count 1
                  :max-split-depth 6
                  :enable-split t
                  :gravity -10d0
@@ -92,7 +93,6 @@
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
-         
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size))
          (offset (* h 0)))
     (declare (double-float h density))
@@ -108,13 +108,13 @@
           block-size
           (mapcar (lambda (e) (* (/ e h) mp-scale)) block-size)
           density
-          ;; 'cl-mpm/particle::particle-elastic
-          ;; :E 1d6
-          ;; :nu 0.30d0
-          'cl-mpm/particle::particle-vm
-          :E E
-          :nu 0.3d0
-          :rho 40d3
+          'cl-mpm/particle::particle-elastic
+          :E 1d6
+          :nu 0.30d0
+          ;; 'cl-mpm/particle::particle-vm
+          ;; :E E
+          ;; :nu 0.3d0
+          ;; :rho 40d3
           ;; 'cl-mpm/particle::particle-mc
           ;; :E 1d6
           ;; :nu 0.3d0
@@ -297,7 +297,7 @@
   )
 
 (defun test-real-time ()
-  (setup :mps 2 :refine 1)
+  (setup :mps 4 :refine 1)
   (let ((output-dir (format nil "./output-TFLIP/")))
     (vgplot:close-all-plots)
     ;; (change-class *sim* 'cl-mpm/aggregate::mpm-sim-agg-usf)
@@ -349,6 +349,107 @@
          :dt 1d0
          :initial-quasi-static nil
          :dt-scale r)))))
+
+(defun timing-test ()
+  (with-accessors ((mesh cl-mpm::sim-mesh)
+                   (mps cl-mpm::sim-mps))
+      *sim*
+      (time
+       (dotimes (i 100)
+         (cl-mpm::update-stress mesh mps 1d0 nil))))
+  ;; (let* ((e 1d0)
+  ;;        (nu 0.2d0)
+  ;;        (rho 1d0)
+  ;;        (strain (cl-mpm/utils:voigt-from-list (list 5d0 0d0 0d0
+  ;;                                                    0d0 0d0 0d0)))
+  ;;        (de (cl-mpm/constitutive:linear-elastic-matrix e nu))
+  ;;        (stress (magicl:@ de strain))
+  ;;        (iters 100000)
+  ;;        )
+  ;;   (time
+  ;;    (dotimes (i iters)
+  ;;      (multiple-value-bind (sig eps-e f inc pmod dep-con)
+  ;;          (cl-mpm/constitutive::plastic-vm-tangent stress de strain rho e nu)
+  ;;        ;; (pprint sig)
+  ;;        )))
+  ;;   (time
+  ;;    (dotimes (i iters)
+  ;;      (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm stress strain de e nu rho)
+  ;;        ;; (pprint sig)
+  ;;        ))))
+  )
+
+
+(defun test-scaling ()
+  (dolist (threads (list 16 8 4 2 1))
+    (setf lparallel:*kernel* (lparallel:make-kernel threads))
+    (let ((t0 (get-internal-real-time)))
+      (let ((agg nil)
+            (r 32))
+        (setup :mps 2 :refine r :multigrid-refine 0)
+        (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul)
+        (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-15)
+        (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
+              (cl-mpm::sim-ghost-factor *sim*) nil
+              (cl-mpm::sim-enable-fbar *sim*) nil)
+        ;; (if agg
+        ;;     (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
+        ;;           (cl-mpm::sim-ghost-factor *sim*) nil
+        ;;           (cl-mpm::sim-enable-fbar *sim*) nil)
+        ;;     (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
+        ;;           (cl-mpm::sim-ghost-factor *sim*) (* 1d6 1d-2)
+        ;;           (cl-mpm::sim-enable-fbar *sim*) nil))
+        (setf (cl-mpm::sim-gravity *sim*) -1d0)
+        (time
+         (dotimes (i 100)
+           (cl-mpM:update-sim *sim*)))
+        ;; (time
+        ;;  (cl-mpm/dynamic-relaxation::run-load-control
+        ;;   *sim*
+        ;;   :output-dir (format nil "./output-agg-~A-~D/" agg r)
+        ;;   :plotter #'plot
+        ;;   :load-steps 1
+        ;;   :damping (sqrt 2)
+        ;;   :substeps 25
+        ;;   :sub-conv-steps 1000
+        ;;   :criteria 1d-9
+        ;;   :save-vtk-dr nil
+        ;;   :save-vtk-loadstep nil
+        ;;   :dt-scale 1d0))
+        )
+      (let ((t1 (get-internal-real-time)))
+        (format t "Threads ~D: time ~E~%" threads (/ (- t1 t0) internal-time-units-per-second))))))
+
+(defun test ()
+  (let ((agg t)
+        (r 1))
+    (setup :mps 4 :refine r :multigrid-refine 0)
+    ;; (change-class *sim* 'cl-mpm/implicit::mpm-sim-implicit)
+    (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul)
+    (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-15)
+    (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
+          (cl-mpm::sim-ghost-factor *sim*) nil
+          (cl-mpm::sim-enable-fbar *sim*) nil)
+    ;; (if agg
+    ;;     (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
+    ;;           (cl-mpm::sim-ghost-factor *sim*) nil
+    ;;           (cl-mpm::sim-enable-fbar *sim*) nil)
+    ;;     (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
+    ;;           (cl-mpm::sim-ghost-factor *sim*) (* 1d6 1d-2)
+    ;;           (cl-mpm::sim-enable-fbar *sim*) nil))
+    (setf (cl-mpm::sim-gravity *sim*) -20d0)
+    (time
+     (cl-mpm/dynamic-relaxation::run-load-control
+      *sim*
+      :output-dir (format nil "./output-agg-~A-~D/" agg r)
+      :plotter #'plot
+      :load-steps 20
+      :damping 1d0;(sqrt 2)
+      :substeps 50
+      :criteria 1d-9
+      :save-vtk-dr nil
+      :save-vtk-loadstep nil
+      :dt-scale 1d0))))
 
 (defun test-load-control-agg ()
   (dolist (agg (list nil))

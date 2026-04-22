@@ -3,12 +3,12 @@
   (:import-from
     :cl-mpm/utils get-vector get-stress))
 (in-package :cl-mpm/examples/column)
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
 ;; (setf *block-compile-default* t)
 
 (declaim (optimize (debug 3) (safety 3) (speed 2)))
@@ -60,12 +60,17 @@
              (cl-mpm/setup::make-simple-sim
               (/ 1d0 e-scale)
               (mapcar (lambda (x) (* x e-scale)) size)
-              :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
+              ;:sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
+              ;; :sim-type 'cl-mpm/implicit::mpm-sim-implicit
+              :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
               ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-usf
               :args-list (list
                           :enable-fbar nil
-                          :enable-aggregate t
-                          :mp-removal-size nil
+                          :enable-aggregate nil
+                          :enable-damage nil
+                          :mass-update-count 10
+                          ;; :mp-removal-size nil
+                          :ghost-factor (* 10d3 1d-3)
                           :enable-split nil)))
            (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
            (density *rho*)
@@ -82,7 +87,7 @@
           density
           'cl-mpm/particle::particle-elastic
           :E 10d3
-          :nu 0.0d0
+          :nu 0d0
           :gravity-axis (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))
           ))
         (setf (cl-mpm:sim-gravity sim) -10d0)
@@ -91,7 +96,7 @@
               (* 0.1d0 (cl-mpm/setup::estimate-critical-damping sim)))
         (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
         (cl-mpm/setup::set-mass-filter sim density :proportion 1d-15)
-        (setf (cl-mpm:sim-dt sim) (cl-mpm/setup:estimate-elastic-dt sim :dt-scale 0.5d0))
+        ;; (setf (cl-mpm:sim-dt sim) (cl-mpm/setup:estimate-elastic-dt sim :dt-scale 0.5d0))
         (cl-mpm/setup::setup-bcs
          sim
          :left '(0 nil nil)
@@ -168,7 +173,7 @@
   (defparameter *data-refine* (list))
   (defparameter *data-error* (list))
   (loop for i in
-        '(4 5 6 7 8 9)
+        '(1 2 3 4 5 6 7 8 9)
         while *run-sim*
         do
            (let* (;(elements (expt 2 i))
@@ -199,7 +204,7 @@
                (cl-mpm/dynamic-relaxation::run-load-control
                 *sim*
                 :output-dir (merge-pathnames (format nil "./output-~A_~D/" i mps))
-                :load-steps 10
+                :load-steps 40
                 :substeps (* 10 refine)
                 :plotter (lambda (sim)
                            (vgplot:semilogy (reverse step) (reverse res))
@@ -208,10 +213,10 @@
                                   (push total-step step)
                                   (incf total-step)
                                   (push e res))
-                :damping 1d0;(sqrt 2)
+                :damping (sqrt 2)
                 :save-vtk-dr nil
                 :save-vtk-loadstep nil
-                :dt-scale 1d0
+                :dt-scale 1.5d0
                 :criteria 1d-5)
                ;; (plot-sigma-yy)
                (push (compute-error *sim*) *data-error*)
@@ -274,27 +279,39 @@
 
 
 (defun test-dr ()
-  (setup :mps 2 :refine 1)
-  ;; (change-class *sim* 'cl-mpm/aggregate::mpm-sim-agg-usf)
+  (setup :mps 3 :refine 2)
+  ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul)
   ;; (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t)
+  (cl-mpm/setup::set-mass-filter *sim* *rho* :proportion 1d-9)
   ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :FLIP)
   ;; (dotimes (i 100)
   ;;   (dotimes (j 10)
   ;;     (cl-mpm:update-sim *sim*))
   ;;   (cl-mpm/dynamic-relaxation::save-vtks *sim* "./output/" i))
-  (cl-mpm/dynamic-relaxation::run-load-control
-   *sim*
-   :output-dir "./output/"
-   :load-steps 40
-   :plotter #'plot-sigma-yy
-   :damping (sqrt 2)
-   :save-vtk-dr t
-   :save-vtk-loadstep t
-   :substeps 10
-   :dt-scale 1d0
-   :criteria 1d-5
-   ;:plotter #'plot
-   )
+  (let ((steps (list))
+        (res (list))
+        (substeps 1)
+        (step 0))
+    (vgplot:close-all-plots)
+    (time
+     (cl-mpm/dynamic-relaxation::run-load-control
+      *sim*
+      :output-dir "./output/"
+      :load-steps 5
+      ;; :plotter #'plot-sigma-yy
+      :plotter (lambda (s) (vgplot:semilogy steps res))
+      :post-iter-step (lambda (i o e)
+                        (push step steps)
+                        (incf step substeps)
+                        (push e res))
+      :damping (sqrt 2)
+      :save-vtk-dr t
+      :save-vtk-loadstep t
+      :substeps substeps
+      :conv-steps 10000
+      :dt-scale 1d0
+      :criteria 1d-9
+      )))
   )
 
 

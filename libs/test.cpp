@@ -68,6 +68,19 @@ extern "C" {
     pmod = std::get<4>(result);
     return std::get<3>(result);
   }
+
+  bool CppVonMises(double * strain_ptr,double & f,double & psinc,double & pmod,double E, double nu, double rho)
+  {
+    Eigen::Map<Eigen::Matrix<double,6,1>> strain(strain_ptr);
+    MohrCoulombReturn result = VonMises(strain,E,nu,rho);
+    Eigen::Matrix<double,6,1> strainE = std::get<0>(result);
+    f = std::get<1>(result);
+    psinc = std::get<2>(result);
+    strain = strainE;
+    pmod = std::get<4>(result);
+    return std::get<3>(result);
+  }
+
   bool CppViscoelastic(double * strain_ptr,double E, double nu,double viscosity, double dt)
   {
     Eigen::Map<Eigen::Matrix<double,6,1>> strain(strain_ptr);

@@ -438,6 +438,19 @@
                           weight)))))))))
     (values e)))
 
+;; (defun assemble-implicit-e (sim)
+;;   (let ((fdc 0))
+;;     (loop for n across (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
+;;           do (progn
+;;                (setf (cl-mpm/mesh::node-agg-fdc n) fdc)
+;;                (incf fdc))))
+;;   (let ((fd 0))
+;;     (loop for n across (cl-mpm/aggregate::sim-agg-nodes-fd sim)
+;;           do (progn
+;;                (setf (cl-mpm/mesh::node-agg-fd n) fd)
+;;                (incf fd))))
+;;   )
+
 (defun assemble-global-mass-matrix (sim)
   (let* ((active-nodes (sim-agg-nodes-fd sim))
          (ndofs (length active-nodes))

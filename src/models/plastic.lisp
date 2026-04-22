@@ -118,6 +118,7 @@
 (defmethod constitutive-model ((mp particle-vm) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
   (with-accessors ((de mp-elastic-matrix)
+                   (dep mp-tangent-stiffness)
                    (stress mp-stress)
                    (rho mp-rho)
                    (soft mp-softening)
@@ -136,16 +137,31 @@
       mp
     ;;Train elastic strain - plus trail kirchoff stress
     (cl-mpm/constitutive::linear-elastic-mat strain de stress)
+    (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
+    (setf dep de)
     (when enable-plasticity
-      (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/constitutive::vm-plastic stress de strain rho e nu)
+      ;; (multiple-value-bind (sig eps-e f inc pmod dep-con) (cl-mpm/constitutive::plastic-vm-tangent stress de strain rho e nu)
+      ;;   (setf stress
+      ;;         sig
+      ;;         plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
+      ;;         p-mod pmod
+      ;;         yield-func f
+      ;;         dep dep-con)
+      ;;   (setf ps-vm-inc inc)
+      ;;   (setf strain eps-e)
+      ;;   (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
+      (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm stress strain de e nu rho)
         (setf stress
               sig
               plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
               p-mod pmod
-              yield-func f)
+              yield-func f
+              ;; dep dep-con
+              )
         (setf ps-vm-inc inc)
         (setf strain eps-e)
-        (setf ps-vm (+ ps-vm-1 ps-vm-inc))))
+        (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
+      )
     (when (> soft 0d0)
       (with-accessors ((rho-r mp-rho-r)
                        (rho-0 mp-rho-0))
@@ -153,6 +169,7 @@
         (declare (double-float rho-0 rho-r))
         (setf
          rho (+ rho-r (* (- rho-0 rho-r) (exp (- (* soft ps-vm))))))))
+
     stress))
 
 (defmethod constitutive-model ((mp particle-mc) strain dt)

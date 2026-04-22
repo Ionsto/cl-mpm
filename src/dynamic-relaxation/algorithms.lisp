@@ -121,6 +121,7 @@
 
 
 
+(defparameter *max-deformation-gradient* 10d0)
 
 (defun generalised-staggered-solve (sim
                                     &key
@@ -170,28 +171,29 @@
                   :post-iter-step
                   (lambda (i e o)
                     (incf iv)
-                    (let ((max-def (compute-max-deformation sim)))
-                      (when (> max-def 10d0)
-                        (cl-mpm:sim-format sim t "Deformation gradient criteria exceeded~%")
-                        (error (make-instance 'non-convergence-error
-                                              :text "Deformation gradient J exceeded"
-                                              :ke-norm 0d0
-                                              :oobf-norm 0d0)))
-                      ;; (let ((true-intertia (true-intertial-criteria sim (sim-dt-loadstep sim))))
-                      ;;   (cl-mpm:sim-format sim t "True intertia ~E~%" true-intertia)
-                      ;;   (save-conv-step sim output-dir *total-iter* global-step
-                      ;;                   0d0
-                      ;;                   o
-                      ;;                   ;; true-intertia
-                      ;;                   max-def
-                      ;;                   )
-                      ;;   (setf inertia true-intertia)
-                      ;;   (when (> true-intertia 1d-4)
-                      ;;     (cl-mpm:sim-format sim t "Inertia criteria exceeded~%")
-                      ;;     (error (make-instance 'error-inertia-criteria
-                      ;;                           :text "True inertia exceeded"
-                      ;;                           :inertia-norm true-intertia))))
-                      )
+                    (when nil
+                      (let ((max-def (compute-max-deformation sim)))
+                        (when (> max-def 10d0)
+                          (cl-mpm:sim-format sim t "Deformation gradient criteria exceeded~%")
+                          (error (make-instance 'non-convergence-error
+                                                :text "Deformation gradient J exceeded"
+                                                :ke-norm 0d0
+                                                :oobf-norm 0d0)))
+                        ;; (let ((true-intertia (true-intertial-criteria sim (sim-dt-loadstep sim))))
+                        ;;   (cl-mpm:sim-format sim t "True intertia ~E~%" true-intertia)
+                        ;;   (save-conv-step sim output-dir *total-iter* global-step
+                        ;;                   0d0
+                        ;;                   o
+                        ;;                   ;; true-intertia
+                        ;;                   max-def
+                        ;;                   )
+                        ;;   (setf inertia true-intertia)
+                        ;;   (when (> true-intertia 1d-4)
+                        ;;     (cl-mpm:sim-format sim t "Inertia criteria exceeded~%")
+                        ;;     (error (make-instance 'error-inertia-criteria
+                        ;;                           :text "True inertia exceeded"
+                        ;;                           :inertia-norm true-intertia))))
+                        ))
                     (funcall post-iter-step i e o)
                     (unless true-stagger
                       (let ((damage-inc (damage-increment-criteria sim)))
