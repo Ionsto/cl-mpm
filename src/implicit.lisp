@@ -188,15 +188,59 @@
 ;; (defun upsize-agg (sim)
 ;;   (cl-mpm/aggregate::sim-global-e sim)
 ;;   )
+
+(defun assemble-e (sim)
+  (let* ((agg-nodes (cl-mpm/aggregate::sim-agg-nodes-fdc sim))
+         (active-nodes (cl-mpm/aggregate::sim-agg-nodes-fd sim))
+         (mesh (cl-mpm:sim-mesh sim))
+         (nd (cl-mpm/mesh:mesh-nd))
+         (ndof (* nd (length active-nodes)))
+         (ndofC (* nd (length agg-nodes)))
+         (e (cl-mpm/utils::arb-matrix ndof ndofC)))
+    (cl-mpm::iterate-over-nodes-serial
+     mesh
+     (lambda (node)
+       (when (cl-mpm/mesh:node-active node)
+         ;; (when (cl-mpm/mesh::node-agg node))
+         (if (or (cl-mpm/mesh::node-interior node)
+                 (not (cl-mpm/mesh::node-agg node)))
+             (progn
+               ;;Interior -> populate 1s
+               (dotimes (d nd)
+                 (setf (mtref
+                        e
+                        (+ d (* nd (cl-mpm/mesh::node-agg-fd node)))
+                        (+ d (* nd (cl-mpm/mesh::node-agg-fdc node)))
+                        ) 1d0)))
+             (progn
+               ;;Aggregate -> populate svp
+               (cl-mpm::iterate-over-cell-shape-local
+                mesh
+                (cl-mpm/mesh::node-agg-interior-cell node)
+                (cl-mpm/mesh::node-position node)
+                (lambda (cn weight grads)
+                  (dotimes (d nd ))
+                  (incf (mtref e
+                               (+ d (* nd (cl-mpm/mesh::node-agg-fd node)))
+                               (+ d (* nd (cl-mpm/mesh::node-agg-fdc node))))
+                        weight))))))))
+    (values e)))
+
+
 (defun update-agg (sim)
   (setf
    (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
-   (filter-nodes sim (lambda (n) (or (cl-mpm/mesh::node-interior n)
-                                     (not (cl-mpm/mesh::node-agg n)))))
+   (filter-nodes sim (lambda (n)
+                       (and (cl-mpm/mesh::node-active n)
+                            (or (cl-mpm/mesh::node-interior n)
+                                (not (cl-mpm/mesh::node-agg n))))))
 
    (cl-mpm/aggregate::sim-agg-nodes-fd sim)
-   (filter-nodes sim (lambda (n) (or (cl-mpm/mesh::node-agg n)
-                                     (cl-mpm/mesh::node-interior n)))))
+   (filter-nodes sim (lambda (n)
+                       (and (cl-mpm/mesh::node-active n)
+                            ;; (or (cl-mpm/mesh::node-agg n)
+                            ;;     (cl-mpm/mesh::node-interior n))
+                            ))))
   (let ((fdc 0))
     (loop for n across (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
           do (progn
@@ -207,27 +251,27 @@
           do (progn
                (setf (cl-mpm/mesh::node-agg-fd n) fd)
                (incf fd))))
-  (setf (cl-mpm/aggregate::sim-global-e sim) (cl-mpm/aggregate::assemble-e sim)))
+  (setf (cl-mpm/aggregate::sim-global-e sim) (assemble-implicit-e sim)))
 
-(defun test ()
-  (setup-2d :mps 3)
-  ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static)
-  (let ((step (list ))
-        (res (list )))
-    (vgplot:close-all-plots)
-    (setf (cl-mpm::sim-stats-oobf *sim*) 1d0)
-    (loop for i from 0 below 50
-          while (>= (cl-mpm::sim-stats-oobf *sim*) 1d-9)
-          do
-             (progn
-               (cl-mpm:update-sim *sim*)
-               (push i step)
-               (push (cl-mpm::sim-stats-oobf *sim*) res)
-               (vgplot:loglog step res)
-               ;; (cl-mpm/plotter:simple-plot *sim* :plot :deformed :trial t)
-               (pprint (cl-mpm::sim-stats-oobf *sim*))
-               (cl-mpm/dynamic-relaxation::save-vtks *sim* "./output/" i)
-               ))))
+;; (defun test ()
+;;   (setup-2d :mps 3)
+;;   ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static)
+;;   (let ((step (list ))
+;;         (res (list )))
+;;     (vgplot:close-all-plots)
+;;     (setf (cl-mpm::sim-stats-oobf *sim*) 1d0)
+;;     (loop for i from 0 below 50
+;;           while (>= (cl-mpm::sim-stats-oobf *sim*) 1d-9)
+;;           do
+;;              (progn
+;;                (cl-mpm:update-sim *sim*)
+;;                (push i step)
+;;                (push (cl-mpm::sim-stats-oobf *sim*) res)
+;;                (vgplot:loglog step res)
+;;                ;; (cl-mpm/plotter:simple-plot *sim* :plot :deformed :trial t)
+;;                (pprint (cl-mpm::sim-stats-oobf *sim*))
+;;                (cl-mpm/dynamic-relaxation::save-vtks *sim* "./output/" i)
+;;                ))))
 
 (defun test-partial ()
   (pprint (tensor-2nd-partial-deriv
@@ -696,6 +740,8 @@
                   ))
               ))))))))
 
+
+
 (declaim (notinline linear-solve-with-bcs))
 (defun linear-solve-with-bcs (ma v bcs &optional (target-vi nil))
   (let ((target-vi (if target-vi
@@ -744,73 +790,73 @@
 
 
 
-(declaim (notinline setup))
-(defun setup-2d (&key(refine 1) (mps 2))
-  (let* ((h (* 1d0 refine))
-         (block-size (list 10d0 10d0))
-         (domain-size (list 20d0 20d0)))
-    (defparameter *sim* (cl-mpm/setup:make-simple-sim
-                         h
-                         (mapcar (lambda (x) (* x refine)) domain-size)
-                         :sim-type 'mpm-sim-implicit
-                         :args-list
-                         (list
-                          :enable-aggregate nil
-                          :gravity -10d0
-                          )))
-    (cl-mpm/setup::setup-bcs
-     *sim*
-     :right (list nil nil nil)
-     )
-    (cl-mpm:add-mps
-     *sim*
-     (cl-mpm/setup::make-block-mps (list 0d0 0d0)
-                                   block-size
-                                   (mapcar (lambda (e) (* (/ e h) mps)) block-size)
-                                   1d3
-                                   ;; 'cl-mpm/particle::particle-elastic
-                                   ;; :E 1d6
+;; (declaim (notinline setup))
+;; (defun setup-2d (&key(refine 1) (mps 2))
+;;   (let* ((h (* 1d0 refine))
+;;          (block-size (list 10d0 10d0))
+;;          (domain-size (list 20d0 20d0)))
+;;     (defparameter *sim* (cl-mpm/setup:make-simple-sim
+;;                          h
+;;                          (mapcar (lambda (x) (* x refine)) domain-size)
+;;                          :sim-type 'mpm-sim-implicit
+;;                          :args-list
+;;                          (list
+;;                           :enable-aggregate nil
+;;                           :gravity -10d0
+;;                           )))
+;;     (cl-mpm/setup::setup-bcs
+;;      *sim*
+;;      :right (list nil nil nil)
+;;      )
+;;     (cl-mpm:add-mps
+;;      *sim*
+;;      (cl-mpm/setup::make-block-mps (list 0d0 0d0)
+;;                                    block-size
+;;                                    (mapcar (lambda (e) (* (/ e h) mps)) block-size)
+;;                                    1d3
+;;                                    ;; 'cl-mpm/particle::particle-elastic
+;;                                    ;; :E 1d6
                              
-                                   'cl-mpm/particle::particle-vm
-                                   :E 1d0
-                                   :nu 0.3d0
-                                   :rho 1d0
-                                   )))
-  ;; (setf
-  ;;  (cl-mpm:sim-gravity *sim*)
+;;                                    'cl-mpm/particle::particle-vm
+;;                                    :E 1d0
+;;                                    :nu 0.3d0
+;;                                    :rho 1d0
+;;                                    )))
+;;   ;; (setf
+;;   ;;  (cl-mpm:sim-gravity *sim*)
 
-  ;;  )
-  )
-(defun setup ()
-  (let* ((elements (expt 2 6))
-         (L 50d0)
-         (h (/ L elements))
-         )
-    (defparameter *sim* (cl-mpm/setup:make-simple-sim
-                         h
-                         (list elements 1)
-                         :sim-type 'mpm-sim-implicit
-                         :args-list
-                         (list
-                          :enable-aggregate nil)))
-    (cl-mpm/setup::setup-bcs
-     *sim*
-     :right (list nil nil nil))
-    (cl-mpm:add-mps
-     *sim*
-     (cl-mpm/setup::make-block-mps (list 0d0 h)
-                                   (list L h)
-                                   (list (* 2d0 (/ L h)) 1)
-                                   80d0
-                                   'cl-mpm/particle::particle-elastic
-                                   :E 1d4
-                                   :nu 0.2d0
-                                   :gravity-axis (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))))
-  (setf
-   (cl-mpm:sim-gravity *sim*)
-   (/ -10d0 10)
-   )
-  )
+;;   ;;  )
+;;   )
+;; (defun setup ()
+;;   (let* ((elements (expt 2 6))
+;;          (L 50d0)
+;;          (h (/ L elements))
+;;          )
+;;     (defparameter *sim* (cl-mpm/setup:make-simple-sim
+;;                          h
+;;                          (list elements 1)
+;;                          :sim-type 'mpm-sim-implicit
+;;                          :args-list
+;;                          (list
+;;                           :enable-aggregate nil)))
+;;     (cl-mpm/setup::setup-bcs
+;;      *sim*
+;;      :right (list nil nil nil))
+;;     (cl-mpm:add-mps
+;;      *sim*
+;;      (cl-mpm/setup::make-block-mps (list 0d0 h)
+;;                                    (list L h)
+;;                                    (list (* 2d0 (/ L h)) 1)
+;;                                    80d0
+;;                                    'cl-mpm/particle::particle-elastic
+;;                                    :E 1d4
+;;                                    :nu 0.2d0
+;;                                    :gravity-axis (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))))
+;;   (setf
+;;    (cl-mpm:sim-gravity *sim*)
+;;    (/ -10d0 10)
+;;    )
+;;   )
 
 ;; (defun setup-implicit (sim)
 ;;   (with-slots ((mesh cl-mpm::mesh)
@@ -864,99 +910,99 @@
       (setf (cl-mpm/utils:varef target (aref bc-map i)) (cl-mpm/utils:varef v i)))
     target))
 
-(defun linear-solve-with-bcs (ma v bcs &optional (target-vi nil))
-  (let ((target-vi (if target-vi
-                       target-vi
-                       (cl-mpm/utils::arb-matrix (magicl:nrows v) 1)
-                       ))
-        (bc-map (make-array (magicl:nrows bcs) :fill-pointer 0)))
-    (cl-mpm/fastmaths:fast-zero target-vi)
-    (loop for i from 0
-          for bc across (magicl::storage bcs)
-          do (when (> bc 0d0)
-               (vector-push-extend i bc-map)))
-    (let ((reduced-size (length bc-map)))
-      (when (> reduced-size 0)
-        (let* ((A-r (cl-mpm/utils::arb-matrix reduced-size reduced-size))
-               (v-r (cl-mpm/utils::arb-matrix reduced-size 1)))
-          (lparallel:pdotimes (i reduced-size)
-            (dotimes (j reduced-size)
-              (setf (mtref a-r i j) (mtref ma (aref bc-map i) (aref bc-map j))))
-            (setf (varef v-r i) (varef v (aref bc-map i))))
-          (let ((vs (magicl::linear-solve A-r v-r)))
-            (lparallel:pdotimes (i reduced-size)
-              (setf (varef target-vi (aref bc-map i)) (varef vs i))))
-          )))
-    target-vi
-    ))
+;; (defun linear-solve-with-bcs (ma v bcs &optional (target-vi nil))
+;;   (let ((target-vi (if target-vi
+;;                        target-vi
+;;                        (cl-mpm/utils::arb-matrix (magicl:nrows v) 1)
+;;                        ))
+;;         (bc-map (make-array (magicl:nrows bcs) :fill-pointer 0)))
+;;     (cl-mpm/fastmaths:fast-zero target-vi)
+;;     (loop for i from 0
+;;           for bc across (magicl::storage bcs)
+;;           do (when (> bc 0d0)
+;;                (vector-push-extend i bc-map)))
+;;     (let ((reduced-size (length bc-map)))
+;;       (when (> reduced-size 0)
+;;         (let* ((A-r (cl-mpm/utils::arb-matrix reduced-size reduced-size))
+;;                (v-r (cl-mpm/utils::arb-matrix reduced-size 1)))
+;;           (lparallel:pdotimes (i reduced-size)
+;;             (dotimes (j reduced-size)
+;;               (setf (mtref a-r i j) (mtref ma (aref bc-map i) (aref bc-map j))))
+;;             (setf (varef v-r i) (varef v (aref bc-map i))))
+;;           (let ((vs (magicl::linear-solve A-r v-r)))
+;;             (lparallel:pdotimes (i reduced-size)
+;;               (setf (varef target-vi (aref bc-map i)) (varef vs i))))
+;;           )))
+;;     target-vi
+;;     ))
 
-(defun test-imp ()
-  (setup :refine 0.5)
-  ;; (let ((d  (assemble-global-vec *sim* #'cl-mpm/mesh::node-displacment)))
-  ;;   (setf (cl-mpm/utils:varef d 0) 1d0)
-  ;;   (project-global-vec *sim* d cl-mpm/mesh::node-displacment)
-  ;;   )
-  (let ((lstps 50))
-    (loop for l from 1 to lstps
-          do
-             (let ((sim *sim*)
-                   (iter 0))
+;; (defun test-imp ()
+;;   (setup :refine 0.5)
+;;   ;; (let ((d  (assemble-global-vec *sim* #'cl-mpm/mesh::node-displacment)))
+;;   ;;   (setf (cl-mpm/utils:varef d 0) 1d0)
+;;   ;;   (project-global-vec *sim* d cl-mpm/mesh::node-displacment)
+;;   ;;   )
+;;   (let ((lstps 50))
+;;     (loop for l from 1 to lstps
+;;           do
+;;              (let ((sim *sim*)
+;;                    (iter 0))
 
-               (setf (cl-mpm::sim-ghost-factor *sim*) (* 1d6 1d-3))
-               (setup-implicit *sim*)
-               (setf (cl-mpm/aggregate::sim-enable-aggregate sim) nil)
-               (with-slots ((mesh cl-mpm::mesh)
-                            (mps cl-mpm::mps)
-                            (bcs cl-mpm::bcs)
-                            (dt-loadstep cl-mpm/dynamic-relaxation::dt-loadstep)
-                            (dt cl-mpm::dt)
-                            (ghost-factor cl-mpm::ghost-factor)
-                            (fbar cl-mpm::enable-fbar)
-                            (initial-setup initial-setup))
-                   *sim*
-                 (cl-mpm::p2g-force-fs *sim*)
-                 (cl-mpm::apply-bcs mesh bcs dt)
-                 (let* ((bcs-vec (assemble-global-bcs sim))
-                        (f-ext-full (assemble-global-vec sim #'cl-mpm/mesh::node-external-force))
-                        (f-ext
-                          (reduce-with-bcs
-                           f-ext-full
-                           bcs-vec)))
-                   (cl-mpm/fastmaths:fast-scale! f-ext (* -1d0 (/ (float l) lstps)))
-                   (cl-mpm/linear-solver::solve-richardson
-                    (lambda (d)
-                      (project-global-vec sim
-                                          (expand-with-bcs
-                                           d
-                                           bcs-vec)
-                                          #'cl-mpm/mesh::node-displacment)
-                      (cl-mpm::apply-bcs mesh bcs dt)
-                      (cl-mpm::reset-nodes-force sim)
-                      (cl-mpm::update-stress mesh mps dt-loadstep fbar)
-                      (cl-mpm::p2g-force-fs sim)
-                      (when ghost-factor
-                        (cl-mpm/ghost::apply-ghost sim ghost-factor)
-                        (cl-mpm::apply-bcs mesh bcs dt))
-                      (cl-mpm::apply-bcs mesh bcs dt)
-                      (incf iter)
-                      (cl-mpm:iterate-over-nodes
-                       mesh
-                       (lambda (n)
-                         (when (cl-mpm/mesh::node-active n)
-                           (cl-mpm/fastmaths:fast-.+ (cl-mpm/mesh::node-internal-force n)
-                                                     (cl-mpm/mesh::node-ghost-force n)
-                                                     (cl-mpm/mesh::node-force n)))))
-                      (reduce-with-bcs
-                       (assemble-global-vec sim #'cl-mpm/mesh::node-force)
-                       bcs-vec))
-                    f-ext
-                    :tol 1d-3
-                    )))
-               (cl-mpm::finalise-loadstep sim)
-               (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "sim_~5,'0d.vtk" l)) sim)
-               (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "sim_n_~5,'0d.vtk" l)) sim)
-               (plot *sim*)
-               (pprint iter)))))
+;;                (setf (cl-mpm::sim-ghost-factor *sim*) (* 1d6 1d-3))
+;;                (setup-implicit *sim*)
+;;                (setf (cl-mpm/aggregate::sim-enable-aggregate sim) nil)
+;;                (with-slots ((mesh cl-mpm::mesh)
+;;                             (mps cl-mpm::mps)
+;;                             (bcs cl-mpm::bcs)
+;;                             (dt-loadstep cl-mpm/dynamic-relaxation::dt-loadstep)
+;;                             (dt cl-mpm::dt)
+;;                             (ghost-factor cl-mpm::ghost-factor)
+;;                             (fbar cl-mpm::enable-fbar)
+;;                             (initial-setup initial-setup))
+;;                    *sim*
+;;                  (cl-mpm::p2g-force-fs *sim*)
+;;                  (cl-mpm::apply-bcs mesh bcs dt)
+;;                  (let* ((bcs-vec (assemble-global-bcs sim))
+;;                         (f-ext-full (assemble-global-vec sim #'cl-mpm/mesh::node-external-force))
+;;                         (f-ext
+;;                           (reduce-with-bcs
+;;                            f-ext-full
+;;                            bcs-vec)))
+;;                    (cl-mpm/fastmaths:fast-scale! f-ext (* -1d0 (/ (float l) lstps)))
+;;                    (cl-mpm/linear-solver::solve-richardson
+;;                     (lambda (d)
+;;                       (project-global-vec sim
+;;                                           (expand-with-bcs
+;;                                            d
+;;                                            bcs-vec)
+;;                                           #'cl-mpm/mesh::node-displacment)
+;;                       (cl-mpm::apply-bcs mesh bcs dt)
+;;                       (cl-mpm::reset-nodes-force sim)
+;;                       (cl-mpm::update-stress mesh mps dt-loadstep fbar)
+;;                       (cl-mpm::p2g-force-fs sim)
+;;                       (when ghost-factor
+;;                         (cl-mpm/ghost::apply-ghost sim ghost-factor)
+;;                         (cl-mpm::apply-bcs mesh bcs dt))
+;;                       (cl-mpm::apply-bcs mesh bcs dt)
+;;                       (incf iter)
+;;                       (cl-mpm:iterate-over-nodes
+;;                        mesh
+;;                        (lambda (n)
+;;                          (when (cl-mpm/mesh::node-active n)
+;;                            (cl-mpm/fastmaths:fast-.+ (cl-mpm/mesh::node-internal-force n)
+;;                                                      (cl-mpm/mesh::node-ghost-force n)
+;;                                                      (cl-mpm/mesh::node-force n)))))
+;;                       (reduce-with-bcs
+;;                        (assemble-global-vec sim #'cl-mpm/mesh::node-force)
+;;                        bcs-vec))
+;;                     f-ext
+;;                     :tol 1d-3
+;;                     )))
+;;                (cl-mpm::finalise-loadstep sim)
+;;                (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "sim_~5,'0d.vtk" l)) sim)
+;;                (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "sim_n_~5,'0d.vtk" l)) sim)
+;;                (plot *sim*)
+;;                (pprint iter)))))
 
 (defmethod cl-mpm/dynamic-relaxation::pre-step ((sim mpm-sim-implicit))
   (with-slots ((mesh cl-mpm::mesh)
@@ -1063,72 +1109,72 @@
 
 
 
-(defun test-nr-imp ()
-  (setup :refine 0.5)
-  ;; (setup-implicit *sim*)
-  ;; (let ((d  (assemble-global-vec *sim* #'cl-mpm/mesh::node-displacment)))
-  ;;   (setf (cl-mpm/utils:varef d 0) 1d0)
-  ;;   (project-global-vec *sim* d cl-mpm/mesh::node-displacment)
-  ;;   )
-  (let ((sim *sim*)
-        (iter 0))
-    (setf (cl-mpm/aggregate::sim-enable-aggregate sim) nil)
+;; (defun test-nr-imp ()
+;;   (setup :refine 0.5)
+;;   ;; (setup-implicit *sim*)
+;;   ;; (let ((d  (assemble-global-vec *sim* #'cl-mpm/mesh::node-displacment)))
+;;   ;;   (setf (cl-mpm/utils:varef d 0) 1d0)
+;;   ;;   (project-global-vec *sim* d cl-mpm/mesh::node-displacment)
+;;   ;;   )
+;;   (let ((sim *sim*)
+;;         (iter 0))
+;;     (setf (cl-mpm/aggregate::sim-enable-aggregate sim) nil)
 
-    (let* ((bcs-vec (assemble-global-bcs sim))
-           (d-0
-             (reduce-with-bcs
-              (assemble-global-vec sim #'cl-mpm/mesh::node-displacment)
-              bcs-vec))
-           (nr-crit 1d-9)
-           (nr-error nr-crit))
-      ;;NR iter
-      (loop for niter from 0 to 10
-            while (>= nr-error nr-crit)
-            do
-               (progn
-                 (with-slots ((mesh cl-mpm::mesh)
-                              (mps cl-mpm::mps)
-                              (bcs cl-mpm::bcs)
-                              (dt-loadstep cl-mpm/dynamic-relaxation::dt-loadstep)
-                              (dt cl-mpm::dt)
-                              (fbar cl-mpm::enable-fbar)
-                              (initial-setup initial-setup))
-                     *sim*
-                   (cl-mpm::p2g-force-fs *sim*)
-                   (cl-mpm::apply-bcs mesh bcs dt)
-                   (let* ((f-ext
-                            (reduce-with-bcs
-                             (assemble-global-vec sim #'cl-mpm/mesh::node-external-force)
-                             bcs-vec)))
-                     (cl-mpm::reset-node-displacement sim)
-                     (cl-mpm/fastmaths:fast-scale! f-ext 1d-3)
-                     (cl-mpm/linear-solver::solve-conjugant-gradients
-                      (lambda (d)
-                        (project-global-vec sim
-                                            (expand-with-bcs
-                                             d
-                                             bcs-vec)
-                                            #'cl-mpm/mesh::node-displacment)
-                        ;; (cl-mpm::reset-nodes-force sim)
-                        (cl-mpm::apply-bcs mesh bcs dt)
-                        ;; (cl-mpm::update-nodes sim)
-                        ;; (cl-mpm::update-cells sim)
-                        (cl-mpm::reset-nodes-force sim)
-                        (cl-mpm::update-stress mesh mps dt-loadstep fbar)
-                        (cl-mpm::p2g-force-fs sim)
-                        (cl-mpm::apply-bcs mesh bcs dt)
+;;     (let* ((bcs-vec (assemble-global-bcs sim))
+;;            (d-0
+;;              (reduce-with-bcs
+;;               (assemble-global-vec sim #'cl-mpm/mesh::node-displacment)
+;;               bcs-vec))
+;;            (nr-crit 1d-9)
+;;            (nr-error nr-crit))
+;;       ;;NR iter
+;;       (loop for niter from 0 to 10
+;;             while (>= nr-error nr-crit)
+;;             do
+;;                (progn
+;;                  (with-slots ((mesh cl-mpm::mesh)
+;;                               (mps cl-mpm::mps)
+;;                               (bcs cl-mpm::bcs)
+;;                               (dt-loadstep cl-mpm/dynamic-relaxation::dt-loadstep)
+;;                               (dt cl-mpm::dt)
+;;                               (fbar cl-mpm::enable-fbar)
+;;                               (initial-setup initial-setup))
+;;                      *sim*
+;;                    (cl-mpm::p2g-force-fs *sim*)
+;;                    (cl-mpm::apply-bcs mesh bcs dt)
+;;                    (let* ((f-ext
+;;                             (reduce-with-bcs
+;;                              (assemble-global-vec sim #'cl-mpm/mesh::node-external-force)
+;;                              bcs-vec)))
+;;                      (cl-mpm::reset-node-displacement sim)
+;;                      (cl-mpm/fastmaths:fast-scale! f-ext 1d-3)
+;;                      (cl-mpm/linear-solver::solve-conjugant-gradients
+;;                       (lambda (d)
+;;                         (project-global-vec sim
+;;                                             (expand-with-bcs
+;;                                              d
+;;                                              bcs-vec)
+;;                                             #'cl-mpm/mesh::node-displacment)
+;;                         ;; (cl-mpm::reset-nodes-force sim)
+;;                         (cl-mpm::apply-bcs mesh bcs dt)
+;;                         ;; (cl-mpm::update-nodes sim)
+;;                         ;; (cl-mpm::update-cells sim)
+;;                         (cl-mpm::reset-nodes-force sim)
+;;                         (cl-mpm::update-stress mesh mps dt-loadstep fbar)
+;;                         (cl-mpm::p2g-force-fs sim)
+;;                         (cl-mpm::apply-bcs mesh bcs dt)
 
-                        (incf iter)
-                        (reduce-with-bcs
-                         (assemble-global-vec sim #'cl-mpm/mesh::node-internal-force)
-                         bcs-vec))
-                      f-ext)))
-                 (let ((r
-                         (reduce-with-bcs
-                          (cl-mpm/fastmaths::fast-.+
-                           (assemble-global-vec sim #'cl-mpm/mesh::node-external-force)
-                           (assemble-global-vec sim #'cl-mpm/mesh::node-internal-force))
-                          bcs-vec)))
-                   (setf nr-crit (cl-mpm/fastmaths::mag-squared r)))
-                 (format t "NR iter ~D - ~E ~%" niter nr-crit)
-                 )))))
+;;                         (incf iter)
+;;                         (reduce-with-bcs
+;;                          (assemble-global-vec sim #'cl-mpm/mesh::node-internal-force)
+;;                          bcs-vec))
+;;                       f-ext)))
+;;                  (let ((r
+;;                          (reduce-with-bcs
+;;                           (cl-mpm/fastmaths::fast-.+
+;;                            (assemble-global-vec sim #'cl-mpm/mesh::node-external-force)
+;;                            (assemble-global-vec sim #'cl-mpm/mesh::node-internal-force))
+;;                           bcs-vec)))
+;;                    (setf nr-crit (cl-mpm/fastmaths::mag-squared r)))
+;;                  (format t "NR iter ~D - ~E ~%" niter nr-crit)
+;;                  )))))
