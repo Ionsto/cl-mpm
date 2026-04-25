@@ -111,10 +111,14 @@
     ;; (dotimes (i (array-total-size nodes))
     ;;   (let ((node (row-major-aref nodes i)))
     ;;     (funcall func node)))
-    (lparallel:pdotimes (i (array-total-size nodes))
+    (lparallel:pdotimes (i (array-total-size nodes)
+                           nil
+                           (* 1 (lparallel:kernel-worker-count))
+                           )
       (let ((node (row-major-aref nodes i)))
         (when node
-          (funcall func node))))
+          (funcall func node)))
+      )
     ;; (let ((wrapper (make-array (array-total-size nodes) :displaced-to nodes)))
     ;;   (omp
     ;;    wrapper
@@ -260,8 +264,10 @@ Calls func with only the node"
            (type (array cl-mpm/particle:particle) mps))
   ;; (dotimes (i (length mps))
   ;;   (funcall func (aref mps i)))
-  (lparallel:pdotimes (i (length mps))
-                      (funcall func (aref mps i)))
+  (lparallel:pdotimes (i (length mps) nil (* 4 (lparallel:kernel-worker-count)))
+                      (funcall func (aref mps i))
+                      ;; :parts (* 4 (lparallel:kernel-worker-count))
+                      )
   ;; (omp
   ;;  mps
   ;;   (lambda (i)

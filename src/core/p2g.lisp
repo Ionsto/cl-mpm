@@ -208,7 +208,8 @@
                  )
              (sb-thread:with-mutex (node-lock)
                (det-ext-force-2d mp node svp gravity volume node-ext-force)
-               (det-int-force-unrolled-2d mp grads volume node-int-force))))))))
+               (det-int-force-unrolled-2d mp grads volume node-int-force)
+               )))))))
   (values))
 
 (defun p2g-force-mp-2d (mesh mp gravity)
@@ -304,7 +305,7 @@
            (p2g-force-mp mesh mp gravity))))))
 
 
-(declaim (inline p2g-force-fs))
+;; (declaim (inline p2g-force-fs))
 (defun p2g-force-fs (sim)
   "Map particle forces to the grid"
   (with-accessors ((mesh cl-mpm::sim-mesh)
@@ -316,7 +317,8 @@
         (iterate-over-mps
          mps
          (lambda (mp)
-           (p2g-force-mp-fs-2d mesh mp gravity)))
+           (p2g-force-mp-fs-2d mesh mp gravity)
+           ))
         (iterate-over-mps
          mps
          (lambda (mp)

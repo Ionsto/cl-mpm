@@ -1069,13 +1069,24 @@ This modifies the dt of the simulation in the process
   )
 
 (defun gradient-push-forwards (grads df)
-  (let* ((grads-vec
-           (magicl:@ (magicl:transpose! (cl-mpm/utils:vector-from-list grads)) (magicl:inv df)))
-         (grads (list (varef grads-vec 0)
-                      (varef grads-vec 1)
-                      (varef grads-vec 2))))
-    grads))
-(defun gradient-push-forwards-cached (grads df-inv)
+  (let* ((df-inv (cl-mpm/fastmaths::fast-inv-3x3 df)))
+    (destructuring-bind (dx dy dz) grads
+      (declare (double-float dx dy dz))
+      (let ((x (+ (* dx (mtref df-inv 0 0))
+                  (* dy (mtref df-inv 1 0))
+                  (* dz (mtref df-inv 2 0))))
+            (y
+              (+ (* dx (mtref df-inv 0 1))
+                 (* dy (mtref df-inv 1 1))
+                 (* dz (mtref df-inv 2 1)))
+              )
+            (z
+              (+ (* dx (mtref df-inv 0 2))
+                 (* dy (mtref df-inv 1 2))
+                 (* dz (mtref df-inv 2 2))))
+            )
+        (list x y z)))))
+(defun gradient-push-forwards-cached-old (grads df-inv)
   ;; Correct
   (let* ((grads-vec
            (magicl:@ (magicl:transpose! (cl-mpm/utils:vector-from-list grads)) df-inv)
@@ -1085,6 +1096,24 @@ This modifies the dt of the simulation in the process
                       (varef grads-vec 1)
                       (varef grads-vec 2))))
     grads))
+(defun gradient-push-forwards-cached (grads df-inv)
+  ;; Correct
+  (destructuring-bind (dx dy dz) grads
+    (declare (double-float dx dy dz))
+    (let ((x (+ (* dx (mtref df-inv 0 0))
+                (* dy (mtref df-inv 1 0))
+                (* dz (mtref df-inv 2 0))))
+          (y
+            (+ (* dx (mtref df-inv 0 1))
+               (* dy (mtref df-inv 1 1))
+               (* dz (mtref df-inv 2 1)))
+            )
+          (z
+            (+ (* dx (mtref df-inv 0 2))
+               (* dy (mtref df-inv 1 2))
+               (* dz (mtref df-inv 2 2))))
+          )
+      (list x y z))))
 
 (defun update-stiffness-mps (sim)
   (cl-mpm:iterate-over-mps
