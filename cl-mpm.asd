@@ -26,6 +26,7 @@
                "asdf-system-connections"
                "cl-mpm/errors"
                "cl-mpm/settings"
+               "lparallel"
                "array-operations")
   :description "MPM utility functions definitions"
   :serial t

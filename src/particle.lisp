@@ -607,6 +607,12 @@
    (estimate-log-enhancement mp)
    (mp-p-modulus-0 mp)))
 
+(defmethod estimate-stiffness ((mp particle-elastic))
+  (*
+   (/ 1d0 (cl-mpm/fastmaths::det-3x3 (cl-mpm/particle::mp-deformation-gradient mp)))
+   (estimate-log-enhancement mp)
+   (mp-p-modulus-0 mp)))
+
 (defmethod estimate-stiffness ((mp particle-linear-elastic))
   (mp-p-modulus-0 mp))
 
@@ -616,7 +622,9 @@
                    (eps mp-strain)
                    )
       particle
-    (multiple-value-bind (l v) (cl-mpm/utils:eig (voigt-to-matrix eps))
+    (let ((l (cl-mpm/fastmaths::magicl-eigen-values-3x3 (voigt-to-matrix eps))))
+          ;multiple-value-bind (l v) (cl-mpm/utils:eig (voigt-to-matrix eps))
+     
       (let ((lmax (reduce #'max (mapcar (lambda (x) (exp (- x))) l))))
         (* lmax lmax)))))
 

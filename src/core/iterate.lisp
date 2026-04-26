@@ -8,6 +8,7 @@
     (:compile-toplevel)
   (pushnew :sb-simd *features*))
 
+(defparameter *thread-grouping-scale* 8)
 
 ;; (require 'sb-concurrency)
 ;; (defparameter *workers* nil)
@@ -113,7 +114,7 @@
     ;;     (funcall func node)))
     (lparallel:pdotimes (i (array-total-size nodes)
                            nil
-                           (* 1 (lparallel:kernel-worker-count))
+                           (* 4 (lparallel:kernel-worker-count))
                            )
       (let ((node (row-major-aref nodes i)))
         (when node
@@ -167,7 +168,11 @@ Calls func with only the node"
   (declare (type function func))
   (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
     (declare (type (array (or cl-mpm/mesh::cell null)) cells))
-    (lparallel:pdotimes (i (array-total-size cells))
+    (lparallel:pdotimes (i (array-total-size cells)
+                           nil
+                           (* 4 (lparallel:kernel-worker-count))
+                           ;; 1
+                           )
       (let ((cell (row-major-aref cells i)))
         (when cell
           (funcall func cell)))))
@@ -581,39 +586,33 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (progn
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (pos-vec position)
-           (pos (list (varef pos-vec 0) (varef pos-vec 1)))
+           ;; (pos (list  (varef pos-vec 1)))
+           (pos-x (varef pos-vec 0))
+           (pos-y (varef pos-vec 1))
            (pos-index (cl-mpm/mesh:position-to-index-floor mesh pos-vec)))
-      (declare (dynamic-extent pos pos-index pos-vec))
-      (loop for dx from 0 to 1
-            do (loop for dy from 0 to 1
-                     do (let* ((id (mapcar #'+ pos-index (list dx dy 0))))
-                          (declare (dynamic-extent id))
-                          (when (cl-mpm/mesh:in-bounds mesh id)
-                            (destructuring-bind (dist-x dist-y) (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id))
-                              (let* ((node (cl-mpm/mesh:get-node mesh id))
-                                     (weight-x (cl-mpm/shape-function::shape-linear dist-x h))
-                                     (weight-y (cl-mpm/shape-function::shape-linear dist-y h))
-                                     (weight (* weight-x weight-y))
-                                     (grad-x (* weight-y (cl-mpm/shape-function::shape-linear-dsvp dist-x h)))
-                                     (grad-y (* weight-x (cl-mpm/shape-function::shape-linear-dsvp dist-y h)))
+      (declare (dynamic-extent pos-index pos-vec)
+               (double-float pos-x pos-y h))
+      (destructuring-bind (index-x index-y iz) pos-index
+        (declare (fixnum index-x index-y)
+                 (ignore iz))
+        (loop for dx fixnum from 0 to 1
+              do (loop for dy fixnum from 0 to 1
+                       do (let* ((id (mapcar #'+ pos-index (list dx dy 0))))
+                            (declare (dynamic-extent id))
+                            (when (cl-mpm/mesh:in-bounds mesh id)
+                              ;; (destructuring-bind (dist-x dist-y) (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
+                              (let ((dist-x (- pos-x (float (* h (+ index-x dx)) 0d0)))
+                                    (dist-y (- pos-y (float (* h (+ index-y dy)) 0d0)))
                                     )
-                                (when (< 0d0 weight)
-                                  (funcall func mesh node weight (list grad-x grad-y 0d0)))
-                                ))
-                            ;; (let* ((dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
-                            ;;        (node (cl-mpm/mesh:get-node mesh id))
-                            ;;        (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
-                            ;;        (weight (reduce #'* weights))
-                            ;;        (lin-grads (mapcar (lambda (d)
-                            ;;                             (cl-mpm/shape-function::shape-linear-dsvp d h))
-                            ;;                           dist))
-                            ;;        (grads (cl-mpm/shape-function::grads-3d weights lin-grads)))
-                            ;;   (declare
-                            ;;    (double-float weight)
-                            ;;    (dynamic-extent dist weights))
-                            ;;   (when (< 0d0 weight)
-                            ;;     (funcall func mesh node weight grads)))
-                            )))))))
+                                (let* ((node (cl-mpm/mesh:get-node mesh id))
+                                       (weight-x (cl-mpm/shape-function::shape-linear dist-x h))
+                                       (weight-y (cl-mpm/shape-function::shape-linear dist-y h))
+                                       (weight (* weight-x weight-y))
+                                       (grad-x (* weight-y (cl-mpm/shape-function::shape-linear-dsvp dist-x h)))
+                                       (grad-y (* weight-x (cl-mpm/shape-function::shape-linear-dsvp dist-y h)))
+                                       )
+                                  (when (< 0d0 weight)
+                                    (funcall func mesh node weight (list grad-x grad-y 0d0)))))))))))))
 
 
 

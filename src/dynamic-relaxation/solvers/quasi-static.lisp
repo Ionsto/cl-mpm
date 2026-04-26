@@ -279,20 +279,19 @@
           do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
 
     (when ghost-factor
-      ;; (cl-mpm/ghost::apply-ghost sim ghost-factor)
       (cl-mpm/ghost::apply-ghost-cached sim)
       (cl-mpm::apply-bcs mesh bcs dt))
 
     (incf solve-count)
     (when (= (mod solve-count mass-update-iter) 0)
       (update-node-fictious-mass sim))
-    ;; ;;Update our nodes after force mapping
+    ;;Update our nodes after force mapping
     (cl-mpm::update-node-forces sim)
     (cl-mpm::apply-bcs mesh bcs dt)
     (cl-mpm::update-nodes sim)
-    (cl-mpm::update-filtered-cells sim)
-    (cl-mpm::update-dynamic-stats sim)
-    (cl-mpm::g2p mesh mps dt damping :TRIAL)
+    ;; (cl-mpm::update-filtered-cells sim)
+    ;; (cl-mpm::update-dynamic-stats sim)
+    ;; (cl-mpm::g2p mesh mps dt damping :TRIAL)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)))
 
 
@@ -410,7 +409,8 @@
       )
 
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
-    (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
+    (when (= (mod (sim-solve-count sim) (sim-mass-update-count sim)) 0)
+      (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim))))
 
     ;; (with-accessors ((ke-prev sim-ke-prev)
     ;;                  (ke sim-ke)

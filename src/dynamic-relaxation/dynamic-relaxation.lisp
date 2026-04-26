@@ -233,7 +233,7 @@
 
 (defgeneric dr-estimate-damping (sim))
 
-(defmethod dr-estimate-damping (sim)
+(defmethod dr-estimate-damping ((sim cl-mpm::mpm-sim))
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (dt cl-mpm:sim-dt))
       sim
@@ -248,7 +248,7 @@
                    (not (cl-mpm/mesh::node-agg node)))
               (cl-mpm/fastmaths:dot
                (cl-mpm/mesh:node-velocity node)
-               (cl-mpm/fastmaths:fast-.-
+               (cl-mpm/fastmaths::fast-.--vector
                 (cl-mpm/mesh::node-residual-prev node)
                 (cl-mpm/mesh::node-residual node)))
               0d0))

@@ -1428,3 +1428,81 @@
     (loop for i from 0 below (length s)
           do (setf (aref s i) (funcall func (aref s i)))))
   vec)
+
+
+(defun det-2x2 (mat)
+  (- (* (cl-mpm/utils::mtref-2x2 mat 0 0)
+        (cl-mpm/utils::mtref-2x2 mat 1 1))
+     (* (cl-mpm/utils::mtref-2x2 mat 0 1)
+        (cl-mpm/utils::mtref-2x2 mat 1 0))))
+
+(defun eigenvalues-2x2 (mat)
+  (let* ((tr (+ (cl-mpm/utils:varef mat 0) (cl-mpm/utils:varef mat 3)))
+         (det (det-2x2 mat))
+         (gap (* 0.5d0 (sqrt (- (* tr tr) (* 4 det)))))
+         (mid (/ tr 2))
+         (l1 (+ mid gap))
+         (l2 (- mid gap)))
+    (values l1 l2)))
+
+
+(defstruct eigen-work-object
+  work a-tensor w)
+
+
+(defparameter *test-pool* nil)
+(let ((work-pool
+        (cl-mpm/utils::make-object-pool
+         :constructor (lambda ()
+                        (make-eigen-work-object
+                         :work (make-array 102 :element-type 'double-float)
+                         :a-tensor (cl-mpm/utils:matrix-zeros)
+                         :w (make-array 3 :element-type 'double-float))))))
+  ;; (pprint (cl-mpm/utils::object-pool-grab work-pool))
+  ;; (setf *test-pool* work-pool)
+  ;; (let ((work (make-array 102 :element-type 'double-float))
+  ;;       (a-tensor (cl-mpm/utils:matrix-zeros))
+  ;;       (w (make-array 3 :element-type 'double-float))))
+  (defun magicl-eigen-values-3x3 (m)
+    (policy-cond:with-expectations (> speed safety)
+        ((assertion (magicl:square-matrix-p m)))
+      (let ((rows 3)
+            ;; (a-tensor (cl-mpm/utils:matrix-copy m))
+            )
+        (let* ((wo (cl-mpm/utils::object-pool-grab work-pool))
+               (a-tensor (eigen-work-object-a-tensor wo))
+               (w (eigen-work-object-w wo))
+               (work (eigen-work-object-work wo)))
+          (cl-mpm/utils:matrix-copy-into m a-tensor)
+          ;; (when (eql :row-major (magicl::matrix/double-float-layout m)) (magicl:transpose! a-tensor))
+          (let ((jobz "N")
+                (uplo "U")
+                (n rows)
+                (a (cl-mpm/utils:fast-storage a-tensor))
+                (lda rows)
+                ;; (w (make-array rows :element-type 'double-float))
+                ;; (work (make-array 1 :element-type 'double-float))
+                (lwork -1)
+                (info 0))
+            ;; run it once as a workspace query
+            ;; (magicl.lapack-cffi::%dsyev jobz uplo n a lda w work lwork info)
+            ;; (setf lwork (truncate (realpart (row-major-aref work 0))))
+            ;; (pprint lwork)
+            (setf lwork 102)
+            ;; (setf work (make-array (max 1 lwork) :element-type 'double-float))
+            ;; run it again with optimal workspace size
+            (magicl.lapack-cffi::%dsyev jobz uplo n a lda w work lwork info)
+            ;; (coerce w 'list)
+            (list (aref w 0) (aref w 1) (aref w 2))
+            ;; (values (coerce w 'list) a-tensor)
+            ))))))
+
+;; (let ((m (cl-mpm/utils::matrix-from-list (loop repeat 9 collect (random 1d0))))
+;;       (iters 16))
+;;   (time
+;;    (lparallel:pdotimes (i iters)
+;;      (cl-mpm/fastmaths::magicl-eigen-values-3x3 m)))
+;;   (time
+;;    (lparallel:pdotimes (i iters)
+;;      (cl-mpm/utils::eig m)))
+;;   )

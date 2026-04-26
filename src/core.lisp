@@ -127,21 +127,21 @@
 
 (defun update-cell (mesh cell dt)
   "Update cell data, useful for ghost penalty"
-  (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
-                   (active cl-mpm/mesh::cell-active)
-                   (partial cl-mpm/mesh::cell-partial)
-                   (neighbours cl-mpm/mesh::cell-neighbours)
-                   (index cl-mpm/mesh::cell-index)
-                   (nodes cl-mpm/mesh::cell-nodes)
-                   (df cl-mpm/mesh::cell-deformation-gradient)
-                   (disp cl-mpm/mesh::cell-displacement)
-                   (centroid cl-mpm/mesh::cell-centroid)
-                   (trial-pos cl-mpm/mesh::cell-trial-centroid)
-                   )
-      cell
-    (when (and
-           active
-           (not partial))
+  (when (and
+         (cl-mpm/mesh::cell-active cell)
+         (not
+          (cl-mpm/mesh::cell-partial cell)))
+    (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                     (active cl-mpm/mesh::cell-active)
+                     (partial cl-mpm/mesh::cell-partial)
+                     (neighbours cl-mpm/mesh::cell-neighbours)
+                     (index cl-mpm/mesh::cell-index)
+                     (nodes cl-mpm/mesh::cell-nodes)
+                     (df cl-mpm/mesh::cell-deformation-gradient)
+                     (disp cl-mpm/mesh::cell-displacement)
+                     (centroid cl-mpm/mesh::cell-centroid)
+                     (trial-pos cl-mpm/mesh::cell-trial-centroid))
+        cell
       (cl-mpm/fastmaths:fast-zero disp)
       (cl-mpm/fastmaths:fast-zero df)
       (setf (varef df 0) 1d0
@@ -161,10 +161,7 @@
                (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads ndisp df)
                (cl-mpm/fastmaths:fast-fmacc
                 disp
-                ndisp weight)))))
-        ;; (when (> w 0d0)
-        ;;   (cl-mpm::fast-scale! disp (/ 1d0 w)))
-        )
+                ndisp weight))))))
       (cl-mpm/fastmaths:fast-.+ centroid disp trial-pos))))
 
 (defgeneric update-cells (sim))

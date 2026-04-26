@@ -151,10 +151,37 @@
                       ;;Invalidate shapefunction/gradient cache
                       ;; (update-particle mesh mp dt)
                       ,@update
-                      ))
-                  ))
-
-             ))
+                      )))))
+           (def-g2p-trial-mp (name &body update)
+             `(defun ,name (mesh mp dt damping)
+                (declare (cl-mpm/mesh::mesh mesh)
+                         (cl-mpm/particle:particle mp)
+                         (double-float dt))
+                "Map one MP from the grid"
+                (with-accessors ((pos mp-position)
+                                 (pos-trial cl-mpm/particle::mp-position-trial)
+                                 (disp cl-mpm/particle::mp-displacement)
+                                 (disp-inc cl-mpm/particle::mp-displacement-increment))
+                    mp
+                  (let* ((svp-sum 0d0))
+                    (declare (double-float svp-sum))
+                    (cl-mpm/fastmaths:fast-zero disp-inc)
+                    ;; Map variables
+                    (iterate-over-neighbours
+                     mesh mp
+                     (lambda (mesh mp node svp grads fsvp fgrads)
+                       (declare
+                        (ignore mp mesh fsvp fgrads)
+                        (cl-mpm/particle:particle mp)
+                        (double-float svp))
+                       (when (cl-mpm/mesh:node-active node)
+                         (with-accessors ((node-disp cl-mpm/mesh::node-displacment)) node
+                           (cl-mpm/fastmaths::fast-fmacc disp-inc node-disp svp)
+                           (incf svp-sum svp)
+                           ))))
+                    (progn
+                      ,@update)))))
+           )
 
   (def-g2p-mp g2p-mp-flip
       (progn
@@ -175,7 +202,7 @@
         (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)
         nil
         ))
-  (def-g2p-mp g2p-mp-trial
+  (def-g2p-trial-mp g2p-mp-trial
       (progn
         (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)))
   (def-g2p-mp g2p-mp-quasi-static
