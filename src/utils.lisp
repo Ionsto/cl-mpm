@@ -835,7 +835,7 @@
 
 (defstruct object-pool
   (lock (sb-thread:make-mutex) :type sb-thread:mutex)
-  (pool (make-array 0 :element-type t) :type vector)
+  (pool (make-array 0 :element-type t) :type (array t (*)))
   (constructor #'identity :type function))
 
 (defun object-pool-grab (pool)
@@ -844,21 +844,21 @@
       (setf thread-index -1))
     (incf thread-index)
     (progn
-      (when (>= thread-index (length (object-pool-pool pool)))
-        ;; (pprint "Re-build")
+      (when (>= (lparallel:kernel-worker-count) (length (object-pool-pool pool)))
         ;;Trigger a re-build
         (sb-thread:with-mutex ((object-pool-lock pool))
-          ;; (vector-push-extend )
-          (let* ((prev-pool (object-pool-pool pool))
-                 (wc (if (lparallel:kernel-worker-count) (lparallel:kernel-worker-count) 0))
-                 (new-pool (make-array (1+ wc) :element-type t)))
-            (declare ((simple-array )))
-            (setf (object-pool-pool pool) new-pool)
-            (loop for i from 0 below (length new-pool)
-                  do (setf (aref new-pool i)
-                           (if (< i (length prev-pool))
-                               (aref prev-pool i)
-                               (funcall (object-pool-constructor pool))))))))
+          (when (>= (lparallel:kernel-worker-count) (length (object-pool-pool pool)))
+            (let* ((prev-pool (object-pool-pool pool))
+                   (wc (if (lparallel:kernel-worker-count) (lparallel:kernel-worker-count) 0))
+                   (new-pool (make-array (1+ wc) :element-type t)))
+              (loop for i from 0 below (length new-pool)
+                    do (setf (aref new-pool i)
+                             (if (< i (length prev-pool))
+                                 (aref prev-pool i)
+                                 (funcall (object-pool-constructor pool)))))
+
+              (setf (object-pool-pool pool) new-pool)
+              ))))
       (aref (object-pool-pool pool) thread-index))
     ;; (funcall (object-pool-constructor pool))
     ))

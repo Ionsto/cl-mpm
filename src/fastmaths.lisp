@@ -1456,13 +1456,16 @@
 
 
 (defparameter *test-pool* nil)
-(let ((work-pool
-        (cl-mpm/utils::make-object-pool
-         :constructor (lambda ()
-                        (make-eigen-work-object
-                         :work (make-array 102 :element-type 'double-float)
-                         :a-tensor (cl-mpm/utils:matrix-zeros)
-                         :w (make-array 3 :element-type 'double-float))))))
+(defparameter *work-pool* (cl-mpm/utils::make-object-pool
+                           :constructor (lambda ()
+                                          (make-eigen-work-object
+                                           :work (make-array 102 :element-type 'double-float)
+                                           :a-tensor (cl-mpm/utils:matrix-zeros)
+                                           :w (make-array 3 :element-type 'double-float)))))
+(let ((work-pool *work-pool*))
+  ;; (setf (cl-mpm/utils::object-pool-lock work-pool) (sb-thread:make-mutex)
+  ;;       (cl-mpm/utils::object-pool-pool work-pool) (make-array 0)
+  ;;       )
   ;; (pprint (cl-mpm/utils::object-pool-grab work-pool))
   ;; (setf *test-pool* work-pool)
   ;; (let ((work (make-array 102 :element-type 'double-float))
