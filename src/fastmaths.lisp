@@ -1184,11 +1184,16 @@
                                          (aref b i)))
                                    )))))
   (values))
+(declaim (ftype (function (magicl:matrix/double-float
+                           magicl:matrix/double-float
+                           &optional magicl:matrix/double-float)
+                          magicl:matrix/double-float
+                          )
+                fast-@-tensor-voigt))
 (defun fast-@-tensor-voigt (mat vec &optional res)
   (let ((res (if res
                  (fast-zero-voigt res)
-                 (cl-mpm/utils::voigt-zeros))
-             ))
+                 (cl-mpm/utils::voigt-zeros))))
     (@-tensor-voigt-lisp mat vec res)
     res))
 ;; (let ((de (cl-mpm/constitutive::linear-elastic-matrix 2d0 0.1d0))

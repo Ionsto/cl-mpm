@@ -9,7 +9,7 @@
   (pushnew :sb-simd *features*))
 
 ;; (defparameter *thread-grouping-scale* 8)
-(defconstant +thread-parts-scale+ 8)
+(defconstant +thread-parts-scale+ 4)
 
 (defun get-parts ()
   (the fixnum (* (the fixnum +thread-parts-scale+) (the fixnum (lparallel.kernel:kernel-worker-count)))))
@@ -274,7 +274,8 @@ Calls func with only the node"
            (type (array cl-mpm/particle:particle) mps))
   ;; (dotimes (i (length mps))
   ;;   (funcall func (aref mps i)))
-  (lparallel:pdotimes (i (length mps) nil (get-parts))
+  (lparallel:pdotimes (i (length mps) nil
+                         (get-parts))
                       (funcall func (aref mps i))
                       )
   ;; (omp

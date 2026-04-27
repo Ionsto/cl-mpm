@@ -3,8 +3,8 @@
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
 (declaim (notinline calculate-strain-rate)
-         (ftype (function (cl-mpm/mesh::mesh  cl-mpm/particle:particle double-float)) calculate-strain-rate))
-(defun calculate-strain-rate (mesh mp dt)
+         (ftype (function (cl-mpm/mesh::mesh  cl-mpm/particle:particle double-float boolean)) calculate-strain-rate))
+(defun calculate-strain-rate (mesh mp dt fbar)
   "Calculate the strain rate, stretch rate and vorticity"
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
            (optimize (speed 3) (safety 0)))
@@ -15,7 +15,8 @@
              (double-float dt))
         (progn
           (cl-mpm/fastmaths::fast-zero stretch-tensor)
-          (cl-mpm/fastmaths::fast-zero stretch-tensor-fbar)
+          (when fbar
+            (cl-mpm/fastmaths::fast-zero stretch-tensor-fbar))
           (iterate-over-neighbours
            mesh mp
            (lambda (node svp grads fsvp fgrads)
@@ -28,38 +29,42 @@
                         (boolean node-active))
                (when node-active
                  (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-vel stretch-tensor)
-                 (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-vel stretch-tensor-fbar)))))
+                 (when fbar
+                   (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-vel stretch-tensor-fbar))))))
           (cl-mpm/fastmaths:fast-scale! stretch-tensor dt)
           (cl-mpm/fastmaths:fast-scale! stretch-tensor-fbar dt)
           )))
 
-(declaim (notinline calculate-strain-rate)
-         (ftype (function (cl-mpm/mesh::mesh  cl-mpm/particle:particle double-float)) calculate-strain-rate))
-(defun calculate-strain-rate-disp (mesh mp dt)
+(declaim (notinline calculate-strain-rate-disp)
+         (ftype (function (cl-mpm/mesh::mesh  cl-mpm/particle:particle double-float boolean)) calculate-strain-rate-disp))
+(defun calculate-strain-rate-disp (mesh mp dt fbar)
   "Calculate the strain rate, stretch rate and vorticity"
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
-           (optimize (speed 3) (safety 0)))
+           (optimize (speed 3) (debug 0) (safety 0)))
   (with-accessors ((stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   (stretch-tensor-fbar cl-mpm/particle::mp-stretch-tensor-fbar)
-                   ) mp
+                   (stretch-tensor-fbar cl-mpm/particle::mp-stretch-tensor-fbar))
+      mp
     (declare (magicl:matrix/double-float stretch-tensor stretch-tensor-fbar)
              (double-float dt))
-        (progn
-          (cl-mpm/fastmaths::fast-zero stretch-tensor)
-          (cl-mpm/fastmaths::fast-zero stretch-tensor-fbar)
-          (let ()
-            (iterate-over-neighbours
-             mesh mp
-             (lambda (node svp grads fsvp fgrads)
-               (declare (ignore mp svp fsvp))
-               (with-accessors ((node-disp cl-mpm/mesh::node-displacment)
-                                (node-active cl-mpm/mesh:node-active))
-                   node
-                 (declare (magicl:matrix/double-float node-disp)
-                          (boolean node-active))
-                 (when node-active
-                   (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-disp stretch-tensor)
-                   (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-disp stretch-tensor-fbar)))))))))
+    (progn
+      (cl-mpm/fastmaths::fast-zero stretch-tensor)
+      (when fbar
+        (cl-mpm/fastmaths::fast-zero stretch-tensor-fbar))
+      (let ()
+        (iterate-over-neighbours
+         mesh mp
+         (lambda (node svp grads fsvp fgrads)
+           (declare (ignore svp fsvp))
+           (with-accessors ((node-disp cl-mpm/mesh::node-displacment)
+                            (node-active cl-mpm/mesh:node-active))
+               node
+             (declare (magicl:matrix/double-float node-disp)
+                      (boolean node-active))
+             (when node-active
+               (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-disp stretch-tensor)
+               (when fbar
+                 (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-disp stretch-tensor-fbar))))))))
+    ))
 
 ;Could include this in p2g but idk
 
@@ -276,7 +281,7 @@
              (double-float volume))
     (progn
       (progn
-        (calculate-strain-rate-disp mesh mp dt)
+        (calculate-strain-rate-disp mesh mp dt fbar)
         (update-strain-kirchoff mesh mp dt fbar)
         (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
         (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
@@ -333,7 +338,7 @@
       (progn
         ;; (calculate-strain-rate-dr mesh mp dt)
         ;; (calculate-strain-rate mesh mp dt)
-        (calculate-strain-rate mesh mp dt)
+        (calculate-strain-rate mesh mp dt fbar)
         ;; Turn cauchy stress to kirchoff
         (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
         ;; Update our strains
@@ -392,7 +397,7 @@
     (progn
       ;;   ;;For no FBAR we need to update our strains
       (progn
-        (calculate-strain-rate-disp mesh mp dt)
+        (calculate-strain-rate-disp mesh mp dt fbar)
         ;; Update our strains
         (update-strain-linear mesh mp dt fbar)
         ;; Update our kirchoff stress with constitutive model
