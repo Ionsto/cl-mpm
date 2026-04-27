@@ -773,6 +773,19 @@
       (incf stats-work p))))
 
 
+(defmethod cl-mpm::update-dynamic-stats ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
+  (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
+                   (stats-oobf cl-mpm::sim-stats-oobf)
+                   (stats-power cl-mpm::sim-stats-power)
+                   (stats-work cl-mpm::sim-stats-work))
+      sim
+    (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats-aggregated sim)
+      (setf stats-energy e
+            stats-oobf o
+            stats-power p)
+      (incf stats-work p))
+    ))
+
 (defmethod cl-mpm::update-dynamic-stats ((sim cl-mpm/aggregate::mpm-sim-aggregated))
   (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
                    (stats-oobf cl-mpm::sim-stats-oobf)
@@ -965,7 +978,7 @@
          (cl-mpm:iterate-over-neighbours
           (cl-mpm:sim-mesh sim)
           mp
-          (lambda (mesh mp node svp grads fsvp fgrads)
+          (lambda (node svp grads fsvp fgrads)
             (sb-thread:with-mutex ((cl-mpm/mesh:node-lock node))
               (incf (cl-mpm/mesh::node-damage node)
                     (* svp

@@ -539,7 +539,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
               ))
         (iterate-over-neighbours
          mesh mp
-         (lambda (mesh mp node svp grads fsvp fgrads)
+         (lambda (node svp grads fsvp fgrads)
            (with-accessors ((node-active cl-mpm/mesh:node-active)
                             (node-j-inc cl-mpm/mesh::node-jacobian-inc)
                             (node-volume cl-mpm/mesh::node-volume)
@@ -815,7 +815,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         (alone t))
     (iterate-over-neighbours
       mesh mp
-      (lambda (mesh mp node svp grads fsvp fgrads)
+      (lambda (node svp grads fsvp fgrads)
         (declare
           (cl-mpm/mesh::node node)
           (cl-mpm/particle:particle mp)

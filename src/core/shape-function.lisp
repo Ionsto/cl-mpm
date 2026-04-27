@@ -696,14 +696,13 @@
   (let ((res (cl-mpm/utils::fast-storage stretch))
         (v (cl-mpm/utils::fast-storage vel)))
     (declare ((simple-array double-float (9)) res)
-             ((simple-array double-float (3)) v)
-             )
+             ((simple-array double-float (3)) v))
     (destructuring-bind (dx dy dz) grads
       (declare (double-float dx dy dz))
       (macrolet ((component (x y comp-pairs)
                    (declare (fixnum x y))
                    `(progn
-                      (setf (aref res ,(the fixnum (+ y (* x 3))))
+                      (setf (aref res ,(the fixnum (+ y (the fixnum (* x 3)))))
                             (+
                              (aref res ,(the fixnum (+ y (* x 3))))
                              ,(loop for comp in comp-pairs
@@ -724,6 +723,7 @@
         (component 1 2 ((dy 2)))
         (component 2 1 ((dz 1)))
         )))
+  (values)
   )
 
 

@@ -106,7 +106,7 @@
              (cl-mpm::iterate-over-neighbours
               mesh
               mp
-              (lambda (mesh mp node svp grad fsvp fgrad)
+              (lambda (node svp grad fsvp fgrad)
                 (with-accessors ()
                     mp
                   (with-accessors ((pos cl-mpm/mesh::node-position)
@@ -154,7 +154,7 @@
                (cl-mpm::iterate-over-neighbours
                 mesh
                 mp
-                (lambda (mesh mp node svp &rest args)
+                (lambda (node svp &rest args)
                   (incf force
                         (* svp
                            (cl-mpm/fastmaths::mag (cl-mpm/mesh::node-force node))

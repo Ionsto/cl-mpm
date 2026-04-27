@@ -82,7 +82,7 @@
              (cl-mpm:iterate-over-neighbours
               mesh
               mp
-              (lambda (mesh mp node svp grads fsvp fgrads)
+              (lambda (node svp grads fsvp fgrads)
                 (with-accessors ((node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
                                  (node-volume cl-mpm/mesh::node-volume)
                                  (boundary-node cl-mpm/mesh::node-boundary-node)

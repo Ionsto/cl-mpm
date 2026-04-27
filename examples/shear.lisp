@@ -287,7 +287,7 @@
              (cl-mpm::iterate-over-neighbours
               mesh
               mp
-              (lambda (mesh mp node svp grad fsvp fgrad)
+              (lambda (node svp grad fsvp fgrad)
                 (with-accessors (
                                  ;; (vel cl-mpm/particle:mp-velocity)
                                  )

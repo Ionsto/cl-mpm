@@ -2267,7 +2267,7 @@
                     ;; cl-mpm::iterate-over-neighbours-shape-linear
                     mesh
                     mp
-                    (lambda (mesh mp node svp grads fsvp fgrads))))))))))
+                    (lambda (node svp grads fsvp fgrads))))))))))
 
 (defun run-conv ()
   (setf *run-sim* t)

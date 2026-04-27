@@ -58,7 +58,7 @@
 ;;       ;; Map variables
 ;;       (iterate-over-neighbours
 ;;        mesh mp
-;;        (lambda (mesh mp node svp grads fsvp fgrads)
+;;        (lambda (node svp grads fsvp fgrads)
 ;;          (declare
 ;;           (ignore mp mesh fsvp fgrads)
 ;;           (cl-mpm/mesh::node node)
@@ -117,7 +117,7 @@
                     ;; Map variables
                     (iterate-over-neighbours
                      mesh mp
-                     (lambda (mesh mp node svp grads fsvp fgrads)
+                     (lambda (node svp grads fsvp fgrads)
                        (declare
                         (ignore mp mesh fsvp fgrads)
                         (cl-mpm/mesh::node node)
@@ -169,7 +169,7 @@
                     ;; Map variables
                     (iterate-over-neighbours
                      mesh mp
-                     (lambda (mesh mp node svp grads fsvp fgrads)
+                     (lambda (node svp grads fsvp fgrads)
                        (declare
                         (ignore mp mesh fsvp fgrads)
                         (cl-mpm/particle:particle mp)

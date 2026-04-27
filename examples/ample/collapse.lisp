@@ -16,7 +16,8 @@
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
-  (cl-mpm::update-stress-kirchoff mesh mp dt fbar))
+  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  )
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
@@ -82,7 +83,7 @@
                  :enable-aggregate nil
                  :ghost-factor nil;(* E 1d-0)
                  ;; :ghost-factor (* density 1d-6)
-                 ;; :mass-update-count 1
+                 :mass-update-count 1
                  :max-split-depth 6
                  :enable-split t
                  :gravity -10d0
@@ -283,15 +284,6 @@
              (progn
                (format t "~D~%" i)
                   (cl-mpm::update-sim *sim*)))
-  ;; (time-form 1000000
-  ;;            (progn
-  ;;              ;; (cl-mpm:iterate-over-neighbours (cl-mpm:sim-mesh *sim*) (aref (cl-mpm:sim-mps *sim*) 0) (lambda (mesh mp &rest args) (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)))
-  ;;              (cl-mpm::iterate-over-neighbours-shape-gimp-simd (cl-mpm:sim-mesh *sim*) (aref (cl-mpm:sim-mps *sim*) 0) (lambda (&rest args)))
-  ;;              ))
-  ;; (time
-  ;;  (dotimes (i 100)
-  ;;    (format t "~D~%" i)
-  ;;    (cl-mpm::update-sim *sim*)))
   (format t "MPS ~D~%" (length (cl-mpm:sim-mps *sim*)))
   ;; (sb-profile:report)
   )
@@ -381,44 +373,73 @@
 
 
 (defun test-scaling ()
-  (dolist (threads (list 16 8 4 2 1))
-    (setf lparallel:*kernel* (lparallel:make-kernel threads))
-    (let ((t0 (get-internal-real-time)))
-      (let ((agg nil)
-            (r 32))
-        (setup :mps 2 :refine r :multigrid-refine 0)
-        (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul)
-        (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-15)
-        (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
-              (cl-mpm::sim-ghost-factor *sim*) nil
-              (cl-mpm::sim-enable-fbar *sim*) nil)
-        ;; (if agg
-        ;;     (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
-        ;;           (cl-mpm::sim-ghost-factor *sim*) nil
-        ;;           (cl-mpm::sim-enable-fbar *sim*) nil)
-        ;;     (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
-        ;;           (cl-mpm::sim-ghost-factor *sim*) (* 1d6 1d-2)
-        ;;           (cl-mpm::sim-enable-fbar *sim*) nil))
-        (setf (cl-mpm::sim-gravity *sim*) -1d0)
-        (time
-         (dotimes (i 100)
-           (cl-mpM:update-sim *sim*)))
-        ;; (time
-        ;;  (cl-mpm/dynamic-relaxation::run-load-control
-        ;;   *sim*
-        ;;   :output-dir (format nil "./output-agg-~A-~D/" agg r)
-        ;;   :plotter #'plot
-        ;;   :load-steps 1
-        ;;   :damping (sqrt 2)
-        ;;   :substeps 25
-        ;;   :sub-conv-steps 1000
-        ;;   :criteria 1d-9
-        ;;   :save-vtk-dr nil
-        ;;   :save-vtk-loadstep nil
-        ;;   :dt-scale 1d0))
-        )
-      (let ((t1 (get-internal-real-time)))
-        (format t "Threads ~D: time ~E~%" threads (/ (- t1 t0) internal-time-units-per-second))))))
+  (let ((data-perf (list))
+        (data-threads (list)))
+    (vgplot:close-all-plots)
+    (dolist (threads (list 8 7 6 5 4 3 2 1))
+      (setf lparallel:*kernel* (lparallel:make-kernel threads))
+      (sb-ext:gc :full t)
+      (let ((t0 (get-internal-real-time)))
+        (let ((agg nil)
+              (r 8))
+          (setup :mps 2 :refine r :multigrid-refine 0)
+          (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul)
+          ;; (change-class *sim* 'cl-mpm/implicit::mpm-sim-implicit)
+          (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-15)
+          (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
+                (cl-mpm::sim-ghost-factor *sim*) nil
+                (cl-mpm::sim-enable-fbar *sim*) nil)
+          ;; (if agg
+          ;;     (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
+          ;;           (cl-mpm::sim-ghost-factor *sim*) nil
+          ;;           (cl-mpm::sim-enable-fbar *sim*) nil)
+          ;;     (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
+          ;;           (cl-mpm::sim-ghost-factor *sim*) (* 1d6 1d-2)
+          ;;           (cl-mpm::sim-enable-fbar *sim*) nil))
+          (format t "Threads ~D~%" threads)
+          (setf (cl-mpm::sim-gravity *sim*) -1d0)
+          (let ((dt (time-form
+                     100
+                     (cl-mpm:update-sim *sim*)
+                     )))
+            (push (float (/ 1d0 dt) 0d0) data-perf)
+            (push threads data-threads)
+            (vgplot:semilogx data-threads data-perf))
+          (pprint data-perf)
+          ;; (let ((res 1d-9)
+          ;;       (substeps 1)
+          ;;       (step (list))
+          ;;       (data-res (list)))
+          ;;   (setf (cl-mpm/dynamic-relaxation::sim-damping-scale *sim*) (sqrt 2))
+          ;;   (setf (cl-mpm::sim-stats-oobf *sim*) res)
+          ;;   (time
+          ;;    (loop for i from 0 to 10000
+          ;;          when (>= (cl-mpm::sim-stats-oobf *sim*) res)
+          ;;          do
+          ;;             (progn
+          ;;               (dotimes (j substeps)
+          ;;                 (cl-mpm:update-sim *sim*))
+          ;;               (cl-mpm::update-dynamic-stats *sim*)
+          ;;               (push (* i substeps) step)
+          ;;               (push (cl-mpm::sim-stats-oobf *sim*) data-res)
+          ;;               (vgplot:semilogy step data-res)
+          ;;               (format t "Step ~D - res ~E~%" (* i substeps) (cl-mpm::sim-stats-oobf *sim*))))))
+          ;; (time
+          ;;  (cl-mpm/dynamic-relaxation::run-load-control
+          ;;   *sim*
+          ;;   :output-dir (format nil "./output-agg-~A-~D/" agg r)
+          ;;   :plotter #'plot
+          ;;   :load-steps 1
+          ;;   :damping (sqrt 2)
+          ;;   :substeps 25
+          ;;   :sub-conv-steps 1000
+          ;;   :criteria 1d-9
+          ;;   :save-vtk-dr nil
+          ;;   :save-vtk-loadstep nil
+          ;;   :dt-scale 1d0))
+          )
+        (let ((t1 (get-internal-real-time)))
+          (format t "Threads ~D: time ~E~%" threads (/ (- t1 t0) internal-time-units-per-second)))))))
 
 (defun test ()
   (let ((agg t)
@@ -427,7 +448,7 @@
     ;; (change-class *sim* 'cl-mpm/implicit::mpm-sim-implicit)
     (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul)
     (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-15)
-    (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
+    (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
           (cl-mpm::sim-ghost-factor *sim*) nil
           (cl-mpm::sim-enable-fbar *sim*) nil)
     ;; (if agg
@@ -437,6 +458,33 @@
     ;;     (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
     ;;           (cl-mpm::sim-ghost-factor *sim*) (* 1d6 1d-2)
     ;;           (cl-mpm::sim-enable-fbar *sim*) nil))
+    
+    ;; (cl-mpm:update-sim *sim*)
+    ;; (let ((mesh (cl-mpm:sim-mesh *sim*))
+    ;;       (mp (aref (cl-mpm:sim-mps *sim*) 0)))
+    ;;   ;; (time-form 1000
+    ;;   ;;            ;; (cl-mpm::update-)
+    ;;   ;;            ;; (cl-mpm::iterate-over-neighbours-cached
+    ;;   ;;            ;;  mesh
+    ;;   ;;            ;;  mp
+    ;;   ;;            ;;  (lambda (node svp grads fsvp fgrads)
+    ;;   ;;            ;;    )
+    ;;   ;;            ;;  )
+    ;;   ;;            )
+    ;;   ;; (time
+    ;;   ;;   (dotimes (i 1000000000)
+    ;;   ;;     (cl-mpm::iterate-over-neighbours-cached
+    ;;   ;;      mesh
+    ;;   ;;      mp
+    ;;   ;;      (lambda (node svp grads fsvp fgrads))
+    ;;   ;;      )
+    ;;   ;;     ;; (cl-mpm::calculate-strain-rate-disp (cl-mpM::sim-mesh *sim*)
+    ;;   ;;     ;;                                     (aref (cl-mpm:sim-mps *sim*) 0)
+    ;;   ;;     ;;                                     1d0)
+    ;;   ;;     )
+    ;;   ;;   ;; (cl-mpm:update-sim *sim*)
+    ;;   ;;   )
+    ;;   )
     (setf (cl-mpm::sim-gravity *sim*) -20d0)
     (time
      (cl-mpm/dynamic-relaxation::run-load-control
@@ -449,7 +497,8 @@
       :criteria 1d-9
       :save-vtk-dr nil
       :save-vtk-loadstep nil
-      :dt-scale 1d0))))
+      :dt-scale 1d0))
+    ))
 
 (defun test-load-control-agg ()
   (dolist (agg (list nil))
@@ -699,3 +748,15 @@
 ;;      (format t "Node ~A weight ~E grad ~A~%" (cl-mpm/mesh::node-index node) weight grad)
 ;;      (format t "~A~%" (cl-mpm/ghost::estimate-ul-enhancement cell))
 ;;      )))
+
+;; (defun )
+
+
+;; (defun gc-test ()
+;;   (time 
+;;    (dotimes (i 100)
+;;      (lparallel:pdotimes (i 10000)
+;;        (cl-mpm/fastmaths:fast-.+ (cl-mpm/utils:vector-zeros)
+;;                                  (cl-mpm/utils:vector-zeros)))))
+
+;;   )

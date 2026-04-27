@@ -91,7 +91,7 @@
     (cl-mpm:iterate-over-neighbours
      mesh
      mp
-     (lambda (mesh mp node svp grads fsvp fgrads)
+     (lambda (node svp grads fsvp fgrads)
        (declare
         (ignore mp mesh fsvp fgrads)
         (cl-mpm/mesh::node node)
@@ -207,7 +207,7 @@
           mp
         (cl-mpm::iterate-over-neighbours
          mesh mp
-         (lambda (mesh mp node svp grads fsvp fgrads)
+         (lambda (node svp grads fsvp fgrads)
            (with-accessors ((node-force cl-mpm/mesh::node-external-force)
                             (node-lock  cl-mpm/mesh:node-lock)
                             (node-active  cl-mpm/mesh:node-active))
@@ -1027,7 +1027,7 @@
                  ))
              (cl-mpm::iterate-over-neighbours
               mesh mp
-              (lambda (mesh mp node svp grads fsvp fgrad)
+              (lambda (node svp grads fsvp fgrad)
                 (declare (double-float mp-boundary svp damage rho datum))
                 (when t                 ;(cl-mpm/mesh::node-boundary-node node)
                   (when node
@@ -1184,7 +1184,7 @@
             ;;Iterate over neighbour nodes
             (cl-mpm::iterate-over-neighbours
              mesh mp
-             (lambda (mesh mp node svp grads fsvp fgrads)
+             (lambda (node svp grads fsvp fgrads)
                (when (cl-mpm/mesh:node-active node)
                  (with-accessors ((node-force cl-mpm/mesh::node-force)
                                   (node-force-ext cl-mpm/mesh::node-external-force)
@@ -1324,7 +1324,7 @@
            ;;Iterate over neighbour nodes
            (cl-mpm::iterate-over-neighbours
             mesh mp
-            (lambda (mesh mp node svp grads fsvp fgrads)
+            (lambda (node svp grads fsvp fgrads)
               (with-accessors ((node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
                                (node-lock  cl-mpm/mesh:node-lock)
                                (node-pos  cl-mpm/mesh::node-position)
@@ -1418,7 +1418,7 @@
              mp
            (cl-mpm::iterate-over-neighbours
             mesh mp
-            (lambda (mesh mp node svp grads fsvp fgrad)
+            (lambda (node svp grads fsvp fgrad)
               (when t;(cl-mpm/mesh::node-boundary-node node)
                 (when node
                   (when (and (cell-clipping (cl-mpm/mesh::node-position node) datum)
@@ -1443,7 +1443,7 @@
             ;;Iterate over neighbour nodes
             (cl-mpm::iterate-over-neighbours
              mesh mp
-             (lambda (mesh mp node svp grads fsvp fgrads)
+             (lambda (node svp grads fsvp fgrads)
                (with-accessors ((node-force cl-mpm/mesh::node-force)
                                 (node-force-ext cl-mpm/mesh::node-external-force)
                                 (node-pos cl-mpm/mesh::node-position)
@@ -1502,7 +1502,7 @@
               ;;Iterate over neighbour nodes
               (cl-mpm::iterate-over-neighbours
                mesh mp
-               (lambda (mesh mp node svp grads fsvp fgrads)
+               (lambda (node svp grads fsvp fgrads)
                  (with-accessors ((node-force cl-mpm/mesh::node-force)
                                   (node-force-ext cl-mpm/mesh::node-external-force)
                                   (node-pos cl-mpm/mesh::node-position)
@@ -1622,7 +1622,7 @@
 ;;             ;;Iterate over neighbour nodes
 ;;             (cl-mpm::iterate-over-neighbours
 ;;              mesh mp
-;;              (lambda (mesh mp node svp grads fsvp fgrads)
+;;              (lambda (node svp grads fsvp fgrads)
 ;;                (when (cl-mpm/mesh:node-active node)
 ;;                  (with-accessors ((node-force cl-mpm/mesh::node-force)
 ;;                                   (node-force-ext cl-mpm/mesh::node-external-force)

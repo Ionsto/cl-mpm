@@ -97,7 +97,8 @@
       :initiation-stress init-stress
       :local-length length-scale
       :ductility ductility
-      :residual-strength 1d0
+      ;:residual-strength 1d0
+      :residual-strength (- 1d0 1d-1)
       ))
     (cl-mpm::iterate-over-mps
      (cl-mpm:sim-mps *sim*)
@@ -309,8 +310,8 @@
      :dt-scale 1d0)))
 
 (defun test ()
-  (let* ((output-dir (format nil "./output-60/")))
-    (setup :refine 1 :mps 3 :gf 150d0)
+  (let* ((output-dir (format nil "./output-3/")))
+    (setup :refine 3 :mps 3 :gf 150d0)
     ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
     ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
     (run :output-dir output-dir)

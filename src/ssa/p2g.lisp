@@ -20,7 +20,7 @@
       (declare (type double-float mp-mass mp-volume))
       (cl-mpm::iterate-over-neighbours
        mesh mp
-       (lambda (mesh mp node svp grads fsvp fgrads)
+       (lambda (node svp grads fsvp fgrads)
          (declare
           (cl-mpm/particle:particle mp)
           (cl-mpm/mesh::node node)
@@ -84,7 +84,7 @@
     (cl-mpm/particle:particle mp))
   (cl-mpm::iterate-over-neighbours
    mesh mp
-   (lambda (mesh mp node svp grads fsvp fgrads)
+   (lambda (node svp grads fsvp fgrads)
      (declare
          (cl-mpm/particle:particle mp)
        (cl-mpm/mesh::node node)

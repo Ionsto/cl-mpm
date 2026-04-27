@@ -340,14 +340,6 @@
              ))
   (sb-profile:report))
 
-;; (progn 
-;;   (cl-mpm::iterate-over-neighbours-shape-linear (cl-mpm:sim-mesh *sim*) *test-mp* (lambda (m mp n weight dsvp)
-;;                                                                                     (print weight)
-;;                                                                                     (print dsvp)))
-;;   (print "next")
-;;   (cl-mpm::iterate-over-neighbours-shape (cl-mpm:sim-mesh *sim*) (cl-mpm/mesh::mesh-shape-func (cl-mpm:sim-mesh *sim*)) *test-mp* (lambda (m mp n weight dsvp)
-;;                                                                                 (print weight)
-;;                                                                                 (print dsvp))))
 (defmacro time-form (form it)
   `(progn
     (declaim (optimize speed))
@@ -361,70 +353,6 @@
         (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
         (format t "Throughput: ~f~%" (/ 1 dt))
         dt))))
-
-
-;; (progn
-;;   (let ((its 1000000))
-;;     (with-accessors ((mesh cl-mpm:sim-mesh)
-;;                      (mps cl-mpm:sim-mps)) *sim*
-;;       (time (loop repeat its do (cl-mpm::iterate-over-neighbours-general mesh (aref mps 0) 1
-;;                                                                       (lambda (mesh mp id dist)
-;;                                                                         (* (first dist) (second dist)))
-;;                                                                       )))
-;;       (time (loop repeat its do (cl-mpm::iterate-over-neighbours-general-pure mesh (aref mps 0) 1
-;;                                                                            (mesh mp id dist)
-;;                                                                            (* (first dist) (second dist))
-;;                                                                            )))
-;;       (time-form (cl-mpm::iterate-over-neighbours-general mesh (aref mps 0) 1
-;;                                                             (lambda (mesh mp id dist)
-;;                                                               (* (first dist) (second dist)))
-;;                                                             ) its)
-;;       (time-form (cl-mpm::iterate-over-neighbours-general-pure mesh (aref mps 0) 1
-;;                                                                (mesh mp id dist)
-;;                                                                (* (first dist) (second dist))
-;;                                                                  ) its)
-;;       )))
-
-;; (time-form (cl-mpm/eigenerosion:update-fracture *sim*) 100)
-
-
-;; (loop for i from 0 below (length (cl-mpm:sim-mps *sim*))
-;;       do (progn
-;;            (plot-neighbours *sim* i)
-;;            (sleep 0.5)))
-
-;; (declaim (ftype
-;;           (function (magicl:matrix/double-float magicl:matrix/double-float)
-;;                     (values double-float))
-;;           distance))
-;; (defun distance (a b)
-;;   (declare (optimize (speed 3) (safety 0) (debug 0))
-;;            (type magicl:matrix/double-float a b))
-;;   (let ((diff (magicl:.- a b)))
-;;     (values (magicl::sum (magicl:.* diff diff)))))
-
-;; (declaim (ftype
-;;           (function ((simple-array double-float (2))
-;;                      (simple-array double-float (2)))
-;;                     (values double-float))
-;;           distance-numericals))
-;; (defun distance-numericals (a b)
-;;   (declare (optimize (speed 3) (safety 0) (debug 0))
-;;            (type (simple-array double-float (2)) a b))
-;;   (let ((diff (numericals:- a b)))
-;;     (declare (type (simple-array double-float (2)) diff))
-;;     (values (the double-float (numericals:vdot diff diff)))))
-
-;; (setf numericals:*array-element-type* 'double-float)
-;; (setf numericals:*default-float-format* 'double-float)
-;; (let ((a (magicl:from-list '(1d0 1d0) '(2 1)))
-;;       (b (make-array 2 :initial-contents #(2d0 1d0) :element-type 'double-float)))
-;;   (print "MAGICL")
-;;   (time-form (distance a a) 100000)
-;;   (print "NUMERICALS")
-;;   (time-form (distance-numericals b b) 100000)
-;;   )
-
 
 
 

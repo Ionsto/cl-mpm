@@ -67,7 +67,7 @@
                                     )
  )
 (defparameter *work* 0d0)
-(defmethod %converge-quasi-static (sim
+(defmethod %converge-quasi-static ((sim cl-mpm::mpm-sim)
                                    energy-crit
                                    oobf-crit
                                    live-plot
@@ -113,29 +113,29 @@
                     ;; t
                     (dotimes (j substeps)
                       (cl-mpm:update-sim sim)
-
-                      (let ((power (cl-mpm::sim-stats-power sim))
-                            (energy (cl-mpm::sim-stats-energy sim)))
-                        (incf *work* power)
-                        (when kinetic-damping
-                          (if (and
-                               (> energy-last energy-first)
-                               (> energy-last energy))
-                              (progn
-                                (format t "Peak found resetting KE - ~E ~E ~E~%" energy-first energy-last energy)
-                                (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
-                                (cl-mpm:iterate-over-mps
-                                 mps
-                                 (lambda (mp)
-                                   (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))))
-                                (setf energy-first 0d0
-                                      energy-last 0d0
-                                      energy 0d0))
-                              (progn
-                                (setf energy-first energy-last)
-                                (setf energy-last energy))))
-                        )
+                      ;; (let ((power (cl-mpm::sim-stats-power sim))
+                      ;;       (energy (cl-mpm::sim-stats-energy sim)))
+                      ;;   (incf *work* power)
+                      ;;   (when kinetic-damping
+                      ;;     (if (and
+                      ;;          (> energy-last energy-first)
+                      ;;          (> energy-last energy))
+                      ;;         (progn
+                      ;;           (format t "Peak found resetting KE - ~E ~E ~E~%" energy-first energy-last energy)
+                      ;;           (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
+                      ;;           (cl-mpm:iterate-over-mps
+                      ;;            mps
+                      ;;            (lambda (mp)
+                      ;;              (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))))
+                      ;;           (setf energy-first 0d0
+                      ;;                 energy-last 0d0
+                      ;;                 energy 0d0))
+                      ;;         (progn
+                      ;;           (setf energy-first energy-last)
+                      ;;           (setf energy-last energy))))
+                      ;;   )
                       ))
+                   (cl-mpm::update-dynamic-stats sim)
                    (setf energy-total (cl-mpm::sim-stats-energy sim))
                    (if (= *work* 0d0)
                        (setf fnorm 0d0)

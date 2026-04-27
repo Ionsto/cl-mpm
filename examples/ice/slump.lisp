@@ -143,7 +143,7 @@
                    (cl-mpm:iterate-over-neighbours
                     mesh
                     mp
-                    (lambda (mesh mp node svp grads fsvp fgrads)
+                    (lambda (node svp grads fsvp fgrads)
                       (incf weathering (* svp (cl-mpm/mesh::node-boundary-scalar node)))))
                    (setf (cl-mpm/particle::mp-boundary mp)
                          weathering)
@@ -202,7 +202,7 @@
              (cl-mpm::iterate-over-neighbours
               mesh
               mp
-              (lambda (mesh mp node svp grad fsvp fgrad)
+              (lambda (node svp grad fsvp fgrad)
                 (with-accessors (
                                  ;; (vel cl-mpm/particle:mp-velocity)
                                  )

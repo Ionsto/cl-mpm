@@ -95,12 +95,12 @@
              (declare (type double-float mp-pmod mp-volume))
              (cl-mpm::iterate-over-neighbours
               mesh mp
-              (lambda (mesh mp node svp grads fsvp fgrads)
+              (lambda (node svp grads fsvp fgrads)
                 (declare
                  (cl-mpm/particle:particle mp)
                  (cl-mpm/mesh::node node)
-                 (double-float svp)
-                 (ignore mesh))
+                 (ignore grads fsvp fgrads)
+                 (double-float svp))
                 (with-accessors ((node-active  cl-mpm/mesh::node-active)
                                  (node-mass  cl-mpm/mesh:node-mass)
                                  (node-true-v  cl-mpm/mesh::node-volume-true)
@@ -289,9 +289,9 @@
     (cl-mpm::update-node-forces sim)
     (cl-mpm::apply-bcs mesh bcs dt)
     (cl-mpm::update-nodes sim)
-    ;; (cl-mpm::update-filtered-cells sim)
+    (cl-mpm::update-filtered-cells sim)
     ;; (cl-mpm::update-dynamic-stats sim)
-    ;; (cl-mpm::g2p mesh mps dt damping :TRIAL)
+    (cl-mpm::g2p mesh mps dt damping :TRIAL)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)))
 
 

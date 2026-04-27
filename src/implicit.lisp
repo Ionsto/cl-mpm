@@ -189,11 +189,11 @@
 ;;   (cl-mpm/aggregate::sim-global-e sim)
 ;;   )
 
-(defun assemble-e (sim)
+(defun assemble-implicit-e (sim)
   (let* ((agg-nodes (cl-mpm/aggregate::sim-agg-nodes-fdc sim))
          (active-nodes (cl-mpm/aggregate::sim-agg-nodes-fd sim))
          (mesh (cl-mpm:sim-mesh sim))
-         (nd (cl-mpm/mesh:mesh-nd))
+         (nd (cl-mpm/mesh:mesh-nd mesh))
          (ndof (* nd (length active-nodes)))
          (ndofC (* nd (length agg-nodes)))
          (e (cl-mpm/utils::arb-matrix ndof ndofC)))
@@ -201,7 +201,6 @@
      mesh
      (lambda (node)
        (when (cl-mpm/mesh:node-active node)
-         ;; (when (cl-mpm/mesh::node-agg node))
          (if (or (cl-mpm/mesh::node-interior node)
                  (not (cl-mpm/mesh::node-agg node)))
              (progn
@@ -214,16 +213,25 @@
                         ) 1d0)))
              (progn
                ;;Aggregate -> populate svp
+               ;; (format t "~A ~A ~A ~A ~A ~%"
+               ;;         (cl-mpm/mesh::node-agg node)
+               ;;         (cl-mpm/mesh::node-interior node)
+               ;;         (cl-mpm/mesh::node-agg-fd node)
+               ;;         (cl-mpm/mesh::node-agg-fdc node)
+               ;;         (cl-mpm/mesh::node-agg-interior-cell node)
+               ;;         )
                (cl-mpm::iterate-over-cell-shape-local
                 mesh
                 (cl-mpm/mesh::node-agg-interior-cell node)
                 (cl-mpm/mesh::node-position node)
                 (lambda (cn weight grads)
-                  (dotimes (d nd ))
-                  (incf (mtref e
-                               (+ d (* nd (cl-mpm/mesh::node-agg-fd node)))
-                               (+ d (* nd (cl-mpm/mesh::node-agg-fdc node))))
-                        weight))))))))
+                  ;; (unless (cl-mpm/mesh::node-agg-fdc cn)
+                  ;;   (error "No valid fdc~%"))
+                  (dotimes (d nd)
+                    (incf (mtref e
+                                 (+ d (* nd (cl-mpm/mesh::node-agg-fd node)))
+                                 (+ d (* nd (cl-mpm/mesh::node-agg-fdc cn))))
+                          weight)))))))))
     (values e)))
 
 
@@ -695,18 +703,20 @@
       sim
     (with-accessors ((nd cl-mpm/mesh::mesh-nd))
         mesh
+      (declare (fixnum nd))
       (cl-mpm/fastmaths:fast-zero global-k)
       (cl-mpm::iterate-over-mps
        mps
        (lambda (mp)
          (let ((stiffness (assemble-mp-stiffness mesh mp))
                (df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse mp))
-               (mp-volume (cl-mpm/particle::mp-volume mp))
-               )
+               (mp-volume (cl-mpm/particle::mp-volume mp)))
+           (declare (double-float mp-volume))
            (cl-mpm::iterate-over-neighbours
             mesh
             mp
-            (lambda (mesh mpa node svp grads fsvp fgrads)
+            (lambda (node svp grads fsvp fgrads)
+              (declare (ignore svp fsvp fgrads))
               (with-accessors ((node-active  cl-mpm/mesh:node-active)
                                (node-lock  cl-mpm/mesh:node-lock))
                   node
@@ -720,7 +730,8 @@
                     (cl-mpm::iterate-over-neighbours
                      mesh
                      mp
-                     (lambda (mesh mpb node-b svp-b grads-b fsvp fgrads)
+                     (lambda (node-b svp-b grads-b fsvp-b fgrads-b)
+                       (declare (ignore svp-b fsvp-b fgrads-b))
                        (when (cl-mpm::node-active node-b)
                          (let ((g-b (assemble-g-3d
                                      (cl-mpm::gradient-push-forwards-cached
@@ -732,11 +743,12 @@
                                ;; (sb-thread:with-mutex ((cl-mpm/mesh::node-lock node-b)))
                                (dotimes (i nd)
                                  (dotimes (j nd)
-                                   (incf (magicl:tref global-k
-                                                      (+ (* nd (cl-mpm/mesh::node-stiffness-fd node)) i)
-                                                      (+ (* nd (cl-mpm/mesh::node-stiffness-fd node-b)) j))
+                                   (incf (the double-float
+                                              (cl-mpm/utils:mtref global-k
+                                                           (+ (the fixnum (* nd (the fixnum (cl-mpm/mesh::node-stiffness-fd node)))) i)
+                                                           (+ (the fixnum (* nd (the fixnum (cl-mpm/mesh::node-stiffness-fd node-b)))) j)))
                                          (* mp-volume
-                                            (magicl:tref stiff i j))))))))))))
+                                            (the double-float (magicl:tref stiff i j)))))))))))))
                   ))
               ))))))))
 
@@ -1036,6 +1048,9 @@
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (cl-mpm::apply-bcs mesh bcs dt)
     (build-stiffness-matrix sim)
+    (when enable-aggregate
+      (cl-mpm/aggregate::update-aggregate-elements sim)
+      (update-agg sim))
     (setf initial-setup t)))
 
 

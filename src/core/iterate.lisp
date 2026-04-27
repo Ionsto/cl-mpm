@@ -8,7 +8,12 @@
     (:compile-toplevel)
   (pushnew :sb-simd *features*))
 
-(defparameter *thread-grouping-scale* 8)
+;; (defparameter *thread-grouping-scale* 8)
+(defconstant +thread-parts-scale+ 8)
+
+(defun get-parts ()
+  (the fixnum (* (the fixnum +thread-parts-scale+) (the fixnum (lparallel.kernel:kernel-worker-count)))))
+
 
 ;; (require 'sb-concurrency)
 ;; (defparameter *workers* nil)
@@ -114,7 +119,7 @@
     ;;     (funcall func node)))
     (lparallel:pdotimes (i (array-total-size nodes)
                            nil
-                           (* 4 (lparallel:kernel-worker-count))
+                           (get-parts)
                            )
       (let ((node (row-major-aref nodes i)))
         (when node
@@ -170,7 +175,7 @@ Calls func with only the node"
     (declare (type (array (or cl-mpm/mesh::cell null)) cells))
     (lparallel:pdotimes (i (array-total-size cells)
                            nil
-                           (* 4 (lparallel:kernel-worker-count))
+                           (get-parts)
                            ;; 1
                            )
       (let ((cell (row-major-aref cells i)))
@@ -269,9 +274,8 @@ Calls func with only the node"
            (type (array cl-mpm/particle:particle) mps))
   ;; (dotimes (i (length mps))
   ;;   (funcall func (aref mps i)))
-  (lparallel:pdotimes (i (length mps) nil (* 4 (lparallel:kernel-worker-count)))
+  (lparallel:pdotimes (i (length mps) nil (get-parts))
                       (funcall func (aref mps i))
-                      ;; :parts (* 4 (lparallel:kernel-worker-count))
                       )
   ;; (omp
   ;;  mps
@@ -360,7 +364,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       (1
        (iterate-over-neighbours-shape-gimp-1d
         mesh mp
-        (lambda (mesh mp node svp grads fsvp fgrads)
+        (lambda (node svp grads fsvp fgrads)
           (destructuring-bind (gx gy gz) grads
             (declare (ignore gy gz))
             (destructuring-bind (gfx gfy gfz) fgrads
@@ -377,12 +381,12 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                 0d0
                 0d0)
                nodes)))
-          (funcall func mesh mp node svp grads fsvp fgrads)))
+          (funcall func node svp grads fsvp fgrads)))
        )
       (2
        (iterate-over-neighbours-shape-gimp-2d
         mesh mp
-        (lambda (mesh mp node svp grads fsvp fgrads)
+        (lambda (node svp grads fsvp fgrads)
           (destructuring-bind (gx gy gz) grads
             (declare (ignore gz))
             (destructuring-bind (gfx gfy gfz) fgrads
@@ -400,11 +404,11 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                 0d0
                 )
                nodes)))
-          (funcall func mesh mp node svp grads fsvp fgrads))))
+          (funcall func node svp grads fsvp fgrads))))
       (3
        (iterate-over-neighbours-shape-gimp-3d
         mesh mp
-        (lambda (mesh mp node svp grads fsvp fgrads)
+        (lambda (node svp grads fsvp fgrads)
           (destructuring-bind (gx gy gz) grads
             (destructuring-bind (gfx gfy gfz) fgrads
               (vector-push-extend
@@ -420,15 +424,17 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                 gfz
                 )
                nodes)))
-          (funcall func mesh mp node svp grads fsvp fgrads)))))))
+          (funcall func node svp grads fsvp fgrads)))))))
 
 (declaim (inline iterate-over-neighbours-cached))
 (defun iterate-over-neighbours-cached (mesh mp func)
   "If a node iteration cache has been generated we loop over the data list"
-  (declare (function func))
+  (declare (function func)
+           (ignore mesh)
+           )
   (loop for nc across (the (vector cl-mpm/particle::node-cache *) (cl-mpm/particle::mp-cached-nodes mp))
         do
-         (funcall func mesh mp
+         (funcall func
                   (cl-mpm/particle::node-cache-node nc)
                   (cl-mpm/particle::node-cache-weight nc)
                   (list
@@ -474,7 +480,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                   dist (nreverse weights)))
                                    )
                               (when (< 0d0 weight)
-                                (funcall func mesh mp node weight (append grads (list 0d0))
+                                (funcall func node weight (append grads (list 0d0))
                                          1d0
                                          (list
                                           (* 0.5d0 (cl-mpm/shape-function::shape-linear-dsvp (nth 0 dist) h))
@@ -507,7 +513,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                             (grads (cl-mpm/shape-function::grads-3d weights lin-grads))
                                             )
                                        (when (< 0d0 weight)
-                                         (funcall func mesh mp node weight grads
+                                         (funcall func node weight grads
                                                   0d0 (list 0d0 0d0 0d0))))))))))))
 
 
@@ -772,7 +778,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                                              weight-fbar
                                                                              weights-fbar-x
                                                                              weights-fbar-y))
-                                                      (funcall func mesh mp node
+                                                      (funcall func node
                                                                weight
                                                                (list gradx grady 0d0)
                                                                weight-fbar
@@ -819,7 +825,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                                    dist domain))
                                                   (grads (cl-mpm/shape-function::grads-3d weights lin-grads))
                                                   )
-                                             (funcall func mesh mp node weight grads
+                                             (funcall func node weight grads
                                                       (reduce #'* weights-fbar)
                                                       (cl-mpm/shape-function::grads-3d weights-fbar lin-grads)
                                                       )))))))))))))
@@ -875,7 +881,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                             (cl-mpm/shape-function::shape-gimp-dsvp distx dox h)
                                             0d0
                                             0d0)))
-                               (funcall func mesh mp node
+                               (funcall func node
                                         weight (list gradx 0d0 0d0)
                                         weight-fbar grads-fbar)))))))))))))
 
@@ -980,7 +986,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                      (* weights-fbar-x weights-fbar-y
                                                         (cl-mpm/shape-function::shape-gimp-dsvp distz doz h)))))
                                         (declare (double-float gradx grady gradz))
-                                        (funcall func mesh mp node
+                                        (funcall func node
                                                  weight (list gradx grady gradz)
                                                  weight-fbar grads-fbar)))))))))))))))
 
@@ -1123,7 +1129,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                                  (cl-mpm/shape-function::shape-gimp-dsvp (aref dista 2) (aref doa 2) h))))
                                                       )
                                                  (declare (double-float gradx grady gradz))
-                                                 (funcall func mesh mp node
+                                                 (funcall func node
                                                           weight (list gradx grady gradz)
                                                           weight-fbar grads-fbar)))))))))))))))
 
@@ -1169,7 +1175,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                          (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
                                                         dist (nreverse weights))))
                                     (when (< 0d0 weight)
-                                      (funcall func mesh mp node weight (append grads (list 0d0)) 0d0 (list 0d0 0d0 0d0)))))))))
+                                      (funcall func node weight (append grads (list 0d0)) 0d0 (list 0d0 0d0 0d0)))))))))
 
           (loop for dx from -1 to 1
                 do (loop for dy from -1 to 1
@@ -1185,7 +1191,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                  (the double-float (nth 0 weights))))
                                        (gradz 0d0)
                                        )
-                                  (funcall func mesh mp node weight (list gradx grady gradz) 0d0 (list 0d0 0d0 0d0)))))))))))
+                                  (funcall func node weight (list gradx grady gradz) 0d0 (list 0d0 0d0 0d0)))))))))))
 
 ;; (declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values)) iterate-over-corners-2d))
 (defun iterate-over-corners-2d-step (mesh mp step func)
@@ -1649,7 +1655,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           ;;                                    )
           ;;                                  )
           ;;                             (declare (double-float gradx grady))
-          ;;                             (funcall func mesh mp node
+          ;;                             (funcall func node
           ;;                                      weight nil
           ;;                                      weight-fbar
           ;;                                      grads-fbar))))))))

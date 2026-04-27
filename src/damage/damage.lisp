@@ -192,7 +192,7 @@
   (let ((nodal-damage 0d0))
     (cl-mpm::iterate-over-neighbours
      mesh mp
-     (lambda (mesh mp node svp grads fsvp fgrads)
+     (lambda (node svp grads fsvp fgrads)
        (with-accessors ((node-damage cl-mpm/mesh::node-damage)
                         (node-svp cl-mpm/mesh::node-svp-sum))
            node
@@ -499,7 +499,7 @@ Calls the function with the mesh mp and node"
                                    potentially-in-bounds
                                    (cl-mpm/mesh:in-bounds mesh idx))
                               (let ((node (cl-mpm/mesh:get-node mesh idx)))
-                                (funcall func mesh mp node))))))))))
+                                (funcall func node))))))))))
 
 (defun iterate-over-damage-bounds-3d (mesh mp length func)
   (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
@@ -522,7 +522,7 @@ Calls the function with the mesh mp and node"
                                                         (+ iz dz))))
                                          (declare (dynamic-extent idx))
                                          (let ((node (cl-mpm/mesh:get-node mesh idx)))
-                                           (funcall func mesh mp node))))))))))))
+                                           (funcall func node))))))))))))
 
 (defparameter *enable-reflect-x* nil)
 (defparameter *enable-reflect-y* nil)
@@ -536,7 +536,7 @@ Calls the function with the mesh mp and node"
     (declare (double-float length len-squared))
     (iterate-over-damage-bounds
      mesh mp length
-     (lambda (mesh mp node)
+     (lambda (node)
        (loop for mp-other across (cl-mpm/mesh::node-local-list node)
                                         ;(the (vector cl-mpm/particle::particle *))
              do
@@ -681,7 +681,7 @@ Calls the function with the mesh mp and node"
        (cl-mpm:iterate-over-neighbours
         (cl-mpm:sim-mesh sim)
         mp
-        (lambda (mesh mp node svp grads fsvp fgrads)
+        (lambda (node svp grads fsvp fgrads)
           (sb-thread:with-mutex ((cl-mpm/mesh:node-lock node))
             (incf (cl-mpm/mesh::node-volume node)
                   (* svp

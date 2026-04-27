@@ -36,7 +36,7 @@
         (let ((av 0))
           (progn
             (cl-mpm::iterate-over-neighbours mesh mp 
-                 (lambda (mesh mp node svp dsvp &rest rest) 
+                 (lambda (node svp dsvp &rest rest) 
                    (setf av (+ av (* svp (,accessor node))))))
             av))))
 
@@ -46,7 +46,7 @@
           (progn
             (cl-mpm::iterate-over-neighbours
              mesh mp
-             (lambda (mesh mp node svp dsvp  &rest rest) 
+             (lambda (node svp dsvp  &rest rest) 
                (setf av (cl-mpm/fastmaths::fast-.+ av (magicl:scale (,accessor node) svp)))))
             av))))
 

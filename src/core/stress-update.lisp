@@ -18,8 +18,8 @@
           (cl-mpm/fastmaths::fast-zero stretch-tensor-fbar)
           (iterate-over-neighbours
            mesh mp
-           (lambda (mesh mp node svp grads fsvp fgrads)
-             (declare (ignore mp svp fsvp))
+           (lambda (node svp grads fsvp fgrads)
+             (declare (ignore svp fsvp))
              (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
                               ;; (node-disp cl-mpm/mesh::node-displacment)
                               (node-active cl-mpm/mesh:node-active))
@@ -50,7 +50,7 @@
           (let ()
             (iterate-over-neighbours
              mesh mp
-             (lambda (mesh mp node svp grads fsvp fgrads)
+             (lambda (node svp grads fsvp fgrads)
                (declare (ignore mp svp fsvp))
                (with-accessors ((node-disp cl-mpm/mesh::node-displacment)
                                 (node-active cl-mpm/mesh:node-active))
@@ -75,7 +75,7 @@
           (cl-mpm/fastmaths::fast-zero stretch-tensor)
           (iterate-over-neighbours
            mesh mp
-           (lambda (mesh mp node svp grads fsvp fgrads)
+           (lambda (node svp grads fsvp fgrads)
              (declare (ignore mesh mp svp fsvp fgrads))
              (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
                               (node-active cl-mpm/mesh:node-active))
@@ -133,7 +133,7 @@
                     )
                 (iterate-over-neighbours
                  mesh mp
-                 (lambda (mesh mp node svp grads fsvp fgrads)
+                 (lambda (node svp grads fsvp fgrads)
                    (with-accessors ((node-active cl-mpm/mesh:node-active)
                                     (node-j-inc cl-mpm/mesh::node-jacobian-inc)
                                     (node-volume cl-mpm/mesh::node-volume))
@@ -244,7 +244,7 @@
                    (df-inc-inv    cl-mpm/particle::mp-deformation-gradient-increment-inverse)
                    (df-inc-strain-inv    cl-mpm/particle::mp-deformation-gradient-strain-increment-inverse)
                    ) mp
-    (declare (type double-float volume))
+    (declare (type double-float volume volume-n))
     (progn
       (multiple-value-bind (df df-strain) (calculate-df mesh mp fbar df-inc)
         (progn
@@ -441,8 +441,8 @@
     (cl-mpm/fastmaths::fast-zero stretch-tensor)
     (iterate-over-neighbours
      mesh mp
-     (lambda (mesh mp node svp grads fsvp fgrads)
-       (declare (ignore mesh mp svp fsvp fgrads))
+     (lambda (node svp grads fsvp fgrads)
+       (declare (ignore svp fsvp fgrads))
        (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
                         (node-active cl-mpm/mesh:node-active))
            node
