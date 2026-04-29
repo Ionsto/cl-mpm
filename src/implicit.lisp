@@ -238,13 +238,13 @@
 (defun update-agg (sim)
   (setf
    (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
-   (filter-nodes sim (lambda (n)
+   (cl-mpm::filter-nodes sim (lambda (n)
                        (and (cl-mpm/mesh::node-active n)
                             (or (cl-mpm/mesh::node-interior n)
                                 (not (cl-mpm/mesh::node-agg n))))))
 
    (cl-mpm/aggregate::sim-agg-nodes-fd sim)
-   (filter-nodes sim (lambda (n)
+   (cl-mpm::filter-nodes sim (lambda (n)
                        (and (cl-mpm/mesh::node-active n)
                             ;; (or (cl-mpm/mesh::node-agg n)
                             ;;     (cl-mpm/mesh::node-interior n))

@@ -202,7 +202,6 @@
                (ghost-factor cl-mpm::ghost-factor)
                (vel-algo cl-mpm::velocity-algorithm))
       sim
-
     (setf (cl-mpm/dynamic-relaxation::sim-solve-count sim) 0)
     (cl-mpm::reset-grid mesh :reset-displacement t)
     (cl-mpm::reset-node-displacement sim)
@@ -215,8 +214,9 @@
     (cl-mpm::iterate-over-nodes
      mesh
      (lambda (n)
-       (setf
-        (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n)) 
+       (when (cl-mpm/mesh::node-active n)
+         (setf
+          (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n)))
        (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-true-velocity n))))
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (midpoint-starter sim)

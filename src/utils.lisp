@@ -862,3 +862,5 @@
       (aref (object-pool-pool pool) thread-index))
     ;; (funcall (object-pool-constructor pool))
     ))
+
+

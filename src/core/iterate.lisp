@@ -276,16 +276,7 @@ Calls func with only the node"
   ;;   (funcall func (aref mps i)))
   (lparallel:pdotimes (i (length mps) nil
                          (get-parts))
-                      (funcall func (aref mps i))
-                      )
-  ;; (omp
-  ;;  mps
-  ;;   (lambda (i)
-  ;;     (funcall func (aref mps i))))
-  ;; (better-pdotimes
-  ;;  mps
-  ;;  (lambda (i)
-  ;;    (funcall func (aref mps i))))
+                      (funcall func (aref mps i)))
 
   (values))
 

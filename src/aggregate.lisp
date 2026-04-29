@@ -208,9 +208,7 @@
                                          (when t
                                            (funcall func node weight grads))))))))))))
 
-(defun filter-nodes (sim filter)
-  (let ((nodes (cl-mpm/mesh::mesh-nodes (cl-mpm:sim-mesh sim))))
-    (remove-if-not filter (make-array (array-total-size nodes) :displaced-to nodes))))
+
 
 
 
@@ -291,23 +289,21 @@
                             (cl-mpm/mesh::node-interior n) t)))))))
     (setf
      (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
-     (filter-nodes sim #'cl-mpm/mesh::node-interior)
-
+     (cl-mpm::filter-nodes sim (lambda (n) (and (cl-mpm/mesh::node-active n)
+                                                (cl-mpm/mesh::node-interior n))))
      (cl-mpm/aggregate::sim-agg-nodes-fd sim)
-     (filter-nodes sim (lambda (n) (or (cl-mpm/mesh::node-agg n)
-                                       (cl-mpm/mesh::node-interior n)))))
-    (let ((fdc 0))
-      (loop for n across (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
-            do (progn
-                 (setf (cl-mpm/mesh::node-agg-fdc n) fdc)
-                 (incf fdc))))
-    (let ((fd 0))
-      (loop for n across (cl-mpm/aggregate::sim-agg-nodes-fd sim)
-            do (progn
-                 (setf (cl-mpm/mesh::node-agg-fd n) fd)
-                 (incf fd))))
-    )
-  )
+     (cl-mpm::filter-nodes sim (lambda (n) (and (cl-mpm/mesh::node-active n)
+                                                (cl-mpm/mesh::node-agg n)))))
+
+    (let ((nodes (cl-mpm/aggregate::sim-agg-nodes-fdc sim)))
+      (lparallel:pdotimes (fdc (length nodes))
+        do (let ((n (aref nodes fdc)))
+             (setf (cl-mpm/mesh::node-agg-fdc n) fdc))))
+
+    (let ((nodes (cl-mpm/aggregate::sim-agg-nodes-fd sim)))
+      (lparallel:pdotimes (fd (length nodes))
+        do (let ((n (aref nodes fd)))
+             (setf (cl-mpm/mesh::node-agg-fd n) fd))))))
 
 (defun assemble-global-scalar (sim accessor)
   (declare (function accessor))
@@ -409,8 +405,8 @@
                 (varef proj-val (cl-mpm/mesh::node-agg-fdc n))))))))
 ;;New version
 (defun assemble-e (sim)
-  (let* (;; (agg-nodes (filter-nodes sim #'cl-mpm/mesh::node-interior))
-         ;; (active-nodes (filter-nodes sim (lambda (n) (or (cl-mpm/mesh::node-agg n)
+  (let* (;; (agg-nodes (cl-mpm/utils::filter-nodes sim #'cl-mpm/mesh::node-interior))
+         ;; (active-nodes (cl-mpm/utils::filter-nodes sim (lambda (n) (or (cl-mpm/mesh::node-agg n)
          ;;                                                 (cl-mpm/mesh::node-interior n)))))
          (agg-nodes (sim-agg-nodes-fdc sim))
          (active-nodes (sim-agg-nodes-fd sim))
@@ -515,16 +511,17 @@
     ;; (print (magicl:nrows bcs))
     ;;TODO have a fallback if no bcs are applied (i.e. no resizing required)
     (let ((reduced-size (length bc-map)))
+      ;; (format t "Reduced size ~D~%" reduced-size)
       ;;When we are solving a fully fixed system - i.e. out of plane dimensions
       (when (> reduced-size 0)
         (let* ((A-r (cl-mpm/utils::arb-matrix reduced-size reduced-size))
                (v-r (cl-mpm/utils::arb-matrix reduced-size 1)))
-          (lparallel:pdotimes (i reduced-size)
+          (dotimes (i reduced-size)
             (dotimes (j reduced-size)
-              (setf (mtref a-r i j) (mtref ma (aref bc-map i) (aref bc-map j))))
+              (setf (magicl:tref a-r i j) (mtref ma (aref bc-map i) (aref bc-map j))))
             (setf (varef v-r i) (varef v (aref bc-map i))))
           (let ((vs (magicl::linear-solve A-r v-r)))
-            (lparallel:pdotimes (i reduced-size)
+            (dotimes (i reduced-size)
               (setf (varef target-vi (aref bc-map i)) (varef vs i))))
           )))
     target-vi
@@ -660,7 +657,6 @@
            (when t
              (cl-mpm::integrate-vel-euler vel acc mass mass-scale dt damping))))))
     ;; (when enable-aggregate
-    ;;   ;; (pprint "Hello")
     ;;   (project-velocity sim))
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     ))

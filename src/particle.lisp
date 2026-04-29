@@ -637,9 +637,11 @@
 (defmethod constitutive-model ((mp particle-elastic) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
   (with-slots ((de elastic-matrix)
-               (stress stress))
+               (stress stress)
+               (stress-kirchoff stress-kirchoff)
+               )
       mp
-    (cl-mpm/constitutive::linear-elastic-mat strain de stress)))
+    (cl-mpm/constitutive::linear-elastic-mat strain de stress-kirchoff)))
 
 
 (defclass particle-elastic-inc (particle-elastic)

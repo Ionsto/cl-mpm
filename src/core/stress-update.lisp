@@ -35,7 +35,7 @@
           (cl-mpm/fastmaths:fast-scale! stretch-tensor-fbar dt)
           )))
 
-(declaim (notinline calculate-strain-rate-disp)
+(declaim (inline calculate-strain-rate-disp)
          (ftype (function (cl-mpm/mesh::mesh  cl-mpm/particle:particle double-float boolean)) calculate-strain-rate-disp))
 (defun calculate-strain-rate-disp (mesh mp dt fbar)
   "Calculate the strain rate, stretch rate and vorticity"
@@ -47,9 +47,9 @@
     (declare (magicl:matrix/double-float stretch-tensor stretch-tensor-fbar)
              (double-float dt))
     (progn
-      (cl-mpm/fastmaths::fast-zero stretch-tensor)
+      (cl-mpm/fastmaths::fast-zero-matrix stretch-tensor)
       (when fbar
-        (cl-mpm/fastmaths::fast-zero stretch-tensor-fbar))
+        (cl-mpm/fastmaths::fast-zero-matrix stretch-tensor-fbar))
       (let ()
         (iterate-over-neighbours
          mesh mp

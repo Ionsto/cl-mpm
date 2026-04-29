@@ -332,6 +332,9 @@
   ((nodes
     :accessor mesh-nodes
     :initarg :nodes)
+   (active-nodes
+    :accessor mesh-active-nodes
+    :initarg :active-nodes)
    (nD
     :accessor mesh-nd
     :initarg :nD)
@@ -348,12 +351,12 @@
    (mesh-res
     :accessor mesh-resolution
     :initarg :mesh-res)
-    (cells
-      :accessor mesh-cells
-      :initarg :cells)
-    (shape-func
-      :accessor mesh-shape-func
-      :initarg :shape-func)
+   (cells
+    :accessor mesh-cells
+    :initarg :cells)
+   (shape-func
+    :accessor mesh-shape-func
+    :initarg :shape-func)
    (boundary-shapes
     :accessor mesh-boundary-shapes
     :initform nil)
@@ -367,6 +370,12 @@
   (loop for v in value
         for i from 0
         do (setf (aref (mesh-count-array mesh) i) v)))
+
+(defmethod (setf mesh-nodes) :after (value (p mesh))
+  (setf (mesh-active-nodes p)
+        (make-array (array-total-size value)
+                    :displaced-to value)))
+
 (defmethod initialize-instance :after ((mesh mesh) &key)
   (setf (mesh-count mesh) (mesh-count mesh)))
 
@@ -376,6 +385,7 @@
     :initarg :nodes
     :initform (make-array 0 :fill-pointer 0 :adjustable t :element-type 'node)
     )))
+
 
 
 (defun make-node (index pos h)
