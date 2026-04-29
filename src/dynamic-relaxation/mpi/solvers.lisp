@@ -101,6 +101,7 @@
                (vel-algo cl-mpm::velocity-algorithm))
       sim
     (declare (double-float damping-scale damping))
+    (cl-mpi:mpi-waitall)
     (unless initial-setup
       (pre-step sim)
       (setf (cl-mpm/damage::sim-damage-delocal-counter-max sim) -1)
