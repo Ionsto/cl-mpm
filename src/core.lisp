@@ -1118,6 +1118,5 @@ This modifies the dt of the simulation in the process
 
 (defun filter-nodes (sim filter)
   (let ((nodes (cl-mpm/mesh::mesh-nodes (cl-mpm:sim-mesh sim))))
-    (remove-if-not filter (make-array (array-total-size nodes) :displaced-to nodes))
-    ;; (lparallel:premove-if-not filter (make-array (array-total-size nodes) :displaced-to nodes))
-    ))
+    ;; (remove-if-not filter (make-array (array-total-size nodes) :displaced-to nodes))
+    (lparallel:premove-if-not filter (make-array (array-total-size nodes) :displaced-to nodes))))
