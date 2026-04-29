@@ -57,7 +57,8 @@
                (damping cl-mpm::damping-factor)
                (vel-algo cl-mpm::velocity-algorithm))
       sim
-    (cl-mpm::reset-grid mesh)
+    (setf (cl-mpm/dynamic-relaxation::sim-solve-count sim) 0)
+    (cl-mpm::reset-grid mesh :reset-displacement t)
     (cl-mpm::reset-node-displacement sim)
     (cl-mpm::p2g mesh mps vel-algo)
     (cl-mpm/mpi::mpi-sync-momentum sim)
@@ -73,16 +74,8 @@
           (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n))
          (cl-mpm/utils:vector-copy-into (cl-mpm/mesh::node-velocity n) (cl-mpm/mesh::node-true-velocity n)))))
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
-    (update-node-fictious-mass sim)
-    (cl-mpm::filter-cells sim)
-
-    (cl-mpm::apply-bcs mesh bcs dt)
-    (cl-mpm::update-cells sim)
-    (when enable-aggregate
-      (cl-mpm/aggregate::update-aggregate-elements sim))
-    (cl-mpm::apply-bcs mesh bcs dt)
+    ;; (update-node-fictious-mass sim)
     (midpoint-starter sim)
-    (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (setf initial-setup t)))
 
 
@@ -117,14 +110,14 @@
     (cl-mpm::update-nodes sim)
     (cl-mpm::update-cells sim)
     (cl-mpm::reset-nodes-force sim)
-
     (cl-mpm::iterate-over-nodes
      (cl-mpm::sim-mesh sim)
      (lambda (n)
-       (when (and (cl-mpm/mesh:node-active n)
-                  (not (cl-mpm/mpi::node-in-computational-domain sim n)))
-         (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-displacment n))
-         (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-velocity n)))))
+       (when n
+         (when (and (cl-mpm/mesh:node-active n)
+                    (not (cl-mpm/mpi::node-in-computational-domain sim n)))
+           (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-displacment n))
+           (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-velocity n))))))
 
     (cl-mpm/mpi::mpi-sync-displacement sim)
 
@@ -148,7 +141,7 @@
     ;; ;; ;;Update our nodes after force mapping
     (cl-mpm::update-node-forces sim)
     (cl-mpm::apply-bcs mesh bcs dt)
-    (cl-mpm::update-dynamic-stats sim)
+    ;; (cl-mpm::update-dynamic-stats sim)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
     )
   )
@@ -157,7 +150,7 @@
   (cl-mpm/mpi::set-mp-mpi-index sim)
   (cl-mpm/mpi::clear-ghost-mps sim))
 
-(defmethod pre-step ((sim mpm-sim-dr-mpi))
+(defmethod cl-mpm/dynamic-relaxation::pre-step ((sim mpm-sim-quasi-static-mpi))
   (with-slots ((mesh cl-mpm::mesh)
                (mps cl-mpm::mps)
                (bcs cl-mpm::bcs)
@@ -177,23 +170,21 @@
                (damping cl-mpm::damping-factor)
                (vel-algo cl-mpm::velocity-algorithm))
       sim
-    (cl-mpm::reset-grid mesh)
+    (setf (cl-mpm/dynamic-relaxation::sim-solve-count sim) 0)
+    (cl-mpm::reset-grid mesh :reset-displacement t)
     (cl-mpm::reset-node-displacement sim)
     (cl-mpm::p2g mesh mps vel-algo)
+    (cl-mpm/mpi::mpi-sync-momentum sim)
     (when (> mass-filter 0d0)
       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
-    (cl-mpm/mpi::mpi-sync-momentum sim)
-
-    (cl-mpm::filter-cells sim)
-    (update-node-fictious-mass sim)
-    ;; (cl-mpm/mpi::mpi-sync-momentum sim)
-
-    (cl-mpm::filter-cells sim)
-    (cl-mpm::apply-bcs mesh bcs dt)
-    (cl-mpm::update-cells sim)
-    ;; (when enable-aggregate
-    ;;   (cl-mpm/aggregate::update-aggregate-elements sim))
-    (cl-mpm::apply-bcs mesh bcs dt)
+    (cl-mpm::update-node-kinematics sim)
+    (cl-mpm::iterate-over-nodes
+     mesh
+     (lambda (n)
+       (setf
+        (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n))
+       (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-true-velocity n))))
+    (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (midpoint-starter sim)
     (cl-mpm/mpi::mpi-sync-force sim)
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))

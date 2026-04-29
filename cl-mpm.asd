@@ -209,7 +209,8 @@
     ((:module "dynamic-relaxation"
       :serial t
       :components
-      ((:file "mpi/solvers")))))))
+      ((:file "mpi/solvers")
+       (:file "mpi/dr")))))))
 
 
 
