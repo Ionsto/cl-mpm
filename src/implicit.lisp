@@ -753,9 +753,46 @@
               ))))))))
 
 
+(defun linear-solve-with-bcs (ma v bcs &optional (target-vi nil))
+  (let ((target-vi (if target-vi
+                       target-vi
+                       (cl-mpm/utils::arb-matrix (magicl:nrows v) 1)
+                       )))
+    ;; (linear-solve-with-bcs-serial ma v bcs target-vi)
+    (linear-solve-with-bcs-multi ma v bcs target-vi)
+    )
+  )
+
 
 (declaim (notinline linear-solve-with-bcs))
-(defun linear-solve-with-bcs (ma v bcs &optional (target-vi nil))
+(defun linear-solve-with-bcs-serial (ma v bcs &optional (target-vi nil))
+  (let ((target-vi (if target-vi
+                       target-vi
+                       (cl-mpm/utils::arb-matrix (magicl:nrows v) 1)
+                       ))
+        (bc-map (make-array (magicl:nrows bcs) :fill-pointer 0)))
+    (cl-mpm/fastmaths:fast-zero target-vi)
+    (loop for i from 0
+          for bc across (magicl::storage bcs)
+          do (when (> bc 0d0)
+               (vector-push-extend i bc-map)))
+    ;;TODO have a fallback if no bcs are applied (i.e. no resizing required)
+    (let ((reduced-size (length bc-map)))
+      ;;When we are solving a fully fixed system - i.e. out of plane dimensions
+      (when (> reduced-size 0)
+        (let* ((A-r (cl-mpm/utils::arb-matrix reduced-size reduced-size))
+               (v-r (cl-mpm/utils::arb-matrix reduced-size 1)))
+          (dotimes (i reduced-size)
+            (dotimes (j reduced-size)
+              (setf (mtref a-r i j) (mtref ma (aref bc-map i) (aref bc-map j))))
+            (setf (varef v-r i) (varef v (aref bc-map i))))
+          (let ((vs (magicl::linear-solve A-r v-r)))
+            (dotimes (i reduced-size)
+              (setf (varef target-vi (aref bc-map i)) (varef vs i))))
+          )))
+    target-vi))
+
+(defun linear-solve-with-bcs-multi (ma v bcs &optional (target-vi nil))
   (let ((target-vi (if target-vi
                        target-vi
                        (cl-mpm/utils::arb-matrix (magicl:nrows v) 1)
