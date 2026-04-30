@@ -1065,7 +1065,9 @@ This modifies the dt of the simulation in the process
 
 (defun gradient-push-forwards (grads df)
   (let* ((df-inv (cl-mpm/fastmaths::fast-inv-3x3 df)))
-    (destructuring-bind (dx dy dz) grads
+    (let ((dx (cl-mpm/utils::gradients-dx grads))
+          (dy (cl-mpm/utils::gradients-dy grads))
+          (dz (cl-mpm/utils::gradients-dz grads)))
       (declare (double-float dx dy dz))
       (let ((x (+ (* dx (mtref df-inv 0 0))
                   (* dy (mtref df-inv 1 0))
@@ -1080,20 +1082,13 @@ This modifies the dt of the simulation in the process
                  (* dy (mtref df-inv 1 2))
                  (* dz (mtref df-inv 2 2))))
             )
-        (list x y z)))))
-(defun gradient-push-forwards-cached-old (grads df-inv)
-  ;; Correct
-  (let* ((grads-vec
-           (magicl:@ (magicl:transpose! (cl-mpm/utils:vector-from-list grads)) df-inv)
-           ;; (cl-mpm/fastmaths::fast-@-matrix-vector df-inv (cl-mpm/utils:vector-from-list grads))
-                    )
-         (grads (list (varef grads-vec 0)
-                      (varef grads-vec 1)
-                      (varef grads-vec 2))))
-    grads))
+        (cl-mpm/utils::make-gradients x y z)))))
+
 (defun gradient-push-forwards-cached (grads df-inv)
   ;; Correct
-  (destructuring-bind (dx dy dz) grads
+  (let ((dx (cl-mpm/utils::gradients-dx grads))
+        (dy (cl-mpm/utils::gradients-dy grads))
+        (dz (cl-mpm/utils::gradients-dz grads)))
     (declare (double-float dx dy dz))
     (let ((x (+ (* dx (mtref df-inv 0 0))
                 (* dy (mtref df-inv 1 0))
@@ -1108,7 +1103,7 @@ This modifies the dt of the simulation in the process
                (* dy (mtref df-inv 1 2))
                (* dz (mtref df-inv 2 2))))
           )
-      (list x y z))))
+      (cl-mpm/utils::make-gradients x y z))))
 
 (defun update-stiffness-mps (sim)
   (cl-mpm:iterate-over-mps

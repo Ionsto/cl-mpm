@@ -178,7 +178,9 @@
   "Calculate internal force contribution from mp at node"
   (let* ((f-out (if f-out f-out (cl-mpm/utils:vector-zeros))))
     (declare (type double-float volume))
-     (destructuring-bind (dx dy dz) grads
+    (let ((dx (cl-mpm/utils::gradients-dx grads))
+          (dy (cl-mpm/utils::gradients-dy grads))
+          (dz (cl-mpm/utils::gradients-dz grads)))
        (declare (double-float dx dy dz))
        (let ((f-storage (cl-mpm/utils:fast-storage f-out))
              (stress-storage (cl-mpm/utils:fast-storage stress)))
@@ -204,7 +206,7 @@
 
 (declaim
  (inline det-int-force-unrolled)
- (ftype (function (cl-mpm/particle::particle list double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
+ (ftype (function (cl-mpm/particle::particle cl-mpm/utils::gradients double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
         det-int-force-unrolled))
 (defun det-int-force-unrolled (mp grads volume &optional f-out)
   "Calculate internal force contribution from mp at node"
@@ -215,7 +217,9 @@
         mp
       (let ()
         (declare (type double-float volume))
-        (destructuring-bind (dx dy dz) grads
+        (let ((dx (cl-mpm/utils::gradients-dx grads))
+              (dy (cl-mpm/utils::gradients-dy grads))
+              (dz (cl-mpm/utils::gradients-dz grads)))
           (declare (double-float dx dy dz))
           (let ((f-storage (cl-mpm/utils:fast-storage f-out))
                 (stress-storage (cl-mpm/utils:fast-storage stress)))
@@ -240,7 +244,7 @@
     f-out))
 (declaim
  (inline det-int-force-unrolled-2d)
- (ftype (function (cl-mpm/particle::particle list double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
+ (ftype (function (cl-mpm/particle::particle cl-mpm/utils::gradients double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
         det-int-force-unrolled-2d))
 (defun det-int-force-unrolled-2d (mp grads volume &optional f-out)
   "Calculate internal force contribution from mp at node"
@@ -251,7 +255,9 @@
       (let (;; (volume volume-ac)
             )
         (declare (type double-float volume))
-        (destructuring-bind (dx dy dz) grads
+        (let ((dx (cl-mpm/utils::gradients-dx grads))
+              (dy (cl-mpm/utils::gradients-dy grads))
+              (dz (cl-mpm/utils::gradients-dz grads)))
           (declare (double-float dx dy dz))
           (let ((f-storage (cl-mpm/utils:fast-storage f-out))
                 (stress-storage (cl-mpm/utils:fast-storage stress)))

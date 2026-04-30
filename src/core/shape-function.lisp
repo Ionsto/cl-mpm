@@ -495,8 +495,8 @@
 ;    (magicl:from-list (list dx 0d0 0d0 dy dy 0d0) '(3 2) :type 'double-float)))
 (defun assemble-dsvp-1d (dsvp)
   "Assemble d/di to the strain-displacement matrix"
-  (let ((dx (nth 0 dsvp)))
-    (magicl:from-list (list dx) '(1 1) :type 'double-float)))
+  (let ((dx (cl-mpm/utils::gradients-dx dsvp)))
+    (cl-mpm/utils::arb-matrix-from-list (list dx) 1 1)))
 
 (declaim
  (inline assemble-dsvp-2d)
@@ -536,16 +536,17 @@
 
 (declaim
  (inline assemble-dstretch-2d-prealloc)
- (ftype (function (list magicl:matrix/double-float) magicl:matrix/double-float) assemble-dstretch-2d-prealloc))
+ (ftype (function (cl-mpm/utils::gradients magicl:matrix/double-float) magicl:matrix/double-float) assemble-dstretch-2d-prealloc))
 (defun assemble-dstretch-2d-prealloc (dsvp result)
-  (declare (list dsvp)
+  (declare (cl-mpm/utils::gradients dsvp)
            (magicl:matrix/double-float result)
            ;; (optimize (speed 3) (safety 0) (debug 0))
            )
   "Assemble d/di to the strain-displacement matrix"
-  (destructuring-bind (dx dy dz) dsvp
+  (let ((dx (cl-mpm/utils::gradients-dx dsvp))
+        (dy (cl-mpm/utils::gradients-dy dsvp)))
     (let* ((s (magicl::matrix/double-float-storage result)))
-      (declare (double-float dx dy dz))
+      (declare (double-float dx dy))
       (setf
                                         ;dx/dx
        (aref s (+ 0 (* 9 0))) dx
@@ -566,23 +567,23 @@
                                         ;; Dy/dz
        ;; (aref s (+ 8 (* 9 2))) dy
        )
-       ;);)
       result))
-  
   result)
 
 (defun assemble-dstretch-3d (dsvp)
   (assemble-dstretch-3d-prealloc dsvp (cl-mpm/utils::stretch-dsvp-3d-zeros)))
 
 (declaim (inline assemble-dstretch-3d-prealloc)
-         (ftype (function (list magicl:matrix/double-float) magicl:matrix/double-float)
+         (ftype (function (cl-mpm/utils::gradients magicl:matrix/double-float) magicl:matrix/double-float)
                 assemble-dstretch-3d-prealloc))
 (defun assemble-dstretch-3d-prealloc (dsvp result)
-  (declare (list dsvp)
+  (declare (cl-mpm/utils::gradients dsvp)
            (magicl:matrix/double-float result)
            (optimize (speed 3) (safety 0) (debug 0)))
   "Assemble d/di to the strain-displacement matrix"
-  (destructuring-bind (dx dy dz) dsvp
+  (let ((dx (cl-mpm/utils::gradients-dx dsvp))
+        (dy (cl-mpm/utils::gradients-dy dsvp))
+        (dz (cl-mpm/utils::gradients-dz dsvp)))
     (let* ((s (magicl::matrix/double-float-storage result)))
       (declare (double-float dx dy dz))
       (setf
@@ -598,106 +599,44 @@
        )
       result)))
 
-(declaim
- (inline assemble-vorticity-2d)
- (ftype (function (list) magicl:matrix/double-float) assemble-vorticity-2d))
-(defun assemble-vorticity-2d (dsvp)
-  "Assemble d/di to the strain-displacement matrix"
-  (let ((dx (nth 0 dsvp))
-        (dy (nth 1 dsvp)))
-    (magicl:from-array (make-array 6 :initial-contents (list 0d0 0d0
-                                                             0d0 0d0
-                                                             dy (- dx))) '(3 2) :type 'double-float)))
-
-(defun assemble-vorticity-3d (dsvp)
-  "Assemble d/di to the strain-displacement matrix"
-  (let ((dx (nth 0 dsvp))
-        (dy (nth 1 dsvp))
-        (dz (nth 2 dsvp)))
-    (magicl:from-list (list dx  0d0 0d0;xx
-                            0d0 dy  0d0;yy
-                            0d0 0d0  dz;zz
-                            dy  (- dx)  0d0;yx
-                            0d0 dz  (- dy) ;yz
-                            dz  0d0 (- dx) ;xy
-                            ) '(6 3) :type 'double-float)))
-
 (defun assemble-dsvp-3d (dsvp)
   "Assemble d/di to the strain-displacement matrix"
-  (assemble-dsvp-3d-prealloc dsvp (cl-mpm/utils::dsvp-3d-zeros))
-  )
+  (assemble-dsvp-3d-prealloc dsvp (cl-mpm/utils::dsvp-3d-zeros)))
 
 
+(declaim (inline assemble-dsvp-3d-prealloc)
+         (ftype (function (cl-mpm/utils::gradients magicl:matrix/double-float) magicl:matrix/double-float) assemble-dsvp-3d-prealloc))
 (defun assemble-dsvp-3d-prealloc (dsvp mat)
+  (declare (cl-mpm/utils::gradients dsvp)
+           (magicl:matrix/double-float mat))
   "Assemble d/di to the strain-displacement matrix"
-  (destructuring-bind (dx dy dz) dsvp
-      (setf
-       (magicl:tref mat 0 0) dx
-       (magicl:tref mat 1 1) dy
-       (magicl:tref mat 2 2) dz
-
-       (magicl:tref mat 3 1) dz
-       (magicl:tref mat 3 2) dy
-
-       (magicl:tref mat 4 0) dz
-       (magicl:tref mat 4 2) dx
-
-       (magicl:tref mat 5 0) dy
-       (magicl:tref mat 5 1) dx
-       )
+  (let ((dx (cl-mpm/utils::gradients-dx dsvp))
+        (dy (cl-mpm/utils::gradients-dy dsvp))
+        (dz (cl-mpm/utils::gradients-dz dsvp)))
+    (declare (double-float dx dy dz))
+    (setf
+     (cl-mpm/utils:mtref mat 0 0) dx
+     (cl-mpm/utils:mtref mat 1 1) dy
+     (cl-mpm/utils:mtref mat 2 2) dz
+     (cl-mpm/utils:mtref mat 3 1) dz
+     (cl-mpm/utils:mtref mat 3 2) dy
+     (cl-mpm/utils:mtref mat 4 0) dz
+     (cl-mpm/utils:mtref mat 4 2) dx
+     (cl-mpm/utils:mtref mat 5 0) dy
+     (cl-mpm/utils:mtref mat 5 1) dx)
     mat)
   )
-;; (defun @-assemble-dsvp-3d-prealloc (dsvp voigt result)
-;;   "Assemble d/di to the strain-displacement matrix"
-;;   (let ((res (cl-mpm/utils::fast-storage result))
-;;         (v (cl-mpm/utils::fast-storage voigt)))
-;;     (declare ((simple-array double-float (3)) res)
-;;              ((simple-array double-float (6)) v)
-;;              )
-;;     (destructuring-bind (dx dy dz) dsvp
-;;       (declare (double-float dx dy dz))
-;;       (setf
-;;        (aref res 0) (+
-;;                      (* dx (aref v 0))
-;;                      (* dz (aref v 4))
-;;                      (* dy (aref v 5)))
-;;        (aref res 1) (+
-;;                      (* dy (aref v 1))
-;;                      (* dz (aref v 3))
-;;                      (* dx (aref v 5)))
-;;        (aref res 2) (+
-;;                      (* dz (aref v 2))
-;;                      (* dy (aref v 3))
-;;                      (* dx (aref v 4)))
 
-;;        )
-;;       ;; (setf
-;;       ;;  (magicl:tref mat 0 0) dx
-;;       ;;  (magicl:tref mat 1 1) dy
-;;       ;;  (magicl:tref mat 2 2) dz
-
-;;       ;;  (magicl:tref mat 3 1) dz
-;;       ;;  (magicl:tref mat 3 2) dy
-
-;;       ;;  (magicl:tref mat 4 0) dz
-;;       ;;  (magicl:tref mat 4 2) dx
-
-;;       ;;  (magicl:tref mat 5 0) dy
-;;       ;;  (magicl:tref mat 5 1) dx
-;;       ;;  )
-;;       ;; mat
-;;       ))
-;;   )
- 
-
-(declaim (ftype (function (list magicl:matrix/double-float magicl:matrix/double-float) (values)) @-combi-assemble-dstretch-3d))
+(declaim (ftype (function (cl-mpm/utils::gradients magicl:matrix/double-float magicl:matrix/double-float) (values)) @-combi-assemble-dstretch-3d))
 (defun @-combi-assemble-dstretch-3d (grads vel stretch)
   "Assemble d/di to the strain-displacement matrix"
   (let ((res (cl-mpm/utils::fast-storage stretch))
         (v (cl-mpm/utils::fast-storage vel)))
     (declare ((simple-array double-float (9)) res)
              ((simple-array double-float (3)) v))
-    (destructuring-bind (dx dy dz) grads
+    (let ((dx (cl-mpm/utils::gradients-dx grads))
+          (dy (cl-mpm/utils::gradients-dy grads))
+          (dz (cl-mpm/utils::gradients-dz grads)))
       (declare (double-float dx dy dz))
       (macrolet ((component (x y comp-pairs)
                    (declare (fixnum x y))
@@ -728,11 +667,11 @@
 
 
 
-(defun assemble-dsvp (nD dsvp)
-  (case nD
-    (1 (assemble-dsvp-1d dsvp))
-    (2 (assemble-dsvp-2d dsvp))
-    (3 (assemble-dsvp-3d dsvp))))
+;; (defun assemble-dsvp (nD dsvp)
+;;   (case nD
+;;     (1 (assemble-dsvp-1d dsvp))
+;;     (2 (assemble-dsvp-2d dsvp))
+;;     (3 (assemble-dsvp-3d dsvp))))
 
 (defun grads-3d (weights linear-grads)
   "Take weights and gradients of weights and assemble them into"
@@ -740,12 +679,11 @@
     (declare (double-float wx wy wz))
     (destructuring-bind (gx gy gz) linear-grads
       (declare (double-float gx gy gz))
-      (list
+      (cl-mpm/utils::make-gradients
        (* gx wy wz)
        (* gy wx wz)
        (* gz wy wx)))))
 
 (defun grads-2d (weights linear-grads)
-  (mapcar #'* linear-grads (nreverse weights))
-  )
+  (mapcar #'* linear-grads (nreverse weights)))
 

@@ -360,8 +360,11 @@
 (defun estimate-ul-enhancement (particle)
   (with-accessors ((df-inv cl-mpm/particle::mp-deformation-gradient-increment-inverse))
       particle
-    (let* ((grads (cl-mpm::gradient-push-forwards-cached (list 1d0 1d0 1d0) df-inv))
-           (peak-grad (abs (reduce #'max (mapcar (lambda (x) (expt x 2)) grads)))))
+    (let* ((grads (cl-mpm::gradient-push-forwards-cached (cl-mpm/utils::make-gradients 1d0 1d0 1d0) df-inv))
+           (peak-grad
+             (abs (max (expt (cl-mpm/utils::gradients-dx grads) 2)
+                       (expt (cl-mpm/utils::gradients-dy grads) 2)
+                       (expt (cl-mpm/utils::gradients-dz grads) 2)))))
       peak-grad)))
 
 

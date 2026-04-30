@@ -38,23 +38,17 @@
             (:constructor make-node-cache
                 (node
                  weight
-                 grad-x
-                 grad-y
-                 grad-z
+                 grads
                  weight-fbar
-                 grad-fbar-x
-                 grad-fbar-y
-                 grad-fbar-z)))
+                 grads-fbar)))
   (node nil :type (or null cl-mpm/mesh::node))
   (weight 0d0 :type double-float)
-  (grad-x 0d0 :type double-float)
-  (grad-y 0d0 :type double-float)
-  (grad-z 0d0 :type double-float)
+  (grads (cl-mpm/utils::make-gradients 0d0 0d0 0d0) :type cl-mpm/utils::gradients)
   (weight-fbar 0d0 :type double-float)
-  (grad-fbar-x 0d0 :type double-float)
-  (grad-fbar-y 0d0 :type double-float)
-  (grad-fbar-z 0d0 :type double-float)
-  )
+  (grads-fbar (cl-mpm/utils::make-gradients 0d0 0d0 0d0) :type cl-mpm/utils::gradients))
+
+(defun make-empty-node-cache ()
+  (make-node-cache nil 0d0 (cl-mpm/utils::make-gradients 0d0 0d0 0d0) 0d0 (cl-mpm/utils::make-gradients 0d0 0d0 0d0)))
 
 ;(defun make-node-cache (&key node weight grads weight-fbar grads-fbar))
 
@@ -267,7 +261,7 @@
    (cached-nodes
     :accessor mp-cached-nodes
     :initarg :nc
-    :initform (make-array 8 :fill-pointer 0 :element-type 'node-cache :initial-element (make-node-cache nil 0d0 0d0 0d0 0d0 0d0 0d0 0d0 0d0)))
+    :initform (make-array 8 :fill-pointer 0 :element-type 'node-cache :initial-element (make-empty-node-cache)))
    (p-modulus
     :accessor mp-p-modulus
     :initform 1d0

@@ -214,6 +214,26 @@ leaves a hanging mpi domain at the back"
                            (setf (nth 1 (nth i (mpm-sim-mpi-halo-node-list sim)))
                                  (right-filter))))))))
 
+        (with-accessors ((nodes cl-mpm/mesh:mesh-nodes)
+                         (cells cl-mpm/mesh::mesh-cells))
+            mesh
+
+          (let* ((domain-sizes (mapcar (lambda (x) (abs (reduce #'- x)))
+                                       (cl-mpm/mpi::mpm-sim-mpi-domain-bounds sim)))
+                 (h (cl-mpm/mesh:mesh-resolution mesh))
+                 (min-domain-length (reduce #'max (remove 0d0 domain-sizes)))
+                 (buffer-size (+ 1 (max halo-depth (ceiling min-domain-length h)))))
+            (format t "Compacting active nodes ~D nodes away~%" buffer-size)
+            (format t "Domain size ~A~%" domain-sizes)
+            (setf (cl-mpm/mesh::mesh-active-nodes mesh)
+                  (cl-mpm::filter-nodes
+                   sim
+                   (lambda (node)
+                     (when node
+                       (not (in-computational-domain-buffer
+                                    sim
+                                    (cl-mpm/mesh::node-position node)
+                                    buffer-size))))))))
         (when *prune-nodes*
           (with-accessors ((nodes cl-mpm/mesh:mesh-nodes)
                            (cells cl-mpm/mesh::mesh-cells))
@@ -248,9 +268,7 @@ leaves a hanging mpi domain at the back"
                                               (cl-mpm/utils:vector-from-list  (cl-mpm/mesh:index-to-position mesh index))
                                               buffer-size))
                                     (incf prune-count)
-                                    (setf (aref bcs i) nil))
-                                        ;))
-                              ))))))
+                                    (setf (aref bcs i) nil))))))))
 
                   (format t "Rank ~D - Pruned ~D bcs~%" rank prune-count))
                 (setf (cl-mpm:sim-bcs sim) (delete nil bcs))

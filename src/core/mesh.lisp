@@ -335,6 +335,10 @@
    (active-nodes
     :accessor mesh-active-nodes
     :initarg :active-nodes)
+   (active-bcs
+    :accessor mesh-bcs)
+   (active-cells
+    :accessor mesh-active-cells)
    (nD
     :accessor mesh-nd
     :initarg :nD)
@@ -373,6 +377,11 @@
 
 (defmethod (setf mesh-nodes) :after (value (p mesh))
   (setf (mesh-active-nodes p)
+        (make-array (array-total-size value)
+                    :displaced-to value)))
+
+(defmethod (setf mesh-cells) :after (value (p mesh))
+  (setf (mesh-active-cells p)
         (make-array (array-total-size value)
                     :displaced-to value)))
 

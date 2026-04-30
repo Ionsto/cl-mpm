@@ -957,7 +957,23 @@
 
 
 
+(declaim (inline make-gradients))
+(defstruct (gradients (:constructor make-gradients (dx dy dz)))
+  (dx 0d0 :type double-float)
+  (dy 0d0 :type double-float)
+  (dz 0d0 :type double-float))
 
+(declaim (inline gradients-to-list))
+(defun gradients-to-list (grads)
+  (list (gradients-dx grads)
+        (gradients-dy grads)
+        (gradients-dz grads)))
+
+(declaim (inline gradients-to-vector))
+(defun gradients-to-vector (grads)
+  (cl-mpm/utils:vector-from-list (list (gradients-dx grads)
+                                       (gradients-dy grads)
+                                       (gradients-dz grads))))
 
 
 

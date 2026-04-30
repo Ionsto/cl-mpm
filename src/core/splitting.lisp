@@ -77,7 +77,7 @@
                         :size-0 (cl-mpm/utils::vector-copy new-size-0)
                         :position (cl-mpm/fastmaths::fast-.+-vector pos pos-offset)
                         :nc (make-array 8 :fill-pointer 0 :element-type 'cl-mpm/particle::node-cache
-                                          :initial-element (cl-mpm/particle::make-node-cache nil 0d0 0d0 0d0 0d0 0d0 0d0 0d0 0d0))
+                                          :initial-element (cl-mpm/particle::make-empty-node-cache))
                         :split-depth new-split-depth
                         :true-domain (cl-mpm/utils:matrix-copy new-domain)
                         )
@@ -89,7 +89,7 @@
                         :size-0 (cl-mpm/utils::vector-copy new-size-0)
                         :position (magicl:.- pos pos-offset)
                         :nc (make-array 8 :fill-pointer 0 :element-type 'cl-mpm/particle::node-cache
-                                          :initial-element (cl-mpm/particle::make-node-cache nil 0d0 0d0 0d0 0d0 0d0 0d0 0d0 0d0))
+                                          :initial-element (cl-mpm/particle::make-empty-node-cache))
                         :split-depth new-split-depth
                         :true-domain (cl-mpm/utils:matrix-copy new-domain)
                         ))))))

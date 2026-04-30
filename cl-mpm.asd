@@ -516,6 +516,7 @@
                "vgplot"
                "cl-mpm/models/visco"
                "cl-mpm/models/chalk"
+               "cl-mpm/implicit"
                "lisp-stat"
                "swank.live")
   :serial t
