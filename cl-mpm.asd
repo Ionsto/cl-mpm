@@ -503,6 +503,7 @@
 (defsystem "cl-mpm/examples/collapse"
   :depends-on ("cl-mpm"
                "cl-mpm/all"
+               "cl-mpm/implicit"
                "vgplot"
                "cl-mpm/models/visco"
                "cl-mpm/models/chalk"

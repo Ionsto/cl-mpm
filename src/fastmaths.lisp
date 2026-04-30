@@ -722,7 +722,9 @@
           do (setf (aref m-s i) (* (aref m-s i) scale))))
   m)
 
+(declaim (ftype (function (magicl:matrix/double-float double-float) magicl:matrix/double-float) fast-scale))
 (defun fast-scale (mi scale)
+  (declare (double-float scale))
   (let* ((m (cl-mpm/utils::deep-copy mi))
          (m-s (magicl::matrix/double-float-storage m)))
     (loop for i fixnum from 0 below (length m-s)
@@ -1083,6 +1085,24 @@
 ;;   (time (dotimes (i iters) (fast-@-matrix-matrix mat matb)))
 ;;   )
 
+(defun @-arb-vector-lisp (matrix vector result-vector)
+  "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"
+  (declare (magicl:matrix/double-float matrix vector result-vector)
+           (optimize (speed 3) (safety 0) (debug 0)))
+  (let ((a (magicl::matrix/double-float-storage matrix))
+        (b (magicl::matrix/double-float-storage vector))
+        (c (magicl::matrix/double-float-storage result-vector)))
+    (declare ((simple-array double-float (*)) a)
+             ((simple-array double-float (*)) b c ))
+    (let ((rows (magicl::nrows a))
+          (cols (magicl::ncols a)))
+      (loop for i fixnum from 0 below rows
+            do
+               (loop for j fixnum from 0 below cols
+                     do (incf (aref c i) (the double-float (* (aref b j) (cl-mpm/utils:mtref matrix i j)))))
+            )))
+  (values))
+
 (defun @-matrix-vector-lisp (matrix vector scale result-vector)
   "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"
   (declare (magicl:matrix/double-float matrix vector result-vector)
@@ -1196,6 +1216,14 @@
                  (cl-mpm/utils::voigt-zeros))))
     (@-tensor-voigt-lisp mat vec res)
     res))
+
+(defun fast-@-arb-vector (mat vec &optional res)
+  (let ((res (if res
+                 (fast-zero res)
+                 (cl-mpm/utils::deep-copy vec))))
+    (@-arb-vector-lisp mat vec 1d0 res)
+    res))
+
 ;; (let ((de (cl-mpm/constitutive::linear-elastic-matrix 2d0 0.1d0))
 ;;       (matb (cl-mpm/utils:voigt-from-list (list 1d0 2d0 3d0 4d0 5d0 6d0)))
 ;;       (iters 10000000))
@@ -1514,3 +1542,28 @@
 ;;    (lparallel:pdotimes (i iters)
 ;;      (cl-mpm/utils::eig m)))
 ;;   )
+
+(defun fast-@-sparse-mat-dense-vec (mat vec &optional res)
+  (let ((res (if res
+                 res
+                 (cl-mpm/utils::empty-copy vec)))
+        )
+    (declare (magicl:matrix/double-float vec res)
+             (cl-mpm/utils::sparse-matrix mat))
+
+    (let ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
+          (cols (cl-mpm/utils::sparse-matrix-cols mat))
+          (values (cl-mpm/utils::sparse-matrix-values mat))
+          (res-s (cl-mpm/utils::fast-storage res))
+          (vec-s (cl-mpm/utils::fast-storage vec))
+          )
+      (dotimes (r (cl-mpm/utils::sparse-matrix-nrows mat))
+        (let ((col-0 (aref rowindex r))
+              (col-1 (aref rowindex (1+ r))))
+          (loop for c from col-0 below col-1 do
+            (incf (aref res-s r)
+                  (the double-float
+                       (*
+                        (aref (cl-mpm/utils::sparse-matrix-values mat) c)
+                        (aref vec-s (aref cols c)))))))))
+    res))

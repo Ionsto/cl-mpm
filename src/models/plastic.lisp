@@ -140,27 +140,27 @@
     (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
     (setf dep de)
     (when enable-plasticity
-      ;; (multiple-value-bind (sig eps-e f inc pmod dep-con) (cl-mpm/constitutive::plastic-vm-tangent stress de strain rho e nu)
-      ;;   (setf stress
-      ;;         sig
-      ;;         plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
-      ;;         p-mod pmod
-      ;;         yield-func f
-      ;;         dep dep-con)
-      ;;   (setf ps-vm-inc inc)
-      ;;   (setf strain eps-e)
-      ;;   (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
-      (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm stress strain de e nu rho)
+      (multiple-value-bind (sig eps-e f inc pmod dep-con) (cl-mpm/constitutive::plastic-vm-tangent stress de strain rho e nu)
         (setf stress
               sig
               plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
               p-mod pmod
               yield-func f
-              ;; dep dep-con
-              )
+              dep dep-con)
         (setf ps-vm-inc inc)
         (setf strain eps-e)
         (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
+      ;; (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm stress strain de e nu rho)
+      ;;   (setf stress
+      ;;         sig
+      ;;         plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
+      ;;         p-mod pmod
+      ;;         yield-func f
+      ;;         ;; dep dep-con
+      ;;         )
+      ;;   (setf ps-vm-inc inc)
+      ;;   (setf strain eps-e)
+      ;;   (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
       )
     (when (> soft 0d0)
       (with-accessors ((rho-r mp-rho-r)

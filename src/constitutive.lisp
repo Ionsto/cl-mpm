@@ -738,21 +738,15 @@
                                (b-f (vm-yield-func j2 rho)))
                            (loop for i from 0 below 6
                                  do (setf (magicl:tref b i 0) (magicl:tref b-eps i 0)))
-                           (setf (magicl:tref b 6 0) b-f)))
-                       ))
-          ;; (setf
-          ;;  dep
-          ;;  (magicl:slice b '(0 0) '(6 6)))
+                           (setf (magicl:tref b 6 0) b-f)))))
           (let ((B (magicl:inv (magicl:block-matrix (list
                                                      (cl-mpm/fastmaths::fast-.+ (magicl:inv De)
                                                                 (magicl:scale! ddf dgam))
                                                      df
                                                      (magicl:transpose df)
                                                      (magicl:from-diag (list 0d0)))
-                                                    (list 2 2)
-                                                    ))))
-            (setf dep (magicl:slice B '(0 0) '(6 6)))
-            )
+                                                    (list 2 2)))))
+            (setf dep (magicl:slice B '(0 0) '(6 6))))
           (setf inc (the double-float
                            (cl-mpm/fastmaths::voigt-von-mises
                             (cl-mpm/fastmaths::fast-.--voigt

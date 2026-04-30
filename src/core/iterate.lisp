@@ -112,24 +112,24 @@
   "Helper function for iterating over all nodes in a mesh
    Calls func with only the node"
   (declare (type function func))
-  (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
+  (let ((nodes (cl-mpm/mesh::mesh-active-nodes mesh)))
     (declare (type (array cl-mpm/particle:particle) nodes))
     ;; (dotimes (i (array-total-size nodes))
     ;;   (let ((node (row-major-aref nodes i)))
     ;;     (funcall func node)))
-    (lparallel:pdotimes (i (array-total-size nodes)
+    ;; (lparallel:pdotimes (i (array-total-size nodes)
+    ;;                        nil
+    ;;                        (get-parts)
+    ;;                        )
+    ;;   (let ((node (row-major-aref nodes i)))
+    ;;     (when node
+    ;;       (funcall func node))))
+    (lparallel:pdotimes (i (length nodes)
                            nil
-                           (get-parts)
-                           )
-      (let ((node (row-major-aref nodes i)))
+                           (get-parts))
+      (let ((node (aref nodes i)))
         (when node
-          (funcall func node)))
-      )
-    ;; (let ((wrapper (make-array (array-total-size nodes) :displaced-to nodes)))
-    ;;   (omp
-    ;;    wrapper
-    ;;    (lambda (i)
-    ;;      (funcall func (aref wrapper i)))))
+          (funcall func node))))
     )
   (values))
 
@@ -157,10 +157,10 @@
   "Helper function for iterating over all nodes in a mesh - in a serial way
 Calls func with only the node"
   (declare (type function func))
-  (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
-    (declare (type (array cl-mpm/particle:particle) nodes))
-    (dotimes (i (array-total-size nodes))
-      (let ((node (row-major-aref nodes i)))
+  (let ((nodes (cl-mpm/mesh::mesh-active-nodes mesh)))
+    (declare (type (array cl-mpm/mesh::node) nodes))
+    (dotimes (i (length nodes))
+      (let ((node (aref nodes i)))
         (when node
           (funcall func node)))))
   (values))

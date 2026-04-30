@@ -371,11 +371,20 @@
                                       0d0 0d0 0d0 0d0 0d0 i6))))
 
 (declaim (inline arb-matrix-from-list)
-         (ftype (function (list)
-                          magicl:matrix/double-float) matrix-from-list))
+         (ftype (function (list fixnum fixnum)
+                          magicl:matrix/double-float) arb-matrix-from-list))
 (defun arb-matrix-from-list (elements x y)
-  (magicl::make-matrix/double-float x y (* x y) :column-major
-                                    (make-array (* x y) :element-type 'double-float :initial-contents elements)))
+  (declare (fixnum x y))
+  (magicl::make-matrix/double-float
+   x
+   y
+   (* x y)
+   :column-major
+   (make-array (* x y) :element-type 'double-float :initial-contents elements)))
+
+(declaim (inline arb-matrix)
+         (ftype (function (fixnum fixnum)
+                          magicl:matrix/double-float) arb-matrix))
 (defun arb-matrix (x y)
   (magicl::make-matrix/double-float x y (* x y) :column-major
                                     (make-array (* x y) :element-type 'double-float :initial-element 0d0)))
@@ -713,6 +722,7 @@
   (voigt-from-list (list value value value 0d0 0d0 0d0)))
 
 (defun rotation-matrix (degrees)
+  (declare (double-float degrees))
   (let ((angle (/ (* pi degrees) 180)))
     (matrix-from-list (list (cos angle) (- (sin angle)) 0d0
                             (sin angle) (cos angle) 0d0
@@ -849,7 +859,7 @@
         (sb-thread:with-mutex ((object-pool-lock pool))
           (when (>= (lparallel:kernel-worker-count) (length (object-pool-pool pool)))
             (let* ((prev-pool (object-pool-pool pool))
-                   (wc (if (lparallel:kernel-worker-count) (lparallel:kernel-worker-count) 0))
+                   (wc (the fixnum (if (lparallel:kernel-worker-count) (lparallel:kernel-worker-count) 0)))
                    (new-pool (make-array (1+ wc) :element-type t)))
               (loop for i from 0 below (length new-pool)
                     do (setf (aref new-pool i)
@@ -862,5 +872,92 @@
       (aref (object-pool-pool pool) thread-index))
     ;; (funcall (object-pool-constructor pool))
     ))
+
+(defstruct sparse-matrix
+  "Sparse self-adjoint matrix"
+  values
+  cols
+  rowindex
+  nrows
+  ncols)
+
+
+
+
+(defun sort-and-sum (values rows cols)
+  (let ((len (length values)))
+    (let* ((permutation (make-array len :element-type 'fixnum)))
+      (loop for i from 0 below (length values)
+            do (setf (aref permutation i) i))
+      (lparallel:psort permutation #'< :key (lambda (i) (aref rows i)))
+      (let* ((sorted-values (make-array len :element-type 'double-float :fill-pointer len))
+             (sorted-cols   (make-array len :element-type 'fixnum :fill-pointer len))
+             (sorted-rows   (make-array len :element-type 'fixnum :fill-pointer len)))
+        (loop for i from 0 below len
+              for ip across permutation
+              do
+                 (setf
+                  (aref sorted-values i) (aref values ip)
+                  (aref sorted-cols   i) (aref cols   ip)
+                  (aref sorted-rows   i) (aref rows   ip)))
+        (let ((rolling-index -1)
+              (row -1)
+              (col -1)
+              (sum 0d0))
+          (loop for i from 0 below len
+                for v across sorted-values
+                for c across sorted-cols
+                for r across sorted-rows
+                do
+                   (if (and (= row r) (= col c))
+                       (incf sum v)
+                       (progn
+                         (unless (= rolling-index -1)
+                           (setf (aref sorted-values rolling-index) sum
+                                 (aref sorted-cols   rolling-index) col
+                                 (aref sorted-rows   rolling-index) row))
+                         (setf sum v)
+                         (setf row r
+                               col c)
+                         (incf rolling-index))))
+          (setf (aref sorted-values rolling-index) sum
+                (aref sorted-cols   rolling-index) col
+                (aref sorted-rows   rolling-index) row)
+          (incf rolling-index)
+          (setf (fill-pointer sorted-values) rolling-index
+                (fill-pointer sorted-cols)   rolling-index
+                (fill-pointer sorted-rows)   rolling-index))
+        (values sorted-values sorted-rows sorted-cols )
+        )))
+  )
+
+(defun build-sparse-matrix (values rows cols nrows ncols)
+  "Take a triplet of vectors of (value row col) and make a sparse matrix in compressed row storage"
+  (multiple-value-bind (v cr cc) (cl-mpm/utils::sort-and-sum values rows cols)
+    (pprint v)
+    (pprint cr)
+    (pprint cc)
+    (let ((rolling-index 0)
+          (row -1)
+          (rowindex (make-array (1+ nrows) :element-type 'fixnum :initial-element 0)))
+      (loop for i from 0
+            for r across cr
+            do
+               (progn
+                  (unless (= row r)
+                    (setf (aref rowindex r) rolling-index)
+                    (setf row r))
+                  (incf rolling-index)))
+      (setf (aref rowindex (1+ row)) rolling-index)
+      (make-sparse-matrix :values v
+                          :cols cc
+                          :rowindex rowindex
+                          :nrows nrows
+                          :ncols ncols))))
+
+
+
+
+
 
 

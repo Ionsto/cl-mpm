@@ -127,7 +127,12 @@
                                (fast-.+
                                 r
                                 (fast-scale p (/ rs-new rs-old)))))
-                       ;; (format t "error ~E~%" rs-new)
-                       (setf rs-old rs-new))
-                     ))
+                       (setf rs-old rs-new))))
           x))))
+
+
+(defun test ()
+  (let ((A (cl-mpm/utils::voigt-to-matrix (cl-mpm/utils:voigt-from-list (list 1d0 2d0 3d0 4d0 5d0 6d0))))
+        (b (cl-mpm/utils:vector-from-list (list 1d0 2d0 3d0))))
+    (pprint (magicl:linear-solve A B))
+    (pprint (solve-conjugant-gradients (lambda (x) (magicl:@ A x)) b :tol 1d-12 :max-iters 1000))))
