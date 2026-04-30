@@ -277,7 +277,6 @@
                "lparallel"
                "cl-intbytes"
                "ieee-floats"
-               ;; "symbolic-derivation"
                "cl-mpm/constitutive"
                "cl-mpm/particle"
                "cl-mpm/shape-function"
@@ -290,8 +289,19 @@
                "trivial-with-current-source-form")
 
   :description ""
-  :components (
-               (:file "src/mpi")
+  :components ((:module "src"
+                :components
+                ((:module "mpi"
+                  :serial t
+                  :components
+                  ((:file "package")
+                   (:file "serialise")
+                   (:file "domain")
+                   (:file "sync")
+                   (:file "mpi")
+                   (:file "damage")
+                   ))))
+               ;; (:file "src/mpi")
                ))
 (defsystem "cl-mpm/buoyancy"
   :depends-on ("cl-mpm"
@@ -503,7 +513,6 @@
 (defsystem "cl-mpm/examples/collapse"
   :depends-on ("cl-mpm"
                "cl-mpm/all"
-               "cl-mpm/implicit"
                "vgplot"
                "cl-mpm/models/visco"
                "cl-mpm/models/chalk"
