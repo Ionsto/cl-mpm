@@ -378,11 +378,13 @@
 (defmethod (setf mesh-nodes) :after (value (p mesh))
   (setf (mesh-active-nodes p)
         (make-array (array-total-size value)
+                    :element-type 'node
                     :displaced-to value)))
 
 (defmethod (setf mesh-cells) :after (value (p mesh))
   (setf (mesh-active-cells p)
         (make-array (array-total-size value)
+                    :element-type 'cell
                     :displaced-to value)))
 
 (defmethod initialize-instance :after ((mesh mesh) &key)

@@ -1074,16 +1074,6 @@
     (@-matrix-matrix-lisp mat vec res)
     res))
 
-;; (let ((mat (cl-mpm/utils:matrix-from-list (list 1d0 0d0 0d0
-;;                                                 0d0 1d0 0d0
-;;                                                 0d0 5d0 2d0)))
-;;       (matb (cl-mpm/utils:matrix-from-list (list 1d0 1d0 0d0
-;;                                                  1d0 1d0 5d0
-;;                                                  0d0 0d0 0d0)))
-;;       (iters 10000000))
-;;   (time (dotimes (i iters) (magicl:@ mat matb)))
-;;   (time (dotimes (i iters) (fast-@-matrix-matrix mat matb)))
-;;   )
 
 (defun @-arb-vector-lisp (matrix vector result-vector)
   "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"
@@ -1224,37 +1214,32 @@
     (@-arb-vector-lisp mat vec 1d0 res)
     res))
 
-;; (let ((de (cl-mpm/constitutive::linear-elastic-matrix 2d0 0.1d0))
-;;       (matb (cl-mpm/utils:voigt-from-list (list 1d0 2d0 3d0 4d0 5d0 6d0)))
-;;       (iters 10000000))
-;;   (time (dotimes (i iters) (magicl:@ de matb)))
-;;   (time (dotimes (i iters) (fast-@-matrix-matrix de matb)))
-;;   (pprint (magicl:@ de matb))
-;;   (pprint (fast-@-tensor-voigt de matb))
-;;   )
+(defun @-arb-arb-lisp (a b result)
+  "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"
+  (declare (magicl:matrix/double-float a b result)
+           (optimize (speed 3) (safety 0) (debug 0)))
+  (let ((rows (magicl::ncols b))
+        (cols (magicl::nrows a))
+        (inter (magicl::nrows a))
+        )
+    (loop for i fixnum from 0 below rows
+          do (loop for j fixnum from 0 below cols
+                   do (loop for k fixnum from 0 below inter
+                            do (incf
+                                (cl-mpm/utils::mtref result i j)
+                                (the double-float (* (cl-mpm/utils:mtref a i k)
+                                                     (cl-mpm/utils:mtref b k j))))))
+          ))
+  (values))
 
-;; (defun fast-@-matrix-vector-simd (mat vec &optional res)
-;;   (let ((res (if res
-;;                  res
-;;                  (cl-mpm/utils::vector-zeros))
-;;              ))
-;;     (@-matrix-vector-simd mat vec 1d0 res)
-;;     res))
-
-;; (let ((mat (cl-mpm/utils:matrix-from-list (list 1d0 5d0 0d0
-;;                                                 1d0 1d0 5d0
-;;                                                 0d0 0d0 0d0)))
-;;       (vec (cl-mpm/utils:vector-from-list (list 1d0 2d0 3d0)))
-;;       (iters 100000000))
-;;   (print (cl-mpm/utils:fast-storage mat))
-;;   ;; (time (dotimes (i iters) (magicl:@ mat vec)))
-;;   (time (dotimes (i iters) (fast-@-matrix-vector mat vec)))
-;;   (time (dotimes (i iters) (fast-@-matrix-vector-simd mat vec)))
-;;   ;; (pprint (magicl:@ mat vec))
-;;   ;; (pprint (fast-@-matrix-vector mat vec))
-;;   ;; (pprint (fast-@-matrix-vector-simd mat vec))
-;;   )
-
+(defun fast-@-arb-arb (a b &optional res)
+  (let ((res (if res
+                 (fast-zero res)
+                 (cl-mpm/utils::arb-matrix
+                  (magicl::nrows a)
+                  (magicl::ncols b)))))
+    (@-arb-arb-lisp a b res)
+    res))
 
 (defun %lambert-w-0 (w z)
   (- w (/ ( - (* w (exp w)) z)

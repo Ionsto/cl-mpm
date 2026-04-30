@@ -934,9 +934,6 @@
 (defun build-sparse-matrix (values rows cols nrows ncols)
   "Take a triplet of vectors of (value row col) and make a sparse matrix in compressed row storage"
   (multiple-value-bind (v cr cc) (cl-mpm/utils::sort-and-sum values rows cols)
-    (pprint v)
-    (pprint cr)
-    (pprint cc)
     (let ((rolling-index 0)
           (row -1)
           (rowindex (make-array (1+ nrows) :element-type 'fixnum :initial-element 0)))

@@ -113,7 +113,7 @@
    Calls func with only the node"
   (declare (type function func))
   (let ((nodes (cl-mpm/mesh::mesh-active-nodes mesh)))
-    (declare (type (simple-array cl-mpm/mesh::node (*)) nodes))
+    (declare (type (vector cl-mpm/mesh::node *) nodes))
     (lparallel:pdotimes (i (length nodes)
                            nil
                            (get-parts))
@@ -148,7 +148,7 @@
 Calls func with only the node"
   (declare (type function func))
   (let ((nodes (cl-mpm/mesh::mesh-active-nodes mesh)))
-    (declare (type (simple-array cl-mpm/mesh::node (*)) nodes))
+    (declare (type (vector cl-mpm/mesh::node *) nodes))
     (dotimes (i (length nodes))
       (let ((node (aref nodes i)))
         (when node
@@ -162,7 +162,7 @@ Calls func with only the node"
    Calls func with only the node"
   (declare (type function func))
   (let ((cells (cl-mpm/mesh::mesh-active-cells mesh)))
-    (declare (type (simple-array (or cl-mpm/mesh::cell null) (*)) cells))
+    (declare (type (vector cl-mpm/mesh::cell *) cells))
     (lparallel:pdotimes (i (length cells)
                            nil
                            (get-parts))
@@ -176,7 +176,7 @@ Calls func with only the node"
    Calls func with only the node"
   (declare (type function func))
   (let ((cells (cl-mpm/mesh::mesh-active-cells mesh)))
-    (declare (type (simple-array (or cl-mpm/mesh::cell null) (*)) cells))
+    (declare (type (vector cl-mpm/mesh::cell *) cells))
     (dotimes (i (array-total-size cells))
       (let ((cell (aref cells i)))
         (when cell
