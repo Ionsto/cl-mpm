@@ -163,8 +163,7 @@
 
 (make-mpi-ser
  node
- (
-  (index index cl-mpm/mesh::node-index)
+ ((index index cl-mpm/mesh::node-index)
   (float mass cl-mpm/mesh::node-mass)
   (float pmod cl-mpm/mesh::node-pwave)
   (float svp cl-mpm/mesh::node-svp-sum)

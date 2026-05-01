@@ -248,11 +248,11 @@ leaves a hanging mpi domain at the back"
             (setf (cl-mpm::sim-active-bcs sim)
                   (cl-mpm::filter-bcs
                    sim
-                   (lambda (cell)
-                     (if cell
+                   (lambda (bc)
+                     (if bc
                          (in-computational-domain-buffer
                           sim
-                          (cl-mpm/utils:vector-from-list  (cl-mpm/mesh:index-to-position mesh index))
+                          (cl-mpm/utils:vector-from-list  (cl-mpm/mesh:index-to-position mesh (cl-mpm/bc::bc-index bc)))
                           buffer-size)
                          nil))))
             (format t "Rank ~D - Active set nodes ~D - cells ~D - bcs ~D~%" rank (length (cl-mpm/mesh::mesh-active-nodes mesh))
