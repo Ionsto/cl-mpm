@@ -71,7 +71,7 @@
   (format stream "LOOKUP_TABLE default~%")
     (loop for mp across mps
           do (format stream "~E ~%"
-                     (coerce (max 1d30 (funcall accessor mp)) 'single-float)))
+                     (coerce (min 1d30 (funcall accessor mp)) 'single-float)))
   (format stream "~%")
   )
 
