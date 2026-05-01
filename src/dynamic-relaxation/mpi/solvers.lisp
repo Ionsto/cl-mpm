@@ -204,7 +204,7 @@
   (cl-mpm/mpi::clear-ghost-mps sim))
 
 (defmethod cl-mpm/dynamic-relaxation::pre-step ((sim mpm-sim-quasi-static-mpi))
-  (pre-step-mpi))
+  (pre-step-mpi sim))
 
 (defmethod dr-estimate-damping ((sim mpm-sim-dr-mpi))
   (with-accessors ((mesh cl-mpm:sim-mesh)
