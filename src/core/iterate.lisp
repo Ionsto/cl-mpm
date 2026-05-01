@@ -135,9 +135,8 @@
   (declare (type function func)
            (type (vector cl-mpm/mesh::node *) nodes))
   (dotimes (i (length nodes))
-    (funcall func (aref nodes i)))
-  ;; (lparallel:pdotimes (i (length nodes))
-  ;;   (funcall func (aref nodes i)))
+    (when (aref nodes i)
+      (funcall func (aref nodes i))))
   (values))
 
 (declaim (inline iterate-over-nodes-serial)
