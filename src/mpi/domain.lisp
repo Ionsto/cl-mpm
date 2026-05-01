@@ -230,31 +230,35 @@ leaves a hanging mpi domain at the back"
                    sim
                    (lambda (node)
                      (if node
-                       (in-computational-domain-buffer
-                                    sim
-                                    (cl-mpm/mesh::node-position node)
-                                    buffer-size)
-                       nil))))
+                         (in-computational-domain-buffer
+                          sim
+                          (cl-mpm/mesh::node-position node)
+                          buffer-size)
+                         nil))))
             (setf (cl-mpm/mesh::mesh-active-cells mesh)
                   (cl-mpm::filter-array-cells
                    sim
                    (lambda (cell)
                      (if cell
-                       (in-computational-domain-buffer
-                             sim
-                             (cl-mpm/mesh::cell-centroid cell)
-                             buffer-size)
-                       nil))))
+                         (in-computational-domain-buffer
+                          sim
+                          (cl-mpm/mesh::cell-centroid cell)
+                          buffer-size)
+                         nil))))
             (setf (cl-mpm::sim-active-bcs sim)
                   (cl-mpm::filter-bcs
                    sim
                    (lambda (cell)
                      (if cell
-                       (in-computational-domain-buffer
-                             sim
-                             (cl-mpm/utils:vector-from-list  (cl-mpm/mesh:index-to-position mesh index))
-                             buffer-size)
-                       nil))))))
+                         (in-computational-domain-buffer
+                          sim
+                          (cl-mpm/utils:vector-from-list  (cl-mpm/mesh:index-to-position mesh index))
+                          buffer-size)
+                         nil))))
+            (format t "Rank ~D - Active set nodes ~D - cells ~D - bcs ~D~%" rank (length (cl-mpm/mesh::mesh-active-nodes mesh))
+                    (length (cl-mpm/mesh::mesh-active-cells mesh))
+                    (length (cl-mpm::sim-active-bcs sim))))
+          )
         (when *prune-nodes*
           (with-accessors ((nodes cl-mpm/mesh:mesh-nodes)
                            (cells cl-mpm/mesh::mesh-cells))
