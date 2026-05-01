@@ -78,7 +78,7 @@
        (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-true-velocity n))))
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (update-node-fictious-mass sim)
-    (cl-mpm/mpi::mpi-sync-mass sim)
+    ;; (cl-mpm/mpi::mpi-sync-mass sim)
     (midpoint-starter sim)
     (cl-mpm/mpi::mpi-sync-force sim)
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
