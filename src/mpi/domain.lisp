@@ -171,7 +171,7 @@ leaves a hanging mpi domain at the back"
     (with-accessors ((mesh cl-mpm:sim-mesh))
         sim
       (let* ((nd-nodes (cl-mpm/mesh:mesh-nodes mesh))
-             (all-nodes (make-array (array-total-size nd-nodes) :displaced-to nd-nodes :displaced-index-offset 0))
+             (all-nodes (make-array (array-total-size nd-nodes) :displaced-to nd-nodes))
              (index (mpi-rank-to-index sim rank))
              (bounds-list (mpm-sim-mpi-domain-bounds sim))
              (h (cl-mpm/mesh:mesh-resolution mesh))
@@ -222,7 +222,7 @@ leaves a hanging mpi domain at the back"
                                        (cl-mpm/mpi::mpm-sim-mpi-domain-bounds sim)))
                  (h (cl-mpm/mesh:mesh-resolution mesh))
                  (min-domain-length (reduce #'max (remove 0d0 domain-sizes)))
-                 (buffer-size (+ 1 (max halo-depth (ceiling min-domain-length h)))))
+                 (buffer-size (+ 1 halo-depth)))
             (format t "Compacting active nodes ~D nodes away~%" buffer-size)
             (format t "Domain size ~A~%" domain-sizes)
             (setf (cl-mpm/mesh::mesh-active-nodes mesh)

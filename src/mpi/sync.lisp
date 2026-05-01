@@ -5,8 +5,7 @@
                            deserialise
                            func)
   (declare (function func))
-  (let* ((rank (cl-mpi:mpi-comm-rank))
-         (size (cl-mpi:mpi-comm-size)))
+  (let* ((rank (cl-mpi:mpi-comm-rank)))
     (with-accessors ((mesh cl-mpm:sim-mesh))
         sim
       (let* ((index (mpi-rank-to-index sim rank))
