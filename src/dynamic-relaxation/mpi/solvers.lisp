@@ -18,6 +18,11 @@
   (:default-initargs
    :vel-algo :QUASI-STATIC)
   (:documentation "DR psudo-linear step with update stress last update"))
+(defclass mpm-sim-damage-quasi-static-mpi (mpm-sim-quasi-static-mpi cl-mpm/mpi::mpm-sim-mpi-nodes-damage)
+  ()
+  (:default-initargs
+   :vel-algo :QUASI-STATIC)
+  (:documentation "DR psudo-linear step with update stress last update"))
 
 (defmethod cl-mpm/dynamic-relaxation::map-stiffness :after ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-mpi))
   (cl-mpm/mpi::mpi-sync-mass sim))
@@ -64,22 +69,78 @@
     (cl-mpm/mpi::mpi-sync-momentum sim)
     (when (> mass-filter 0d0)
       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
-    (cl-mpm::filter-cells sim)
     (cl-mpm::update-node-kinematics sim)
     (cl-mpm::iterate-over-nodes
      mesh
      (lambda (n)
-       (when (cl-mpm/mpi::node-in-computational-domain sim n)
-         (setf
-          (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n))
-         (cl-mpm/utils:vector-copy-into (cl-mpm/mesh::node-velocity n) (cl-mpm/mesh::node-true-velocity n)))))
+       (setf
+        (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n))
+       (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-true-velocity n))))
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
-    ;; (update-node-fictious-mass sim)
+    (update-node-fictious-mass sim)
+    (cl-mpm/mpi::mpi-sync-mass sim)
     (midpoint-starter sim)
+    (cl-mpm/mpi::mpi-sync-force sim)
+    (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (setf initial-setup t)))
 
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-quasi-static-mpi))
+  (with-slots ((mesh cl-mpm::mesh)
+               (mps cl-mpm::mps)
+               (bcs cl-mpm::bcs)
+               (bcs-force cl-mpm::bcs-force)
+               (dt cl-mpm::dt)
+               (dt-loadstep dt-loadstep)
+               (mass-filter cl-mpm::mass-filter)
+               (split cl-mpm::allow-mp-split)
+               (enable-damage cl-mpm::enable-damage)
+               (nonlocal-damage cl-mpm::nonlocal-damage)
+               (remove-damage cl-mpm::allow-mp-damage-removal)
+               (fbar cl-mpm::enable-fbar)
+               (bcs-force-list cl-mpm::bcs-force-list)
+               (ghost-factor cl-mpm::ghost-factor)
+               (initial-setup initial-setup)
+               (enable-aggregate cl-mpm/aggregate::enable-aggregate)
+               (damping cl-mpm::damping-factor)
+               (damping-scale cl-mpm/dynamic-relaxation::damping-scale)
+               (vel-algo cl-mpm::velocity-algorithm))
+      sim
+    (declare (double-float damping-scale damping))
+    (unless initial-setup
+      (pre-step sim))
+    (cl-mpm/penalty::reset-penalty sim)
+    (setf dt 1d0)
+    (cl-mpm::update-nodes sim)
+    (cl-mpm::update-cells sim)
+    (cl-mpm::reset-nodes-force sim)
+    (cl-mpm::iterate-over-nodes
+     (cl-mpm::sim-mesh sim)
+     (lambda (n)
+       (when n
+         (when (and (cl-mpm/mesh:node-active n)
+                    (not (cl-mpm/mpi::node-in-computational-domain sim n)))
+           (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-displacment n))
+           (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-velocity n))))))
+
+    (cl-mpm/mpi::mpi-sync-displacement sim)
+
+    (cl-mpm::update-stress mesh mps dt-loadstep fbar)
+    (cl-mpm::p2g-force-fs sim)
+    (cl-mpm::apply-bcs mesh bcs-force dt)
+
+    (loop for bcs-f in bcs-force-list
+          do (cl-mpm::apply-bcs mesh bcs-f dt))
+    (cl-mpm/mpi::mpi-sync-force sim)
+    (update-node-fictious-mass sim)
+    (cl-mpm/mpi::mpi-sync-mass sim)
+    ;;Update our nodes after force mapping
+    (cl-mpm::update-node-forces sim)
+    (cl-mpm::apply-bcs mesh bcs dt)
+    ;; (cl-mpm::update-dynamic-stats sim)
+    (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)))
+
+(defmethod cl-mpm::update-sim ((sim mpm-sim-damage-quasi-static-mpi))
   (with-slots ((mesh cl-mpm::mesh)
                (mps cl-mpm::mps)
                (bcs cl-mpm::bcs)
@@ -129,6 +190,8 @@
     (loop for bcs-f in bcs-force-list
           do (cl-mpm::apply-bcs mesh bcs-f dt))
     (cl-mpm/mpi::mpi-sync-force sim)
+    (update-node-fictious-mass sim)
+    (cl-mpm/mpi::mpi-sync-mass sim)
     ;;Update our nodes after force mapping
     (cl-mpm::update-node-forces sim)
     (cl-mpm::apply-bcs mesh bcs dt)
@@ -141,44 +204,7 @@
   (cl-mpm/mpi::clear-ghost-mps sim))
 
 (defmethod cl-mpm/dynamic-relaxation::pre-step ((sim mpm-sim-quasi-static-mpi))
-  (with-slots ((mesh cl-mpm::mesh)
-               (mps cl-mpm::mps)
-               (bcs cl-mpm::bcs)
-               (bcs-force cl-mpm::bcs-force)
-               (dt cl-mpm::dt)
-               (dt-loadstep dt-loadstep)
-               (mass-filter cl-mpm::mass-filter)
-               (split cl-mpm::allow-mp-split)
-               (enable-damage cl-mpm::enable-damage)
-               (nonlocal-damage cl-mpm::nonlocal-damage)
-               (remove-damage cl-mpm::allow-mp-damage-removal)
-               (fbar cl-mpm::enable-fbar)
-               (bcs-force-list cl-mpm::bcs-force-list)
-               (ghost-factor cl-mpm::ghost-factor)
-               (initial-setup initial-setup)
-               (enable-aggregate cl-mpm/aggregate::enable-aggregate)
-               (damping cl-mpm::damping-factor)
-               (vel-algo cl-mpm::velocity-algorithm))
-      sim
-    (setf (cl-mpm/dynamic-relaxation::sim-solve-count sim) 0)
-    (cl-mpm::reset-grid mesh :reset-displacement t)
-    (cl-mpm::reset-node-displacement sim)
-    (cl-mpm::p2g mesh mps vel-algo)
-    (cl-mpm/mpi::mpi-sync-momentum sim)
-    (when (> mass-filter 0d0)
-      (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
-    (cl-mpm::update-node-kinematics sim)
-    (cl-mpm::iterate-over-nodes
-     mesh
-     (lambda (n)
-       (setf
-        (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n))
-       (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-true-velocity n))))
-    (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
-    (midpoint-starter sim)
-    (cl-mpm/mpi::mpi-sync-force sim)
-    (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
-    (setf initial-setup t)))
+  (pre-step-mpi))
 
 (defmethod dr-estimate-damping ((sim mpm-sim-dr-mpi))
   (with-accessors ((mesh cl-mpm:sim-mesh)
