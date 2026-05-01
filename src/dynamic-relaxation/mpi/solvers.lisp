@@ -6,7 +6,7 @@
 (in-package :cl-mpm/dynamic-relaxation)
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
-(defclass mpm-sim-dr-mpi (cl-mpm/dynamic-relaxation::mpm-sim-dr
+(defclass mpm-sim-dr-mpi (cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                           cl-mpm/mpi::mpm-sim-mpi-nodes)
   ()
   (:default-initargs
