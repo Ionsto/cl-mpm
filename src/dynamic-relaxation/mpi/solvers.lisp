@@ -13,7 +13,7 @@
    :vel-algo :QUASI-STATIC)
   (:documentation "DR psudo-linear step with update stress last update"))
 
-(defclass mpm-sim-quasi-static-mpi (mpm-sim-dr-mpi cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul)
+(defclass mpm-sim-quasi-static-mpi (mpm-sim-dr-mpi)
   ()
   (:default-initargs
    :vel-algo :QUASI-STATIC)

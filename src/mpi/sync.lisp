@@ -9,13 +9,11 @@
          (size (cl-mpi:mpi-comm-size)))
     (with-accessors ((mesh cl-mpm:sim-mesh))
         sim
-      (let* ((nd-nodes (cl-mpm/mesh:mesh-nodes mesh))
-             (index (mpi-rank-to-index sim rank))
+      (let* ((index (mpi-rank-to-index sim rank))
              (bounds-list (mpm-sim-mpi-domain-bounds sim))
              (h (cl-mpm/mesh:mesh-resolution mesh))
              (halo-depth (mpm-sim-mpi-halo-depth sim))
-             (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
-             )
+             (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))))
         (loop for i from 0 below nd
               do
                  (let ((id-delta (list 0 0 0)))
@@ -274,8 +272,7 @@
                    (incf mass (the double-float (mpi-object-node-mass-mass mpi-node)))
                    (incf svp (the double-float  (mpi-object-node-mass-svp mpi-node)))
                    (incf vol (the double-float  (mpi-object-node-mass-vol mpi-node)))
-                   (incf pmod (the double-float (mpi-object-node-mass-pmod mpi-node)))
-                   ))
+                   (incf pmod (the double-float (mpi-object-node-mass-pmod mpi-node)))))
                (error "MPI exchange touched invalid node?"))))))))
 
 (defun mpi-sync-j-inc (sim)
