@@ -229,31 +229,32 @@ leaves a hanging mpi domain at the back"
                   (cl-mpm::filter-nodes
                    sim
                    (lambda (node)
-                     (when node
+                     (if node
                        (in-computational-domain-buffer
                                     sim
                                     (cl-mpm/mesh::node-position node)
-                                    buffer-size)))))
+                                    buffer-size)
+                       nil))))
             (setf (cl-mpm/mesh::mesh-active-cells mesh)
                   (cl-mpm::filter-array-cells
                    sim
                    (lambda (cell)
-                     (when cell
+                     (if cell
                        (in-computational-domain-buffer
                              sim
                              (cl-mpm/mesh::cell-centroid cell)
-                             buffer-size)))))
+                             buffer-size)
+                       nil))))
             (setf (cl-mpm::sim-active-bcs sim)
                   (cl-mpm::filter-bcs
                    sim
                    (lambda (cell)
-                     (when cell
+                     (if cell
                        (in-computational-domain-buffer
                              sim
-                             (cl-mpm/mesh::index-to-position mesh (cl-mpm/bc::bc-index cell))
-                             buffer-size)))))
-            )
-          )
+                             (cl-mpm/utils:vector-from-list  (cl-mpm/mesh:index-to-position mesh index))
+                             buffer-size)
+                       nil))))))
         (when *prune-nodes*
           (with-accessors ((nodes cl-mpm/mesh:mesh-nodes)
                            (cells cl-mpm/mesh::mesh-cells))
