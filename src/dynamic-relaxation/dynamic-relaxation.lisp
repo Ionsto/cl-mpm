@@ -273,9 +273,7 @@
               (* (sqrt 2) (sqrt (/ num denom))))
           0d0))))
 (defmethod dr-estimate-damping ((sim cl-mpm/aggregate::mpm-sim-aggregated))
-  (with-accessors ((mesh cl-mpm:sim-mesh)
-                   ;; (dt cl-mpm:sim-dt)
-                   )
+  (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
     (let ((num 0d0)
           (denom 0d0)
@@ -357,15 +355,28 @@
   (cl-mpm::new-loadstep sim))
 
 
-(defun estimate-ul-enhancement (particle)
+(defun estimate-ul-enhancement (particle nd)
   (with-accessors ((df-inv cl-mpm/particle::mp-deformation-gradient-increment-inverse))
       particle
-    (let* ((grads (cl-mpm::gradient-push-forwards-cached (cl-mpm/utils::make-gradients 1d0 1d0 1d0) df-inv))
-           (peak-grad
-             (abs (max (expt (cl-mpm/utils::gradients-dx grads) 2)
-                       (expt (cl-mpm/utils::gradients-dy grads) 2)
-                       (expt (cl-mpm/utils::gradients-dz grads) 2)))))
-      peak-grad)))
+    (ecase nd
+      (1
+       (let* ((grads (cl-mpm::gradient-push-forwards-cached (cl-mpm/utils::make-gradients 1d0 0d0 0d0) df-inv))
+              (peak-grad
+                (abs (max (expt (cl-mpm/utils::gradients-dx grads) 2)))))
+         peak-grad))
+      (2
+       (let* ((grads (cl-mpm::gradient-push-forwards-cached (cl-mpm/utils::make-gradients 1d0 1d0 0d0) df-inv))
+              (peak-grad
+                (abs (max (expt (cl-mpm/utils::gradients-dx grads) 2)
+                          (expt (cl-mpm/utils::gradients-dy grads) 2)))))
+         peak-grad))
+      (3
+       (let* ((grads (cl-mpm::gradient-push-forwards-cached (cl-mpm/utils::make-gradients 1d0 1d0 1d0) df-inv))
+              (peak-grad
+                (abs (max (expt (cl-mpm/utils::gradients-dx grads) 2)
+                          (expt (cl-mpm/utils::gradients-dy grads) 2)
+                          (expt (cl-mpm/utils::gradients-dz grads) 2)))))
+         peak-grad)))))
 
 
 

@@ -405,10 +405,7 @@
                 (varef proj-val (cl-mpm/mesh::node-agg-fdc n))))))))
 ;;New version
 (defun assemble-e (sim)
-  (let* (;; (agg-nodes (cl-mpm/utils::filter-nodes sim #'cl-mpm/mesh::node-interior))
-         ;; (active-nodes (cl-mpm/utils::filter-nodes sim (lambda (n) (or (cl-mpm/mesh::node-agg n)
-         ;;                                                 (cl-mpm/mesh::node-interior n)))))
-         (agg-nodes (sim-agg-nodes-fdc sim))
+  (let* ((agg-nodes (sim-agg-nodes-fdc sim))
          (active-nodes (sim-agg-nodes-fd sim))
          (mesh (cl-mpm:sim-mesh sim))
          (ndof (length active-nodes))
@@ -433,6 +430,41 @@
                     (incf (mtref e (cl-mpm/mesh::node-agg-fd node) (cl-mpm/mesh::node-agg-fdc cn))
                           weight)))))))))
     (values e)))
+
+(defun assemble-sparse-e (sim)
+  (let* ((agg-nodes (sim-agg-nodes-fdc sim))
+         (active-nodes (sim-agg-nodes-fd sim))
+         (mesh (cl-mpm:sim-mesh sim))
+         (ndof (length active-nodes))
+         (ndofC (length agg-nodes))
+         (v (make-array ndof :fill-pointer 0 :adjustable t))
+         (r (make-array ndof :fill-pointer 0 :adjustable t))
+         (c (make-array ndof :fill-pointer 0 :adjustable t)))
+    (cl-mpm::iterate-over-nodes-serial
+     mesh
+     (lambda (node)
+       (when (cl-mpm/mesh:node-active node)
+         (when (cl-mpm/mesh::node-agg node)
+           (if (cl-mpm/mesh::node-interior node)
+               (progn
+                 ;;Interior -> populate 1s
+                 (vector-push-extend 1d0 v)
+                 (vector-push-extend (cl-mpm/mesh::node-agg-fd node) r)
+                 (vector-push-extend (cl-mpm/mesh::node-agg-fdc node) c))
+               (progn
+                 ;;Aggregate -> populate svp
+                 (cl-mpm::iterate-over-cell-shape-local
+                  mesh
+                  (cl-mpm/mesh::node-agg-interior-cell node)
+                  (cl-mpm/mesh::node-position node)
+                  (lambda (cn weight grads)
+                    (vector-push-extend weight v)
+                    (vector-push-extend (cl-mpm/mesh::node-agg-fd node) r)
+                    (vector-push-extend (cl-mpm/mesh::node-agg-fdc cn) c)))))))))
+    ;; (pprint v)
+    ;; (pprint r)
+    ;; (pprint c)
+    (cl-mpm/utils::build-sparse-matrix v r c ndof ndofC)))
 
 ;; (defun assemble-implicit-e (sim)
 ;;   (let ((fdc 0))
@@ -469,7 +501,10 @@
     (locate-aggregate-nodes sim)
     (let ((E (cl-mpm/aggregate::assemble-e sim)))
       (setf (sim-global-e sim) E)
-      (setf (sim-global-ma sim) (magicl:@ (magicl:transpose E) (cl-mpm/aggregate::assemble-global-mass-matrix sim) E)))))
+      (setf (sim-global-ma sim)
+            (magicl:@
+             (magicl:transpose E)
+             (cl-mpm/aggregate::assemble-global-mass-matrix sim) E)))))
 
 (defun update-mass-matrix (sim)
   "Assuming that we already have an extension matrix, attempt to update the mass matrix directly"

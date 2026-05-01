@@ -101,7 +101,6 @@
                (vel-algo cl-mpm::velocity-algorithm))
       sim
     (declare (double-float damping-scale damping))
-    (cl-mpi:mpi-waitall)
     (unless initial-setup
       (pre-step sim)
       (setf (cl-mpm/damage::sim-damage-delocal-counter-max sim) -1)
@@ -129,23 +128,13 @@
 
     (loop for bcs-f in bcs-force-list
           do (cl-mpm::apply-bcs mesh bcs-f dt))
-
-    ;; (cl-mpm::iterate-over-nodes
-    ;;  (cl-mpm::sim-mesh sim)
-    ;;  (lambda (n)
-    ;;    (setf (cl-mpm/mesh::node-mass n) 0d0)))
-
-    ;; (update-node-fictious-mass sim)
-    ;; ;; (cl-mpm/mpi::mpi-sync-mass sim)
-
     (cl-mpm/mpi::mpi-sync-force sim)
-    ;; ;; ;;Update our nodes after force mapping
+    ;;Update our nodes after force mapping
     (cl-mpm::update-node-forces sim)
     (cl-mpm::apply-bcs mesh bcs dt)
     ;; (cl-mpm::update-dynamic-stats sim)
-    (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
-    )
-  )
+    (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)))
+
 (defmethod cl-mpm::finalise-loadstep :after ((sim mpm-sim-dr-mpi))
   (cl-mpm/mpi::exchange-mps sim 0d0)
   (cl-mpm/mpi::set-mp-mpi-index sim)

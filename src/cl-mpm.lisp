@@ -89,6 +89,9 @@
      :accessor sim-bcs
      :initarg :bcs
      :initform (make-array 0))
+   (active-bcs
+     :accessor sim-active-bcs
+     :initform (make-array 0))
    (bcs-force
     :accessor sim-bcs-force
     :initarg :bcs-force
@@ -224,6 +227,12 @@
 (defclass mpm-sf-mpm ()())
 (defclass mpm-sf-gimp ()())
 (defclass mpm-sim-quasi-static (mpm-sim) ())
+
+(defmethod (setf sim-bcs) :after (value (p mpm-sim))
+  (setf (sim-active-bcs p)
+        (make-array (length value)
+                    :element-type 'cl-mpm/bc::bc
+                    :displaced-to value)))
 
 (defun make-mpm-sim (size resolution dt shape-function &key (sim-type 'mpm-sim-usf)
                                                          (args-list nil))

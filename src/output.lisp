@@ -71,7 +71,7 @@
   (format stream "LOOKUP_TABLE default~%")
     (loop for mp across mps
           do (format stream "~E ~%"
-                     (coerce (funcall accessor mp) 'single-float)))
+                     (coerce (max 1d30 (funcall accessor mp)) 'single-float)))
   (format stream "~%")
   )
 
@@ -382,7 +382,7 @@
         do
            (let ((node (row-major-aref nodes i)))
              (when node
-               (format stream "~E ~%" (coerce (funcall accessor node) 'single-float)))))
+               (format stream "~E ~%" (coerce (min 1d30 (funcall accessor node)) 'single-float)))))
   (format stream "~%"))
 
 (defmacro save-parameter-nodes (name accessor)

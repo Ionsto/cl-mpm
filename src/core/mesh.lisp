@@ -328,6 +328,7 @@
 
 
 (deftype array-fixnum-3 () '(simple-array fixnum (3)))
+
 (defclass mesh ()
   ((nodes
     :accessor mesh-nodes
@@ -335,8 +336,6 @@
    (active-nodes
     :accessor mesh-active-nodes
     :initarg :active-nodes)
-   (active-bcs
-    :accessor mesh-bcs)
    (active-cells
     :accessor mesh-active-cells)
    (nD

@@ -685,14 +685,17 @@
   (assemble-g-3d-prealloc dsvp (cl-mpm/utils::stretch-dsvp-3d-zeros)))
 
 (declaim (inline assemble-g-3d-prealloc)
-         (ftype (function (list magicl:matrix/double-float) magicl:matrix/double-float)
+         (ftype (function (cl-mpm/utils::gradients magicl:matrix/double-float) magicl:matrix/double-float)
                 assemble-dstretch-3d-prealloc))
 (defun assemble-g-3d-prealloc (dsvp result)
-  (declare (list dsvp)
+  (declare (cl-mpm/utils::gradients dsvp)
            (magicl:matrix/double-float result)
            (optimize (speed 3) (safety 0) (debug 0)))
   "Assemble d/di to the strain-displacement matrix"
-  (destructuring-bind (dx dy dz) dsvp
+  (let ((dx (cl-mpm/utils::gradients-dx dsvp))
+        (dy (cl-mpm/utils::gradients-dy dsvp))
+        (dz (cl-mpm/utils::gradients-dz dsvp))
+        )
     (let* ((s (magicl::matrix/double-float-storage result)))
       (declare (double-float dx dy dz))
       (setf

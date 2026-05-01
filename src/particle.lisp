@@ -595,17 +595,12 @@
 (defgeneric estimate-stiffness (mp)
     (:documentation "Estimate stiffness P-wave at current state"))
 
-(defmethod estimate-stiffness ((mp particle-elastic))
-  (*
-   (/ 1d0 (cl-mpm/fastmaths::det-3x3 (cl-mpm/particle::mp-deformation-gradient mp)))
-   (estimate-log-enhancement mp)
-   (mp-p-modulus-0 mp)))
 
 (defmethod estimate-stiffness ((mp particle-elastic))
   (*
    (/ 1d0 (cl-mpm/fastmaths::det-3x3 (cl-mpm/particle::mp-deformation-gradient mp)))
-   (estimate-log-enhancement mp)
-   (mp-p-modulus-0 mp)))
+   (the double-float (estimate-log-enhancement mp))
+   (the double-float (mp-p-modulus-0 mp))))
 
 (defmethod estimate-stiffness ((mp particle-linear-elastic))
   (mp-p-modulus-0 mp))
@@ -617,10 +612,14 @@
                    )
       particle
     (let ((l (cl-mpm/fastmaths::magicl-eigen-values-3x3 (voigt-to-matrix eps))))
-          ;multiple-value-bind (l v) (cl-mpm/utils:eig (voigt-to-matrix eps))
-     
       (let ((lmax (reduce #'max (mapcar (lambda (x) (exp (- x))) l))))
-        (* lmax lmax)))))
+        (* lmax lmax)))
+    ;; (let ((l (cl-mpm/fastmaths::magicl-eigen-values-3x3 (voigt-to-matrix eps)))))
+    ;; (multiple-value-bind (s1 s2 s3) (cl-mpm/fastmaths::eigenvalues-3x3 eps)
+    ;;   (declare (double-float s1 s2 s3))
+    ;;   (let ((lmax (min s1 s2 s3)))
+    ;;     (expt (exp (- lmax)) 2)))
+    ))
 
 
 (defgeneric constitutive-model (mp elastic-trial-strain dt)
