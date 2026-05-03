@@ -206,73 +206,63 @@
 
 (declaim
  (inline det-int-force-unrolled)
- (ftype (function (cl-mpm/particle::particle cl-mpm/utils::gradients double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
+ (ftype (function (magicl::matrix/double-float cl-mpm/utils::gradients double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
         det-int-force-unrolled))
-(defun det-int-force-unrolled (mp grads volume &optional f-out)
+(defun det-int-force-unrolled (stress grads volume &optional f-out)
   "Calculate internal force contribution from mp at node"
   (let* ((f-out (if f-out f-out (cl-mpm/utils:vector-zeros))))
-    (with-accessors ((stress cl-mpm/particle:mp-stress)
-                     ;; (volume-ac cl-mpm/particle:mp-volume)
-                     )
-        mp
-      (let ()
-        (declare (type double-float volume))
-        (let ((dx (cl-mpm/utils::gradients-dx grads))
-              (dy (cl-mpm/utils::gradients-dy grads))
-              (dz (cl-mpm/utils::gradients-dz grads)))
-          (declare (double-float dx dy dz))
-          (let ((f-storage (cl-mpm/utils:fast-storage f-out))
-                (stress-storage (cl-mpm/utils:fast-storage stress)))
-            (incf (aref f-storage 0)
-                  (* -1d0 volume
-                     (+
-                      (* dx (aref stress-storage 0))
-                      (* dz (aref stress-storage 4))
-                      (* dy (aref stress-storage 5)))))
-            (incf (aref f-storage 1)
-                  (* -1d0 volume
-                     (+
-                      (* dy (aref stress-storage 1))
-                      (* dz (aref stress-storage 3))
-                      (* dx (aref stress-storage 5)))))
-            (incf (aref f-storage 2)
-                  (* -1d0 volume
-                     (+
-                      (* dz (aref stress-storage 2))
-                      (* dy (aref stress-storage 3))
-                      (* dx (aref stress-storage 4)))))))))
+    (declare (type double-float volume))
+    (let ((dx (cl-mpm/utils::gradients-dx grads))
+          (dy (cl-mpm/utils::gradients-dy grads))
+          (dz (cl-mpm/utils::gradients-dz grads)))
+      (declare (double-float dx dy dz))
+      (let ((f-storage (cl-mpm/utils:fast-storage f-out))
+            (stress-storage (cl-mpm/utils:fast-storage stress)))
+        (incf (aref f-storage 0)
+              (* -1d0 volume
+                 (+
+                  (* dx (aref stress-storage 0))
+                  (* dz (aref stress-storage 4))
+                  (* dy (aref stress-storage 5)))))
+        (incf (aref f-storage 1)
+              (* -1d0 volume
+                 (+
+                  (* dy (aref stress-storage 1))
+                  (* dz (aref stress-storage 3))
+                  (* dx (aref stress-storage 5)))))
+        (incf (aref f-storage 2)
+              (* -1d0 volume
+                 (+
+                  (* dz (aref stress-storage 2))
+                  (* dy (aref stress-storage 3))
+                  (* dx (aref stress-storage 4)))))))
     f-out))
 (declaim
  (inline det-int-force-unrolled-2d)
- (ftype (function (cl-mpm/particle::particle cl-mpm/utils::gradients double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
+ (ftype (function (magicl::matrix/double-float cl-mpm/utils::gradients double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
         det-int-force-unrolled-2d))
-(defun det-int-force-unrolled-2d (mp grads volume &optional f-out)
+(defun det-int-force-unrolled-2d (stress grads volume &optional f-out)
   "Calculate internal force contribution from mp at node"
   (let* ((f-out (if f-out f-out (cl-mpm/utils:vector-zeros))))
-    (with-accessors ((stress cl-mpm/particle:mp-stress)
-                     ;; (volume-ac cl-mpm/particle:mp-volume)
-                     ) mp
-      (let (;; (volume volume-ac)
-            )
-        (declare (type double-float volume))
-        (let ((dx (cl-mpm/utils::gradients-dx grads))
-              (dy (cl-mpm/utils::gradients-dy grads))
-              (dz (cl-mpm/utils::gradients-dz grads)))
-          (declare (double-float dx dy dz))
-          (let ((f-storage (cl-mpm/utils:fast-storage f-out))
-                (stress-storage (cl-mpm/utils:fast-storage stress)))
-            (incf (aref f-storage 0)
-                  (* -1d0 volume
-                     (+
-                      (* dx (aref stress-storage 0))
-                      (* dz (aref stress-storage 4))
-                      (* dy (aref stress-storage 5)))))
-            (incf (aref f-storage 1)
-                  (* -1d0 volume
-                     (+
-                      (* dy (aref stress-storage 1))
-                      (* dz (aref stress-storage 3))
-                      (* dx (aref stress-storage 5)))))))))
+    (declare (type double-float volume))
+    (let ((dx (cl-mpm/utils::gradients-dx grads))
+          (dy (cl-mpm/utils::gradients-dy grads))
+          (dz (cl-mpm/utils::gradients-dz grads)))
+      (declare (double-float dx dy dz))
+      (let ((f-storage (cl-mpm/utils:fast-storage f-out))
+            (stress-storage (cl-mpm/utils:fast-storage stress)))
+        (incf (aref f-storage 0)
+              (* -1d0 volume
+                 (+
+                  (* dx (aref stress-storage 0))
+                  (* dz (aref stress-storage 4))
+                  (* dy (aref stress-storage 5)))))
+        (incf (aref f-storage 1)
+              (* -1d0 volume
+                 (+
+                  (* dy (aref stress-storage 1))
+                  (* dz (aref stress-storage 3))
+                  (* dx (aref stress-storage 5)))))))
     f-out))
 
 

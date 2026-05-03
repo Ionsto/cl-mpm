@@ -824,7 +824,6 @@
                                (error (format nil "Access grid out of bounds at: ~a" pos)))
                          (apply #'aref
                                 (mesh-nodes mesh)
-                                ;; (sb-mop:standard-instance-access mesh 0)
                                 pos)))
 
 (defun get-node-array (mesh pos)
