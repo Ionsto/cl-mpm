@@ -123,7 +123,7 @@
                   while (>= rs-new crit)
                   do
                      (progn
-                       (setf ap (mask-op (funcall a-operator p)))
+                       (setf ap (funcall a-operator p))
                        (let ((alpha
                                (/
                                 rs-old
@@ -132,8 +132,8 @@
                          (fast-.- r (fast-scale ap alpha) r)
                          (mask-inplace x)
                          (mask-inplace r)
-                         (mask-inplace p)
-                         (mask-inplace ap)
+                         ;; (mask-inplace p)
+                         ;; (mask-inplace ap)
                          (setf rs-new (cl-mpm/fastmaths::mag-squared r))
                          (unless (< rs-new crit)
                            (setf p

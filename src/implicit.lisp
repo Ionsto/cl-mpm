@@ -825,20 +825,20 @@
                                       grads-b
                                       df-inv))))
                            (let ((stiff (magicl:@ (magicl:transpose g-a) stiffness g-b)))
-                             ;; (sb-thread:with-mutex ((sim-global-k-lock sim)))
-                             (dotimes (i nd)
-                               (declare (fixnum i))
-                               (dotimes (j nd)
-                                 (declare (fixnum j))
-                                 (let ((gi (+ (the fixnum (* nd (the fixnum (cl-mpm/mesh::node-stiffness-fd node)))) i))
-                                       (gj (+ (the fixnum (* nd (the fixnum (cl-mpm/mesh::node-stiffness-fd node-b)))) j)))
-                                   (vector-push-extend
-                                    (the double-float
-                                         (* (the double-float mp-volume)
-                                            (the double-float (cl-mpm/utils:mtref stiff i j))))
-                                    (sim-global-k-values sim))
-                                   (vector-push-extend gi (sim-global-k-rows sim))
-                                   (vector-push-extend gj (sim-global-k-cols sim))))))))))))))))))
+                             (sb-thread:with-mutex ((sim-global-k-lock sim))
+                               (dotimes (i nd)
+                                 (declare (fixnum i))
+                                 (dotimes (j nd)
+                                   (declare (fixnum j))
+                                   (let ((gi (+ (the fixnum (* nd (the fixnum (cl-mpm/mesh::node-stiffness-fd node)))) i))
+                                         (gj (+ (the fixnum (* nd (the fixnum (cl-mpm/mesh::node-stiffness-fd node-b)))) j)))
+                                     (vector-push-extend
+                                      (the double-float
+                                           (* (the double-float mp-volume)
+                                              (the double-float (cl-mpm/utils:mtref stiff i j))))
+                                      (sim-global-k-values sim))
+                                     (vector-push-extend gi (sim-global-k-rows sim))
+                                     (vector-push-extend gj (sim-global-k-cols sim)))))))))))))))))))
 
       (setf global-k (cl-mpm/utils::build-sparse-matrix
                       (sim-global-k-values sim)
@@ -1267,10 +1267,6 @@
     (incf solve-count)
     (cl-mpm::apply-bcs mesh bcs dt)
     (assemble-stiffness sim)
-    ;; (pprint (if (sim-enable-sparse-k sim)
-    ;;                      (cl-mpm/utils::sparse-to-mat (cl-mpm/implicit::sim-global-k sim))
-    ;;                      (sim-global-k sim)))
-    ;; (break)
     ;;Assemble the global K matrix
     (if (cl-mpm/aggregate::sim-enable-aggregate sim)
         (solve-aggregate sim)
