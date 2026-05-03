@@ -81,7 +81,8 @@
              mp
            (let ((mp-volume mp-volume)
                  (mp-pmod (cl-mpm/particle::estimate-stiffness mp))
-                 (ul (estimate-ul-enhancement mp nd)))
+                 (ul (estimate-ul-enhancement mp nd))
+                 )
              (declare (type double-float mp-pmod mp-volume))
              (cl-mpm::iterate-over-neighbours
               mesh mp
@@ -280,7 +281,8 @@
     (cl-mpm::update-filtered-cells sim)
     ;; (cl-mpm::update-dynamic-stats sim)
     (cl-mpm::g2p mesh mps dt damping :TRIAL)
-    (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)))
+    (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC))
+  )
 
 
 

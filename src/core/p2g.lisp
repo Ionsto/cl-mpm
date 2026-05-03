@@ -126,14 +126,18 @@
   "Map particle forces to the grid for one mp"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
-  (iterate-over-neighbours
+  (with-accessors ((stress cl-mpm/particle::mp-stress)
+                   (volume cl-mpm/particle:mp-volume))
+      mp
+    (declare (type double-float volume))
+    (iterate-over-neighbours
      mesh mp
      (lambda (node svp grads fsvp fgrads)
        (declare
         (cl-mpm/particle:particle mp)
         (cl-mpm/mesh::node node)
         (double-float svp)
-        (ignore mesh fsvp fgrads))
+        (ignore fsvp fgrads))
        (with-accessors ((node-active  cl-mpm/mesh:node-active)
                         (node-int-force cl-mpm/mesh::node-internal-force)
                         (node-ext-force cl-mpm/mesh::node-external-force)
@@ -143,10 +147,9 @@
                   (sb-thread:mutex node-lock)
                   (magicl:matrix/double-float node-int-force node-ext-force))
          (when node-active
-           (let ((volume (cl-mpm/particle::mp-volume mp)))
-             (sb-thread:with-mutex (node-lock)
-               (det-ext-force mp node svp gravity volume node-ext-force)
-               (det-int-force-unrolled mp grads volume node-int-force)))))))
+           (sb-thread:with-mutex (node-lock)
+             (det-ext-force mp node svp gravity volume node-ext-force)
+             (det-int-force-unrolled stress grads volume node-int-force)))))))
   (values))
 
 (declaim (inline p2g-force-mp-fs)
@@ -156,7 +159,8 @@
   "Map particle forces to the grid for one mp"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
-  (let ((df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse mp)))
+  (let ((df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse mp))
+        (stress (cl-mpm/particle::mp-stress mp)))
     (iterate-over-neighbours
      mesh mp
      (lambda (node svp grads fsvp fgrads)
@@ -164,7 +168,7 @@
         (cl-mpm/particle:particle mp)
         (cl-mpm/mesh::node node)
         (double-float svp)
-        (ignore mesh fsvp fgrads))
+        (ignore fsvp fgrads))
        (with-accessors ((node-active  cl-mpm/mesh:node-active)
                         (node-int-force cl-mpm/mesh::node-internal-force)
                         (node-ext-force cl-mpm/mesh::node-external-force)
@@ -178,7 +182,7 @@
                  (volume (cl-mpm/particle::mp-volume mp)))
              (sb-thread:with-mutex (node-lock)
                (det-ext-force mp node svp gravity volume node-ext-force)
-               (det-int-force-unrolled mp grads   volume node-int-force))))))))
+               (det-int-force-unrolled stress grads volume node-int-force))))))))
   (values))
 
 (declaim (notinline p2g-force-mp-2d)
@@ -187,7 +191,8 @@
   "Map particle forces to the grid for one mp"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
-  (let ((df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse mp)))
+  (let ((df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse mp))
+        (stress (cl-mpm/particle::mp-stress mp)))
     (iterate-over-neighbours
      mesh mp
      (lambda (node svp grads fsvp fgrads)
@@ -204,37 +209,36 @@
                   (magicl:matrix/double-float node-int-force node-ext-force))
          (when node-active
            (let ((grads (cl-mpm::gradient-push-forwards-cached grads df-inv))
-                 (volume (cl-mpm/particle::mp-volume mp))
-                 )
+                 (volume (cl-mpm/particle::mp-volume mp)))
              (sb-thread:with-mutex (node-lock)
                (det-ext-force-2d mp node svp gravity volume node-ext-force)
-               (det-int-force-unrolled-2d mp grads volume node-int-force)
-               )))))))
+               (det-int-force-unrolled-2d stress grads volume node-int-force))))))))
   (values))
 
 (defun p2g-force-mp-2d (mesh mp gravity)
   "Map particle forces to the grid for one mp"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
-  (iterate-over-neighbours
-   mesh mp
-   (lambda (node svp grads fsvp fgrads)
-     (declare
-      (cl-mpm/particle:particle mp)
-      (cl-mpm/mesh::node node)
-      (double-float svp))
-     (with-accessors ((node-active  cl-mpm/mesh:node-active)
-                      (node-int-force cl-mpm/mesh::node-internal-force)
-                      (node-ext-force cl-mpm/mesh::node-external-force)
-                      (node-lock  cl-mpm/mesh:node-lock)) node
-       (declare (boolean node-active)
-                (sb-thread:mutex node-lock)
-                (magicl:matrix/double-float node-int-force node-ext-force))
-       (when node-active
-         (let ((volume (cl-mpm/particle::mp-volume mp)))
-           (sb-thread:with-mutex (node-lock)
-             (det-ext-force-2d mp node svp gravity volume node-ext-force)
-             (det-int-force-unrolled-2d mp grads volume node-int-force)))))))
+  (let ((stress (cl-mpm/particle::mp-stress mp)))
+    (iterate-over-neighbours
+     mesh mp
+     (lambda (node svp grads fsvp fgrads)
+       (declare
+        (cl-mpm/particle:particle mp)
+        (cl-mpm/mesh::node node)
+        (double-float svp))
+       (with-accessors ((node-active  cl-mpm/mesh:node-active)
+                        (node-int-force cl-mpm/mesh::node-internal-force)
+                        (node-ext-force cl-mpm/mesh::node-external-force)
+                        (node-lock  cl-mpm/mesh:node-lock)) node
+         (declare (boolean node-active)
+                  (sb-thread:mutex node-lock)
+                  (magicl:matrix/double-float node-int-force node-ext-force))
+         (when node-active
+           (let ((volume (cl-mpm/particle::mp-volume mp)))
+             (sb-thread:with-mutex (node-lock)
+               (det-ext-force-2d mp node svp gravity volume node-ext-force)
+               (det-int-force-unrolled-2d stress grads volume node-int-force))))))))
   (values))
 
 (defgeneric special-p2g (mp node svp dsvp)

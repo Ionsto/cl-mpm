@@ -1211,7 +1211,7 @@
   (let ((res (if res
                  (fast-zero res)
                  (cl-mpm/utils::deep-copy vec))))
-    (@-arb-vector-lisp mat vec 1d0 res)
+    (@-arb-vector-lisp mat vec res)
     res))
 
 (defun @-arb-arb-lisp (a b result)
@@ -1314,10 +1314,13 @@
      (* b (- (* c e) (* b f)))
      (* c (- (* b e) (* d c))))))
 
-(declaim (notinline fast-inv-3x3))
-(defun fast-inv-3x3 (mat)
-  (let ((mat-s (cl-mpm/utils:fast-storage mat)))
-    (macrolet ((mref (x y) `(aref mat-s (+ (* ,y 3) ,x))))
+(declaim (inline fast-inv-3x3))
+(defun fast-inv-3x3 (mat &optional res)
+  (let* ((mat-s (cl-mpm/utils:fast-storage mat))
+         (res (if res res (cl-mpm/utils:matrix-zeros)))
+         (res-s (cl-mpm/utils:fast-storage res)))
+    (declare ((simple-array double-float (9)) mat-s res-s))
+    (macrolet ((mref (x y) `(the double-float (aref mat-s (+ (* ,y 3) ,x)))))
       (let* ((det
                (+
                 (* (mref 0 0) (- (* (mref 1 1) (mref 2 2)) (* (mref 2 1) (mref 1 2))))
@@ -1328,19 +1331,18 @@
           (error "Zero determinate"))
         (let ((inv-det (/ 1d0 det)))
           (declare (double-float inv-det))
-          (cl-mpm/utils:matrix-from-list
-           (list
-            (* inv-det      (- (* (mref 1 1) (mref 2 2)) (* (mref 2 1) (mref 1 2))))
-            (* -1d0 inv-det (- (* (mref 1 0) (mref 2 2)) (* (mref 1 2) (mref 2 0))))
-            (* inv-det      (- (* (mref 1 0) (mref 2 1)) (* (mref 2 0) (mref 1 1))))
-            (* -1d0 inv-det (- (* (mref 0 1) (mref 2 2)) (* (mref 0 2) (mref 2 1))))
-            (* inv-det      (- (* (mref 0 0) (mref 2 2)) (* (mref 0 2) (mref 2 0))))
-            (* -1d0 inv-det (- (* (mref 0 0) (mref 2 1)) (* (mref 2 0) (mref 0 1))))
-            (* inv-det      (- (* (mref 0 1) (mref 1 2)) (* (mref 0 2) (mref 1 1))))
-            (* -1d0 inv-det (- (* (mref 0 0) (mref 1 2)) (* (mref 1 0) (mref 0 2))))
-            (* inv-det      (- (* (mref 0 0) (mref 1 1)) (* (mref 1 0) (mref 0 1))))))
-          ))
-      )))
+          (setf
+           (aref res-s 0) (* inv-det      (- (* (mref 1 1) (mref 2 2)) (* (mref 2 1) (mref 1 2))))
+           (aref res-s 1) (* -1d0 inv-det (- (* (mref 1 0) (mref 2 2)) (* (mref 1 2) (mref 2 0))))
+           (aref res-s 2) (* inv-det      (- (* (mref 1 0) (mref 2 1)) (* (mref 2 0) (mref 1 1))))
+           (aref res-s 3) (* -1d0 inv-det (- (* (mref 0 1) (mref 2 2)) (* (mref 0 2) (mref 2 1))))
+           (aref res-s 4) (* inv-det      (- (* (mref 0 0) (mref 2 2)) (* (mref 0 2) (mref 2 0))))
+           (aref res-s 5) (* -1d0 inv-det (- (* (mref 0 0) (mref 2 1)) (* (mref 2 0) (mref 0 1))))
+           (aref res-s 5) (* inv-det      (- (* (mref 0 1) (mref 1 2)) (* (mref 0 2) (mref 1 1))))
+           (aref res-s 6) (* -1d0 inv-det (- (* (mref 0 0) (mref 1 2)) (* (mref 1 0) (mref 0 2))))
+           (aref res-s 8) (* inv-det      (- (* (mref 0 0) (mref 1 1)) (* (mref 1 0) (mref 0 1)))))
+          res)))))
+
 (defun linear-solve-3x3-voigt (mat voigt &optional result)
   (let ((result (if result result (cl-mpm/utils:voigt-zeros))))
     (let ((mat-s (cl-mpm/utils:fast-storage mat))

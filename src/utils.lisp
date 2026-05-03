@@ -239,53 +239,59 @@
          (ftype (function (magicl:matrix/double-float)
                           magicl:matrix/double-float) matrix-copy))
 (defun matrix-copy (mat)
-  (let ((v (matrix-zeros)))
-    (aops:copy-into (magicl::matrix/double-float-storage v)
-                    (magicl::matrix/double-float-storage mat))
-    v))
+  (matrix-copy-into mat (matrix-zeros)))
 
 (defun vector-copy (vec)
-  (let ((v (vector-zeros)))
-    (aops:copy-into (magicl::matrix/double-float-storage v)
-                    (magicl::matrix/double-float-storage vec))
-    v)
-  )
+  (vector-copy-into vec (vector-zeros)))
 
 (declaim (ftype (function (magicl::matrix/double-float
                            magicl::matrix/double-float) magicl::matrix/double-float) vector-copy-into))
 (defun vector-copy-into (source target)
   "Copy a vector from source into target"
-  (aops:copy-into (magicl::matrix/double-float-storage target)
-                  (magicl::matrix/double-float-storage source))
+  (let ((s-s (cl-mpm/utils::fast-storage source))
+        (t-s (cl-mpm/utils::fast-storage target)))
+    (declare ((simple-array double-float (3)) s-s)
+             ((simple-array double-float (3)) t-s))
+    (loop for i from 0 below 3
+          do (setf (aref s-s i) (aref t-s i))))
   target)
 
 (declaim (ftype (function (magicl::matrix/double-float) magicl::matrix/double-float) voigt-copy))
 (defun voigt-copy (vec)
-  (let ((v (voigt-zeros)))
-    (aops:copy-into (magicl::matrix/double-float-storage v)
-                    (magicl::matrix/double-float-storage vec))
-    v))
+  (voigt-copy-into vec (voigt-zeros)))
 
 (declaim (ftype (function (magicl::matrix/double-float
                            magicl::matrix/double-float
                            ) magicl::matrix/double-float) voigt-copy-into))
 (defun voigt-copy-into (source target)
   "Copy a vector from source into target"
-  (aops:copy-into (magicl::matrix/double-float-storage target)
-                  (magicl::matrix/double-float-storage source)
-                  ) target)
+  (let ((s-s (cl-mpm/utils::fast-storage source))
+        (t-s (cl-mpm/utils::fast-storage target)))
+    (declare ((simple-array double-float (6)) s-s)
+             ((simple-array double-float (6)) t-s))
+    (loop for i from 0 below 6
+          do (setf (aref s-s i) (aref t-s i))))
+   target)
 
 (defun matrix-copy-into (source target)
   "Copy a vector from source into target"
-  (aops:copy-into (magicl::matrix/double-float-storage target)
-                  (magicl::matrix/double-float-storage source)
-                  ) target)
+  (let ((s-s (cl-mpm/utils::fast-storage source))
+        (t-s (cl-mpm/utils::fast-storage target)))
+    (declare ((simple-array double-float (9)) s-s)
+             ((simple-array double-float (9)) t-s))
+    (loop for i from 0 below 9
+          do (setf (aref s-s i) (aref t-s i))))
+   target)
 
 (defun copy-into (source target)
   "Copy a matrix from source into target"
-  (aops:copy-into (magicl::matrix/double-float-storage target)
-                  (magicl::matrix/double-float-storage source)
-                  ) target)
+  (let ((s-s (cl-mpm/utils::fast-storage source))
+        (t-s (cl-mpm/utils::fast-storage target)))
+    (declare ((simple-array double-float (*)) s-s)
+             ((simple-array double-float (*)) t-s))
+    (loop for i from 0 below (length t-s)
+          do (setf (aref s-s i) (aref t-s i))))
+   target)
 
 (defun voigt-contra->covar (vec)
   (let* ((v (voigt-copy vec))
