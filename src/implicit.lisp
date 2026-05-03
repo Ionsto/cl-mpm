@@ -792,7 +792,7 @@
        (fill-pointer (sim-global-k-values sim)) 0
        (fill-pointer (sim-global-k-rows sim)) 0
        (fill-pointer (sim-global-k-cols sim)) 0)
-      (cl-mpm::iterate-over-mps-serial
+      (cl-mpm::iterate-over-mps
        mps
        (lambda (mp)
          (let ((stiffness (assemble-mp-stiffness mesh mp))
