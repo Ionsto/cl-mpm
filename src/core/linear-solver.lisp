@@ -95,40 +95,56 @@
 ;;    )
 ;;   )
 
-(defun solve-conjugant-gradients (A-operator b &key (tol 1d-9) (max-iters 10000))
+(defun solve-conjugant-gradients (A-operator b &key (tol 1d-9) (max-iters 10000)
+                                                 (mask nil))
   (declare (function a-operator))
-  (let ((vector-size (magicl:nrows b))
-        (b-norm (mag b)))
-    (if (= b-norm 0d0)
-        ;;Trivial case of 0 being the answer
-        (cl-mpm/utils::arb-matrix vector-size 1)
-        ;;Nontrivial case
-        (let* ((x (cl-mpm/utils::arb-matrix vector-size 1))
-               (r (fast-.- b (funcall a-operator x)))
-               (p r)
-               (ap (cl-mpm/utils::arb-matrix vector-size 1))
-               (rs-old (cl-mpm/fastmaths::mag-squared r))
-               (crit tol)
-               (rs-new crit))
-          (loop for i from 0 to max-iters
-                while (>= rs-new crit)
-                do
-                   (progn
-                     (setf ap (funcall a-operator p))
-                     (let ((alpha
-                             (/
-                              rs-old
-                              (dot p ap))))
-                       (fast-.+ x (fast-scale p alpha) x)
-                       (fast-.- r (fast-scale ap alpha) r)
-                       (setf rs-new (cl-mpm/fastmaths::mag-squared r))
-                       (unless (< rs-new crit)
-                         (setf p
-                               (fast-.+
-                                r
-                                (fast-scale p (/ rs-new rs-old)))))
-                       (setf rs-old rs-new))))
-          x))))
+  (labels ((mask-op (x)
+             (if mask
+                 (cl-mpm/fastmaths:fast-.* x mask)
+                 x))
+           (mask-inplace (x)
+               (when mask
+                   (cl-mpm/fastmaths:fast-.* x mask x))))
+    (mask-inplace b)
+    (let ((vector-size (magicl:nrows b))
+          (b-norm (mag b)))
+      (if (= b-norm 0d0)
+          ;;Trivial case of 0 being the answer
+          (cl-mpm/utils::arb-matrix vector-size 1)
+          ;;Nontrivial case
+          (let* ((x (cl-mpm/utils::arb-matrix vector-size 1))
+                 (r (mask-op (fast-.- b (funcall a-operator x))))
+                 (p r)
+                 (ap (cl-mpm/utils::arb-matrix vector-size 1))
+                 (rs-old (cl-mpm/fastmaths::mag-squared r))
+                 (crit tol)
+                 (rs-new crit))
+            (loop for i from 0 to max-iters
+                  while (>= rs-new crit)
+                  do
+                     (progn
+                       (setf ap (mask-op (funcall a-operator p)))
+                       (let ((alpha
+                               (/
+                                rs-old
+                                (dot p ap))))
+                         (fast-.+ x (fast-scale p alpha) x)
+                         (fast-.- r (fast-scale ap alpha) r)
+                         (mask-inplace x)
+                         (mask-inplace r)
+                         (mask-inplace p)
+                         (mask-inplace ap)
+                         (setf rs-new (cl-mpm/fastmaths::mag-squared r))
+                         (unless (< rs-new crit)
+                           (setf p
+                                 (fast-.+
+                                  r
+                                  (fast-scale p (/ rs-new rs-old)))))
+                         (setf rs-old rs-new)))
+                     finally (when (> rs-new crit)
+                       (error "Conjugate gradients didn't converge")))
+            (mask-inplace x)
+            x)))))
 
 
 (defun test ()

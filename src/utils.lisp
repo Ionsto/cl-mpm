@@ -203,7 +203,9 @@
          (cols (magicl::matrix/double-float-ncols m))
          (total (* rows cols)))
     (declare (fixnum rows cols total))
-    (magicl::make-matrix/double-float rows cols total :column-major (make-array total :element-type 'double-float))))
+    (magicl::make-matrix/double-float rows cols total :column-major
+                                      (make-array total :element-type 'double-float
+                                                        :initial-element 0d0))))
 
 (declaim (inline vector-zeros)
          (ftype (function ()
@@ -881,6 +883,13 @@
   nrows
   ncols)
 
+(defstruct sparse-matrix-ccs
+  "Sparse matrix compressed column storage"
+  values
+  rows
+  colindex
+  nrows
+  ncols)
 
 
 
@@ -889,7 +898,14 @@
     (let* ((permutation (make-array len :element-type 'fixnum)))
       (loop for i from 0 below (length values)
             do (setf (aref permutation i) i))
-      (lparallel:psort permutation #'< :key (lambda (i) (aref rows i)))
+      (lparallel:psort permutation (lambda (i j)
+                                     (or (< (aref rows i)
+                                            (aref rows j))
+                                         (and
+                                          (= (aref rows i)
+                                             (aref rows j))
+                                          (< (aref cols i)
+                                             (aref cols j))))))
       (let* ((sorted-values (make-array len :element-type 'double-float :fill-pointer len))
              (sorted-cols   (make-array len :element-type 'fixnum :fill-pointer len))
              (sorted-rows   (make-array len :element-type 'fixnum :fill-pointer len)))
@@ -927,21 +943,32 @@
           (setf (fill-pointer sorted-values) rolling-index
                 (fill-pointer sorted-cols)   rolling-index
                 (fill-pointer sorted-rows)   rolling-index))
-        (values sorted-values sorted-rows sorted-cols )
-        )))
-  )
+        (values
+         (subseq sorted-values 0)
+         (subseq sorted-rows 0)
+         (subseq sorted-cols 0))
+        ;; (values (coerce sorted-values '(simple-array double-float (*)))
+        ;;         (coerce sorted-rows   '(simple-array fixnum (*)))
+        ;;         (coerce sorted-cols   '(simple-array fixnum (*))))
+        ))))
 
 (defun build-sparse-matrix (values rows cols nrows ncols)
   "Take a triplet of vectors of (value row col) and make a sparse matrix in compressed row storage"
   (multiple-value-bind (v cr cc) (cl-mpm/utils::sort-and-sum values rows cols)
+    ;; (pprint v)
+    ;; (pprint cr)
+    ;; (pprint cc)
     (let ((rolling-index 0)
-          (row -1)
+          (row 0)
           (rowindex (make-array (1+ nrows) :element-type 'fixnum :initial-element 0)))
       (loop for i from 0
             for r across cr
             do
                (progn
                   (unless (= row r)
+                    (loop for j from (1+ row) below r
+                          when (> j 0)
+                          do (setf (aref rowindex j) rolling-index))
                     (setf (aref rowindex r) rolling-index)
                     (setf row r))
                   (incf rolling-index)))
@@ -949,6 +976,52 @@
       (make-sparse-matrix :values v
                           :cols cc
                           :rowindex rowindex
+                          :nrows nrows
+                          :ncols ncols))))
+(defun mat-to-sparse (mat)
+  (let ((v (make-array 0 :adjustable t :fill-pointer 0 :element-type 'double-float))
+        (r (make-array 0 :adjustable t :fill-pointer 0 :element-type 'fixnum))
+        (c (make-array 0 :adjustable t :fill-pointer 0 :element-type 'fixnum)))
+    (loop for x below (magicl:nrows mat) do
+      (loop for y below (magicl:ncols mat)
+            when (> (abs (cl-mpm/utils::mtref mat x y)) 0d0)
+              do (progn
+                   (vector-push-extend (cl-mpm/utils::mtref mat x y) v)
+                   (vector-push-extend x r)
+                   (vector-push-extend y c))))
+    (values v r c)))
+(defun sparse-to-mat (mat)
+  (let ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
+        (cols (cl-mpm/utils::sparse-matrix-cols mat))
+        (values (cl-mpm/utils::sparse-matrix-values mat))
+        (res (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows mat) (cl-mpm/utils::sparse-matrix-ncols mat))))
+    (dotimes (r (cl-mpm/utils::sparse-matrix-nrows mat))
+      (let ((col-0 (aref rowindex r))
+            (col-1 (aref rowindex (1+ r))))
+        (loop for c from col-0 below col-1 do
+          (setf (mtref res r (aref cols c))
+                (the double-float
+                     (aref values c))))))
+    res))
+
+(defun build-sparse-matrix-ccs (values rows cols nrows ncols)
+  "Take a triplet of vectors of (value row col) and make a sparse matrix in compressed row storage"
+  (multiple-value-bind (v cc cr) (cl-mpm/utils::sort-and-sum values cols rows)
+    (let ((rolling-index 0)
+          (col -1)
+          (colindex (make-array (1+ ncols) :element-type 'fixnum :initial-element 0)))
+      (loop for i from 0
+            for r across cc
+            do
+               (progn
+                 (unless (= col r)
+                   (setf (aref colindex r) rolling-index)
+                   (setf col r))
+                 (incf rolling-index)))
+      (setf (aref colindex (1+ col)) rolling-index)
+      (make-sparse-matrix-ccs :values v
+                          :rows cr
+                          :colindex colindex
                           :nrows nrows
                           :ncols ncols))))
 

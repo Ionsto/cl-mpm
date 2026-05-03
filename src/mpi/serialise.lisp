@@ -86,9 +86,8 @@
          ,@(mapcar (lambda (slot-entry)
                      (destructuring-bind (type var-name accessor-name)
                          slot-entry
-                       var-name)
-                     ) mapping-list)
-         )
+                       var-name))
+            mapping-list))
        (defun ,ser-name (objects)
          (let* ((node-count (length objects))
                 (packet-size ,packet-size)
@@ -113,14 +112,9 @@
                              (destructuring-bind (type var-name accessor-name)
                                  slot-entry
                                (let ((push-name (intern (format nil "PUSH-~:@(~A~)" type))))
-                                 `(,push-name output ,var-name inc)
-                                 ))
-                             ) mapping-list)
-                 )
-               ))
-           output
-           )
-         )
+                                 `(,push-name output ,var-name inc))))
+                           mapping-list))))
+           output))
        (defun ,deser-name (array)
          (let* ((node-count (floor (length array) ,packet-size))
                 (output (make-array node-count :element-type ',mpi-object-name))
@@ -137,12 +131,8 @@
                                              slot-entry
                                            (let ((pull-name (intern (format nil "PULL-~:@(~A~)" type)))
                                                  (var-keyword (intern (format nil "~:@(~A~)" var-name) "KEYWORD")))
-                                             `(,var-keyword (,pull-name array inc))))) mapping-list))
-                      ))
-               ))
-           output))
-         )
-       ))
+                                             `(,var-keyword (,pull-name array inc))))) mapping-list))))))
+           output)))))
 
 (make-mpi-ser
  damage-mp

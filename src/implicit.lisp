@@ -17,8 +17,11 @@
   ((sim-nodes-fd
     :initform nil
     :accessor sim-nodes-fd)
+   (enable-sparse-k
+    :initform t
+    :accessor sim-enable-sparse-k)
    (global-k
-    :initform nil
+    :initform t
     :accessor sim-global-k)
    (global-k-values
     :initform (make-array 0 :fill-pointer 0 :adjustable t :element-type 'double-float)
@@ -660,7 +663,8 @@
 
 (defun build-stiffness-matrix (sim)
   (with-accessors ((nodes-fd sim-nodes-fd)
-                   (mesh cl-mpm::sim-mesh))
+                   (mesh cl-mpm::sim-mesh)
+                   (sparse sim-enable-sparse-k))
       sim
     (setf
      nodes-fd
@@ -669,16 +673,21 @@
       (lparallel:pdotimes (i (length nodes-fd))
         do (progn
              (setf (cl-mpm/mesh::node-stiffness-fd (aref nodes-fd i)) i))))
-    (setf
-     (fill-pointer (sim-global-k-values sim)) 0
-     (fill-pointer (sim-global-k-rows sim)) 0
-     (fill-pointer (sim-global-k-cols sim)) 0)
-    ;; (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
-    ;;        (len (* nd (length nodes-fd))))
-    ;;   (setf (sim-global-k sim)
-    ;;         (cl-mpm/utils::arb-matrix
-    ;;          len len)))
-    ))
+    (if sparse
+        (progn
+          (setf
+           ;; (sim-global-k-values sim) (make-array 0 :fill-pointer 0 :adjustable t :element-type 'double-float)
+           ;; (sim-global-k-rows sim) (make-array 0 :fill-pointer 0 :adjustable t :element-type 'fixnum)
+           ;; (sim-global-k-cols sim) (make-array 0 :fill-pointer 0 :adjustable t :element-type 'fixnum)
+           (fill-pointer (sim-global-k-values sim)) 0
+           (fill-pointer (sim-global-k-rows sim)) 0
+           (fill-pointer (sim-global-k-cols sim)) 0
+           ))
+        (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
+               (len (* nd (length nodes-fd))))
+          (setf (sim-global-k sim)
+                (cl-mpm/utils::arb-matrix
+                 len len))))))
 
 
 (defun assemble-g-3d (dsvp)
@@ -712,6 +721,10 @@
       result)))
 
 (defun assemble-stiffness (sim)
+  (if (sim-enable-sparse-k sim)
+      (assemble-stiffness-sparse sim)
+      (assemble-stiffness-dense sim)))
+(defun assemble-stiffness-dense (sim)
   (with-accessors ((mesh cl-mpm::sim-mesh)
                    (mps cl-mpm::sim-mps)
                    (global-k sim-global-k))
@@ -761,58 +774,101 @@
                                    (let ((gi (+ (the fixnum (* nd (the fixnum (cl-mpm/mesh::node-stiffness-fd node)))) i))
                                          (gj (+ (the fixnum (* nd (the fixnum (cl-mpm/mesh::node-stiffness-fd node-b)))) j)))
                                      ;;Dense assembly
-                                     ;; (incf (the double-float
-                                     ;;            (cl-mpm/utils:mtref global-k gi gj))
-                                     ;;       (* mp-volume
-                                     ;;          (the double-float (magicl:tref stiff i j))))
-                                     (sb-thread:with-mutex ((sim-global-k-lock sim))
-                                       (vector-push-extend
-                                                           (the double-float
-                                                                (* (the double-float mp-volume)
-                                                                   (the double-float (magicl:tref stiff i j))))
-                                                           (sim-global-k-values sim))
-                                       (vector-push-extend gi (sim-global-k-rows sim))
-                                       (vector-push-extend gj (sim-global-k-cols sim)))))))))))))))))))))))
+                                     (incf (the double-float
+                                                (cl-mpm/utils:mtref global-k gi gj))
+                                           (* (the double-float mp-volume)
+                                              (the double-float (magicl:tref stiff i j))))))))))))))))))))))))
+
+(defun assemble-stiffness-sparse (sim)
+  (with-accessors ((mesh cl-mpm::sim-mesh)
+                   (mps cl-mpm::sim-mps)
+                   (global-k sim-global-k))
+      sim
+    (with-accessors ((nd cl-mpm/mesh::mesh-nd))
+        mesh
+      (declare (fixnum nd))
+      ;; (cl-mpm/fastmaths:fast-zero global-k)
+      (setf
+       (fill-pointer (sim-global-k-values sim)) 0
+       (fill-pointer (sim-global-k-rows sim)) 0
+       (fill-pointer (sim-global-k-cols sim)) 0)
+      (cl-mpm::iterate-over-mps-serial
+       mps
+       (lambda (mp)
+         (let ((stiffness (assemble-mp-stiffness mesh mp))
+               (df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse mp))
+               (mp-volume (cl-mpm/particle::mp-volume mp)))
+           (declare (double-float mp-volume))
+           (cl-mpm::iterate-over-neighbours
+            mesh
+            mp
+            (lambda (node svp grads fsvp fgrads)
+              (declare (ignore svp fsvp fgrads))
+              (with-accessors ((node-active  cl-mpm/mesh:node-active)
+                               (node-lock  cl-mpm/mesh:node-lock))
+                  node
+                (declare (boolean node-active)
+                         (sb-thread:mutex node-lock))
+                (when node-active
+                  (let ((g-a (assemble-g-3d
+                              (cl-mpm::gradient-push-forwards-cached
+                               grads
+                               df-inv))))
+                    (cl-mpm::iterate-over-neighbours
+                     mesh
+                     mp
+                     (lambda (node-b svp-b grads-b fsvp-b fgrads-b)
+                       (declare (ignore svp-b fsvp-b fgrads-b))
+                       (when (cl-mpm::node-active node-b)
+                         (let ((g-b (assemble-g-3d
+                                     (cl-mpm::gradient-push-forwards-cached
+                                      grads-b
+                                      df-inv))))
+                           (let ((stiff (magicl:@ (magicl:transpose g-a) stiffness g-b)))
+                             ;; (sb-thread:with-mutex ((sim-global-k-lock sim)))
+                             (dotimes (i nd)
+                               (declare (fixnum i))
+                               (dotimes (j nd)
+                                 (declare (fixnum j))
+                                 (let ((gi (+ (the fixnum (* nd (the fixnum (cl-mpm/mesh::node-stiffness-fd node)))) i))
+                                       (gj (+ (the fixnum (* nd (the fixnum (cl-mpm/mesh::node-stiffness-fd node-b)))) j)))
+                                   (vector-push-extend
+                                    (the double-float
+                                         (* (the double-float mp-volume)
+                                            (the double-float (cl-mpm/utils:mtref stiff i j))))
+                                    (sim-global-k-values sim))
+                                   (vector-push-extend gi (sim-global-k-rows sim))
+                                   (vector-push-extend gj (sim-global-k-cols sim))))))))))))))))))
+
+      (setf global-k (cl-mpm/utils::build-sparse-matrix
+                      (sim-global-k-values sim)
+                      (sim-global-k-rows sim)
+                      (sim-global-k-cols sim)
+                      (the fixnum (* nd (length (sim-nodes-fd sim))))
+                      (the fixnum (* nd (length (sim-nodes-fd sim)))))))))
 
 
-(defun sparse-linear-solve-with-bcs (kv kr kc krn kcn v bcs &optional (target-vi nil))
+(defun sparse-linear-solve-with-bcs (ksparse v bcs &optional (target-vi nil))
   (let ((target-vi (if target-vi
                        target-vi
-                       (cl-mpm/utils::arb-matrix (magicl:nrows v) 1)
-                       )))
-    (let ((target-vi (if target-vi
-                         target-vi
-                         (cl-mpm/utils::arb-matrix (magicl:nrows v) 1)
-                         ))
-          (bc-map (make-array (magicl:nrows bcs) :fill-pointer 0))
-          (bc-remove-map (make-array (magicl:nrows bcs) :fill-pointer 0))
-          )
-      (cl-mpm/fastmaths:fast-zero target-vi)
-      (loop for i from 0
-            for bc across (magicl::storage bcs)
-            do (if (> bc 0d0)
-                 (vector-push-extend i bc-map)
-                 (vector-push-extend i bc-remove-map)
-                 ))
-      ;;TODO have a fallback if no bcs are applied (i.e. no resizing required)
-      (let ((reduced-size (length bc-map)))
-        ;;When we are solving a fully fixed system - i.e. out of plane dimensions
-        ;; (loop for bc in bc-remove-map)
-        (lparallel:premove-if
-         (lambda (i)
-           ))
-        
-        (when (> reduced-size 0)
-          (let* ((v-r (cl-mpm/utils::arb-matrix reduced-size 1)))
-            (dotimes (i reduced-size)
-              (dotimes (j reduced-size)
-                (setf (mtref a-r i j) (mtref ma (aref bc-map i) (aref bc-map j))))
-              (setf (varef v-r i) (varef v (aref bc-map i))))
-            (let ((vs (magicl::linear-solve A-r v-r)))
-              (dotimes (i reduced-size)
-                (setf (varef target-vi (aref bc-map i)) (varef vs i))))
-            )))
-    target-vi)))
+                       (cl-mpm/utils::empty-copy v))))
+    ;;TODO have a fallback if no bcs are applied (i.e. no resizing required)
+    (labels ((system-operation (x)
+               (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+                ksparse
+                x
+                bcs
+                bcs
+                )))
+      (let ((vs (cl-mpm/linear-solver::solve-conjugant-gradients #'system-operation v
+                                                                 :tol 1d-15
+                                                                 :max-iters 10000
+                                                                 :mask bcs)))
+        vs
+        ;; (cl-mpm/utils::copy-into vs target-vi)
+        ))
+    ;; target-vi
+    ))
 
 (defun linear-solve-with-bcs (ma v bcs &optional (target-vi nil))
   (let ((target-vi (if target-vi
@@ -1153,6 +1209,24 @@
       (update-agg sim))
     (setf initial-setup t)))
 
+(defun solve-aggregate (sim)
+  (let* ((E (cl-mpm/aggregate::sim-global-e sim))
+         (K (magicl:@ (magicl:transpose e) (sim-global-k sim) e))
+         (f (magicl:@ (magicl:transpose e) (assemble-forces sim)))
+         (bcs (assemble-global-bcs sim)))
+    (let ((ddisp (cl-mpm/fastmaths:fast-scale! (linear-solve-with-bcs K f bcs) 1d0)))
+      (increment-global-vec sim ddisp #'cl-mpm/mesh::node-displacment))))
+
+
+(defun solve-standard (sim)
+  (let* ((K (sim-global-k sim))
+         (f (assemble-forces sim))
+         (bcs (assemble-global-bcs sim)))
+    (if (sim-enable-sparse-k sim)
+        (let ((ddisp (sparse-linear-solve-with-bcs K f bcs)))
+          (increment-global-vec sim ddisp #'cl-mpm/mesh::node-displacment))
+        (let ((ddisp (linear-solve-with-bcs K f bcs)))
+          (increment-global-vec sim ddisp #'cl-mpm/mesh::node-displacment)))))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-implicit))
   (declare (cl-mpm::mpm-sim sim))
@@ -1193,20 +1267,14 @@
     (incf solve-count)
     (cl-mpm::apply-bcs mesh bcs dt)
     (assemble-stiffness sim)
+    ;; (pprint (if (sim-enable-sparse-k sim)
+    ;;                      (cl-mpm/utils::sparse-to-mat (cl-mpm/implicit::sim-global-k sim))
+    ;;                      (sim-global-k sim)))
+    ;; (break)
     ;;Assemble the global K matrix
     (if (cl-mpm/aggregate::sim-enable-aggregate sim)
-        (let* ((E (cl-mpm/aggregate::sim-global-e sim))
-               (K (magicl:@ (magicl:transpose e) (sim-global-k sim) e))
-               (f (magicl:@ (magicl:transpose e) (assemble-forces sim)))
-               (bcs (assemble-global-bcs sim)))
-          (let ((ddisp (cl-mpm/fastmaths:fast-scale! (linear-solve-with-bcs K f bcs) 1d0)))
-            (increment-global-vec sim ddisp #'cl-mpm/mesh::node-displacment)))
-        (let* ((K (sim-global-k sim))
-               (f (assemble-forces sim))
-               (bcs (assemble-global-bcs sim)))
-          (let ((ddisp (cl-mpm/fastmaths:fast-scale! (linear-solve-with-bcs K f bcs) 1d0)))
-            (increment-global-vec sim ddisp #'cl-mpm/mesh::node-displacment)))
-        )
+        (solve-aggregate sim)
+        (solve-standard sim))
     ;;Do 1 step of linear solver
     (cl-mpm::zero-grid-velocity mesh)
     (cl-mpm::apply-bcs mesh bcs dt)
@@ -1214,7 +1282,7 @@
     ;; (cl-mpm::update-nodes sim)
     ;; (cl-mpm::update-filtered-cells sim)
     (cl-mpm::apply-bcs mesh bcs dt)
-    (cl-mpm::update-dynamic-stats sim)
+    ;; (cl-mpm::update-dynamic-stats sim)
     (cl-mpm::g2p mesh mps dt damping :TRIAL)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC))
   )

@@ -10,8 +10,6 @@
         sim
       (let* ((index (mpi-rank-to-index sim rank))
              (bounds-list (mpm-sim-mpi-domain-bounds sim))
-             (h (cl-mpm/mesh:mesh-resolution mesh))
-             (halo-depth (mpm-sim-mpi-halo-depth sim))
              (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))))
         (loop for i from 0 below nd
               do
@@ -56,8 +54,7 @@
                                              left-neighbor :tag 1)
                                             (cl-mpi-extensions:mpi-isend-anything
                                              r
-                                             right-neighbor :tag 2)
-                                            )))
+                                             right-neighbor :tag 2))))
                                         ((and
                                           (= left-neighbor -1)
                                           (not (= right-neighbor -1)))
@@ -66,8 +63,7 @@
                                             (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
                                             (cl-mpi-extensions:mpi-isend-anything
                                              r
-                                             right-neighbor :tag 2)
-                                            )))
+                                             right-neighbor :tag 2))))
                                         ((and
                                           (not (= left-neighbor -1))
                                           (= right-neighbor -1))
@@ -77,12 +73,10 @@
                                             (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
                                             (cl-mpi-extensions:mpi-isend-anything
                                              l
-                                             left-neighbor :tag 1)
-                                            )))
+                                             left-neighbor :tag 1))))
                                         (t nil))))
                                (loop for packet in recv
-                                     do
-                                        (destructuring-bind (rank tag object) packet
+                                     do (destructuring-bind (rank tag object) packet
                                           (when object
                                             (funcall func object))))))))))))))))
 
@@ -592,13 +586,12 @@
                                       (destructuring-bind (rank tag object) packet
                                         (when (> (length object) 0)
                                           (when object
-                                            (loop for mp across object
-                                                  do (progn
-                                                       (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)
-                                                       (when (slot-exists-p mp 'cl-mpm/particle::damage-position)
-                                                         (setf (cl-mpm/particle::mp-damage-position mp) nil))
-                                                       (vector-push-extend mp mps)
-                                                       )))))))))))))))))
+                                            (lparallel:pdotimes (i (length object))
+                                              do (let ((mp (aref object i)))
+                                                   (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)
+                                                   (when (slot-exists-p mp 'cl-mpm/particle::damage-position)
+                                                     (setf (cl-mpm/particle::mp-damage-position mp) nil))
+                                                   (vector-push-extend mp mps))))))))))))))))))
   ;; (cl-mpi:mpi-barrier)
 ;  )
 
