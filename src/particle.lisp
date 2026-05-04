@@ -615,6 +615,7 @@
       (let ((lmax (reduce #'max (mapcar (lambda (x) (exp (- x))) l))))
         (* lmax lmax)))
     ;; (let ((l (cl-mpm/fastmaths::magicl-eigen-values-3x3 (voigt-to-matrix eps)))))
+    ;; (pprint eps)
     ;; (multiple-value-bind (s1 s2 s3) (cl-mpm/fastmaths::eigenvalues-3x3 eps)
     ;;   (declare (double-float s1 s2 s3))
     ;;   (let ((lmax (min s1 s2 s3)))

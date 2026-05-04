@@ -24,8 +24,8 @@
    #:mag
    ))
 
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
-;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
+;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 (in-package :cl-mpm/fastmaths)
 
 (require 'sb-simd)
@@ -1543,8 +1543,7 @@
                  (a11 (* a11 invMaxAbsElement))
                  (a12 (* a12 invMaxAbsElement))
                  (a22 (* a22 invMaxAbsElement))
-                 (norm (+ (* a01 a01) (* a02 a02) (* a12 a12)))
-                 )
+                 (norm (+ (* a01 a01) (* a02 a02) (* a12 a12))))
             (declare (double-float a00 a01 a02 a11 a12 a22 norm))
             (if (> norm 0d0)
                 (let* ((q (/ (+ a00 a11 a22) 3d0))
@@ -1558,13 +1557,13 @@
                        (c00 (- (* b11 b22) (* a12 a12)))
                        (c01 (- (* a01 b22) (* a12 a02)))
                        (c02 (- (* a01 a12) (* b11 a02)))
-                       (det (/ (+ (* b00 c00) (* -1 a01 c01) (* a02 c02)) (* p p p)))
+                       (det (/ (+ (* b00 c00) (* -1d0 a01 c01) (* a02 c02)) (* p p p)))
                        ;(halfDet (min 1d0 (max -1d0 (/ det 2d0))))
                        (halfDet (/ det 2d0))
                        (angle (/ (the double-float (acos halfDet)) 3d0))
                        ;; The number of digits in twoThirdsPi is chosen so that, whether float or double,
                        ;; the floating-point number is the closest to theoretical 2*pi/3.
-                       (twoThirdsPi 2.09439510239319549)
+                       (twoThirdsPi 2.09439510239319549d0)
                        (beta2 (* 2d0 (cos angle)))
                        (beta0 (* 2d0 (cos (+ angle twoThirdsPi))))
                        (beta1 (- (+ beta0 beta2))))
@@ -1574,13 +1573,13 @@
                   ;; eval[2] = q + p * beta2;
                   ;; The preconditioning scaled the matrix A, which scales the
                   ;; eigenvalues.
-                  (values (* (+ q (* p beta0)) maxAbsElement)
-                          (* (+ q (* p beta1)) maxAbsElement)
-                          (* (+ q (* p beta2)) maxAbsElement)))
+                  (values (the double-float (* (+ q (* p beta0)) maxAbsElement))
+                          (the double-float (* (+ q (* p beta1)) maxAbsElement))
+                          (the double-float (* (+ q (* p beta2)) maxAbsElement))))
                 ;;Diagonal matrix
-                (values (* maxAbsElement a00)
-                        (* maxAbsElement a11)
-                        (* maxAbsElement a22)))
+                (values (the double-float (* maxAbsElement a00))
+                        (the double-float (* maxAbsElement a11))
+                        (the double-float (* maxAbsElement a22))))
             )
           (values 0d0 0d0 0d0)))))
 ;; (let ((m (cl-mpm/utils:voigt-from-list (list 1d0 2d0 3d0 4d0 2d0 1d0)))
