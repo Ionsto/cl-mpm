@@ -1558,8 +1558,8 @@
                        (c01 (- (* a01 b22) (* a12 a02)))
                        (c02 (- (* a01 a12) (* b11 a02)))
                        (det (/ (+ (* b00 c00) (* -1d0 a01 c01) (* a02 c02)) (* p p p)))
-                       ;(halfDet (min 1d0 (max -1d0 (/ det 2d0))))
-                       (halfDet (/ det 2d0))
+                       (halfDet (min 1d0 (max -1d0 (/ det 2d0))))
+                       ;; (halfDet (/ det 2d0))
                        (angle (/ (the double-float (acos halfDet)) 3d0))
                        ;; The number of digits in twoThirdsPi is chosen so that, whether float or double,
                        ;; the floating-point number is the closest to theoretical 2*pi/3.
