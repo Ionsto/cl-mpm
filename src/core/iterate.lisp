@@ -745,7 +745,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                                              weight-fbar
                                                                              weights-fbar-x
                                                                              weights-fbar-y))
-                                                      (funcall func node
+                                                      (funcall func
+                                                               node
                                                                weight
                                                                (cl-mpm/utils::make-gradients gradx grady 0d0)
                                                                weight-fbar

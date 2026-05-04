@@ -178,7 +178,10 @@
                 )
               ;;Coombs fbar
               (progn
-                (let* ((df-fbar (cl-mpm/utils::object-pool-grab work-pool))
+                (let* ((df-fbar
+                         (cl-mpm/utils::matrix-eye 1d0)
+                         ;; (cl-mpm/utils::object-pool-grab work-pool)
+                                )
                        (nd (cl-mpm/mesh::mesh-nd mesh)))
                   (declare (fixnum nd))
                   (cl-mpm/fastmaths::matrix-reset-identity df-fbar)

@@ -76,8 +76,7 @@
        (lambda (mp)
          (let ((mp-volume (cl-mpm/particle::mp-volume mp))
                (mp-pmod (cl-mpm/particle::estimate-stiffness mp))
-               (ul (estimate-ul-enhancement mp nd))
-               )
+               (ul (estimate-ul-enhancement mp nd)))
            (declare (type double-float mp-pmod mp-volume))
            (cl-mpm::iterate-over-neighbours
             mesh mp
@@ -94,7 +93,7 @@
                 (when node-active
                   (sb-thread:with-mutex ((cl-mpm/mesh::node-lock node))
                     (declare (double-float ul h))
-                    (incf node-mass (* 1d0
+                    (incf node-mass (* 2d0
                                        mp-pmod
                                        svp
                                        mp-volume
