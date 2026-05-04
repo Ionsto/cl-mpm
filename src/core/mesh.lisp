@@ -814,6 +814,17 @@
   (let ((h (mesh-resolution mesh)))
     (mapcar (lambda (i) (* (the double-float h) (coerce i 'double-float))) index)))
 
+(defun index-to-id (mesh index)
+  (let ((mc (cl-mpm/mesh::mesh-count-array mesh)))
+    (declare (array-fixnum-3 mc))
+    (destructuring-bind (x y z) index
+      (declare (fixnum x y z))
+      (the fixnum
+           (+ (the fixnum (* (the fixnum (aref mc 1)) (the fixnum (aref mc 0)) z))
+              (the fixnum (* (aref mc 0) y))
+              x)))))
+
+
 (declaim (inline get-node)
          (ftype (function (mesh list) (or node null)) get-node))
 (defun get-node (mesh pos)

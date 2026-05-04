@@ -1341,8 +1341,8 @@
            (aref res-s 3) (* -1d0 inv-det (- (* (mref 0 1) (mref 2 2)) (* (mref 0 2) (mref 2 1))))
            (aref res-s 4) (* inv-det      (- (* (mref 0 0) (mref 2 2)) (* (mref 0 2) (mref 2 0))))
            (aref res-s 5) (* -1d0 inv-det (- (* (mref 0 0) (mref 2 1)) (* (mref 2 0) (mref 0 1))))
-           (aref res-s 5) (* inv-det      (- (* (mref 0 1) (mref 1 2)) (* (mref 0 2) (mref 1 1))))
-           (aref res-s 6) (* -1d0 inv-det (- (* (mref 0 0) (mref 1 2)) (* (mref 1 0) (mref 0 2))))
+           (aref res-s 6) (* inv-det      (- (* (mref 0 1) (mref 1 2)) (* (mref 0 2) (mref 1 1))))
+           (aref res-s 7) (* -1d0 inv-det (- (* (mref 0 0) (mref 1 2)) (* (mref 1 0) (mref 0 2))))
            (aref res-s 8) (* inv-det      (- (* (mref 0 0) (mref 1 1)) (* (mref 1 0) (mref 0 1)))))
           res)))))
 

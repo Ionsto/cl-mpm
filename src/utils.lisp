@@ -253,7 +253,7 @@
     (declare ((simple-array double-float (3)) s-s)
              ((simple-array double-float (3)) t-s))
     (loop for i from 0 below 3
-          do (setf (aref s-s i) (aref t-s i))))
+          do (setf (aref t-s i) (aref s-s i))))
   target)
 
 (declaim (ftype (function (magicl::matrix/double-float) magicl::matrix/double-float) voigt-copy))
@@ -270,7 +270,7 @@
     (declare ((simple-array double-float (6)) s-s)
              ((simple-array double-float (6)) t-s))
     (loop for i from 0 below 6
-          do (setf (aref s-s i) (aref t-s i))))
+          do (setf (aref t-s i) (aref s-s i))))
    target)
 
 (defun matrix-copy-into (source target)
@@ -280,7 +280,7 @@
     (declare ((simple-array double-float (9)) s-s)
              ((simple-array double-float (9)) t-s))
     (loop for i from 0 below 9
-          do (setf (aref s-s i) (aref t-s i))))
+          do (setf (aref t-s i) (aref s-s i))))
    target)
 
 (defun copy-into (source target)
@@ -290,7 +290,7 @@
     (declare ((simple-array double-float (*)) s-s)
              ((simple-array double-float (*)) t-s))
     (loop for i from 0 below (length t-s)
-          do (setf (aref s-s i) (aref t-s i))))
+          do (setf (aref t-s i) (aref s-s i))))
    target)
 
 (defun voigt-contra->covar (vec)

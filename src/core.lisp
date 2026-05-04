@@ -1123,3 +1123,54 @@ This modifies the dt of the simulation in the process
 (defun filter-bcs (sim filter)
   (let ((nodes (cl-mpm:sim-bcs sim)))
     (lparallel:premove-if-not filter nodes)))
+
+(defun morton-to-index-2d (id)
+  (let ((x 0)
+        (y 0))
+    (loop for b from 0 to 15
+          do (progn
+               (incf x (if (logbitp (* 2 b) id) (expt 2 b) 0))
+               (incf y (if (logbitp (1+ (* 2 b)) id) (expt 2 b) 0))))
+    (list x y 0)))
+(defun morton-to-index-3d (id)
+  (let ((x 0)
+        (y 0)
+        (z 0))
+    (loop for b from 0 to 10
+          do (progn
+               (incf x (if (logbitp (* 3 b) id) (expt 2 b) 0))
+               (incf y (if (logbitp (+ 1 (* 3 b)) id) (expt 2 b) 0))
+               (incf z (if (logbitp (+ 2 (* 3 b)) id) (expt 2 b) 0))
+               ))
+    (list x y z)))
+(defun morton-to-index (id nD)
+  (ecase nd
+    (1 (list id 0 0))
+    (2 (morton-to-index-2d id))
+    (3 (morton-to-index-3d id))))
+
+
+(defun domain-sort-mps (sim)
+  (let ((mesh (cl-mpm:sim-mesh sim)))
+    (let* ((node-count (array-total-size (cl-mpm/mesh::mesh-nodes mesh)))
+           (node-mp-list (make-array node-count :initial-contents (loop repeat node-count collect nil))))
+      (cl-mpm:iterate-over-mps
+       (cl-mpm:sim-mps sim)
+       (lambda (mp)
+         (let ((index (cl-mpm/mesh::position-to-index mesh (cl-mpm/particle:mp-position mp))))
+           (sb-thread::with-mutex ((cl-mpm/mesh::node-lock (cl-mpm/mesh:get-node mesh index)))
+             (let ((id (cl-mpm/mesh::index-to-id mesh index)))
+               (if (aref node-mp-list id)
+                   (vector-push-extend mp (aref node-mp-list id))
+                   (setf (aref node-mp-list id) (make-array 0 :adjustable t :fill-pointer 0))))))))
+      (let ((sorted-mps (make-array (length (cl-mpm:sim-mps sim)) :adjustable t :fill-pointer 0))
+            (nd (cl-mpm/mesh:mesh-nD mesh)))
+        (loop for i from 0 below (round (expt (reduce #'max (cl-mpm/mesh::mesh-count mesh)) nd))
+              do
+                 (let ((trial-index (morton-to-index i nd)))
+                   (when (cl-mpm/mesh::in-bounds mesh trial-index)
+                     (let ((id (cl-mpm/mesh::index-to-id mesh trial-index)))
+                       (when (aref node-mp-list id)
+                         (loop for mp across (aref node-mp-list id)
+                               do (vector-push-extend mp sorted-mps)))))))
+        (setf (cl-mpm::sim-mps sim) sorted-mps)))))
