@@ -858,17 +858,12 @@
                 ksparse
                 x
                 bcs
-                bcs
-                )))
+                bcs)))
       (let ((vs (cl-mpm/linear-solver::solve-conjugant-gradients #'system-operation v
                                                                  :tol 1d-15
                                                                  :max-iters 10000
                                                                  :mask bcs)))
-        vs
-        ;; (cl-mpm/utils::copy-into vs target-vi)
-        ))
-    ;; target-vi
-    ))
+        vs))))
 
 (defun linear-solve-with-bcs (ma v bcs &optional (target-vi nil))
   (let ((target-vi (if target-vi

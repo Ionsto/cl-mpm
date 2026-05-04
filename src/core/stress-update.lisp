@@ -103,98 +103,105 @@
          (ftype (function (cl-mpm/mesh::mesh
                            cl-mpm/particle:particle
                            boolean
-                           &optional (or null magicl:matrix/double-float)
+                           &optional
+                           magicl:matrix/double-float
+                           magicl:matrix/double-float
                            ) magicl:matrix/double-float)
                 calculate-df))
-(defun calculate-df (mesh mp fbar &optional (result nil))
-  (with-accessors ((dstrain cl-mpm/particle::mp-strain-rate)
-                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   (stretch-tensor-fbar cl-mpm/particle::mp-stretch-tensor-fbar)
-                   (jfbar cl-mpm/particle::mp-j-fbar)
-                   (def cl-mpm/particle:mp-deformation-gradient)
-                   (pos cl-mpm/particle:mp-position))
-      mp
-    (let* ((df (if result
-                   (cl-mpm/fastmaths::matrix-reset-identity result)
-                   (cl-mpm/utils:matrix-eye 1d0)))
-           (df-strain (cl-mpm/utils:matrix-eye 1d0)))
-      (cl-mpm/fastmaths::fast-.+-matrix df stretch-tensor df)
-      ;; (setf dJ (cl-mpm/fastmaths:det-3x3 df))
-      (when (< (cl-mpm/fastmaths:det-3x3 df) 0d0)
-        (error 'cl-mpm/errors:error-dF-negative))
-      (cl-mpm/utils:matrix-copy-into df df-strain)
-      ;;Explicit fbar
-      (when fbar
-        (if nil;;t exp: nil Coobs
-            (progn
-              (let ((j-inc (cl-mpm/fastmaths:det-3x3 df))
-                    (j-n
-                      1d0
-                      ;; (cl-mpm/fastmaths:det-3x3 def)
-                         )
-                    (gather-j 0d0)
-                    (nd (cl-mpm/mesh::mesh-nd mesh))
-                    (svp-sum 0d0)
-                    )
-                (iterate-over-neighbours
-                 mesh mp
-                 (lambda (node svp grads fsvp fgrads)
-                   (with-accessors ((node-active cl-mpm/mesh:node-active)
-                                    (node-j-inc cl-mpm/mesh::node-jacobian-inc)
-                                    (node-volume cl-mpm/mesh::node-volume))
-                       node
-                     (when node-active
-                       (incf svp-sum svp)
-                       ;; (incf gather-j (/ (* svp node-j-inc) node-volume))
-                       (incf gather-j (* svp node-j-inc))
-                       ))))
-                ;; (setf gather-j (/ gather-j svp-sum))
 
-                (setf (cl-mpm/particle::mp-debug-j mp) (/ gather-j (* j-inc j-n))
-                      (cl-mpm/particle::mp-debug-j-gather mp) gather-j)
+(let ((work-pool (cl-mpm/utils::make-object-pool
+                  :constructor (lambda ()
+                                 (cl-mpm/utils:matrix-eye 1d0)))))
+  (defun calculate-df (mesh mp fbar &optional (result nil)
+                                      (result-strain nil)
+                                      )
+    (with-accessors ((dstrain cl-mpm/particle::mp-strain-rate)
+                     (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
+                     (stretch-tensor-fbar cl-mpm/particle::mp-stretch-tensor-fbar)
+                     (jfbar cl-mpm/particle::mp-j-fbar)
+                     (def cl-mpm/particle:mp-deformation-gradient)
+                     (pos cl-mpm/particle:mp-position))
+        mp
+      (let* ((df (if result
+                     (cl-mpm/fastmaths::matrix-reset-identity result)
+                     (cl-mpm/utils:matrix-eye 1d0)))
+             (df-strain (if result
+                            (cl-mpm/fastmaths::matrix-reset-identity result-strain)
+                            (cl-mpm/utils:matrix-eye 1d0))))
+        (cl-mpm/fastmaths::fast-.+-matrix df stretch-tensor df)
+        ;; (setf dJ (cl-mpm/fastmaths:det-3x3 df))
+        (when (< (cl-mpm/fastmaths:det-3x3 df) 0d0)
+          (error 'cl-mpm/errors:error-dF-negative))
+        (cl-mpm/utils:matrix-copy-into df df-strain)
+        ;;Explicit fbar
+        (when fbar
+          (if nil;;t exp: nil Coobs
+              (progn
+                (let ((j-inc (cl-mpm/fastmaths:det-3x3 df))
+                      (j-n
+                        1d0
+                        ;; (cl-mpm/fastmaths:det-3x3 def)
+                        )
+                      (gather-j 0d0)
+                      (nd (cl-mpm/mesh::mesh-nd mesh))
+                      (svp-sum 0d0)
+                      )
+                  (iterate-over-neighbours
+                   mesh mp
+                   (lambda (node svp grads fsvp fgrads)
+                     (with-accessors ((node-active cl-mpm/mesh:node-active)
+                                      (node-j-inc cl-mpm/mesh::node-jacobian-inc)
+                                      (node-volume cl-mpm/mesh::node-volume))
+                         node
+                       (when node-active
+                         (incf svp-sum svp)
+                         ;; (incf gather-j (/ (* svp node-j-inc) node-volume))
+                         (incf gather-j (* svp node-j-inc))
+                         ))))
+                  ;; (setf gather-j (/ gather-j svp-sum))
 
-                (cl-mpm/fastmaths:fast-scale!
-                 df
-                 (expt
-                  (the double-float (/ gather-j (* j-inc j-n)))
-                  (/ 1 nd)))
-                (ecase nd
+                  (setf (cl-mpm/particle::mp-debug-j mp) (/ gather-j (* j-inc j-n))
+                        (cl-mpm/particle::mp-debug-j-gather mp) gather-j)
+
+                  (cl-mpm/fastmaths:fast-scale!
+                   df
+                   (expt
+                    (the double-float (/ gather-j (* j-inc j-n)))
+                    (/ 1 nd)))
+                  (ecase nd
                     (1 (setf (magicl:tref df 1 1) 1d0))
                     (2 (progn
-                             (setf (magicl:tref df 1 1) 1d0)
-                             (setf (magicl:tref df 2 2) 1d0)))
+                         (setf (magicl:tref df 1 1) 1d0)
+                         (setf (magicl:tref df 2 2) 1d0)))
                     (3 nil))
+                  )
                 )
-              )
-            ;;Coombs fbar
-            (progn
-              (let* ((df-fbar (cl-mpm/utils::matrix-eye 1d0))
-                     (nd (cl-mpm/mesh::mesh-nd mesh)))
-                (cl-mpm/fastmaths::fast-.+-matrix df-fbar stretch-tensor-fbar df-fbar)
-                (when (< (cl-mpm/fastmaths:det-3x3 df-fbar) 0d0)
-                  (error 'cl-mpm/errors:error-dF-negative))
-                (cl-mpm/fastmaths::fast-scale!
-                 df-strain
-                 (expt
-                  (the double-float (/ (cl-mpm/fastmaths:det-3x3 df-fbar)
-                                       (cl-mpm/fastmaths:det-3x3 df-strain)))
-                  (the double-float (/ 1d0 nd))))
-                (ecase nd
-                  (1
-                   (progn
-                     (setf (magicl:tref df-strain 1 1) 1d0)
-                     (setf (magicl:tref df-strain 2 2) 1d0))
-                   )
-                  (2 (progn
-                       (setf (magicl:tref df-strain 2 2) 1d0)))
-                  (3 nil))
-                ;; (when (= nd 1)
-                ;;   (setf (magicl:tref df 1 1) 1d0)
-                ;;   (setf (magicl:tref df 2 2) 1d0))
-                ;; (when (= nd 2)
-                ;;   (setf (magicl:tref df-strain 2 2) 1d0))
-                ))))
-      (values df df-strain))))
+              ;;Coombs fbar
+              (progn
+                (let* ((df-fbar (cl-mpm/utils::object-pool-grab work-pool))
+                       (nd (cl-mpm/mesh::mesh-nd mesh)))
+                  (declare (fixnum nd))
+                  (cl-mpm/fastmaths::matrix-reset-identity df-fbar)
+                  (cl-mpm/fastmaths::fast-.+-matrix df-fbar stretch-tensor-fbar df-fbar)
+                  (when (< (cl-mpm/fastmaths:det-3x3 df-fbar) 0d0)
+                    (error 'cl-mpm/errors:error-dF-negative))
+                  (cl-mpm/fastmaths::fast-scale!
+                   df-strain
+                   (expt
+                    (the double-float (/ (cl-mpm/fastmaths:det-3x3 df-fbar)
+                                         (cl-mpm/fastmaths:det-3x3 df-strain)))
+                    (the double-float (/ 1d0 nd))))
+                  (ecase nd
+                    (1
+                     (progn
+                       (setf (cl-mpm/utils:mtref df-strain 1 1) 1d0)
+                       (setf (cl-mpm/utils:mtref df-strain 2 2) 1d0))
+                     )
+                    (2 (progn
+                         (setf (cl-mpm/utils:mtref df-strain 2 2) 1d0)))
+                    (3 nil))
+                  ))))
+        (values df df-strain)))))
 
 ;;; Strain updates
 
@@ -234,37 +241,40 @@
                update-strain-kirchoff))
 
 
-(defun update-strain-kirchoff (mesh mp dt fbar)
-  "Finite strain kirchhoff strain update algorithm"
-  (with-accessors ((volume cl-mpm/particle:mp-volume)
-                   (volume-n cl-mpm/particle::mp-volume-n)
-                   (volume-0 cl-mpm/particle::mp-volume-0)
-                   (strain cl-mpm/particle:mp-strain)
-                   (strain-n cl-mpm/particle:mp-strain-n)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (def-0    cl-mpm/particle::mp-deformation-gradient-0)
-                   (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
-                   (df-inc-inv    cl-mpm/particle::mp-deformation-gradient-increment-inverse)
-                   (df-inc-strain-inv    cl-mpm/particle::mp-deformation-gradient-strain-increment-inverse)
-                   ) mp
-    (declare (type double-float volume volume-n))
-    (progn
-      (multiple-value-bind (df df-strain) (calculate-df mesh mp fbar df-inc)
-        (progn
-          (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-strain def-0 def))
-          ;; (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def-0 def))
-          (cl-mpm/utils:voigt-copy-into strain-n strain)
-          (cl-mpm/ext:kirchoff-update strain df-strain)
-          (setf volume (* volume-n (the double-float (cl-mpm/fastmaths::det-3x3 df-inc))))
-          (setf df-inc-inv (cl-mpm/fastmaths::fast-inv-3x3 df-inc))
-          (setf df-inc-strain-inv (cl-mpm/fastmaths::fast-inv-3x3 df-strain))
-          (when (<= volume 0d0)
-            (error 'cl-mpm/errors:error-volume-negative))
+(let ((work-pool (cl-mpm/utils::make-object-pool
+                  :constructor (lambda ()
+                                 (cl-mpm/utils:matrix-eye 1d0)))))
+  (defun update-strain-kirchoff (mesh mp dt fbar)
+    "Finite strain kirchhoff strain update algorithm"
+    (with-accessors ((volume cl-mpm/particle:mp-volume)
+                     (volume-n cl-mpm/particle::mp-volume-n)
+                     (volume-0 cl-mpm/particle::mp-volume-0)
+                     (strain cl-mpm/particle:mp-strain)
+                     (strain-n cl-mpm/particle:mp-strain-n)
+                     (def    cl-mpm/particle:mp-deformation-gradient)
+                     (def-0    cl-mpm/particle::mp-deformation-gradient-0)
+                     (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+                     (df-inc-inv    cl-mpm/particle::mp-deformation-gradient-increment-inverse)
+                     (df-inc-strain-inv    cl-mpm/particle::mp-deformation-gradient-strain-increment-inverse)
+                     ) mp
+      (declare (type double-float volume volume-n))
+      (let ((df-strain (cl-mpm/utils::object-pool-grab work-pool)))
+        ;; (declare (dynamic-extent df-strain))
+        (multiple-value-bind (df df-strain) (calculate-df mesh mp fbar df-inc df-strain)
+          (progn
+            (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-strain def-0 def))
+            (cl-mpm/utils:voigt-copy-into strain-n strain)
+            (cl-mpm/ext:kirchoff-update strain df-strain)
+            (setf volume (* volume-n (the double-float (cl-mpm/fastmaths::det-3x3 df-inc))))
+            (setf df-inc-inv (cl-mpm/fastmaths::fast-inv-3x3 df-inc df-inc-inv))
+            (setf df-inc-strain-inv (cl-mpm/fastmaths::fast-inv-3x3 df-strain df-inc-strain-inv))
+            ;; (when (<= volume 0d0)
+            ;;   (error 'cl-mpm/errors:error-volume-negative))
+            )
           )
         )
       )
-    )
-  (values))
+    (values)))
 
 
 (defun update-stress-kirchoff (mesh mp dt fbar)
