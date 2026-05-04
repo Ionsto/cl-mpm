@@ -356,8 +356,7 @@
 
 
 (defun estimate-ul-enhancement (particle nd)
-  (with-accessors ((df-inv cl-mpm/particle::mp-deformation-gradient-increment-inverse))
-      particle
+  (let ((df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse particle)))
     (ecase nd
       (1
        (let* ((grads (cl-mpm::gradient-push-forwards-cached (cl-mpm/utils::make-gradients 1d0 0d0 0d0) df-inv))

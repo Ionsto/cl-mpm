@@ -22,19 +22,22 @@
    #:fast-zero
    #:fast-sum
    #:mag
-    ))
+   ))
 
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 (in-package :cl-mpm/fastmaths)
 
 (require 'sb-simd)
+(pushnew :sb-simd *features*)
+
 (eval-when
     (:compile-toplevel)
   (pushnew :sb-simd *features*)
   (require 'sb-simd)
   ;; #+:sb-simd (require 'sb-simd)
   )
+#+:sb-simd (format t "~%Built with sb-simd~%")
 
 #+:sb-simd
 (progn

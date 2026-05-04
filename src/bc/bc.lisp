@@ -149,8 +149,8 @@
             for v in value
             do
                (when v
-                 (sb-thread:with-mutex (lock)
-                   (setf (aref (cl-mpm/mesh::node-fixities node) d) t)
+                 (sb-thread::with-mutex (lock)
+                   ;; (setf (aref (cl-mpm/mesh::node-fixities node) d) t)
                    (setf (varef (cl-mpm/mesh:node-velocity node) d) 0d0)
                    (setf (varef (cl-mpm/mesh:node-acceleration node) d) 0d0)
                    (setf (varef (cl-mpm/mesh::node-displacment node) d) 0d0)

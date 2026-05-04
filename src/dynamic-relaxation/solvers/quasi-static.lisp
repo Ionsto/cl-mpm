@@ -74,41 +74,33 @@
       (cl-mpm::iterate-over-mps
        mps
        (lambda (mp)
-         (with-accessors ((mp-volume cl-mpm/particle::mp-volume)
-                          (mp-volume-n cl-mpm/particle::mp-volume-n)
-                          (mp-pmod cl-mpm/particle::mp-p-modulus)
-                          (df cl-mpm/particle::mp-deformation-gradient-increment-inverse))
-             mp
-           (let ((mp-volume mp-volume)
-                 (mp-pmod (cl-mpm/particle::estimate-stiffness mp))
-                 (ul (estimate-ul-enhancement mp nd))
-                 )
-             (declare (type double-float mp-pmod mp-volume))
-             (cl-mpm::iterate-over-neighbours
-              mesh mp
-              (lambda (node svp grads fsvp fgrads)
-                (declare
-                 (cl-mpm/particle:particle mp)
-                 (cl-mpm/mesh::node node)
-                 (ignore grads fsvp fgrads)
-                 (double-float svp))
-                (with-accessors ((node-active  cl-mpm/mesh::node-active)
-                                 (node-mass  cl-mpm/mesh:node-mass)
-                                 (node-true-v  cl-mpm/mesh::node-volume-true)
-                                 (node-lock  cl-mpm/mesh:node-lock))
-                    node
-                  (declare (type double-float mp-volume mp-pmod svp node-mass node-true-v)
-                           (type sb-thread:mutex node-lock))
-                  (when node-active
-                    (sb-thread:with-mutex (node-lock)
-                      (declare (double-float ul h))
-                      (incf node-mass (* 1d0
-                                         mp-pmod
-                                         svp
-                                         mp-volume
-                                         ul
-                                         (expt h -2)
-                                         mass-scale))))))))))))))
+         (let ((mp-volume (cl-mpm/particle::mp-volume mp))
+               (mp-pmod (cl-mpm/particle::estimate-stiffness mp))
+               (ul (estimate-ul-enhancement mp nd))
+               )
+           (declare (type double-float mp-pmod mp-volume))
+           (cl-mpm::iterate-over-neighbours
+            mesh mp
+            (lambda (node svp grads fsvp fgrads)
+              (declare
+               (cl-mpm/particle:particle mp)
+               (cl-mpm/mesh::node node)
+               (ignore grads fsvp fgrads)
+               (double-float svp))
+              (with-accessors ((node-active  cl-mpm/mesh::node-active)
+                               (node-mass  cl-mpm/mesh:node-mass))
+                  node
+                (declare (type double-float mp-volume mp-pmod svp node-mass))
+                (when node-active
+                  (sb-thread:with-mutex ((cl-mpm/mesh::node-lock node))
+                    (declare (double-float ul h))
+                    (incf node-mass (* 1d0
+                                       mp-pmod
+                                       svp
+                                       mp-volume
+                                       ul
+                                       (expt h -2)
+                                       mass-scale)))))))))))))
 
 (defgeneric update-node-fictious-mass (sim))
 
