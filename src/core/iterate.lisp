@@ -9,7 +9,7 @@
   (pushnew :sb-simd *features*))
 
 ;; (defparameter *thread-grouping-scale* 8)
-(defconstant +thread-parts-scale+ 1)
+(defconstant +thread-parts-scale+ 2)
 
 (defun get-parts ()
   (the fixnum (* (the fixnum +thread-parts-scale+) (the fixnum (lparallel.kernel:kernel-worker-count)))))

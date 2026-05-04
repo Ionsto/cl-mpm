@@ -899,19 +899,52 @@
 
 
 
+(declaim (notinline sort-and-sum))
 (defun sort-and-sum (values rows cols)
   (let ((len (length values)))
     (let* ((permutation (make-array len :element-type 'fixnum)))
       (loop for i from 0 below (length values)
             do (setf (aref permutation i) i))
-      (lparallel:psort permutation (lambda (i j)
-                                     (or (< (aref rows i)
-                                            (aref rows j))
-                                         (and
-                                          (= (aref rows i)
-                                             (aref rows j))
-                                          (< (aref cols i)
-                                             (aref cols j))))))
+      (format t "Compacting ~D fds~%" len)
+      ;; (if (> len 10000)
+      ;;   (lparallel:psort permutation
+      ;;                    (lambda (i j)
+      ;;                      (or (< (aref rows i)
+      ;;                             (aref rows j))
+      ;;                          (and
+      ;;                           (= (aref rows i)
+      ;;                              (aref rows j))
+      ;;                           (< (aref cols i)
+      ;;                              (aref cols j)))))
+      ;;                    :granularity (floor (* len 0.1)))
+      ;;   (lparallel:psort permutation
+      ;;                    (lambda (i j)
+      ;;                      (or (< (aref rows i)
+      ;;                             (aref rows j))
+      ;;                          (and
+      ;;                           (= (aref rows i)
+      ;;                              (aref rows j))
+      ;;                           (< (aref cols i)
+      ;;                              (aref cols j)))))))
+      (sort permutation
+            (lambda (i j)
+              (or (< (aref rows i)
+                     (aref rows j))
+                  (and
+                   (= (aref rows i)
+                      (aref rows j))
+                   (< (aref cols i)
+                      (aref cols j))))))
+      ;; (sort
+      ;;  permutation
+      ;;  (lambda (i j)
+      ;;    (or (< (aref rows i)
+      ;;           (aref rows j))
+      ;;        (and
+      ;;         (= (aref rows i)
+      ;;            (aref rows j))
+      ;;         (< (aref cols i)
+      ;;            (aref cols j))))))
       (let* ((sorted-values (make-array len :element-type 'double-float :fill-pointer len))
              (sorted-cols   (make-array len :element-type 'fixnum :fill-pointer len))
              (sorted-rows   (make-array len :element-type 'fixnum :fill-pointer len)))

@@ -199,17 +199,19 @@
        (declare
         (cl-mpm/particle:particle mp)
         (cl-mpm/mesh::node node)
-        (double-float svp))
+        (double-float svp)
+        (ignore fsvp fgrads))
        (with-accessors ((node-active  cl-mpm/mesh:node-active)
                         (node-int-force cl-mpm/mesh::node-internal-force)
-                        (node-ext-force cl-mpm/mesh::node-external-force)
-                        (node-lock  cl-mpm/mesh:node-lock)) node
+                        (node-ext-force cl-mpm/mesh::node-external-force))
+           node
          (declare (boolean node-active)
-                  (sb-thread:mutex node-lock)
                   (magicl:matrix/double-float node-int-force node-ext-force))
          (when node-active
            (let ((grads (cl-mpm::gradient-push-forwards-cached grads df-inv))
-                 (volume (cl-mpm/particle::mp-volume mp)))
+                 (volume (cl-mpm/particle::mp-volume mp))
+                 (node-lock  (cl-mpm/mesh:node-lock node)))
+             (declare (sb-thread:mutex node-lock))
              (sb-thread:with-mutex (node-lock)
                (det-ext-force-2d mp node svp gravity volume node-ext-force)
                (det-int-force-unrolled-2d stress grads volume node-int-force))))))))
