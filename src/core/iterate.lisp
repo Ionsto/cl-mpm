@@ -1,7 +1,8 @@
 (in-package :cl-mpm)
 ;;All the various ways of iterating over the mesh
 ;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
-(declaim #.cl-mpm/settings:*optimise-setting*)
+;; (declaim #.cl-mpm/settings:*optimise-setting*)
+(declaim #.cl-mpm/settings::*optimise-speed*)
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (eval-when
@@ -9,7 +10,7 @@
   (pushnew :sb-simd *features*))
 
 ;; (defparameter *thread-grouping-scale* 8)
-(defconstant +thread-parts-scale+ 2)
+(defconstant +thread-parts-scale+ 1)
 
 (defun get-parts ()
   (the fixnum (* (the fixnum +thread-parts-scale+) (the fixnum (lparallel.kernel:kernel-worker-count)))))

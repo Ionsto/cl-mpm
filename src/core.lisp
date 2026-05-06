@@ -34,18 +34,19 @@
       sim
   (with-accessors ((h cl-mpm/mesh::mesh-resolution))
       mesh
-    (let ((h (* h removal-factor)))
-      (remove-mps-func
-       sim
-       (lambda (mp)
-         (with-accessors ((damage cl-mpm/particle:mp-damage)
-                          (def cl-mpm/particle::mp-deformation-gradient))
-             mp
-           (or
-            (> (cl-mpm/particle::mp-split-depth mp) split-depth)
-            (if removal-factor
-                (gimp-removal-criteria mp h)
-                nil)))))))))
+    (when removal-factor
+      (let ((h (* h removal-factor)))
+        (remove-mps-func
+         sim
+         (lambda (mp)
+           (with-accessors ((damage cl-mpm/particle:mp-damage)
+                            (def cl-mpm/particle::mp-deformation-gradient))
+               mp
+             (or
+              (> (cl-mpm/particle::mp-split-depth mp) split-depth)
+              (if removal-factor
+                  (gimp-removal-criteria mp h)
+                  nil))))))))))
 
 (defun check-single-mps (sim)
   "Function to check and remove single material points"
@@ -809,24 +810,26 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
 
 (defun single-particle-criteria (mesh mp)
   "Criteria for checking if material point is unconnected to another MP"
-  (let ((svp-sum 0d0)
-        (alone t))
-    (iterate-over-neighbours
-      mesh mp
-      (lambda (node svp grads fsvp fgrads)
-        (declare
-          (cl-mpm/mesh::node node)
-          (cl-mpm/particle:particle mp)
-          (type double-float svp))
-        (with-accessors ((node-svp cl-mpm/mesh::node-svp-sum)
-                         (node-active cl-mpm/mesh:node-active)
-                         ) node
-          (when node-active
-            (incf svp-sum node-svp)))))
-    (and (< svp-sum 2d0) (not (= svp-sum 0d0)))
-    ;; (setf alone t)
-    ;; alone
-    ))
+  ;; (let ((svp-sum 0d0)
+  ;;       (alone t))
+  ;;   (iterate-over-neighbours
+  ;;     mesh mp
+  ;;     (lambda (node svp grads fsvp fgrads)
+  ;;       (declare
+  ;;         (cl-mpm/mesh::node node)
+  ;;         (cl-mpm/particle:particle mp)
+  ;;         (type double-float svp))
+  ;;       (with-accessors ((node-svp cl-mpm/mesh::node-svp-sum)
+  ;;                        (node-active cl-mpm/mesh:node-active)
+  ;;                        ) node
+  ;;         (when node-active
+  ;;           (incf svp-sum node-svp)))))
+  ;;   (and (< svp-sum 2d0) (not (= svp-sum 0d0)))
+  ;;   ;; (setf alone t)
+  ;;   ;; alone
+  ;;   )
+  nil
+  )
 (defun gimp-removal-criteria (mp h)
   "Criteria for removal of gimp mps based on domain length"
   (with-accessors ((lens cl-mpm/particle::mp-domain-size))
@@ -1058,7 +1061,7 @@ This modifies the dt of the simulation in the process
   (when (cl-mpm::sim-allow-mp-split sim)
     (split-mps sim))
   (check-mps sim)
-  (check-single-mps sim)
+  ;; (check-single-mps sim)
   ;; (cl-mpm/ghost::reset-ghost-cache sim)
   ;; (reset-node-displacement sim)
   )
@@ -1127,9 +1130,9 @@ This modifies the dt of the simulation in the process
 (defun morton-to-index-2d (id)
   (let ((x 0)
         (y 0))
-    (loop for b from 0 to 20
+    (loop for b from 0 to 16
           do (progn
-               (incf x (if (logbitp (* 2 b) id) (expt 2 b) 0))
+               (incf x (if (logbitp (* 2 b) id)      (expt 2 b) 0))
                (incf y (if (logbitp (1+ (* 2 b)) id) (expt 2 b) 0))))
     (list x y 0)))
 (defun morton-to-index-3d (id)
@@ -1165,11 +1168,10 @@ This modifies the dt of the simulation in the process
                        (vector-push-extend mp (aref node-mp-list id))
                        (setf (aref node-mp-list id) (make-array 1 :initial-element mp :adjustable t :fill-pointer 1)))))
                (error "MP out of bounds during domain sort ~A ~A~%" mp index)))))
-
       (let ((sorted-mps (make-array (length (cl-mpm:sim-mps sim)) :adjustable t :fill-pointer 0))
             (nd (cl-mpm/mesh:mesh-nD mesh))
             (new-id 0))
-        (loop for i from 0 to (round (expt (1+ (reduce #'max (cl-mpm/mesh::mesh-count mesh))) nd))
+        (loop for i from 0 to (round (expt (expt 2 (+ 0 (ceiling (log (reduce #'max (cl-mpm/mesh::mesh-count mesh)) 2)))) nd))
               do
                  (let ((trial-index (morton-to-index i nd)))
                    (when (cl-mpm/mesh::in-bounds mesh trial-index)
@@ -1178,6 +1180,36 @@ This modifies the dt of the simulation in the process
                          (loop for mp across (aref node-mp-list id)
                                do (progn (vector-push-extend mp sorted-mps)
                                          (setf (cl-mpm/particle::mp-index mp) new-id)
-                                         (incf new-id)
-                                         )))))))
-        (setf (cl-mpm::sim-mps sim) sorted-mps)))))
+                                         (incf new-id))))))))
+
+        (setf (cl-mpm::sim-mps sim) sorted-mps))))
+  )
+
+(defun reset-mesh-active (sim)
+  (let ((mesh (sim-mesh sim)))
+    (setf (cl-mpm/mesh::mesh-active-nodes mesh)
+          (make-array (array-total-size (cl-mpm/mesh::mesh-nodes mesh))
+                      :element-type 'cl-mpm/mesh::node
+                      :displaced-to (cl-mpm/mesh::mesh-nodes mesh)))))
+
+(defun compact-mesh-active (sim)
+  (when nil
+    (reset-mesh-active sim)
+    (let* ((mesh (sim-mesh sim))
+           (node-active (filter-nodes sim #'cl-mpm/mesh:node-active))
+           (nodes-sorted (make-array (length node-active) :fill-pointer 0)))
+      (let ((nd (cl-mpm/mesh:mesh-nD mesh))
+            (id 0))
+        ;; (pprint (length node-active))
+        (loop for i from 0 to (round (expt (expt 2 (+ 0 (ceiling (log (reduce #'max (cl-mpm/mesh::mesh-count mesh)) 2)))) nd))
+              do
+                 (let ((trial-index (morton-to-index i nd)))
+                   (when (cl-mpm/mesh::in-bounds mesh trial-index)
+                     ;; (setf (aref nodes-sorted id) (cl-mpm/mesh::get-node mesh trial-index))
+                     (vector-push-extend (cl-mpm/mesh::get-node mesh trial-index) nodes-sorted)
+                     (incf id))))
+        ;; (pprint id)
+        )
+      ;; (pprint (length nodes-sorted))
+      (setf (cl-mpm/mesh::mesh-active-nodes mesh)
+            nodes-sorted))))

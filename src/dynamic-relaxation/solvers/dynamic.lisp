@@ -74,19 +74,16 @@
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     ;;For each aggregated element set solve mass matrix and velocity
     (when enable-aggregate
-      (let* ((E (cl-mpm/aggregate::sim-global-e sim))
-             (ma (cl-mpm/aggregate::sim-global-ma sim)))
+      (let* ((ma (cl-mpm/aggregate::sim-global-ma sim)))
         (cl-mpm/aggregate::iterate-over-dimensions
          (cl-mpm/mesh:mesh-nd mesh)
          (lambda (d)
-           (let ((f (magicl:@ (magicl:transpose E)
-                              (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))))
+           (let ((f (cl-mpm/aggregate::aggregate-vec sim (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))))
              (cl-mpm/aggregate::apply-internal-bcs sim f d)
              (let* ((acc
-                      (cl-mpm/aggregate::linear-solve-with-bcs
-                       ma f (cl-mpm/aggregate::assemble-internal-bcs sim d))))
+                      (cl-mpm/aggregate::linear-solve-with-bcs sim ma f d)))
                (cl-mpm/aggregate::apply-internal-bcs sim acc d)
-               (cl-mpm/aggregate::project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d))))))
+               (cl-mpm/aggregate::project-global-vec sim (cl-mpm/aggregate::extend-vec sim acc) #'cl-mpm/mesh::node-acceleration d))))))
 
       ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
       )

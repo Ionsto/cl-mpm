@@ -311,8 +311,6 @@
          (lambda (d mut)
            (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
                   (res-prev (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual-prev d))
-                  (E (cl-mpm/aggregate::sim-global-e sim))
-                  (ma (cl-mpm/aggregate::sim-global-ma sim))
                   (vi
                     (cl-mpm/aggregate::apply-internal-bcs
                      sim
@@ -322,12 +320,13 @@
                           vi
                           (cl-mpm/aggregate::apply-internal-bcs
                            sim
-                           (magicl:@ (magicl:transpose E)
-                                     (cl-mpm/fastmaths::fast-.-
-                                      res-prev
-                                      res))
+                           (cl-mpm/aggregate::aggregate-vec
+                            sim
+                            (cl-mpm/fastmaths::fast-.- res-prev res))
                            d)))
-                   (ddenom (* dt (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0))))
+                   (ddenom (* dt (cl-mpm/fastmaths:dot vi (cl-mpm/aggregate::@-mass-matrix-vec sim vi))))
+                   ;; (ddenom (* dt (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0)))
+                   )
                (sb-thread::with-mutex (mut)
                  (incf num dnum)
                  (incf denom ddenom)))))))

@@ -223,13 +223,6 @@
                         ) 1d0)))
              (progn
                ;;Aggregate -> populate svp
-               ;; (format t "~A ~A ~A ~A ~A ~%"
-               ;;         (cl-mpm/mesh::node-agg node)
-               ;;         (cl-mpm/mesh::node-interior node)
-               ;;         (cl-mpm/mesh::node-agg-fd node)
-               ;;         (cl-mpm/mesh::node-agg-fdc node)
-               ;;         (cl-mpm/mesh::node-agg-interior-cell node)
-               ;;         )
                (cl-mpm::iterate-over-cell-shape-local
                 mesh
                 (cl-mpm/mesh::node-agg-interior-cell node)
@@ -244,32 +237,90 @@
                           weight)))))))))
     (values e)))
 
+(defun assemble-sparse-e (sim)
+  (let* ((agg-nodes (cl-mpm/aggregate::sim-agg-nodes-fdc sim))
+         (active-nodes (cl-mpm/aggregate::sim-agg-nodes-fd sim))
+         (mesh (cl-mpm:sim-mesh sim))
+         (nd (cl-mpm/mesh:mesh-nd mesh))
+         (ndof (length active-nodes))
+         (ndofC (length agg-nodes))
+         (est-size (* nd (+ ndofC (* (expt 2 nd) (- ndof ndofC)))))
+         (v (make-array est-size :fill-pointer 0 :adjustable t :element-type 'double-float))
+         (r (make-array est-size :fill-pointer 0 :adjustable t :element-type 'fixnum))
+         (c (make-array est-size :fill-pointer 0 :adjustable t :element-type 'fixnum))
+         (lock (sb-thread:make-mutex))
+         )
+    (cl-mpm::iterate-over-nodes
+     mesh
+     (lambda (node)
+       (when (cl-mpm/mesh::node-active node)
+         (sb-thread:with-mutex (lock)
+           (if (or (cl-mpm/mesh::node-interior node)
+                   (not (cl-mpm/mesh::node-agg node)))
+               (progn
+                 ;;Interior -> populate 1s
+                 (dotimes (d nd)
+                   (vector-push-extend 1d0 v)
+                   (vector-push-extend (+ d (* nd (cl-mpm/mesh::node-agg-fd node))) r)
+                   (vector-push-extend (+ d (* nd (cl-mpm/mesh::node-agg-fdc node))) c)))
+               (progn
+                 ;;Aggregate -> populate svp
+                 (cl-mpm::iterate-over-cell-shape-local
+                  mesh
+                  (cl-mpm/mesh::node-agg-interior-cell node)
+                  (cl-mpm/mesh::node-position node)
+                  (lambda (cn weight grads)
+                    (dotimes (d nd)
+                      (vector-push-extend weight v)
+                      (vector-push-extend (+ d (* nd (cl-mpm/mesh::node-agg-fd node))) r)
+                      (vector-push-extend (+ d (* nd (cl-mpm/mesh::node-agg-fdc cn)))  c))))))))))
+    (values (cl-mpm/utils::build-sparse-matrix v r c (* nd ndof)  (* nd ndofC))
+            (cl-mpm/utils::build-sparse-matrix v c r (* nd ndofC) (* nd ndof)))))
 
-(defun update-agg (sim)
-  (setf
-   (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
-   (cl-mpm::filter-nodes sim (lambda (n)
-                       (and (cl-mpm/mesh::node-active n)
-                            (or (cl-mpm/mesh::node-interior n)
-                                (not (cl-mpm/mesh::node-agg n))))))
+(defmethod cl-mpm/aggregate::update-aggregate-elements ((sim mpm-sim-implicit))
+  (when (cl-mpm/aggregate::sim-enable-aggregate sim)
+    (cl-mpm/aggregate::locate-aggregate-nodes sim)
 
-   (cl-mpm/aggregate::sim-agg-nodes-fd sim)
-   (cl-mpm::filter-nodes sim (lambda (n)
-                       (and (cl-mpm/mesh::node-active n)
-                            ;; (or (cl-mpm/mesh::node-agg n)
-                            ;;     (cl-mpm/mesh::node-interior n))
-                            ))))
-  (let ((fdc 0))
-    (loop for n across (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
-          do (progn
-               (setf (cl-mpm/mesh::node-agg-fdc n) fdc)
-               (incf fdc))))
-  (let ((fd 0))
-    (loop for n across (cl-mpm/aggregate::sim-agg-nodes-fd sim)
-          do (progn
-               (setf (cl-mpm/mesh::node-agg-fd n) fd)
-               (incf fd))))
-  (setf (cl-mpm/aggregate::sim-global-e sim) (assemble-implicit-e sim)))
+    (setf
+     (cl-mpm/aggregate::sim-agg-nodes-fd sim)
+     (cl-mpm/implicit::sim-nodes-fd sim))
+    ;; (setf
+    ;;  (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
+    ;;  (cl-mpm/aggregate::sim-agg-nodes-fd sim))
+    ;; (loop for n across (cl-mpm/aggregate::sim-agg-nodes-fd sim)
+    ;;       do (setf (cl-mpm/mesh::node-interior n) t))
+
+
+    (setf
+     (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
+     (cl-mpm::filter-nodes sim (lambda (n)
+                                 (and (cl-mpm/mesh::node-active n)
+                                      (or (cl-mpm/mesh::node-interior n)
+                                          (not (cl-mpm/mesh::node-agg n)))))))
+
+    ;;  (cl-mpm/aggregate::sim-agg-nodes-fd sim)
+    ;;  (cl-mpm::filter-nodes sim (lambda (n)
+    ;;                              (and (cl-mpm/mesh::node-active n)
+    ;;                                   ;; (or (cl-mpm/mesh::node-agg n)
+    ;;                                   ;;     (cl-mpm/mesh::node-interior n))
+    ;;                                   ))))
+    (let ((fdc 0))
+      (loop for n across (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
+            do (progn
+                 (setf (cl-mpm/mesh::node-agg-fdc n) fdc)
+                 (incf fdc))))
+
+    (let ((fd 0))
+      (loop for n across (cl-mpm/aggregate::sim-agg-nodes-fd sim)
+            do (progn
+                 (setf (cl-mpm/mesh::node-agg-fd n) fd)
+                 (incf fd))))
+
+    (multiple-value-bind (e et) (cl-mpm/implicit::assemble-sparse-e sim)
+      (setf (cl-mpm/aggregate::sim-global-sparse-e sim) e
+            (cl-mpm/aggregate::sim-global-sparse-et sim) et))
+
+    (cl-mpm/aggregate::update-mass-matrix sim)))
 
 ;; (defun test ()
 ;;   (setup-2d :mps 3)
@@ -300,75 +351,7 @@
            (lambda (x) (/ 1d0 x)))))
 (declaim (notinline tensor-2nd-partial-deriv))
 (defun tensor-2nd-partial-deriv (X func func-deriv)
-  ;;; Matlab version we are translating
-  ;; tol=1e-9;
-  ;; Is=diag([1 1 1 0.5 0.5 0.5]); 
-  ;; if (abs(eP(1))<tol && abs(eP(2))<tol && abs(eP(3))<tol)                     % all zero eigenvalues case
-  ;;     L = Is;
-  ;; elseif abs(eP(1)-eP(2))<tol && abs(eP(1)-eP(3))<tol                         % equal eigenvalues case
-  ;;     L = ydash(1)*Is;
-  ;; elseif abs(eP(1)-eP(2))<tol || abs(eP(2)-eP(3))<tol || abs(eP(1)-eP(3))<tol % repeated eigenvalues case
-  ;;     if     abs(eP(1)-eP(2))<tol
-  ;;         xa  = eP(3);    xc  = eP(1);
-  ;;         ya  = yP(3);    yc  = yP(1);
-  ;;         yda = ydash(3); ydc = ydash(1);
-  ;;     elseif abs(eP(2)-eP(3))<tol
-  ;;         xa  = eP(1);    xc  = eP(2);
-  ;;         ya  = yP(1);    yc  = yP(2);
-  ;;         yda = ydash(1); ydc = ydash(2);
-  ;;     else
-  ;;         xa  = eP(2);    xc  = eP(1);
-  ;;         ya  = yP(2);    yc  = yP(1);
-  ;;         yda = ydash(2); ydc = ydash(1);
-  ;;     end
-  ;;     x  = X([1 5 9 4 6 3].');
-  ;;     s1 = (ya-yc)/(xa-xc)^2-ydc/(xa-xc);
-  ;;     s2 = 2*xc*(ya-yc)/(xa-xc)^2-(xa+xc)/(xa-xc)*ydc;
-  ;;     s3 = 2*(ya-yc)/(xa-xc)^3-(yda+ydc)/(xa-xc)^2;
-  ;;     s4 = xc*s3;
-  ;;     s5 = xc^2*s3;
-  ;;     dX2dX=[2*xx 0      0      xy         0             xz   ;
-  ;;     0      2*yy 0      xy         yz          0             ;
-  ;;     0      0      2*zz 0            yz          xz          ;
-  ;;     xy   xy   0     (xx+yy)/2 xz/2        yz/2        ;
-  ;;     0      yz   yz   xz/2       (yy+zz)/2 xy/2        ;
-  ;;     xz   0      X(3)   yz/2       xy/2        (xx+zz)/2];
-  ;;     bm1  = [1 1 1 0 0 0].';
-  ;;     bm11 = [1 1 1 0 0 0 ;
-  ;;             1 1 1 0 0 0 ;
-  ;;             1 1 1 0 0 0 ;
-  ;;             0 0 0 0 0 0 ;
-  ;;             0 0 0 0 0 0 ;
-  ;;             0 0 0 0 0 0 ];
-  ;;     L = s1*dX2dX-s2*Is-s3*(x*x.')+s4*(x*bm1.'+bm1*x.')-s5*bm11;
-  ;; else                                                                        % general case (no repeated eigenvalues)
-  ;;     D=[(eP(1)-eP(2))*(eP(1)-eP(3));
-  ;;        (eP(2)-eP(1))*(eP(2)-eP(3));
-  ;;        (eP(3)-eP(1))*(eP(3)-eP(2))];
-  ;;     alfa=0; bta=0; gama=zeros(3,1); eDir=zeros(6,3);
-  ;;     for i=1:3
-  ;;         alfa = alfa+yP(i)*eP(i)/D(i);
-  ;;         bta  = bta+yP(i)/D(i)*det(X);
-  ;;         for j=1:3
-  ;;             gama(i) = gama(i)+yP(j)*eP(j)/D(j)*(det(X)/eP(j)-eP(i)^2)*1/eP(i)^2;
-  ;;         end
-  ;;         esq = eV(:,i)*eV(:,i).';
-  ;;         eDir(:,i) = [esq(1,1) esq(2,2) esq(3,3) esq(1,2) esq(2,3) esq(3,1)].';
-  ;;     end
-  ;;     y = inv(X);
-  ;;     Ib=[y(1)^2    y(2)^2    y(7)^2     y(1)*y(2)               y(2)*y(7)               y(1)*y(7)              ;
-  ;;         y(2)^2    y(5)^2    y(6)^2     y(5)*y(2)               y(5)*y(6)               y(2)*y(6)              ;
-  ;;         y(7)^2    y(6)^2    y(9)^2     y(6)*y(7)               y(9)*y(6)               y(9)*y(7)              ;
-  ;;         y(1)*y(2) y(5)*y(2) y(6)*y(7) (y(1)*y(5)+y(2)^2)/2    (y(2)*y(6)+y(5)*y(7))/2 (y(1)*y(6)+y(2)*y(7))/2 ;
-  ;;         y(2)*y(7) y(5)*y(6) y(9)*y(6) (y(2)*y(6)+y(5)*y(7))/2 (y(9)*y(5)+y(6)^2)/2    (y(9)*y(2)+y(6)*y(7))/2 ;
-  ;;         y(1)*y(7) y(2)*y(6) y(9)*y(7) (y(1)*y(6)+y(2)*y(7))/2 (y(9)*y(2)+y(6)*y(7))/2 (y(9)*y(1)+y(7)^2)/2   ];
-  ;;     L = alfa*Is-bta*Ib;
-  ;;     for i=1:3
-  ;;         L = L+(ydash(i)+gama(i))*eDir(:,i)*eDir(:,i).';
-  ;;     end
-  ;; end
-  ;; end
-  ;;;
+  ;;From AMPLE
   (multiple-value-bind (eP eV) (cl-mpm/utils:eig X)
     (let* ((yP (mapcar func eP))
            (ydashP (mapcar func-deriv eP))
@@ -610,7 +593,6 @@
                            ;; (pprint ydashP)
                            ;; (pprint gama)
                            ;; (pprint edir)
-                           ;; (break)
                            (dotimes (i 3)
                              (cl-mpm/fastmaths:fast-.+
                               (cl-mpm/fastmaths:fast-scale 
@@ -787,7 +769,6 @@
     (with-accessors ((nd cl-mpm/mesh::mesh-nd))
         mesh
       (declare (fixnum nd))
-      ;; (cl-mpm/fastmaths:fast-zero global-k)
       (setf
        (fill-pointer (sim-global-k-values sim)) 0
        (fill-pointer (sim-global-k-rows sim)) 0
@@ -854,7 +835,7 @@
                        (cl-mpm/utils::empty-copy v))))
     ;;TODO have a fallback if no bcs are applied (i.e. no resizing required)
     (labels ((system-operation (x)
-               (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+               (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
                 ksparse
                 x
                 bcs
@@ -870,10 +851,52 @@
                        target-vi
                        (cl-mpm/utils::arb-matrix (magicl:nrows v) 1)
                        )))
-    ;; (linear-solve-with-bcs-serial ma v bcs target-vi)
-    (linear-solve-with-bcs-multi ma v bcs target-vi)
-    )
-  )
+    (linear-solve-with-bcs-serial ma v bcs target-vi)
+    ;; (linear-solve-with-bcs-multi ma v bcs target-vi)
+    ))
+
+(defun linear-solve-with-bcs-agg (sim K f bcs &optional (target-vi nil))
+  (let ((target-vi (if target-vi
+                       target-vi
+                       (cl-mpm/utils::arb-matrix (magicl:nrows f) 1)
+                       )))
+    (let* ((fa (cl-mpm/aggregate::aggregate-vec sim f))
+           (et (cl-mpm/aggregate::sim-global-sparse-et sim))
+           (e (cl-mpm/aggregate::sim-global-sparse-e sim))
+           (int-bcs (cl-mpm/implicit::assemble-internal-bcs sim))
+           (work-vec (cl-mpm/utils::arb-matrix (magicl:nrows f) 1))
+           (work-vec-2 (cl-mpm/utils::arb-matrix (magicl:nrows f) 1))
+           (work-vec-agg (cl-mpm/utils::arb-matrix (magicl:nrows int-bcs) 1)))
+      (cl-mpm/aggregate::extend-vec
+       sim
+       (cl-mpm/linear-solver::solve-conjugant-gradients
+        (lambda (v)
+          (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
+           e
+           v
+           work-vec)
+          (cl-mpm/fastmaths:fast-.*
+           bcs
+           work-vec
+           work-vec)
+          (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
+           K
+           work-vec
+           work-vec-2)
+          (cl-mpm/fastmaths:fast-.*
+           bcs
+           work-vec-2
+           work-vec-2
+           )
+          (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
+           et
+           work-vec-2
+           work-vec-agg))
+        fa
+        :tol 1d-15
+        :max-iters 10000
+        :mask int-bcs
+        )))))
 
 
 (declaim (notinline linear-solve-with-bcs))
@@ -932,6 +955,25 @@
               (setf (varef target-vi (aref bc-map i)) (varef vs i))))
           )))
     target-vi))
+
+(declaim (notinline assemble-internal-bcs))
+(defun assemble-internal-bcs (sim)
+  (declare (optimize (debug 3) (speed 0)))
+  (let* ((active-nodes (cl-mpm/aggregate::sim-agg-nodes-fdc sim))
+         (nd (cl-mpm/mesh::mesh-nd (cl-mpm:sim-mesh sim)))
+         (ndof (* nd (length active-nodes)))
+         (v (cl-mpm/utils::arb-matrix ndof 1)))
+    (cl-mpm::iterate-over-nodes-array
+     active-nodes
+     (lambda (n)
+       (loop for d from 0 below nd
+             do
+                (let ((index (+ d (* nd (cl-mpm/mesh::node-agg-fdc n)))))
+                  (let ((bcs (cl-mpm/mesh::node-bcs n)))
+                    (if bcs
+                        (setf (cl-mpm/utils:varef v index) (cl-mpm/utils:varef bcs d))
+                        (setf (cl-mpm/utils:varef v index) 1d0)))))))
+    (values v)))
 
 (defun assemble-global-bcs (sim)
   (let* ((active-nodes (sim-nodes-fd sim))
@@ -1188,6 +1230,7 @@
     (cl-mpm::p2g mesh mps vel-algo)
     (when (> mass-filter 0d0)
       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+    (build-stiffness-matrix sim)
     (cl-mpm::filter-cells sim)
     (cl-mpm::iterate-over-nodes
      mesh
@@ -1198,18 +1241,15 @@
 
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (cl-mpm::apply-bcs mesh bcs dt)
-    (build-stiffness-matrix sim)
-    (when enable-aggregate
-      (cl-mpm/aggregate::update-aggregate-elements sim)
-      (update-agg sim))
+    ;; (when enable-aggregate
+    ;;   (cl-mpm/aggregate::update-aggregate-elements sim))
     (setf initial-setup t)))
 
 (defun solve-aggregate (sim)
-  (let* ((E (cl-mpm/aggregate::sim-global-e sim))
-         (K (magicl:@ (magicl:transpose e) (sim-global-k sim) e))
-         (f (magicl:@ (magicl:transpose e) (assemble-forces sim)))
+  (let* ((K (sim-global-k sim))
+         (f (assemble-forces sim))
          (bcs (assemble-global-bcs sim)))
-    (let ((ddisp (cl-mpm/fastmaths:fast-scale! (linear-solve-with-bcs K f bcs) 1d0)))
+    (let ((ddisp (linear-solve-with-bcs-agg sim K f bcs)))
       (increment-global-vec sim ddisp #'cl-mpm/mesh::node-displacment))))
 
 
@@ -1268,10 +1308,6 @@
         (solve-standard sim))
     ;;Do 1 step of linear solver
     (cl-mpm::zero-grid-velocity mesh)
-    (cl-mpm::apply-bcs mesh bcs dt)
-
-    ;; (cl-mpm::update-nodes sim)
-    ;; (cl-mpm::update-filtered-cells sim)
     (cl-mpm::apply-bcs mesh bcs dt)
     ;; (cl-mpm::update-dynamic-stats sim)
     (cl-mpm::g2p mesh mps dt damping :TRIAL)
@@ -1352,3 +1388,73 @@
 ;;                    (setf nr-crit (cl-mpm/fastmaths::mag-squared r)))
 ;;                  (format t "NR iter ~D - ~E ~%" niter nr-crit)
 ;;                  )))))
+
+(defmethod cl-mpm::update-dynamic-stats ((sim cl-mpm/implicit::mpm-sim-implicit))
+  (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
+                   (stats-oobf cl-mpm::sim-stats-oobf)
+                   (stats-power cl-mpm::sim-stats-power)
+                   (stats-work cl-mpm::sim-stats-work))
+      sim
+    (multiple-value-bind (e o p) (combi-stats-implicit sim)
+      (setf stats-energy e
+            stats-oobf o
+            stats-power p)
+      (incf stats-work p))
+    ))
+
+(defun combi-stats-implicit (sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (sim-agg cl-mpm/aggregate::sim-enable-aggregate))
+      sim
+    (destructuring-bind (energy
+                         oobf-num
+                         oobf-denom
+                         power)
+        (cl-mpm::reduce-over-nodes
+         (cl-mpm:sim-mesh sim)
+         (lambda (node)
+           (if (and (cl-mpm/mesh:node-active node)
+                    (not (cl-mpm/mesh::node-agg node)))
+               (with-accessors ((active cl-mpm/mesh::node-active)
+                                (f-ext cl-mpm/mesh::node-external-force)
+                                (f-rct cl-mpm/mesh::node-reaction-force)
+                                (res cl-mpm/mesh::node-force)
+                                (f-int cl-mpm/mesh::node-internal-force)
+                                (node-oobf cl-mpm/mesh::node-oobf)
+                                (mass cl-mpm/mesh::node-mass)
+                                (volume cl-mpm/mesh::node-volume)
+                                (volume-t cl-mpm/mesh::node-volume-true)
+                                (vel cl-mpm/mesh::node-velocity)
+                                (disp cl-mpm/mesh::node-displacment))
+                   node
+                 (declare (double-float mass))
+                 (let ()
+                   (list
+                    (* 0.5d0 mass (cl-mpm/fastmaths::mag-squared vel))
+                    (cl-mpm/fastmaths::mag-squared res)
+                    (cl-mpm/fastmaths::mag-squared f-ext)
+                    (cl-mpm/fastmaths:dot disp f-ext))))
+               (list 0d0 0d0 0d0 0d0)))
+         (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
+      (declare (double-float energy oobf-num oobf-denom power))
+      (when sim-agg
+        (let ((res (assemble-global-vec sim #'cl-mpm/mesh::node-force))
+              (f-ext (assemble-global-vec sim #'cl-mpm/mesh::node-external-force))
+              (bcs (assemble-internal-bcs sim)))
+          (let ((doobf-num (cl-mpm/fastmaths::mag-squared
+                            (cl-mpm/fastmaths::fast-.*
+                             bcs (cl-mpm/aggregate::aggregate-vec sim res))))
+                (doobf-denom (cl-mpm/fastmaths::mag-squared
+                              (cl-mpm/fastmaths:fast-.*
+                               bcs
+                               (cl-mpm/aggregate::aggregate-vec sim f-ext)))))
+            (incf oobf-num doobf-num)
+            (incf oobf-denom doobf-denom))))
+      (let ((oobf 0d0)
+            (oobf-num (sqrt oobf-num))
+            (oobf-denom (sqrt oobf-denom)))
+        (if (> oobf-denom 0d0)
+            (setf oobf (/ oobf-num oobf-denom))
+            (setf oobf (if (> oobf-num 0d0) sb-ext:double-float-positive-infinity 0d0)))
+        (values energy oobf power)
+        ))))

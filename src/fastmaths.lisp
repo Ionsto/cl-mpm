@@ -1603,9 +1603,8 @@
 
 (defun fast-@-sparse-mat-dense-vec (mat vec &optional res)
   (let ((res (if res
-                 res
-                 (cl-mpm/utils::empty-copy vec)))
-        )
+                 (cl-mpm/fastmaths::fast-zero res)
+                 (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows mat) 1))))
     (declare (magicl:matrix/double-float vec res)
              (cl-mpm/utils::sparse-matrix mat))
 
@@ -1625,10 +1624,33 @@
                         (aref vec-s (aref cols c)))))))))
     res))
 
+(defun fast-@-sparse-mat-dense-vec-multithread (mat vec &optional res)
+  (let ((res (if res
+                 (cl-mpm/fastmaths::fast-zero res)
+                 (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows mat) 1))))
+    (declare (magicl:matrix/double-float vec res)
+             (cl-mpm/utils::sparse-matrix mat))
+
+    (let ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
+          (cols (cl-mpm/utils::sparse-matrix-cols mat))
+          (values (cl-mpm/utils::sparse-matrix-values mat))
+          (res-s (cl-mpm/utils::fast-storage res))
+          (vec-s (cl-mpm/utils::fast-storage vec)))
+      (lparallel:pdotimes (r (cl-mpm/utils::sparse-matrix-nrows mat))
+        (let ((col-0 (aref rowindex r))
+              (col-1 (aref rowindex (1+ r))))
+          (loop for c from col-0 below col-1 do
+            (incf (aref res-s r)
+                  (the double-float
+                       (*
+                        (aref values c)
+                        (aref vec-s (aref cols c)))))))))
+    res))
+
 (defun fast-@-sparse-mat-dense-vec-masked (mat vec bcs-r bcs-c &optional res)
   (let ((res (if res
                  res
-                 (cl-mpm/utils::empty-copy vec))))
+                 (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows mat) 1))))
     (declare (magicl:matrix/double-float vec res)
              (cl-mpm/utils::sparse-matrix mat))
     (let ()
@@ -1643,6 +1665,37 @@
                    ((simple-array fixnum *) rowindex cols)
                    ((simple-array double-float *) res-s vec-s))
           (dotimes (r (length res-s))
+            (when (> (varef bcs-r r) 0d0)
+              (let* ((col-0 (aref rowindex r))
+                     (col-1 (aref rowindex (1+ r))))
+                (loop for c from col-0 below col-1
+                        do
+                           (when (> (varef bcs-c (aref cols c)) 0d0)
+                             (incf (aref res-s r)
+                                   (the double-float
+                                        (*
+                                         (aref values c)
+                                         (aref vec-s (aref cols c)))))))))))))
+    (fast-.* res bcs-r res)
+    res))
+(defun fast-@-sparse-mat-dense-vec-masked-multithread (mat vec bcs-r bcs-c &optional res)
+  (let ((res (if res
+                 res
+                 (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows mat) 1))))
+    (declare (magicl:matrix/double-float vec res)
+             (cl-mpm/utils::sparse-matrix mat))
+    (let ()
+      (let ()
+        ;;When we are solving a fully fixed system - i.e. out of plane dimensions
+        (let* ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
+               (cols (cl-mpm/utils::sparse-matrix-cols mat))
+               (values (cl-mpm/utils::sparse-matrix-values mat))
+               (res-s (cl-mpm/utils::fast-storage res))
+               (vec-s (cl-mpm/utils::fast-storage vec)))
+          (declare ((simple-array double-float *) values)
+                   ((simple-array fixnum *) rowindex cols)
+                   ((simple-array double-float *) res-s vec-s))
+          (lparallel::pdotimes (r (length res-s))
             (when (> (varef bcs-r r) 0d0)
               (let* ((col-0 (aref rowindex r))
                      (col-1 (aref rowindex (1+ r))))

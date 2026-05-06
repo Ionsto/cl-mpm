@@ -189,11 +189,10 @@
          (lambda (d mut)
            (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))
                   (f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
-                  (E (cl-mpm/aggregate::sim-global-e sim))
                   (ma (cl-mpm/aggregate::sim-global-ma sim))
                   (mv (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-mass))
-                  (vi (magicl:@
-                       (magicl:transpose E)
+                  (vi (cl-mpm/aggregate::aggregate-vec
+                       sim
                        (cl-mpm/fastmaths:fast-.*
                         mv
                         (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-velocity d))))
@@ -203,21 +202,21 @@
              ;; (setf vi (cl-mpm/aggregate::apply-internal-bcs sim vi d))
              (setf
               vi
-              (cl-mpm/aggregate::linear-solve-with-bcs ma vi (cl-mpm/aggregate::assemble-internal-bcs sim d)))
+              (cl-mpm/aggregate::linear-solve-with-bcs sim ma vi d))
 
              (let ((doobf-num (cl-mpm/fastmaths::mag-squared
                                (cl-mpm/aggregate::apply-internal-bcs
                                 sim
-                                (magicl:@ (magicl:transpose E) res)
+                                (cl-mpm/aggregate::aggregate-vec sim res)
                                 d)))
                    (doobf-denom (cl-mpm/fastmaths::mag-squared
                                  (cl-mpm/aggregate::apply-internal-bcs
                                   sim
-                                  (magicl:@ (magicl:transpose E) f-ext)
+                                  (cl-mpm/aggregate::aggregate-vec sim f-ext)
                                   d)))
                    (dpower (cl-mpm/fastmaths:dot
                             disp f-ext))
-                   (denergy (* 0.5d0 (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0))))
+                   (denergy (* 0.5d0 (cl-mpm/fastmaths::dot vi (cl-mpm/aggregate::@-mass-matrix-vec sim vi)))))
                (sb-thread:with-mutex (mut)
                  (incf oobf-num doobf-num)
                  (incf oobf-denom doobf-denom)

@@ -230,6 +230,7 @@
                "cl-mpm/ext"
                "cl-mpm/utils"
                "cl-mpm/forces"
+               "cl-mpm/linear-solver"
                "alexandria"
                "serapeum"
                "local-time"

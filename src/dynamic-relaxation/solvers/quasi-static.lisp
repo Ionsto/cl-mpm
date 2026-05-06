@@ -173,7 +173,6 @@
                (split cl-mpm::allow-mp-split)
                (enable-damage cl-mpm::enable-damage)
                (nonlocal-damage cl-mpm::nonlocal-damage)
-               (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
                (bcs-force-list cl-mpm::bcs-force-list)
                (initial-setup initial-setup)
@@ -188,6 +187,7 @@
     (cl-mpm::p2g mesh mps vel-algo)
     (when (> mass-filter 0d0)
       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+    ;; (cl-mpm::compact-mesh-active sim)
     (cl-mpm::filter-cells sim)
     (when ghost-factor
       (cl-mpm/ghost::build-ghost-cache sim))
@@ -230,7 +230,6 @@
                (split cl-mpm::allow-mp-split)
                (enable-damage cl-mpm::enable-damage)
                (nonlocal-damage cl-mpm::nonlocal-damage)
-               (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
                (bcs-force-list cl-mpm::bcs-force-list)
                (ghost-factor cl-mpm::ghost-factor)
@@ -271,7 +270,7 @@
     (cl-mpm::update-nodes sim)
     (cl-mpm::update-filtered-cells sim)
     ;; (cl-mpm::update-dynamic-stats sim)
-    (cl-mpm::g2p mesh mps dt damping :TRIAL)
+    ;; (cl-mpm::g2p mesh mps dt damping :TRIAL)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC))
   )
 
@@ -303,7 +302,6 @@
                (split cl-mpm::allow-mp-split)
                (enable-damage cl-mpm::enable-damage)
                (nonlocal-damage cl-mpm::nonlocal-damage)
-               (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
                (bcs-force-list cl-mpm::bcs-force-list)
                (ghost-factor cl-mpm::ghost-factor)
@@ -364,20 +362,42 @@
        (when (cl-mpm/mesh:node-active node)
          (cl-mpm::calculate-forces-midpoint node 0d0 0d0 mass-scale))))
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
-
     ;;For each aggregated element set solve mass matrix and velocity
     (when enable-aggregate
-      (let* ((E (cl-mpm/aggregate::sim-global-e sim))
-             (ma (cl-mpm/aggregate::sim-global-ma sim)))
+      (let* ((ma (cl-mpm/aggregate::sim-global-ma sim)))
         (cl-mpm/aggregate::iterate-over-dimensions
          (cl-mpm::mesh-nd mesh)
          (lambda (d)
-           (let ((f (magicl:@ (magicl:transpose E)
-                              (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))))
+           (let ((f (cl-mpm/aggregate::aggregate-vec
+                     sim
+                     (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d)))
+                 (et (cl-mpm/aggregate::sim-global-sparse-et sim))
+                 (e (cl-mpm/aggregate::sim-global-sparse-e sim))
+                 (sma (cl-mpm/aggregate::sim-global-sparse-ma sim))
+                 (bcs (cl-mpm/aggregate::assemble-internal-bcs sim d))
+                 )
              (cl-mpm/aggregate::apply-internal-bcs sim f d)
-             (let* ((acc
-                      (cl-mpm/aggregate::linear-solve-with-bcs
-                       ma f (cl-mpm/aggregate::assemble-internal-bcs sim d))))
+             (let* (;; (acc
+                    ;;   (cl-mpm/aggregate::linear-solve-with-bcs
+                    ;;    ma f (cl-mpm/aggregate::assemble-internal-bcs sim d)))
+                    (acc
+                      (cl-mpm/linear-solver::solve-conjugant-gradients
+                       (lambda (v)
+                         (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
+                          et
+                          (cl-mpm/fastmaths::fast-.*
+                           sma
+                           (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
+                            e
+                            v))))
+                       f
+                       :tol 1d-15
+                       :max-iters 10000
+                       :mask bcs))
+                      ;; (cl-mpm/aggregate::linear-solve-with-bcs
+                      ;;  ma f (cl-mpm/aggregate::assemble-internal-bcs sim d))
+                      ;)
+                    )
                ;; (cl-mpm/aggregate::apply-internal-bcs sim acc d)
                ;; (cl-mpm/aggregate::project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d)
 
@@ -420,8 +440,7 @@
            (when (or (not agg)
                      internal)
              (cl-mpm::integrate-vel-midpoint vel acc mass mass-scale dt damping))))))
-    (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
-    ))
+    (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)))
 
 
 
@@ -440,7 +459,6 @@
                (split cl-mpm::allow-mp-split)
                (enable-damage cl-mpm::enable-damage)
                (nonlocal-damage cl-mpm::nonlocal-damage)
-               (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
                (bcs-force-list cl-mpm::bcs-force-list)
                (ghost-factor cl-mpm::ghost-factor)

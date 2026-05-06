@@ -346,7 +346,7 @@
     :initarg :mesh-count)
    (mesh-count-array
     :accessor mesh-count-array
-    :type array-fixnum-3 
+    :type array-fixnum-3
     :initform (coerce  #(0 0 0) 'array-fixnum-3))
    (mesh-size
     :accessor mesh-mesh-size
@@ -379,6 +379,7 @@
         (make-array (array-total-size value)
                     :element-type 'node
                     :displaced-to value)))
+
 
 (defmethod (setf mesh-cells) :after (value (p mesh))
   (setf (mesh-active-cells p)
@@ -953,19 +954,19 @@
     (setf j-inc 0d0)
     (setf boundary-scalar 0d0)
     (setf pressure 0d0)
-    (cl-mpm/fastmaths::fast-zero vel)
-    (cl-mpm/fastmaths::fast-zero vel-t)
-    (cl-mpm/fastmaths::fast-zero acc)
-    (cl-mpm/fastmaths::fast-zero force)
-    (cl-mpm/fastmaths::fast-zero int-force)
-    (cl-mpm/fastmaths::fast-zero ext-force)
-    (cl-mpm/fastmaths::fast-zero rct-force)
-    (cl-mpm/fastmaths::fast-zero residual)
-    (cl-mpm/fastmaths::fast-zero residual-n)
-    (cl-mpm/fastmaths::fast-zero damping-force)
-    (cl-mpm/fastmaths::fast-zero ghost-force)
-    (cl-mpm/fastmaths::fast-zero buoyancy-force)
-    ))
+    (cl-mpm/fastmaths::fast-zero-vector vel)
+    (cl-mpm/fastmaths::fast-zero-vector vel-t)
+    (cl-mpm/fastmaths::fast-zero-vector acc)
+    (cl-mpm/fastmaths::fast-zero-vector force)
+    (cl-mpm/fastmaths::fast-zero-vector int-force)
+    (cl-mpm/fastmaths::fast-zero-vector ext-force)
+    (cl-mpm/fastmaths::fast-zero-vector rct-force)
+    (cl-mpm/fastmaths::fast-zero-vector residual)
+    (cl-mpm/fastmaths::fast-zero-vector residual-n)
+    (cl-mpm/fastmaths::fast-zero-vector damping-force)
+    (cl-mpm/fastmaths::fast-zero-vector ghost-force)
+    (cl-mpm/fastmaths::fast-zero-vector buoyancy-force)))
+
 (defun reset-node-force (node)
   (with-slots ((acc acceleration)
                (force force)
@@ -975,6 +976,7 @@
                (damping-force damping-force)
                (buoyancy-force buoyancy-force))
       node
+    (declare (magicl::matrix/double-float acc force int-force ghost-force damping-force buoyancy-force))
     (cl-mpm/fastmaths::fast-zero-vector acc)
     (cl-mpm/fastmaths::fast-zero-vector force)
     (cl-mpm/fastmaths::fast-zero-vector int-force)

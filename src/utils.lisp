@@ -905,7 +905,7 @@
     (let* ((permutation (make-array len :element-type 'fixnum)))
       (loop for i from 0 below (length values)
             do (setf (aref permutation i) i))
-      (format t "Compacting ~D fds~%" len)
+      ;; (format t "Compacting ~D fds~%" len)
       ;; (if (> len 10000)
       ;;   (lparallel:psort permutation
       ;;                    (lambda (i j)
