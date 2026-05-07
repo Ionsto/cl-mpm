@@ -329,12 +329,9 @@
   "Calculate external force contribution from mp at node"
   (declare (double-float svp gravity)
            (ignore node))
-  (with-accessors ((mass cl-mpm/particle:mp-mass)
-                   ;; (gravity cl-mpm/particle:mp-gravity)
-                   ;; (volume cl-mpm/particle:mp-volume)
-                   (body-force cl-mpm/particle:mp-body-force)
-                   (gravity-axis cl-mpm/particle::mp-gravity-axis)
-                   ) mp
+  (let ((gravity-axis (cl-mpm/particle::mp-gravity-axis mp))
+        (body-force (cl-mpm/particle:mp-body-force mp))
+        (mass (cl-mpm/particle:mp-mass mp)))
     (declare (type double-float svp mass gravity volume)
              (type magicl:matrix/double-float body-force))
     (let* ((f-out (if f-out f-out (cl-mpm/utils::vector-zeros)))

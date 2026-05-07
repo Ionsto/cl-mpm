@@ -35,8 +35,8 @@
     `(lambda (mesh mp)
         (let ((av 0))
           (progn
-            (cl-mpm::iterate-over-neighbours mesh mp 
-                 (lambda (node svp dsvp &rest rest) 
+            (cl-mpm::iterate-over-neighbours mesh mp
+                 (lambda (node svp dsvp &rest rest)
                    (setf av (+ av (* svp (,accessor node))))))
             av))))
 
@@ -46,21 +46,20 @@
           (progn
             (cl-mpm::iterate-over-neighbours
              mesh mp
-             (lambda (node svp dsvp  &rest rest) 
+             (lambda (node svp dsvp  &rest rest)
                (setf av (cl-mpm/fastmaths::fast-.+ av (magicl:scale (,accessor node) svp)))))
             av))))
 
 (defun sample-line-mass (sim start end steps)
-    (sample-line sim start end steps 
+    (sample-line sim start end steps
         (scalar-average cl-mpm/mesh:node-mass)))
 
 (defun sample-line-velocity (sim start end steps)
-    (sample-line sim start end steps 
+    (sample-line sim start end steps
         (matrix-average cl-mpm/mesh:node-velocity '(2 1))))
 
 (defun sample-point-mass (sim point)
-    (sample-point sim point 
-        (scalar-average cl-mpm/mesh:node-mass)))
+    (sample-point sim point (scalar-average cl-mpm/mesh:node-mass)))
 
 (defun sample-point-velocity (sim point)
     (sample-point sim point
@@ -419,7 +418,7 @@
       (format fs "DATASET UNSTRUCTURED_GRID~%")
 
       (let* ((node-count (array-total-size nodes))
-             (nodes (remove-if-not #'cl-mpm/mesh:node-active
+             (nodes (remove-if-not (lambda (n) t);#'cl-mpm/mesh:node-active
                                    (make-array node-count :displaced-to nodes)))
              (node-count (array-total-size nodes)))
         (format fs "POINTS ~d double~%" (array-total-size nodes))
@@ -445,6 +444,10 @@
 
           (save-parameter-nodes "agg" (if (cl-mpm/mesh::node-agg node) 1 0))
           (save-parameter-nodes "agg-int" (if (cl-mpm/mesh::node-interior node) 1 0))
+          (save-parameter-nodes "agg-ext" (if (and (cl-mpm/mesh::node-agg node) (not (cl-mpm/mesh::node-interior node))) 1 0))
+          (save-parameter-nodes "agg-element-x" (if (cl-mpm/mesh::node-agg-interior-cell node) (nth 0 (cl-mpm/mesh::cell-index (cl-mpm/mesh::node-agg-interior-cell node))) -1))
+          (save-parameter-nodes "agg-element-y" (if (cl-mpm/mesh::node-agg-interior-cell node) (nth 1 (cl-mpm/mesh::cell-index (cl-mpm/mesh::node-agg-interior-cell node))) -1))
+
 
           (save-parameter-nodes "mass" (cl-mpm/mesh:node-mass node))
           (save-parameter-nodes "density" (if (> (cl-mpm/mesh::node-volume node) 0d0)
@@ -551,7 +554,7 @@
             (nd (cl-mpm/mesh:mesh-nd mesh)))
         (declare (special id))
         (format fs "POINT_DATA ~d~%" (length mps))
-
+        (save-parameter "unique-id" (cl-mpm/particle::mp-unique-index mp))
         (save-parameter "mass" (cl-mpm/particle:mp-mass mp))
         (save-parameter "density" (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)))
         (save-parameter "volume" (cl-mpm/particle:mp-volume mp))
@@ -732,7 +735,7 @@
                      (let ((cell (row-major-aref cells i)))
                        (when cell
                          ;; (incf node-count)
-                         (let ((pos (cl-mpm/mesh::cell-trial-centroid cell)))
+                         (let ((pos (cl-mpm/mesh::cell-centroid cell)))
                            (format fs "~E ~E ~E ~%"
                                    (coerce (cl-mpm/utils::varef pos 0) 'single-float)
                                    (coerce (cl-mpm/utils::varef pos 1) 'single-float)

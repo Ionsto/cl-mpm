@@ -31,10 +31,8 @@
       (reset-grid mesh)
       (when (> (length mps) 0)
         (p2g mesh mps vel-algo)
-
         (when (> mass-filter 0d0)
           (filter-grid mesh (sim-mass-filter sim)))
-
         (apply-bcs mesh bcs dt)
         (filter-cells sim)
         (update-node-kinematics sim)
@@ -54,7 +52,7 @@
         (reset-node-displacement sim)
         (update-nodes sim)
         (apply-bcs mesh bcs dt)
-        (cl-mpm/ghost::apply-half-step-ghost sim)
+        ;; (cl-mpm/ghost::apply-half-step-ghost sim)
         (update-dynamic-stats sim)
         ;; Also updates mps inline
         (g2p mesh mps dt damping vel-algo)
@@ -114,13 +112,12 @@
                 do (apply-bcs mesh bcs-f dt)))
         ;; (cl-mpm/ghost::apply-ghost sim ghost-factor)
         (update-node-forces sim)
-
         ;; (cl-mpm/ghost::apply-half-step-ghost sim)
 
         (reset-node-displacement sim)
         (update-nodes sim)
         (apply-bcs mesh bcs dt)
-        (cl-mpm/ghost::apply-half-step-ghost sim)
+        ;; (cl-mpm/ghost::apply-half-step-ghost sim)
 
         (update-dynamic-stats sim)
         ;; Also updates mps inline

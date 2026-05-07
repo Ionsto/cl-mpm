@@ -833,8 +833,7 @@
    double-float)
   dot))
 (defun dot (a b)
-  (the double-float (fast-sum (fast-.* a b)))
-  )
+  (the double-float (fast-sum (fast-.* a b))))
 (declaim
  (ftype
   (function
@@ -1607,6 +1606,8 @@
                  (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows mat) 1))))
     (declare (magicl:matrix/double-float vec res)
              (cl-mpm/utils::sparse-matrix mat))
+    (assert (= (cl-mpm/utils::sparse-matrix-nrows mat) (magicl:nrows res)))
+    (assert (= (cl-mpm/utils::sparse-matrix-ncols mat) (magicl:nrows vec)))
 
     (let ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
           (cols (cl-mpm/utils::sparse-matrix-cols mat))
@@ -1631,6 +1632,8 @@
     (declare (magicl:matrix/double-float vec res)
              (cl-mpm/utils::sparse-matrix mat))
 
+    (assert (= (cl-mpm/utils::sparse-matrix-nrows mat) (magicl:nrows res)))
+    (assert (= (cl-mpm/utils::sparse-matrix-ncols mat) (magicl:nrows vec)))
     (let ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
           (cols (cl-mpm/utils::sparse-matrix-cols mat))
           (values (cl-mpm/utils::sparse-matrix-values mat))
@@ -1653,6 +1656,17 @@
                  (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows mat) 1))))
     (declare (magicl:matrix/double-float vec res)
              (cl-mpm/utils::sparse-matrix mat))
+    (cl-mpm/fastmaths::fast-zero res)
+    ;; (policy-cond:with-expectations (> speed safety)
+    ;;     ((assertion )
+    ;;      (assertion (= 3 (magicl::matrix/double-float-nrows matrix)))
+    ;;      (assertion (= 3 (magicl::matrix/double-float-ncols matrix)))
+    ;;      (assertion (= 3 (length b)))
+    ;;      (assertion (= 3 (length c)))))
+    (assert (= (cl-mpm/utils::sparse-matrix-nrows mat) (magicl:nrows bcs-r)))
+    (assert (= (cl-mpm/utils::sparse-matrix-ncols mat) (magicl:nrows bcs-c)))
+    (assert (= (cl-mpm/utils::sparse-matrix-nrows mat) (magicl:nrows res)))
+    (assert (= (cl-mpm/utils::sparse-matrix-ncols mat) (magicl:nrows vec)))
     (let ()
       (let ()
         ;;When we are solving a fully fixed system - i.e. out of plane dimensions
@@ -1669,21 +1683,26 @@
               (let* ((col-0 (aref rowindex r))
                      (col-1 (aref rowindex (1+ r))))
                 (loop for c from col-0 below col-1
-                        do
-                           (when (> (varef bcs-c (aref cols c)) 0d0)
-                             (incf (aref res-s r)
-                                   (the double-float
-                                        (*
-                                         (aref values c)
-                                         (aref vec-s (aref cols c)))))))))))))
+                      do
+                         (when (> (varef bcs-c (aref cols c)) 0d0)
+                           (incf (aref res-s r)
+                                 (the double-float
+                                      (*
+                                       (aref values c)
+                                       (aref vec-s (aref cols c)))))))))))))
     (fast-.* res bcs-r res)
     res))
 (defun fast-@-sparse-mat-dense-vec-masked-multithread (mat vec bcs-r bcs-c &optional res)
   (let ((res (if res
-                 res
+                 (cl-mpm/fastmaths::fast-zero res)
                  (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows mat) 1))))
     (declare (magicl:matrix/double-float vec res)
              (cl-mpm/utils::sparse-matrix mat))
+
+    (assert (= (cl-mpm/utils::sparse-matrix-nrows mat) (magicl:nrows bcs-r)))
+    (assert (= (cl-mpm/utils::sparse-matrix-ncols mat) (magicl:nrows bcs-c)))
+    (assert (= (cl-mpm/utils::sparse-matrix-nrows mat) (magicl:nrows res)))
+    (assert (= (cl-mpm/utils::sparse-matrix-ncols mat) (magicl:nrows vec)))
     (let ()
       (let ()
         ;;When we are solving a fully fixed system - i.e. out of plane dimensions

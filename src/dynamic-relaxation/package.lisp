@@ -31,6 +31,10 @@
     :initform 1
     :accessor sim-mass-update-count
     :initarg :mass-update-count)
+   (damping-update-count
+    :initform 1
+    :accessor sim-damping-update-count
+    :initarg :damping-update-count)
    (ke
     :initform 0d0
     :accessor sim-ke)

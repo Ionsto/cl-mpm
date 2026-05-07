@@ -235,57 +235,59 @@
     ;;   )
     ))
 
-(declaim (notinline calculate-forces)
+(declaim (inline calculate-forces)
          (ftype (function (cl-mpm/mesh::node double-float double-float double-float) (vaules)) calculate-forces))
 (defun calculate-forces (node damping dt mass-scale)
   "Update forces and nodal velocities with viscous damping"
-  (when (cl-mpm/mesh:node-active node)
-    (with-accessors ((mass node-mass)
-                     (vel node-velocity)
-                     (force node-force)
-                     (force-ext cl-mpm/mesh::node-external-force)
-                     (force-int cl-mpm/mesh::node-internal-force)
-                     (force-damp cl-mpm/mesh::node-damping-force)
-                     (force-ghost cl-mpm/mesh::node-ghost-force)
-                     (residual cl-mpm/mesh::node-residual)
-                     (residual-prev cl-mpm/mesh::node-residual-prev)
-                     (acc node-acceleration))
-        node
-      (declare (double-float mass dt damping mass-scale))
-      (progn
-        (cl-mpm/fastmaths:fast-zero acc)
-        ;;Set acc to f/m
-        (cl-mpm/fastmaths::fast-.+-vector force-int force force)
-        (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
-        ;;Include velocity prop damping
-        (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping -1d0 mass))
-        ;; (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping (cl-mpm/mesh::node-pwave node) -1d0))
-        ;; (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping -1d0))
-
-        (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
-        ;; (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
-        (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
-        (integrate-vel-euler vel acc mass mass-scale dt 0d0)
-        ;; (cl-mpm/utils::vector-copy-into residual residual-prev)
-        ;; (cl-mpm/utils::vector-copy-into force residual)
-        )))
+  (with-accessors ((mass node-mass)
+                   (vel node-velocity)
+                   (force node-force)
+                   (force-ext cl-mpm/mesh::node-external-force)
+                   (force-int cl-mpm/mesh::node-internal-force)
+                   (force-damp cl-mpm/mesh::node-damping-force)
+                   (force-ghost cl-mpm/mesh::node-ghost-force)
+                   (residual cl-mpm/mesh::node-residual)
+                   (residual-prev cl-mpm/mesh::node-residual-prev)
+                   (acc node-acceleration))
+      node
+    (declare (double-float mass dt damping mass-scale))
+    (progn
+      (cl-mpm/fastmaths::fast-zero-vector acc)
+      ;;Set acc to f/m
+      (cl-mpm/fastmaths::fast-.+-vector force-int force force)
+      (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
+      ;;Include velocity prop damping
+      (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping -1d0 mass))
+      (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
+      ;; (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
+      (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
+      (integrate-vel-euler vel acc mass mass-scale dt 0d0)
+      ;; (cl-mpm/utils::vector-copy-into residual residual-prev)
+      ;; (cl-mpm/utils::vector-copy-into force residual)
+      ))
   (values))
 
 
 
+(declaim (inline integrate-vel-midpoint)
+         (ftype (function (magicl::matrix/double-float
+                           magicl::matrix/double-float
+                           double-float double-float double-float double-float) (vaules)) integrate-vel-midpoint))
 (defun integrate-vel-midpoint (vel acc mass mass-scale dt damping)
   (declare (double-float mass mass-scale dt damping))
   (unless (= dt 0d0)
     (let ((damp-dt (/ (* dt damping) mass-scale)))
       (cl-mpm/fastmaths:fast-scale! vel (/ (- 2d0 damp-dt)
                                            (+ 2d0 damp-dt)))
-      (cl-mpm/fastmaths:fast-fmacc vel acc (/ (* dt 2d0) (+ 2d0 damp-dt))))))
+      (cl-mpm/fastmaths:fast-fmacc vel acc (/ (* dt 2d0) (+ 2d0 damp-dt)))))
+  (values))
 
-(declaim (notinline calculate-forces-midpoint)
+(declaim (inline calculate-forces-midpoint)
          (ftype (function (cl-mpm/mesh::node double-float double-float double-float) (vaules)) calculate-forces-midpoint))
 (defun calculate-forces-midpoint (node damping dt mass-scale)
   "Update forces and nodal velocities with viscous damping"
-  (when (cl-mpm/mesh:node-active node)
+
+  (when (cl-mpm/mesh::node-active node)
     (with-accessors ((mass node-mass)
                      (vel node-velocity)
                      (force node-force)
@@ -299,19 +301,15 @@
         node
       (declare (double-float mass dt damping mass-scale))
       (progn
-        (cl-mpm/fastmaths:fast-zero acc)
+        (cl-mpm/fastmaths::fast-zero-vector acc)
         ;;Set acc to f/m
         (cl-mpm/fastmaths::fast-.+-vector force-int force force)
         (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
-        ;; (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping -1d0 mass))
         (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
         (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
 
         (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
-        ;; (integrate-vel-midpoint vel acc mass mass-scale dt damping)
-
         (cl-mpm/utils::vector-copy-into residual residual-prev)
-        ;(cl-mpm/utils::vector-copy-into force-int residual)
         (cl-mpm/utils::vector-copy-into force residual)
         )))
   (values))
@@ -459,10 +457,16 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
      mesh
      (lambda (node)
        (calculate-kinematics node)))))
+(defun update-node-forces-standard (sim)
+  (iterate-over-nodes
+   mesh
+   (lambda (node)
+     (when (cl-mpm/mesh:node-active node)
+       (calculate-forces node damping dt mass-scale)))))
 
 (defgeneric update-node-forces (sim)
   (:documentation "Update the acceleration from forces and apply any damping"))
-(defmethod update-node-forces ((sim mpm-sim))
+(defmethod update-node-forces ((sim cl-mpm::mpm-sim))
   (with-accessors ((damping sim-damping-factor)
                    (mass-scale sim-mass-scale)
                    (mesh sim-mesh)
@@ -1182,8 +1186,7 @@ This modifies the dt of the simulation in the process
                                          (setf (cl-mpm/particle::mp-index mp) new-id)
                                          (incf new-id))))))))
 
-        (setf (cl-mpm::sim-mps sim) sorted-mps))))
-  )
+        (setf (cl-mpm::sim-mps sim) sorted-mps)))))
 
 (defun reset-mesh-active (sim)
   (let ((mesh (sim-mesh sim)))

@@ -680,7 +680,9 @@
 
 (defun plastic-vm-tangent (stress de trial-elastic-strain rho e nu)
   (declare (double-float e nu rho))
-  (let* ((tol 1d-9)
+  (let* ((stress (swizzle-voigt->coombs stress))
+         (trial-elastic-strain (swizzle-voigt->coombs trial-elastic-strain))
+         (tol 1d-9)
          (max-iter 5)
          ;; (sig stress)
          (sig (cl-mpm/utils::voigt-copy stress))
@@ -739,22 +741,30 @@
                            (loop for i from 0 below 6
                                  do (setf (magicl:tref b i 0) (magicl:tref b-eps i 0)))
                            (setf (magicl:tref b 6 0) b-f)))))
-          (let ((B (magicl:inv (magicl:block-matrix (list
-                                                     (cl-mpm/fastmaths::fast-.+ (magicl:inv De)
-                                                                (magicl:scale! ddf dgam))
-                                                     df
-                                                     (magicl:transpose df)
-                                                     (magicl:from-diag (list 0d0)))
+          (let ((B (magicl:inv (magicl:block-matrix
+                                (list
+                                 (cl-mpm/fastmaths::fast-.+ (magicl:inv De)
+                                                            (magicl:scale! ddf dgam))
+                                 df
+                                 (magicl:transpose df)
+                                 (magicl:from-diag (list 0d0)))
                                                     (list 2 2)))))
             (setf dep (magicl:slice B '(0 0) '(6 6))))
+          ;; (pprint dgam)
+          ;; (pprint ddf)
+          ;; (pprint df)
+          ;; (pprint dep)
           (setf inc (the double-float
                            (cl-mpm/fastmaths::voigt-von-mises
                             (cl-mpm/fastmaths::fast-.--voigt
                              eps-e
                              trial-elastic-strain))))
-          (values sig eps-e f inc K dep)
+          (values (swizzle-coombs->voigt sig)
+                  (swizzle-coombs->voigt eps-e)
+                  f inc K dep)
           ))
-      (values sig trial-elastic-strain f inc p-mod dep))))
+      (values (swizzle-coombs->voigt sig)
+              (swizzle-coombs->voigt trial-elastic-strain) f inc p-mod dep))))
 
 
 

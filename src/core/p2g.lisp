@@ -221,7 +221,8 @@
   "Map particle forces to the grid for one mp"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
-  (let ((stress (cl-mpm/particle::mp-stress mp)))
+  (let ((stress (cl-mpm/particle::mp-stress mp))
+        (volume (cl-mpm/particle::mp-volume mp)))
     (iterate-over-neighbours
      mesh mp
      (lambda (node svp grads fsvp fgrads)
@@ -237,7 +238,7 @@
                   (sb-thread:mutex node-lock)
                   (magicl:matrix/double-float node-int-force node-ext-force))
          (when node-active
-           (let ((volume (cl-mpm/particle::mp-volume mp)))
+           (let ()
              (sb-thread:with-mutex (node-lock)
                (det-ext-force-2d mp node svp gravity volume node-ext-force)
                (det-int-force-unrolled-2d stress grads volume node-int-force))))))))

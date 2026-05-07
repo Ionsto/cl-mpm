@@ -446,8 +446,9 @@
              res))
          (volume (expt h (mesh-nd mesh)))
          ;; (centroid (cell-calculate-centroid nodes))
-         (centroid (cl-mpm/fastmaths::fast-.+ (cl-mpm/utils:vector-from-list (index-to-position mesh index))
-                                         (magicl:scale! (cl-mpm/utils:vector-from-list (list h h h)) 0.5d0)))
+         (centroid (cl-mpm/fastmaths::fast-.+
+                    (cl-mpm/utils:vector-from-list (index-to-position mesh index))
+                    (magicl:scale! (cl-mpm/utils:vector-from-list (list h h h)) 0.5d0)))
          )
     (loop for n in nodes
           do (incf (node-volume-true n) (/ volume (length nodes))))
@@ -487,8 +488,9 @@
              res))
          (volume (expt h 2))
          ;; (centroid (cell-calculate-centroid nodes))
-         (centroid (cl-mpm/fastmaths::fast-.+ (cl-mpm/utils:vector-from-list (index-to-position mesh index))
-                                         (magicl:scale! (cl-mpm/utils:vector-from-list (list h h 0d0)) 0.5d0)))
+         (centroid (cl-mpm/fastmaths::fast-.+
+                    (cl-mpm/utils:vector-from-list (index-to-position mesh index))
+                    (cl-mpm/fastmaths:fast-scale! (cl-mpm/utils:vector-from-list (list h h 0d0)) 0.5d0)))
          )
     (loop for n in nodes
           do (incf (node-volume-true n) (/ volume (length nodes))))
@@ -516,8 +518,7 @@
     (array-operations/utilities:nested-loop (i j k) (array-dimensions cells)
       (let* ((cell (aref cells i j k)))
 
-        (with-accessors ((neighbours cell-neighbours)
-                         )
+        (with-accessors ((neighbours cell-neighbours))
             cell
           (setf neighbours (list))
 
@@ -660,8 +661,9 @@
   (declare (fixnum value)
            ((integer 0 2) dim))
   "Check a single dimension is inside a mesh"
-  (and (>= value 0) (< value (max 1 (- (the fixnum (aref (the array-fixnum-3 (mesh-count-array mesh)) dim))
-                                       1)))))
+  (and (>= value 0)
+       (< value
+          (max 1 (- (the fixnum (aref (the array-fixnum-3 (mesh-count-array mesh)) dim)) 1)))))
 
 (defun in-bounds-cell (mesh index)
   (destructuring-bind (x y z) index
@@ -825,6 +827,16 @@
               (the fixnum (* (aref mc 0) y))
               x)))))
 
+(defun index-to-id-cell (mesh index)
+  (let ((mc (cl-mpm/mesh::mesh-count-array mesh)))
+    (declare (array-fixnum-3 mc))
+    (destructuring-bind (x y z) index
+      (declare (fixnum x y z))
+      (the fixnum
+           (+ (the fixnum (* (the fixnum (- (aref mc 1) 1)) (the fixnum (- (aref mc 0) 1)) z))
+              (the fixnum (* (- (aref mc 0) 1) y))
+              x)))))
+
 
 (declaim (inline get-node)
          (ftype (function (mesh list) (or node null)) get-node))
@@ -938,11 +950,15 @@
                (ghost-force ghost-force)
                (damping-force damping-force)
                (agg agg)
+               (interior interior)
+               (agg-interior-cell agg-interior-cell)
                (buoyancy-force buoyancy-force))
       node
     (declare (double-float mass volume p-wave damage svp-sum))
     (setf active nil)
     (setf agg nil)
+    (setf interior nil)
+    (setf agg-interior-cell nil)
     (setf boundary nil)
     (setf mass 0d0)
     (setf mass-t 0d0)

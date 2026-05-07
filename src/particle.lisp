@@ -608,8 +608,7 @@
 (defun estimate-log-enhancement (particle)
   (with-accessors ((def-inc mp-deformation-gradient-increment)
                    (def mp-deformation-gradient)
-                   (eps mp-strain)
-                   )
+                   (eps mp-strain))
       particle
     ;; (let ((l (cl-mpm/fastmaths::magicl-eigen-values-3x3 (voigt-to-matrix eps))))
     ;;   (let ((lmax (reduce #'max (mapcar (lambda (x) (exp (- x))) l))))

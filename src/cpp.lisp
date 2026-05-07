@@ -141,6 +141,16 @@
         (nu :double)
         (rho :double))
 
+      (defcfun "CppVonMisesTangent" :bool
+        (strain-ptr :pointer)
+        (dep-ptr :pointer)
+        (f-ptr :pointer)
+        (ps-ptr :pointer)
+        (p-mod-ptr :pointer)
+        (E :double)
+        (nu :double)
+        (rho :double))
+
       (defcfun "MatrixSqrt" :bool
         (input-ptr :pointer)
         (output-ptr :pointer))
@@ -196,6 +206,29 @@
                                                       (p-mod-arr-p p-mod-arr)
                                                       )
                 (if (CppVonMises sp f-arr-p ps-arr-p p-mod-arr-p E nu rho)
+                    (progn
+                      (values (cl-mpm/fastmaths::fast-@-tensor-voigt de strain stress)
+                              strain
+                              (aref f-arr 0)
+                              (aref ps-arr 0)
+                              (aref p-mod-arr 0)))
+                    (values stress
+                            strain
+                            (aref f-arr 0)
+                            (aref ps-arr 0)
+                            (aref p-mod-arr 0))))))))
+
+      (defun constitutive-vm-tangent (stress strain de E nu rho dep)
+        (declare (double-float E nu rho))
+        (static-vectors:with-static-vector (f-arr 1 :element-type 'double-float)
+          (static-vectors:with-static-vector (ps-arr 1 :element-type 'double-float)
+            (static-vectors:with-static-vector (p-mod-arr 1 :element-type 'double-float)
+              (magicl.cffi-types:with-array-pointers ((sp (cl-mpm/utils:fast-storage strain))
+                                                      (depp (cl-mpm/utils:fast-storage dep))
+                                                      (f-arr-p f-arr)
+                                                      (ps-arr-p ps-arr)
+                                                      (p-mod-arr-p p-mod-arr))
+                (if (CppVonMisesTangent sp depp f-arr-p ps-arr-p p-mod-arr-p E nu rho)
                     (progn
                       (values (cl-mpm/fastmaths::fast-@-tensor-voigt de strain stress)
                               strain

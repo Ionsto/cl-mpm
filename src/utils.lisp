@@ -881,6 +881,29 @@
     ;; (funcall (object-pool-constructor pool))
     ))
 
+(defun object-pool-ensure-size (pool)
+  (when (>= (lparallel:kernel-worker-count) (length (object-pool-pool pool)))
+    ;;Trigger a re-build
+    (sb-thread:with-mutex ((object-pool-lock pool))
+      (when (>= (lparallel:kernel-worker-count) (length (object-pool-pool pool)))
+        (let* ((prev-pool (object-pool-pool pool))
+               (wc (the fixnum (if (lparallel:kernel-worker-count) (lparallel:kernel-worker-count) 0)))
+               (new-pool (make-array (1+ wc) :element-type t)))
+          (loop for i from 0 below (length new-pool)
+                do (setf (aref new-pool i)
+                         (if (< i (length prev-pool))
+                             (aref prev-pool i)
+                             (funcall (object-pool-constructor pool)))))
+          (setf (object-pool-pool pool) new-pool))))))
+
+(defun object-pool-grab-unsafe (pool)
+  (let ((thread-index (lparallel::kernel-worker-index)))
+    (unless thread-index
+      (setf thread-index -1))
+    (incf thread-index)
+    (progn
+      (aref (object-pool-pool pool) thread-index))))
+
 (defstruct sparse-matrix
   "Sparse self-adjoint matrix"
   values
@@ -926,15 +949,16 @@
       ;;                              (aref rows j))
       ;;                           (< (aref cols i)
       ;;                              (aref cols j)))))))
-      (sort permutation
-            (lambda (i j)
-              (or (< (aref rows i)
-                     (aref rows j))
-                  (and
-                   (= (aref rows i)
-                      (aref rows j))
-                   (< (aref cols i)
-                      (aref cols j))))))
+      (setf permutation
+            (sort permutation
+                  (lambda (i j)
+                    (or (< (aref rows i)
+                           (aref rows j))
+                        (and
+                         (= (aref rows i)
+                            (aref rows j))
+                         (< (aref cols i)
+                            (aref cols j)))))))
       ;; (sort
       ;;  permutation
       ;;  (lambda (i j)
@@ -985,18 +1009,11 @@
         (values
          (subseq sorted-values 0)
          (subseq sorted-rows 0)
-         (subseq sorted-cols 0))
-        ;; (values (coerce sorted-values '(simple-array double-float (*)))
-        ;;         (coerce sorted-rows   '(simple-array fixnum (*)))
-        ;;         (coerce sorted-cols   '(simple-array fixnum (*))))
-        ))))
+         (subseq sorted-cols 0))))))
 
 (defun build-sparse-matrix (values rows cols nrows ncols)
   "Take a triplet of vectors of (value row col) and make a sparse matrix in compressed row storage"
   (multiple-value-bind (v cr cc) (cl-mpm/utils::sort-and-sum values rows cols)
-    ;; (pprint v)
-    ;; (pprint cr)
-    ;; (pprint cc)
     (let ((rolling-index 0)
           (row 0)
           (rowindex (make-array (1+ nrows) :element-type 'fixnum :initial-element 0)))
@@ -1004,13 +1021,13 @@
             for r across cr
             do
                (progn
-                  (unless (= row r)
-                    (loop for j from (1+ row) below r
-                          when (> j 0)
-                          do (setf (aref rowindex j) rolling-index))
-                    (setf (aref rowindex r) rolling-index)
-                    (setf row r))
-                  (incf rolling-index)))
+                 (unless (= row r)
+                   (loop for j from (1+ row) below r
+                         when (> j 0)
+                           do (setf (aref rowindex j) rolling-index))
+                   (setf (aref rowindex r) rolling-index)
+                   (setf row r))
+                 (incf rolling-index)))
       (setf (aref rowindex (1+ row)) rolling-index)
       (make-sparse-matrix :values v
                           :cols cc
@@ -1028,7 +1045,7 @@
                    (vector-push-extend (cl-mpm/utils::mtref mat x y) v)
                    (vector-push-extend x r)
                    (vector-push-extend y c))))
-    (values v r c)))
+    (build-sparse-matrix v r c (magicl:nrows mat) (magicl:ncols mat))))
 (defun sparse-to-mat (mat)
   (let ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
         (cols (cl-mpm/utils::sparse-matrix-cols mat))
@@ -1042,6 +1059,43 @@
                 (the double-float
                      (aref values c))))))
     res))
+
+(defun sparse-to-coordinates (mat)
+  (let ((coords (list)))
+    (let ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
+          (cols (cl-mpm/utils::sparse-matrix-cols mat))
+          (values (cl-mpm/utils::sparse-matrix-values mat)))
+      (dotimes (r (cl-mpm/utils::sparse-matrix-nrows mat))
+        (let ((col-0 (aref rowindex r))
+              (col-1 (aref rowindex (1+ r))))
+          (loop for c from col-0 below col-1 do
+            (push
+             (list
+              (the double-float
+                   (aref values c))
+              r
+              (aref cols c)
+              )
+             coords))))
+      (sort coords
+            (lambda (i j)
+              (or (< (nth 2 i)
+                     (nth 2 j))
+                  (and
+                   (= (nth 2 i)
+                      (nth 2 j))
+                   (< (nth 1 i)
+                      (nth 1 j))))))
+      ;; (sort coords
+      ;;       (lambda (i j)
+      ;;         (or (< (nth 1 i)
+      ;;                (nth 1 j))
+      ;;             (and
+      ;;              (= (nth 1 i)
+      ;;                 (nth 1 j))
+      ;;              (< (nth 2 i)
+      ;;                 (nth 2 j))))))
+      )))
 
 (defun build-sparse-matrix-ccs (values rows cols nrows ncols)
   "Take a triplet of vectors of (value row col) and make a sparse matrix in compressed row storage"

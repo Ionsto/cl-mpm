@@ -1470,12 +1470,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                        (grad-y (grads-local-pos dist-y nd dy h))
                                        (grads (cl-mpm/shape-function::grads-3d
                                                (list weight-x weight-y 1d0)
-                                               (list grad-x grad-y 0d0)))
-                                       )
-                                  (declare
-                                   (double-float weight))
-                                  (when t;(> weight 0d0)
-                                    (funcall func node weight grads))))))))))))
+                                               (list grad-x grad-y 0d0))))
+                                  (declare (double-float weight))
+                                  (funcall func node weight grads)))))))))))
 
 (defun iterate-over-cell-shape-local-3d (mesh cell local-position func)
   "Iterating over a given cell's basis functions"

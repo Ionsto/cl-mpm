@@ -5,6 +5,12 @@
    ))
 (in-package :cl-mpm/examples/beam)
 (declaim (notinline plot-domain))
+
+(defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
+  (cl-mpm::update-particle-kirchoff mesh mp dt)
+  (cl-mpm::update-domain-stretch mesh mp dt)
+  )
+
 (defun plot-domain ()
   (when *sim*
     (cl-mpm/plotter:simple-plot
@@ -32,10 +38,13 @@
                  :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
                  :args-list (list :enable-aggregate nil
                                   :mass-update-count 1
+                                  :mp-removal-size nil
                                   ;; :refinement 2
-                                  :ghost-factor (* 12d6 1d-4)
+                                  ;; :ghost-factor (* 12d6 1d-4)
+                                  :ghost-factor nil
                                   )))
     (setf mesh-resolution (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
+    (format t "Mesh resolution ~E~%" mesh-resolution)
     (cl-mpm:add-mps
      *sim*
      (cl-mpm/setup:make-block-mps
@@ -66,13 +75,10 @@
            )))
       (setf (cl-mpm:sim-gravity *sim*) (/ -100d3 (* 2d0 mass))))
 
-    (cl-mpm/setup::set-mass-filter *sim* density :proportion 0d-15)
+    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-9)
     (cl-mpm/setup::setup-bcs
      *sim*
      :left '(0 0 nil))
-
-    (setf (cl-mpm:sim-dt *sim*)
-          (* 0.5d0 (cl-mpm/setup:estimate-elastic-dt *sim*)))
     (setf *run-sim* t))
   (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
   )
@@ -82,14 +88,15 @@
    *sim*
    :output-dir output-dir
    :plotter (lambda (sim) (plot-domain))
-   :load-steps 100
+   :load-steps 50
    :damping (sqrt 2d0)
    :dt-scale 1d0
-   :substeps 50
+   :substeps 1000
    :criteria 1d-3
-   :save-vtk-dr t
+   :sub-conv-steps 1000
+   :save-vtk-dr nil
    :save-vtk-loadstep t))
 
 (defun test ()
-  (setup :mps 3 :refine 0.5)
+  (setup :mps 3 :refine 1)
   (run))

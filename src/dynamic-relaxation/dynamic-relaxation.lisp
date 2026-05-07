@@ -233,108 +233,121 @@
 
 (defgeneric dr-estimate-damping (sim))
 
-(defmethod dr-estimate-damping ((sim cl-mpm::mpm-sim))
-  (with-accessors ((mesh cl-mpm:sim-mesh)
-                   (dt cl-mpm:sim-dt))
-      sim
-    (let ((num 0d0)
-          (denom 0d0))
-      (setf
-       num
-       (cl-mpm::reduce-over-nodes
-        mesh
-        (lambda (node)
-          (if (and (cl-mpm/mesh:node-active node)
-                   (not (cl-mpm/mesh::node-agg node)))
-              (cl-mpm/fastmaths:dot
-               (cl-mpm/mesh:node-velocity node)
-               (cl-mpm/fastmaths::fast-.--vector
-                (cl-mpm/mesh::node-residual-prev node)
-                (cl-mpm/mesh::node-residual node)))
-              0d0))
-        #'+))
-      (setf
-       denom
-       (* dt
-          (cl-mpm::reduce-over-nodes
-           mesh
-           (lambda (node)
-             (if (and (cl-mpm/mesh:node-active node)
-                      (not (cl-mpm/mesh::node-agg node)))
-                 (* (cl-mpm/mesh:node-mass node)
-                    (cl-mpm/fastmaths::dot
-                     (cl-mpm/mesh::node-velocity node)
-                     (cl-mpm/mesh::node-velocity node)))
-                 0d0))
-           #'+)))
-      (if (> num 0d0)
-          (if (= denom 0d0)
-              0d0
-              (* (sqrt 2) (sqrt (/ num denom))))
-          0d0))))
-(defmethod dr-estimate-damping ((sim cl-mpm/aggregate::mpm-sim-aggregated))
-  (with-accessors ((mesh cl-mpm:sim-mesh))
-      sim
-    (let ((num 0d0)
-          (denom 0d0)
-          (dt 1d0))
-      (setf
-       num
-       (cl-mpm::reduce-over-nodes
-        mesh
-        (lambda (node)
-          (if (and (cl-mpm/mesh:node-active node)
-                   (not (cl-mpm/mesh::node-agg node)))
-              (cl-mpm/fastmaths:dot
-               (cl-mpm/mesh:node-velocity node)
-               (cl-mpm/fastmaths:fast-.-
-                (cl-mpm/mesh::node-residual-prev node)
-                (cl-mpm/mesh::node-residual node)))
-              0d0))
-        #'+))
-      (setf
-       denom
-       (* dt
-          (cl-mpm::reduce-over-nodes
-           mesh
-           (lambda (node)
-             (if (and (cl-mpm/mesh:node-active node)
-                      (not (cl-mpm/mesh::node-agg node)))
-                 (* (cl-mpm/mesh:node-mass node)
-                    (cl-mpm/fastmaths::mag-squared (cl-mpm/mesh::node-velocity node)))
-                 0d0))
-           #'+)))
+(let ((work-pool (cl-mpm/utils::make-object-pool
+                  :constructor (lambda ()
+                                 (cl-mpm/utils:vector-zeros)))))
+  (defmethod dr-estimate-damping ((sim cl-mpm::mpm-sim))
+    (with-accessors ((mesh cl-mpm:sim-mesh)
+                     (dt cl-mpm:sim-dt))
+        sim
+      (let ((num 0d0)
+            (denom 0d0))
+        (cl-mpm/utils::object-pool-ensure-size work-pool)
+        (setf
+         num
+         (cl-mpm::reduce-over-nodes
+          mesh
+          (lambda (node)
+            (if (and (cl-mpm/mesh:node-active node)
+                     (not (cl-mpm/mesh::node-agg node)))
+                (cl-mpm/fastmaths:dot
+                 (cl-mpm/mesh:node-velocity node)
+                 (cl-mpm/fastmaths::fast-.--vector
+                  (cl-mpm/mesh::node-residual-prev node)
+                  (cl-mpm/mesh::node-residual node)
+                  (cl-mpm/utils::object-pool-grab-unsafe work-pool)))
+                0d0))
+          #'+))
+        (setf
+         denom
+         (* dt
+            (cl-mpm::reduce-over-nodes
+             mesh
+             (lambda (node)
+               (if (and (cl-mpm/mesh:node-active node)
+                        (not (cl-mpm/mesh::node-agg node)))
+                   (* (cl-mpm/mesh:node-mass node)
+                      (cl-mpm/fastmaths::dot
+                       (cl-mpm/mesh::node-velocity node)
+                       (cl-mpm/mesh::node-velocity node)))
+                   0d0))
+             #'+)))
+        (if (> num 0d0)
+            (if (= denom 0d0)
+                0d0
+                (* (sqrt 2d0) (sqrt (/ num denom))))
+            0d0)))))
 
-      (when (cl-mpm/aggregate::sim-enable-aggregate sim)
-        (cl-mpm/aggregate::iterate-over-dimensions-with-mutex
-         (cl-mpm/mesh::mesh-nd mesh)
-         (lambda (d mut)
-           (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
-                  (res-prev (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual-prev d))
-                  (vi
-                    (cl-mpm/aggregate::apply-internal-bcs
-                     sim
-                     (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)
-                     d)))
-             (let ((dnum (cl-mpm/fastmaths:dot
-                          vi
-                          (cl-mpm/aggregate::apply-internal-bcs
-                           sim
-                           (cl-mpm/aggregate::aggregate-vec
-                            sim
-                            (cl-mpm/fastmaths::fast-.- res-prev res))
-                           d)))
-                   (ddenom (* dt (cl-mpm/fastmaths:dot vi (cl-mpm/aggregate::@-mass-matrix-vec sim vi))))
-                   ;; (ddenom (* dt (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0)))
-                   )
-               (sb-thread::with-mutex (mut)
-                 (incf num dnum)
-                 (incf denom ddenom)))))))
-      (if (> num 0d0)
-          (if (= denom 0d0)
-              0d0
-              (* (sqrt 2) (sqrt (/ num denom))))
-          0d0))))
+(let ((work-pool (cl-mpm/utils::make-object-pool
+                  :constructor (lambda ()
+                                 (cl-mpm/utils:vector-zeros)))))
+  (defmethod dr-estimate-damping ((sim cl-mpm/aggregate::mpm-sim-aggregated))
+    (with-accessors ((mesh cl-mpm:sim-mesh))
+        sim
+      (let ((num 0d0)
+            (denom 0d0)
+            (dt 1d0))
+        (declare (double-float denom num))
+        (cl-mpm/utils::object-pool-ensure-size work-pool)
+        (setf
+         num
+         (cl-mpm::reduce-over-nodes
+          mesh
+          (lambda (node)
+            (if (and (cl-mpm/mesh:node-active node)
+                     (not (cl-mpm/mesh::node-agg node)))
+                (cl-mpm/fastmaths:dot
+                 (cl-mpm/mesh:node-velocity node)
+                 (cl-mpm/fastmaths:fast-.-
+                  (cl-mpm/mesh::node-residual-prev node)
+                  (cl-mpm/mesh::node-residual node)
+                  (cl-mpm/utils::object-pool-grab-unsafe work-pool)
+                  ))
+                0d0))
+          #'+))
+        (setf
+         denom
+         (* dt
+            (cl-mpm::reduce-over-nodes
+             mesh
+             (lambda (node)
+               (if (and (cl-mpm/mesh:node-active node)
+                        (not (cl-mpm/mesh::node-agg node)))
+                   (* (cl-mpm/mesh:node-mass node)
+                      (cl-mpm/fastmaths::mag-squared
+                       (cl-mpm/mesh::node-velocity node)))
+                   0d0))
+             #'+)))
+
+        (when (cl-mpm/aggregate::sim-enable-aggregate sim)
+          (cl-mpm/aggregate::iterate-over-dimensions-with-mutex
+           (cl-mpm/mesh::mesh-nd mesh)
+           (lambda (d mut)
+             (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
+                    (res-prev (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual-prev d))
+                    (vi
+                      (cl-mpm/aggregate::apply-internal-bcs
+                       sim
+                       (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)
+                       d)))
+               (let ((dnum (cl-mpm/fastmaths:dot
+                            vi
+                            (cl-mpm/aggregate::apply-internal-bcs
+                             sim
+                             (cl-mpm/aggregate::aggregate-vec
+                              sim
+                              (cl-mpm/fastmaths::fast-.- res-prev res))
+                             d)))
+                     (ddenom (* dt (cl-mpm/fastmaths:dot vi (cl-mpm/aggregate::@-mass-matrix-vec sim vi)))))
+                 (declare (double-float num dnum denom ddenom))
+                 (sb-thread::with-mutex (mut)
+                   (incf num dnum)
+                   (incf denom ddenom)))))))
+        (if (> num 0d0)
+            (if (= denom 0d0)
+                0d0
+                (float (* (sqrt 2d0) (sqrt (/ num denom))) 0d0))
+            0d0)))))
 
 (defun compute-condition (sim)
   (/ 1d0 (expt (/ (dr-estimate-damping sim) 2) 2)))
@@ -356,25 +369,26 @@
 
 (defun estimate-ul-enhancement (particle nd)
   (let ((df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse particle)))
-    (ecase nd
-      (1
-       (let* ((grads (cl-mpm::gradient-push-forwards-cached (cl-mpm/utils::make-gradients 1d0 0d0 0d0) df-inv))
-              (peak-grad
-                (abs (max (expt (cl-mpm/utils::gradients-dx grads) 2)))))
-         peak-grad))
-      (2
-       (let* ((grads (cl-mpm::gradient-push-forwards-cached (cl-mpm/utils::make-gradients 1d0 1d0 0d0) df-inv))
-              (peak-grad
-                (abs (max (expt (cl-mpm/utils::gradients-dx grads) 2)
-                          (expt (cl-mpm/utils::gradients-dy grads) 2)))))
-         peak-grad))
-      (3
-       (let* ((grads (cl-mpm::gradient-push-forwards-cached (cl-mpm/utils::make-gradients 1d0 1d0 1d0) df-inv))
-              (peak-grad
-                (abs (max (expt (cl-mpm/utils::gradients-dx grads) 2)
-                          (expt (cl-mpm/utils::gradients-dy grads) 2)
-                          (expt (cl-mpm/utils::gradients-dz grads) 2)))))
-         peak-grad)))))
+    (max 1d0
+         (ecase nd
+           (1
+            (let* ((grads (cl-mpm::gradient-push-forwards-cached (cl-mpm/utils::make-gradients 1d0 0d0 0d0) df-inv))
+                   (peak-grad
+                     (abs (max (expt (cl-mpm/utils::gradients-dx grads) 2)))))
+              peak-grad))
+           (2
+            (let* ((grads (cl-mpm::gradient-push-forwards-cached (cl-mpm/utils::make-gradients 1d0 1d0 0d0) df-inv))
+                   (peak-grad
+                     (abs (max (expt (cl-mpm/utils::gradients-dx grads) 2)
+                               (expt (cl-mpm/utils::gradients-dy grads) 2)))))
+              peak-grad))
+           (3
+            (let* ((grads (cl-mpm::gradient-push-forwards-cached (cl-mpm/utils::make-gradients 1d0 1d0 1d0) df-inv))
+                   (peak-grad
+                     (abs (max (expt (cl-mpm/utils::gradients-dx grads) 2)
+                               (expt (cl-mpm/utils::gradients-dy grads) 2)
+                               (expt (cl-mpm/utils::gradients-dz grads) 2)))))
+              peak-grad))))))
 
 
 

@@ -169,7 +169,7 @@
   :serial t
   :components ((:file "src/core/shape-function")))
 
-(defsystem "cl-mpm/dynamic-relaxation"
+(defsystem "cl-mpm/dynamic-relaxation/core"
   :depends-on ("cl-mpm"
                "cl-mpm/penalty"
                "cl-mpm/setup"
@@ -190,8 +190,25 @@
       :components
       ((:file "package")
        (:file "criteria")
-       (:file "dynamic-relaxation")
-       (:file "solvers/quasi-static")
+       (:file "dynamic-relaxation")))))))
+
+
+
+(defsystem "cl-mpm/dynamic-relaxation"
+  :depends-on ("cl-mpm/dynamic-relaxation/core"
+               "swank.live"
+               "cl-mpm/implicit"
+               "vgplot")
+  :description "MPM dynamic relaxation helpers - allows for modelling quasi-static problems"
+  :serial t
+  :components
+  ((:module "src"
+    :serial t
+    :components
+    ((:module "dynamic-relaxation"
+      :serial t
+      :components
+      ((:file "solvers/quasi-static")
        (:file "solvers/dynamic")
        (:file "solvers/multigrid")
        (:file "algorithms")))))))
@@ -790,7 +807,7 @@
                "cl-mpm/ghost"
                "cl-mpm/aggregate"
                "cl-mpm/linear-solver"
-               "cl-mpm/all"
+               "cl-mpm/dynamic-relaxation/core"
                "cl-mpm/utils")
   :description "Implicit mpm test file"
   :serial t

@@ -113,8 +113,8 @@
           (cl-mpm/utils::arb-matrix vector-size 1)
           ;;Nontrivial case
           (let* ((x (cl-mpm/utils::arb-matrix vector-size 1))
-                 (r (mask-op (fast-.- b (funcall a-operator x))))
-                 (p r)
+                 (r (fast-.- b (mask-op (funcall a-operator x))))
+                 (p (cl-mpm/utils::deep-copy r))
                  (ap (cl-mpm/utils::arb-matrix vector-size 1))
                  (rs-old (cl-mpm/fastmaths::mag-squared r))
                  (crit tol)
@@ -123,7 +123,9 @@
                   while (>= rs-new crit)
                   do
                      (progn
-                       (setf ap (funcall a-operator p))
+                       (mask-inplace p)
+                       (setf ap (mask-op (funcall a-operator p)))
+                       (mask-inplace ap)
                        (let ((alpha
                                (/
                                 rs-old
@@ -132,15 +134,18 @@
                          (fast-.- r (fast-scale ap alpha) r)
                          (mask-inplace x)
                          (mask-inplace r)
-                         ;; (mask-inplace p)
-                         ;; (mask-inplace ap)
                          (setf rs-new (cl-mpm/fastmaths::mag-squared r))
                          (unless (< rs-new crit)
                            (setf p
                                  (fast-.+
                                   r
-                                  (fast-scale p (/ rs-new rs-old)))))
-                         (setf rs-old rs-new)))
+                                  (fast-scale p (/ rs-new rs-old))))
+                           (mask-inplace p)
+                           )
+                         ;; (when (= (mod (1+ i) (floor (* max-iters 0.01d0))) 0)
+                         ;;   (format t "Iter ~D ~E ~E~%" i rs-old rs-new))
+                         (setf rs-old rs-new))
+                       )
                      finally (when (> rs-new crit)
                        (error "Conjugate gradients didn't converge")))
             (mask-inplace x)
@@ -151,4 +156,4 @@
   (let ((A (cl-mpm/utils::voigt-to-matrix (cl-mpm/utils:voigt-from-list (list 1d0 2d0 3d0 4d0 5d0 6d0))))
         (b (cl-mpm/utils:vector-from-list (list 1d0 2d0 3d0))))
     (pprint (magicl:linear-solve A B))
-    (pprint (solve-conjugant-gradients (lambda (x) (magicl:@ A x)) b :tol 1d-12 :max-iters 1000))))
+    (pprint (solve-conjugant-gradients (lambda (x) (magicl:@ A x)) b :tol 1d-15 :max-iters 1000))))

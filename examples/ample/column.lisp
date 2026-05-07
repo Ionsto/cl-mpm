@@ -9,7 +9,7 @@
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-;; (setf *block-compile-default* t)
+(setf *block-compile-default* t)
 
 (declaim (optimize (debug 3) (safety 3) (speed 2)))
 
@@ -70,7 +70,7 @@
                           :enable-damage nil
                           :mass-update-count 10
                           ;; :mp-removal-size nil
-                          :ghost-factor (* 10d3 1d-3)
+                          :ghost-factor nil;(* 10d3 1d-3)
                           :enable-split nil)))
            (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
            (density *rho*)
@@ -83,7 +83,9 @@
           (list 0 0 0)
           block-size
           (mapcar (lambda (e mp-s) (round (* e mp-s) h)) block-size
-                  (list mp-scale 1 1))
+                  (list mp-scale mp-scale mp-scale)
+                  ;; (list mp-scale 1 1)
+                  )
           density
           'cl-mpm/particle::particle-elastic
           :E 10d3
@@ -124,12 +126,12 @@
     (defparameter
         *sim*
       (setup-test-column (list
-                          ;; h
+                          h
                           (+ L (* 2 h))
                           ;; h
                           )
                          (list
-                          ;; h
+                          h
                           L
                           ;; h
                           )
@@ -279,10 +281,11 @@
 
 
 (defun test-dr ()
-  (setup :mps 3 :refine 2)
-  ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul)
-  ;; (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t)
-  (cl-mpm/setup::set-mass-filter *sim* *rho* :proportion 1d-9)
+  (setup :mps 2 :refine -1)
+  ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static)
+  (change-class *sim* 'cl-mpm/implicit::mpm-sim-implicit)
+  (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil)
+  (cl-mpm/setup::set-mass-filter *sim* *rho* :proportion 1d-15)
   ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :FLIP)
   ;; (dotimes (i 100)
   ;;   (dotimes (j 10)
@@ -297,7 +300,7 @@
      (cl-mpm/dynamic-relaxation::run-load-control
       *sim*
       :output-dir "./output/"
-      :load-steps 5
+      :load-steps 40
       ;; :plotter #'plot-sigma-yy
       :plotter (lambda (s) (vgplot:semilogy steps res))
       :post-iter-step (lambda (i o e)
@@ -305,7 +308,7 @@
                         (incf step substeps)
                         (push e res))
       :damping (sqrt 2)
-      :save-vtk-dr t
+      :save-vtk-dr nil
       :save-vtk-loadstep t
       :substeps substeps
       :conv-steps 10000
@@ -362,3 +365,124 @@
               :save-vtk-dr nil
               :dt-scale 1d0
               ))))
+
+
+(defun make-stats-csv (output-dir filename)
+  (with-open-file (stream (merge-pathnames filename output-dir) :direction :output :if-exists :supersede)
+    (format stream "refine,lstps,time,error~%"))
+  )
+(defun save-stats-csv (output-dir filename refine lstps time error)
+  (with-open-file (stream (merge-pathnames filename output-dir) :direction :output :if-exists :append)
+    (format stream "~D,~D,~E,~E~%" refine lstps (float time 0e0) (float error 0e0))))
+
+
+(defun compare-conv-lstp ()
+  (let ((agg t)
+        (refine 6)
+        (lstp-list '(1 2 4 8 16 32 64 128 256)))
+    ;; (run-conv-lstp-implicit  :refine refine :agg agg :lstp-list lstp-list)
+    (run-conv-lstp :refine refine :agg agg :lstp-list lstp-list)
+    ))
+
+(defun run-conv-lstp (&key (refine 4) (agg nil)
+                        (lstp-list '(1 2 4 8 16 32 64)))
+  (let ((data-output-dir "./examples/ample/column/")
+        (filename "stats.csv"))
+    (setf *run-sim* t)
+    (make-stats-csv data-output-dir filename)
+    (loop for i in
+          lstp-list
+          while *run-sim*
+          do
+             (let* ((elements (expt 2 refine))
+                    (mps 2)
+                    (final-time 15))
+               (let* ((e elements)
+                      (L 50d0)
+                      (h (/ L e)))
+                 (format t "H:~E~%" h)
+                 (format t "MPs:~D~%" (length (cl-mpm:sim-mps *sim*)))
+                 (defparameter
+                     *sim*
+                   (setup-test-column (list (+ L (* 2 h))
+                                            h)
+                                      (list L
+                                            h)
+                                      (/ 1d0 h)
+                                      mps))
+                 (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) agg)
+                 (format t "Running sim size ~a ~a ~%" refine elements)
+                 (format t "Sim dt: ~a ~%" (cl-mpm:sim-dt *sim*))
+                 (format t "Sim steps: ~a ~%" (/ final-time (cl-mpm:sim-dt *sim*)))
+                 (setf lparallel:*debug-tasks-p* nil)
+                 (ignore-errors
+                  (let ((start (get-internal-real-time)))
+                    (cl-mpm/dynamic-relaxation::run-load-control
+                     *sim*
+                     :output-dir (merge-pathnames (format nil "./output-~A_~D/" i mps))
+                     :load-steps i
+                     :substeps (round (* 1 (expt 2 refine)))
+                     :plotter (lambda (sim))
+                     :damping (sqrt 2)
+                     :save-vtk-dr nil
+                     :save-vtk-loadstep nil
+                     :conv-steps 10000
+                     :dt-scale 1d0
+                     :criteria 1d-9)
+                    (let* ((end (get-internal-real-time))
+                           (units internal-time-units-per-second)
+                           (dt (/ (- end start) units)))
+                      (save-stats-csv data-output-dir filename refine i dt (compute-error *sim*))))))))))
+(defun run-conv-lstp-implicit (&key (refine 4) (agg nil)
+                                 (lstp-list '(1 2 4 8 16 32 64))
+                                 )
+  (let ((data-output-dir "./examples/ample/column/")
+        (filename "stats_nr.csv"))
+    (setf *run-sim* t)
+    (make-stats-csv data-output-dir filename)
+    (loop for i in
+          lstp-list
+          while *run-sim*
+          do
+             (let* ((elements (expt 2 refine))
+                    (mps 2)
+                    (final-time 15)
+                    (step (list))
+                    (res (list))
+                    (total-step 0)
+                    )
+               (let* ((e elements)
+                      (L 50d0)
+                      (h (/ L e)))
+                 (format t "H:~E~%" h)
+                 (defparameter
+                     *sim*
+                   (setup-test-column (list (+ L (* 2 h)) h)
+                                      (list L h)
+                                      (/ 1d0 h)
+                                      mps))
+                 (change-class *sim* 'cl-mpm/implicit::mpm-sim-implicit)
+                 (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) agg)
+                 (format t "Running sim size ~a ~a ~%" refine elements)
+                 (format t "Sim dt: ~a ~%" (cl-mpm:sim-dt *sim*))
+                 (format t "Sim steps: ~a ~%" (/ final-time (cl-mpm:sim-dt *sim*)))
+                 (setf lparallel:*debug-tasks-p* nil)
+                 (ignore-errors
+                  (let ((start (get-internal-real-time)))
+                    (cl-mpm/dynamic-relaxation::run-load-control
+                     *sim*
+                     :output-dir (merge-pathnames (format nil "./output-~A_~D/" i mps))
+                     :load-steps i
+                     :substeps 1
+                     :plotter (lambda (sim))
+                     :sub-conv-steps 100
+                     :damping (sqrt 2)
+                     :save-vtk-dr nil
+                     :save-vtk-loadstep nil
+                     :dt-scale 1d0
+                     :criteria 1d-9)
+                    (let* ((end (get-internal-real-time))
+                           (units internal-time-units-per-second)
+                           (dt (/ (- end start) units)))
+                      (save-stats-csv data-output-dir filename refine i dt (compute-error *sim*))))))))))
+
