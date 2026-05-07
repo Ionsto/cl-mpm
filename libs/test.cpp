@@ -81,6 +81,21 @@ extern "C" {
     return std::get<3>(result);
   }
 
+  bool CppVonMisesTangent(double * strain_ptr,double * dep_ptr,double & f,double & psinc,double & pmod,double E, double nu, double rho)
+  {
+    Eigen::Map<Eigen::Matrix<double,6,1>> strain(strain_ptr);
+    Eigen::Map<Eigen::Matrix<double,6,6>> dep(dep_ptr);
+    TangentReturn result = VonMisesTangent(strain,E,nu,rho);
+    Eigen::Matrix<double,6,1> strainE = std::get<0>(result);
+    Eigen::Matrix<double,6,6> newDEP = std::get<1>(result);
+    dep = newDEP;
+    f = std::get<2>(result);
+    psinc = std::get<3>(result);
+    strain = strainE;
+    pmod = std::get<5>(result);
+    return std::get<4>(result);
+  }
+
   bool CppViscoelastic(double * strain_ptr,double E, double nu,double viscosity, double dt)
   {
     Eigen::Map<Eigen::Matrix<double,6,1>> strain(strain_ptr);
@@ -102,7 +117,18 @@ extern "C" {
     out = matrix_to_voigt_stress(eigensolver.operatorSqrt());
     return true;
   }
+
+  // bool Solver(double * A_v,int * A_r,int * A_c, int an, double * C_v, int * C_r, int * C_c, int cn, double * b_ptr, double * x_ptr){
+  //   Eigen::Map<Eigen::MatrixXd> A(A_ptr,n,n);
+  //   Eigen::Map<Eigen::VectorXd> b(b_ptr,n);
+  //   Eigen::Map<Eigen::VectorXd> x(x_ptr,n);
+  //   x = A.colPivHouseholderQr().solve(b);
+  //   return true;
+
+  // }
+
 }
+
 int main(int arc,char **args){
   typedef std::chrono::high_resolution_clock Clock;
   std::cout<<"Starting test\n";
@@ -154,3 +180,4 @@ int main(int arc,char **args){
   std::cout<<"finished test\n";
   return 0;
 }
+

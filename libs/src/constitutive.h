@@ -8,6 +8,7 @@
 namespace constitutive{
   using namespace utils;
   using MohrCoulombReturn = std::tuple<Eigen::Matrix<double,6,1>,float,float,bool,float>;
+  using TangentReturn = std::tuple<Eigen::Matrix<double,6,1>,Eigen::Matrix<double,6,6>,float,float,bool,float>;
   inline
     Eigen::Matrix<double,6,6> AssembleDE(double E, double nu){
       const double nm = (1.0 - nu);
@@ -464,11 +465,11 @@ namespace constitutive{
         b(Eigen::seq(0,5)) += b_eps(Eigen::seq(0,5));
         b(6) = vm_yield_func(j2,rho);
       }
-      Eigen::Matrix<double,7,7> A = Eigen::Matrix<double,7,7>::Zero();
-      A.topLeftCorner(6,6) = de.inverse() + (ddf*dgam);
-      A.topRightCorner(6,1) = df;
-      A.bottomLeftCorner(1,6) = df.transpose();
-      Eigen::Matrix<double,6,6> dep = A.inverse().topLeftCorner(6,6);
+      // Eigen::Matrix<double,7,7> A = Eigen::Matrix<double,7,7>::Zero();
+      // A.topLeftCorner(6,6) = de.inverse() + (ddf*dgam);
+      // A.topRightCorner(6,1) = df;
+      // A.bottomLeftCorner(1,6) = df.transpose();
+      // Eigen::Matrix<double,6,6> dep = A.inverse().topLeftCorner(6,6);
 
       double pmod = pmod_0*1e-6;
       Eigen::Matrix<double,6,1> n = Eigen::Matrix<double,6,1>::Zero();
@@ -480,6 +481,65 @@ namespace constitutive{
     }
     else{
       return MohrCoulombReturn(utils::swizzle_coombs_voigt(elastic_strain),f,0.0,false,pmod_0);
+    }
+  }
+  inline
+  TangentReturn VonMisesTangent(Eigen::Matrix<double,6,1> elastic_strain, double E, double nu, double rho) {
+    elastic_strain = utils::swizzle_voigt_coombs(elastic_strain);
+    Eigen::Matrix<double,6,6> de = AssembleDE(E,nu);
+    Eigen::Matrix<double,6,1> sig = de * elastic_strain;
+    Eigen::Matrix<double,6,1> sig_dev = voigt_deviatoric(sig);
+    double j2 = voigt_j2(sig_dev);
+    double f = vm_yield_func(j2,rho);
+    double G = (E/(2*(1+nu)));
+    double K = (E/(3*(1-(2*nu))));
+    double pmod_0 = (((1-nu)*E)/((1 + nu) * (1 - (2 * nu))));
+    const double tol = 1e-9;
+    if(f > tol){
+      // std::cout<<f<<"\n";
+      utils::VoigtMatrix epse = elastic_strain;
+      utils::VoigtMatrix df = vm_df(sig,rho);
+      Eigen::Matrix<double,6,6> ddf = vm_ddf(sig,rho);
+      Eigen::Matrix<double,7,1> b = Eigen::Matrix<double,7,1>::Zero();
+      b(6) = f;
+      double dgam = 0;
+      int max_iter = 5;
+      // std::cout<<df<<"\n";
+      // std::cout<<ddf<<"\n";
+      for(int i = 0;i < max_iter;++i){
+        Eigen::Matrix<double,7,7> A = Eigen::Matrix<double,7,7>::Zero();
+        A.topLeftCorner(6,6) = Eigen::Matrix<double,6,6>::Identity() + ((ddf * de)*dgam);
+        A.topRightCorner(6,1) = df;//%.transpose();
+        A.bottomLeftCorner(1,6) = (df.transpose() * de);
+        Eigen::Matrix<double,7,1> dx = A.partialPivLu().solve(b) * -1;
+        epse(Eigen::seq(0,5)) += dx(Eigen::seq(0,5));
+        dgam += dx(6);
+        sig = de * epse;
+        sig_dev = voigt_deviatoric(sig);
+        df = vm_df(sig,rho);
+        ddf = vm_ddf(sig,rho);
+        j2 = voigt_j2(sig_dev);
+        f = vm_yield_func(j2,rho);
+        utils::VoigtMatrix b_eps = (epse-elastic_strain) + (df * dgam);
+        b(Eigen::seq(0,5)) += b_eps(Eigen::seq(0,5));
+        b(6) = vm_yield_func(j2,rho);
+      }
+      Eigen::Matrix<double,7,7> A = Eigen::Matrix<double,7,7>::Zero();
+      A.topLeftCorner(6,6) = de.inverse() + (ddf*dgam);
+      A.topRightCorner(6,1) = df;
+      A.bottomLeftCorner(1,6) = df.transpose();
+      Eigen::Matrix<double,6,6> dep = A.inverse().topLeftCorner(6,6);
+
+      double pmod = pmod_0*1e-6;
+      // Eigen::Matrix<double,6,1> n = Eigen::Matrix<double,6,1>::Zero();
+      // n(0) = 1.0;
+      // pmod = std::max(pmod,(n.transpose() * dep * n)(0,0));
+      pmod = K;
+      double inc = std::sqrt(3* utils::voigt_j2(utils::voigt_deviatoric(epse-elastic_strain)));
+      return TangentReturn(utils::swizzle_coombs_voigt(epse),dep,f,inc,true,pmod);
+    }
+    else{
+      return TangentReturn(utils::swizzle_coombs_voigt(elastic_strain),de,f,0.0,false,pmod_0);
     }
   }
 }
