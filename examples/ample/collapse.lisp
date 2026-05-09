@@ -96,13 +96,13 @@
           block-size
           (mapcar (lambda (e) (* (/ e h) mp-scale)) block-size)
           density
-          ;; 'cl-mpm/particle::particle-elastic
-          ;; :E E
-          ;; :nu 0.3d0
-          'cl-mpm/particle::particle-vm
+          'cl-mpm/particle::particle-elastic
           :E E
           :nu 0.3d0
-          :rho 20d3
+          ;; 'cl-mpm/particle::particle-vm
+          ;; :E E
+          ;; :nu 0.3d0
+          ;; :rho 20d3
           ;; 'cl-mpm/particle::particle-mc
           ;; :E 1d6
           ;; :nu 0.3d0
@@ -365,29 +365,54 @@
   (with-accessors ((mesh cl-mpm::sim-mesh)
                    (mps cl-mpm::sim-mps))
       *sim*
-      (time
-       (dotimes (i 100)
-         (cl-mpm::update-stress mesh mps 1d0 nil))))
-  ;; (let* ((e 1d0)
-  ;;        (nu 0.2d0)
-  ;;        (rho 1d0)
-  ;;        (strain (cl-mpm/utils:voigt-from-list (list 5d0 0d0 0d0
-  ;;                                                    0d0 0d0 0d0)))
-  ;;        (de (cl-mpm/constitutive:linear-elastic-matrix e nu))
-  ;;        (stress (magicl:@ de strain))
-  ;;        (iters 100000)
-  ;;        )
-  ;;   (time
-  ;;    (dotimes (i iters)
-  ;;      (multiple-value-bind (sig eps-e f inc pmod dep-con)
-  ;;          (cl-mpm/constitutive::plastic-vm-tangent stress de strain rho e nu)
-  ;;        ;; (pprint sig)
-  ;;        )))
-  ;;   (time
-  ;;    (dotimes (i iters)
-  ;;      (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm stress strain de e nu rho)
-  ;;        ;; (pprint sig)
-  ;;        ))))
+    (cl-mpm::kill-workers)
+    (cl-mpm::make-workers)
+    ;; (cl-mpm::omp
+    ;;  8
+    ;;  (lambda (i)
+    ;;    (pprint (lparallel:kernel-worker-index)))
+    ;;  )
+    (let* ((iters 1000)
+           (dt 1d0))
+      ;; (time
+      ;;  (cl-mpm::update-stress-omp mesh mps dt nil))
+      ;; (time
+      ;;  (dotimes (i iters)
+      ;;    (cl-mpm::iterate-over-nodes
+      ;;     mesh
+      ;;     (lambda (n)
+      ;;       (cl-mpm/mesh::reset-node-force n)))
+      ;;    ))
+      ;; (let* ((mut (sb-thread:make-mutex))
+      ;;        (nodes (cl-mpm/mesh::mesh-active-nodes mesh))
+      ;;        (inner (length nodes))
+      ;;        (iters 100))
+      ;;   (time
+      ;;    (dotimes (j iters)
+      ;;      (lparallel:pdotimes (i inner)
+      ;;        (cl-mpm/mesh::reset-node-force (aref nodes i)))))
+      ;;   (time
+      ;;    (dotimes (j iters)
+      ;;      (cl-mpm::omp
+      ;;       inner
+      ;;       (lambda (i)
+      ;;         (cl-mpm/mesh::reset-node-force (aref nodes i))
+      ;;         )
+      ;;       ))))
+      ;; (time-form
+      ;;  iters
+      ;;  (cl-mpm::iterate-over-nodes
+      ;;   mesh
+      ;;   (lambda (n)
+      ;;     (cl-mpm/mesh::reset-node-force n))))
+      ;; (time-form
+      ;;  iters
+      ;;  (cl-mpm::iterate-over-nodes-omp
+      ;;   mesh
+      ;;   (lambda (n)
+      ;;     (cl-mpm/mesh::reset-node-force n))))
+      )
+    )
   )
 
 
@@ -422,10 +447,10 @@
           ;;     (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
           ;;           (cl-mpm::sim-ghost-factor *sim*) (* 1d6 1d-2)
           ;;           (cl-mpm::sim-enable-fbar *sim*) nil))
-          (format t "Threads ~D~%" threads)
+          (format t "threads ~d~%" threads)
           (setf (cl-mpm::sim-gravity *sim*) 0d0)
           (cl-mpm:update-sim *sim*)
-          (format t "Start test ~D~%" threads)
+          (format t "start test ~d~%" threads)
           (let (;; (testdata (make-array (* 1000000 r) :element-type 'double-float :initial-element 0d0))
                 (mesh (cl-mpm:sim-mesh *sim*))
                 (mps (cl-mpm:sim-mps *sim*))
@@ -457,12 +482,12 @@
 
                             ;; (incf solve-count)
                             ;; (cl-mpm/dynamic-relaxation::update-node-fictious-mass sim)
-                            ;; ;;Update our nodes after force mapping
+                            ;; ;;update our nodes after force mapping
                             ;; (cl-mpm::update-node-forces sim)
                             ;; (cl-mpm::apply-bcs mesh bcs dt)
                             ;; (cl-mpm::update-nodes sim)
                             ;; (cl-mpm::update-filtered-cells sim)
-                            ;; (cl-mpm::g2p mesh mps dt 0d0 :TRIAL)
+                            ;; (cl-mpm::g2p mesh mps dt 0d0 :trial)
                             ;; (cl-mpm::update-stress mesh mps 1d0 nil)
                             ))))
                 (push (float (/ 1d0 dt) 0d0) data-perf)
@@ -476,7 +501,7 @@
           (pprint data-perf)
           )
         (let ((t1 (get-internal-real-time)))
-          (format t "Threads ~D: time ~E~%" threads (/ (- t1 t0) internal-time-units-per-second))))))
+          (format t "threads ~d: time ~e~%" threads (/ (- t1 t0) internal-time-units-per-second))))))
     (pprint data-threads)
     (pprint data-perf)
     )))
@@ -518,7 +543,7 @@
     ;;   ;;      mp
     ;;   ;;      (lambda (node svp grads fsvp fgrads))
     ;;   ;;      )
-    ;;   ;;     ;; (cl-mpm::calculate-strain-rate-disp (cl-mpM::sim-mesh *sim*)
+    ;;   ;;     ;; (cl-mpm::calculate-strain-rate-disp (cl-mpm::sim-mesh *sim*)
     ;;   ;;     ;;                                     (aref (cl-mpm:sim-mps *sim*) 0)
     ;;   ;;     ;;                                     1d0)
     ;;   ;;     )
@@ -529,7 +554,7 @@
     (time
      (cl-mpm/dynamic-relaxation::run-load-control
       *sim*
-      :output-dir (format nil "./output-agg-~A-~D/" agg r)
+      :output-dir (format nil "./output-agg-~a-~d/" agg r)
       :plotter #'plot
       :load-steps 20
       :damping 1d0;(sqrt 2)
@@ -551,7 +576,7 @@
       (setf (cl-mpm::sim-gravity *sim*) -1d0)
       (cl-mpm/dynamic-relaxation::run-load-control
        *sim*
-       :output-dir (format nil "./output-agg-~A-~D/" agg r)
+       :output-dir (format nil "./output-agg-~a-~d/" agg r)
        :plotter #'plot
        :load-steps 3
        :damping 1d0;(sqrt 2)
@@ -562,49 +587,89 @@
        :dt-scale 2d0))))
 
 
+;; (let ((v (cl-mpm/aggregate::assemble-global-vec *sim* #'cl-mpm/mesh:node-force 0))
+;;       (iters 1000000)
+;;       )
+;;   (time-form
+;;    iters
+;;    (let ((bcs (cl-mpm/aggregate::assemble-global-bcs *sim* 0)))
+;;      (cl-mpm/fastmaths::fast-.* v bcs v))
+;;    )
+;;   (time-form
+;;    iters
+;;    (cl-mpm/aggregate::apply-global-bcs *sim* v 0))
+;;   )
+
+
+(defun timing-test ()
+  (let* ((mesh (cl-mpm:sim-mesh *sim*))
+         (nodes (cl-mpm/mesh::mesh-active-nodes mesh)))
+    (pprint (length nodes))
+    ;; (time-form
+    ;;  100
+    ;;  (cl-mpm::omp
+    ;;   (length nodes)
+    ;;   (lambda (n)
+    ;;     ;; (dotimes (i 1000)
+    ;;     ;;   (sqrt i))
+    ;;     (cl-mpm/mesh::reset-node-force (aref nodes n))
+    ;;     )))
+    (let ((iters 1000))
+      (time-form
+       iters
+       (lparallel:pdotimes (i (length nodes))
+         (cl-mpm/mesh::reset-node-force (aref nodes i))))
+      (time-form
+       iters
+       (cl-mpm::omp
+        (length nodes)
+        (lambda (n)
+          (cl-mpm/mesh::reset-node-force (aref nodes n))))))
+    ))
+
 (defun test-load-control ()
   (dolist (agg (list nil))
     (dolist (r (list 1))
-      (setup :mps 3 :refine r :multigrid-refine 0)
+      (setup :mps 4 :refine r :multigrid-refine 0)
       (cl-mpm::domain-sort-mps *sim*)
       ;; (change-class *sim* 'cl-mpm/implicit::mpm-sim-implicit)
       (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static)
       ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-usf)
-      ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND)
+      ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :tblend)
       (if agg
           (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
                 (cl-mpm::sim-ghost-factor *sim*) nil)
           (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
                 (cl-mpm::sim-ghost-factor *sim*) nil))
-      (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-9)
+      (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 0d-9)
       (setf (cl-mpm::sim-gravity *sim*) -10d0)
       (let ((step (list))
             (res (list))
             (total-step 0))
         (vgplot:close-all-plots)
-        ;; (cl-mpm:update-sim *sim*)
-        ;; (time-form
-        ;;  100
-        ;;  (cl-mpm:update-sim *sim*))
-        (time
-         (cl-mpm/dynamic-relaxation::run-load-control
-          *sim*
-          :output-dir (format nil "./output-DR-~A-~D/" (if agg "AGG" "NOAGG") r)
-          ;; :plotter (lambda (sim) (vgplot:semilogy (reverse step) (reverse res)))
-          :plotter #'plot
-          :load-steps 1
-          :damping (sqrt 2d0)
-          :substeps 100;(round (* 20 r))
-          :criteria 1d-9
-          :conv-steps 5000
-          ;; :sub-conv-steps 1000
-          :post-iter-step (lambda (i o e)
-                            (push total-step step)
-                            (incf total-step)
-                            (push e res))
-          :save-vtk-dr nil
-          :save-vtk-loadstep t
-          :dt-scale 1d0))
+        (cl-mpm:update-sim *sim*)
+        (time-form
+         100
+         (cl-mpm:update-sim *sim*))
+        ;; (time
+        ;;  (cl-mpm/dynamic-relaxation::run-load-control
+        ;;   *sim*
+        ;;   :output-dir (format nil "./output-dr-~a-~d/" (if agg "agg" "noagg") r)
+        ;;   ;; :plotter (lambda (sim) (vgplot:semilogy (reverse step) (reverse res)))
+        ;;   :plotter #'plot
+        ;;   :load-steps 10
+        ;;   :damping (sqrt 2d0)
+        ;;   :substeps 50;(round (* 20 r))
+        ;;   :criteria 1d-9
+        ;;   :conv-steps 5000
+        ;;   ;; :sub-conv-steps 1000
+        ;;   :post-iter-step (lambda (i o e)
+        ;;                     (push total-step step)
+        ;;                     (incf total-step)
+        ;;                     (push e res))
+        ;;   :save-vtk-dr nil
+        ;;   :save-vtk-loadstep t
+        ;;   :dt-scale 1d0))
         ))))
 
 
@@ -615,7 +680,7 @@
         (cl-mpm::sim-ghost-factor *sim*) nil)
   (cl-mpm::update-sim *sim*)
   (cl-mpm::reset-node-displacement *sim*)
-  (format t "Printing stiffness ~%")
+  (format t "printing stiffness ~%")
   (loop for vals in (cl-mpm/utils::sparse-to-coordinates
                      ;; (cl-mpm/implicit::assemble-stiffness-forward-difference *sim*)
                      ;; (cl-mpm/implicit::sim-global-k *sim*)
@@ -624,7 +689,7 @@
                      (cl-mpm/utils::mat-to-sparse (cl-mpm/implicit::assemble-implicit-e *sim*))
                      ;; (cl-mpm/aggregate::sim-global-sparse-e *sim*)
                      )
-        do (format t "~A ~A ~A~%" (nth 0 vals)
+        do (format t "~a ~a ~a~%" (nth 0 vals)
                    (nth 1 vals)
                    (nth 2 vals))))
 
@@ -633,21 +698,21 @@
 ;;  (cl-mpm:sim-mesh *sim*)
 ;;  (lambda (n)
 ;;    (when (cl-mpm/mesh::node-active n)
-;;      (format t "~A ~A~%" (cl-mpm/mesh::node-stiffness-fd n) (cl-mpm/mesh::node-agg-fd n)))))
+;;      (format t "~a ~a~%" (cl-mpm/mesh::node-stiffness-fd n) (cl-mpm/mesh::node-agg-fd n)))))
 
 ;; (let ((bcs (cl-mpm/implicit::assemble-global-bcs *sim*)))
-;;   (format t "BCS ~%")
+;;   (format t "bcs ~%")
 ;;   (loop for n across (cl-mpm/implicit::sim-nodes-fd *sim*)
 ;;         for i from 0
-;;         do (format t "~A ~A ~A~%" (cl-mpm/mesh:node-index n)
+;;         do (format t "~a ~a ~a~%" (cl-mpm/mesh:node-index n)
 ;;                    (= 0d0 (cl-mpm/utils:varef bcs (+ 0 (* i 2))))
 ;;                    (= 0d0 (cl-mpm/utils:varef bcs (+ 1 (* i 2)))))))
 
 ;; (let ((bcs (cl-mpm/implicit::assemble-internal-bcs *sim*)))
-;;   (format t "BCS ~%")
+;;   (format t "bcs ~%")
 ;;   (loop for n across (cl-mpm/aggregate::sim-agg-nodes-fdc *sim*)
 ;;         for i from 0
-;;         do (format t "~A ~A ~A~%" (cl-mpm/mesh:node-index n)
+;;         do (format t "~a ~a ~a~%" (cl-mpm/mesh:node-index n)
 ;;                    (= 0d0 (cl-mpm/utils:varef bcs (+ 0 (* i 2))))
 ;;                    (= 0d0 (cl-mpm/utils:varef bcs (+ 1 (* i 2)))))))
 
@@ -659,7 +724,7 @@
       (change-class *sim* 'cl-mpm/implicit::mpm-sim-implicit)
       ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static)
       ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-usf)
-      ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND)
+      ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :tblend)
       (if agg
           (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
                 (cl-mpm::sim-ghost-factor *sim*) nil)
@@ -674,7 +739,7 @@
         (time
          (cl-mpm/dynamic-relaxation::run-load-control
           *sim*
-          :output-dir (format nil "./output-NR-~A-~D/" (if agg "AGG" "NOAGG") r)
+          :output-dir (format nil "./output-nr-~a-~d/" (if agg "agg" "noagg") r)
           ;; :plotter (lambda (sim) (vgplot:semilogy (reverse step) (reverse res)))
           :plotter #'plot
           :load-steps 30
@@ -722,10 +787,10 @@
 
 (defun test-3d-real-time ()
   (setup :mps 2 :refine 1)
-  (let ((output-dir (format nil "./output-TFLIP/")))
+  (let ((output-dir (format nil "./output-tflip/")))
     (vgplot:close-all-plots)
     (change-class *sim* 'cl-mpm/aggregate::mpm-sim-agg-usf)
-    (setf (cl-mpm::sim-velocity-algorithm *sim*) :TFLIP)
+    (setf (cl-mpm::sim-velocity-algorithm *sim*) :tflip)
     (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil)
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
     (let ((step 0))
@@ -806,7 +871,7 @@
   ;;  *sim*
   ;;  15d0
   ;;  )
-  (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
+  (format t "mps: ~d~%" (length (cl-mpm:sim-mps *sim*)))
   (defparameter *run-sim* t)
   (defparameter *t* 0)
   (defparameter *sim-step* 0))
@@ -831,7 +896,7 @@
    (cl-mpm:sim-mesh *sim*)
    (lambda (node)
      (when (cl-mpm/mesh::node-active node)
-       (format t "Node ~A ~E ~E~%" (cl-mpm/mesh:node-index node)
+       (format t "node ~a ~e ~e~%" (cl-mpm/mesh:node-index node)
                (cl-mpm/utils:varef (cl-mpm/mesh::node-ghost-force node) 0)
                (cl-mpm/utils:varef (cl-mpm/mesh::node-ghost-force node) 1))))))
 
@@ -915,9 +980,9 @@
 
 
 ;; (defun pwork (function &optional arguments)
-;;   "Distribute a task to each lparallel worker and wait until all finish.
-;; Arguments may be a vector of size equal or smaller than (kernel-worker-count).
-;; All results are collected in a vector of the same size."
+;;   "distribute a task to each lparallel worker and wait until all finish.
+;; arguments may be a vector of size equal or smaller than (kernel-worker-count).
+;; all results are collected in a vector of the same size."
 ;;   (let* ((nr-workers (lparallel:kernel-worker-count))
 ;;          (arguments (or arguments
 ;;                         (make-array nr-workers :initial-element nil)))
@@ -928,7 +993,7 @@
 ;;          (to-workers (make-queue))
 ;;          (results (make-array n :initial-element nil)))
 ;;     (when (< n (length arguments))
-;;       (error "More work than workers.  Systematic error?"))
+;;       (error "more work than workers.  systematic error?"))
 ;;     (loop repeat n
 ;;           do (submit-task channel (lambda ()
 ;;                                     (push-queue t from-workers)
@@ -983,11 +1048,10 @@
 
 (defun make-stats-csv (output-dir filename)
   (with-open-file (stream (merge-pathnames filename output-dir) :direction :output :if-exists :supersede)
-    (format stream "refine,lstps,time,error~%"))
-  )
+    (format stream "refine,lstps,time,error~%")))
 (defun save-stats-csv (output-dir filename refine lstps time error)
   (with-open-file (stream (merge-pathnames filename output-dir) :direction :output :if-exists :append)
-    (format stream "~D,~D,~E,~E~%" refine lstps (float time 0e0) (float error 0e0))))
+    (format stream "~d,~d,~e,~e~%" refine lstps (float time 0e0) (float error 0e0))))
 
 
 (defun compare-conv-lstp ()
@@ -1014,24 +1078,24 @@
                (setup :refine refine :mps mps)
                (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) agg)
                (setf lparallel:*debug-tasks-p* nil)
-               (ignore-errors
-                (let ((start (get-internal-real-time)))
-                  (cl-mpm/dynamic-relaxation::run-load-control
-                   *sim*
-                   :output-dir (merge-pathnames (format nil "./output-DR-~A_~D/" i mps))
-                   :load-steps i
-                   :substeps (round (* 10 (expt 2 refine)))
-                   :plotter (lambda (sim))
-                   :damping (sqrt 2)
-                   :save-vtk-dr nil
-                   :save-vtk-loadstep t
-                   :conv-steps 1000
-                   :dt-scale 1d0
-                   :criteria 1d-9)
-                  (let* ((end (get-internal-real-time))
-                         (units internal-time-units-per-secondw)
-                         (dt (/ (- end start) units)))
-                    (save-stats-csv data-output-dir filename refine i dt (compute-error *sim*)))))))))
+               ;; (ignore-errors)
+               (let ((start (get-internal-real-time)))
+                 (cl-mpm/dynamic-relaxation::run-load-control
+                  *sim*
+                  :output-dir (merge-pathnames (format nil "./output-dr-~a_~f_~d/" i refine mps))
+                  :load-steps i
+                  :substeps (round (* 10 (expt 2 refine)))
+                  :plotter (lambda (sim))
+                  :damping (sqrt 2d0)
+                  :save-vtk-dr nil
+                  :save-vtk-loadstep t
+                  :conv-steps 1000
+                  :dt-scale 1d0
+                  :criteria 1d-9)
+                 (let* ((end (get-internal-real-time))
+                        (units internal-time-units-per-second)
+                        (dt (/ (- end start) units)))
+                   (save-stats-csv data-output-dir filename refine i dt (compute-error *sim*))))))))
 
 (defun compute-error (sim)
   0d0)
@@ -1060,7 +1124,7 @@
                 (let ((start (get-internal-real-time)))
                   (cl-mpm/dynamic-relaxation::run-load-control
                    *sim*
-                   :output-dir (merge-pathnames (format nil "./output-NR-~A_~D/" i mps))
+                   :output-dir (merge-pathnames (format nil "./output-nr-~a_~d/" i mps))
                    :load-steps i
                    :substeps 1
                    :plotter (lambda (sim))
@@ -1074,3 +1138,108 @@
                          (units internal-time-units-per-second)
                          (dt (/ (- end start) units)))
                     (save-stats-csv data-output-dir filename refine i dt (compute-error *sim*)))))))))
+
+
+(defun compute-max-extent (sim)
+  (cl-mpm::reduce-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (cl-mpm/utils:varef (cl-mpm/fastmaths:fast-.+
+                          (cl-mpm/particle::mp-domain-size mp)
+                          (cl-mpm/particle::mp-position mp)) 0))
+   #'max))
+
+
+
+(defun run-conv ()
+  (let ((agg t)
+        (mps 4)
+        (refine-list (list 0.5 1 2 4 8 16)))
+    (run-conv-disp :agg agg :refine-list refine-list :mps mps)
+    ;; (run-conv-disp-implict :agg agg :refine-list refine-list :mps mps)
+    ))
+
+(defun run-conv-disp (&key (refine-list (list 1)) (agg nil)
+                           (mps 3))
+  (let ((data-output-dir "./examples/ample/collapse/")
+        (filename "convergence.csv")
+        (i 30)
+        )
+    (setf *run-sim* t)
+    (make-stats-csv data-output-dir filename)
+    (loop for refine in refine-list
+          while *run-sim*
+          do
+             (let* ()
+               (setup :refine refine :mps mps)
+               (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) agg)
+               (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-3)
+               (setf (cl-mpm::sim-gravity *sim*) -10d0)
+               (setf lparallel:*debug-tasks-p* nil)
+               ;; (ignore-errors)
+               (let ((start (get-internal-real-time)))
+                 (cl-mpm/dynamic-relaxation::run-load-control
+                  *sim*
+                  :output-dir (merge-pathnames (format nil "./output-dr-~a_~f_~d/" i refine mps))
+                  :load-steps i
+                  :substeps (round (* 10 (expt 2 refine)))
+                  :plotter (lambda (sim))
+                  :damping (sqrt 2d0)
+                  :save-vtk-dr t
+                  :save-vtk-loadstep t
+                  :conv-steps 1000
+                  :dt-scale 2d0
+                  :criteria 1d-9)
+                 (let* ((end (get-internal-real-time))
+                        (units internal-time-units-per-second)
+                        (dt (/ (- end start) units)))
+                   (save-stats-csv data-output-dir
+                                   filename
+                                   refine
+                                   i
+                                   dt
+                                   (compute-max-extent *sim*)
+                                   )))))))
+
+(defun run-conv-disp-implict (&key (refine-list (list 1)) (agg nil)
+                           (mps 3))
+  (let ((data-output-dir "./examples/ample/collapse/")
+        (filename "convergence.csv")
+        (i 30)
+        )
+    (setf *run-sim* t)
+    (make-stats-csv data-output-dir filename)
+    (loop for refine in refine-list
+          while *run-sim*
+          do
+             (let* ()
+               (setup :refine refine :mps mps)
+               (change-class *sim* 'cl-mpm/implicit::mpm-sim-implicit)
+               (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) agg)
+               (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-3)
+               (setf (cl-mpm::sim-gravity *sim*) -10d0)
+               (setf lparallel:*debug-tasks-p* nil)
+               ;; (ignore-errors)
+               (let ((start (get-internal-real-time)))
+                 (cl-mpm/dynamic-relaxation::run-load-control
+                  *sim*
+                  :output-dir (merge-pathnames (format nil "./output-nr-~a_~f_~d/" i refine mps))
+                  :load-steps i
+                  :substeps 1
+                  :plotter (lambda (sim))
+                  :damping (sqrt 2d0)
+                  :save-vtk-dr t
+                  :save-vtk-loadstep t
+                  :conv-steps 1000
+                  :dt-scale 1d0
+                  :criteria 1d-9)
+                 (let* ((end (get-internal-real-time))
+                        (units internal-time-units-per-second)
+                        (dt (/ (- end start) units)))
+                   (save-stats-csv data-output-dir
+                                   filename
+                                   refine
+                                   i
+                                   dt
+                                   (compute-max-extent *sim*)
+                                   )))))))
