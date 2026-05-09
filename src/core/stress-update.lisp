@@ -261,7 +261,9 @@
                      (df-inc-strain-inv    cl-mpm/particle::mp-deformation-gradient-strain-increment-inverse)
                      ) mp
       (declare (type double-float volume volume-n))
-      (let ((df-strain (cl-mpm/utils::object-pool-grab work-pool)))
+      (let ((df-strain (cl-mpm/utils::object-pool-grab work-pool))
+            ;;(df-strain (cl-mpm/utils:matrix-eye 1d0))
+            )
         ;; (declare (dynamic-extent df-strain))
         (multiple-value-bind (df df-strain) (calculate-df mesh mp fbar df-inc df-strain)
           (progn

@@ -32,25 +32,32 @@
 (defun resolve (sim op vec)
   )
 
-(defun @-mass-matrix-vec (sim vec)
+(defun @-mass-matrix-vec (sim vec d)
   (let ((et (cl-mpm/aggregate::sim-global-sparse-et sim))
         (e (cl-mpm/aggregate::sim-global-sparse-e sim))
         (sma (cl-mpm/aggregate::sim-global-sparse-ma sim)))
-    (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
+    (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
      et
      (cl-mpm/fastmaths::fast-.*
       sma
-      (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
+      (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
        e
-       vec)))))
+       vec
+       (aref (sim-global-bcs sim) d)
+       (aref (sim-global-bcs-int sim) d)
+       ))
+     (aref (sim-global-bcs-int sim) d)
+     (aref (sim-global-bcs sim) d)
+     )))
 
-(defun aggregate-vec (sim vec)
+(defun aggregate-vec (sim vec d)
   (if (sim-global-bcs sim)
       (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
        (cl-mpm/aggregate::sim-global-sparse-et sim)
        vec
-       (sim-global-bcs-int sim)
-       (sim-global-bcs sim))
+       (aref (sim-global-bcs-int sim) d)
+       (aref (sim-global-bcs sim) d)
+       )
       (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
        (cl-mpm/aggregate::sim-global-sparse-et sim)
        vec))
@@ -61,13 +68,14 @@
   ;;  (magicl:transpose (cl-mpm/aggregate::sim-global-e sim))
   ;;  vec)
   )
-(defun extend-vec (sim vec)
+(defun extend-vec (sim vec d)
   (if (sim-global-bcs sim)
       (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
        (cl-mpm/aggregate::sim-global-sparse-e sim)
        vec
-       (sim-global-bcs sim)
-       (sim-global-bcs-int sim))
+       (aref (sim-global-bcs sim) d)
+       (aref (sim-global-bcs-int sim) d)
+       )
       (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
        (cl-mpm/aggregate::sim-global-sparse-e sim)
        vec))
@@ -514,9 +522,9 @@
 ;;   (sb-ext::defglobal *assembly-counter* 0)
 ;;   (declaim (fixnum *assembly-counter*)))
 (let* ((est-size 1000)
-       (v (make-array est-size :fill-pointer 0 :adjustable t :element-type 'double-float))
-       (r (make-array est-size :fill-pointer 0 :adjustable t :element-type 'fixnum))
-       (c (make-array est-size :fill-pointer 0 :adjustable t :element-type 'fixnum))
+       ;; (v (make-array est-size :fill-pointer 0 :adjustable t :element-type 'double-float))
+       ;; (r (make-array est-size :fill-pointer 0 :adjustable t :element-type 'fixnum))
+       ;; (c (make-array est-size :fill-pointer 0 :adjustable t :element-type 'fixnum))
        (counter (make-array 1 :element-type '(UNSIGNED-BYTE 64)))
        )
   (defun assemble-sparse-e (sim)
@@ -527,16 +535,16 @@
            (ndof (length active-nodes))
            (ndofC (length agg-nodes))
            (est-size (+ ndofC (* (expt 2 nd) (- ndof ndofC))))
-           ;; (v (make-array est-size :fill-pointer 0 :adjustable t :element-type 'double-float))
-           ;; (r (make-array est-size :fill-pointer 0 :adjustable t :element-type 'fixnum))
-           ;; (c (make-array est-size :fill-pointer 0 :adjustable t :element-type 'fixnum))
+           (v (make-array est-size :fill-pointer est-size :adjustable t :element-type 'double-float))
+           (r (make-array est-size :fill-pointer est-size :adjustable t :element-type 'fixnum))
+           (c (make-array est-size :fill-pointer est-size :adjustable t :element-type 'fixnum))
            ;; (lock (sb-thread:make-mutex))
            )
       ;; (setf *assembly-counter* 0)
       (sb-ext:atomic-update (aref counter 0) (lambda (a) 0))
-      (setf v (adjust-array v est-size :fill-pointer 0))
-      (setf r (adjust-array r est-size :fill-pointer 0))
-      (setf c (adjust-array c est-size :fill-pointer 0))
+      ;; (setf v (adjust-array v est-size :fill-pointer 0))
+      ;; (setf r (adjust-array r est-size :fill-pointer 0))
+      ;; (setf c (adjust-array c est-size :fill-pointer 0))
       ;; (setf 
       ;;  (fill-pointer v) 0
       ;;  (fill-pointer r) 0
@@ -568,9 +576,7 @@
                           (setf (aref r place) (cl-mpm/mesh::node-agg-fd node))
                           (setf (aref c place) (cl-mpm/mesh::node-agg-fdc cn))))))))))))
       (values (cl-mpm/utils::build-sparse-matrix v r c ndof ndofC)
-              (cl-mpm/utils::build-sparse-matrix v c r ndofC ndof))
-      ;; (break)
-      )))
+              (cl-mpm/utils::build-sparse-matrix v c r ndofC ndof)))))
 
 ;; (defun assemble-implicit-e (sim)
 ;;   (let ((fdc 0))
@@ -606,12 +612,18 @@
 (defmethod update-aggregate-elements ((sim mpm-sim-aggregated))
   (when (sim-enable-aggregate sim)
     (locate-aggregate-nodes sim)
-    (let (;; (E (cl-mpm/aggregate::assemble-e sim))
-          )
-      ;; (setf (sim-global-e sim) E)
+    (let ()
       (multiple-value-bind (e et) (assemble-sparse-e sim)
         (setf (sim-global-sparse-e sim) e
               (sim-global-sparse-et sim) et))
+      (let ((nd (cl-mpm/mesh::mesh-nd (cl-mpm:sim-mesh sim))))
+        (setf (sim-global-bcs sim) (make-array nd :element-type t))
+        (setf (sim-global-bcs-int sim) (make-array nd :element-type t))
+        (iterate-over-dimensions
+         nd
+         (lambda (d)
+           (setf (aref (sim-global-bcs sim) d) (assemble-global-bcs sim d))
+           (setf (aref (sim-global-bcs-int sim) d) (assemble-internal-bcs sim d)))))
       (update-mass-matrix sim))))
 
 (defun update-mass-matrix (sim)
@@ -678,7 +690,7 @@
     (let* ((et (cl-mpm/aggregate::sim-global-sparse-et sim))
            (e (cl-mpm/aggregate::sim-global-sparse-e sim))
            (sma (cl-mpm/aggregate::sim-global-sparse-ma sim))
-           (bcs (assemble-internal-bcs sim d))
+           (bcs (aref (sim-global-bcs-int sim) d))
            (gbcs (assemble-global-bcs sim d))
            (work-vec (cl-mpm/utils::arb-matrix (magicl:nrows sma) 1))
            (work-vec-agg (cl-mpm/utils::arb-matrix (magicl:nrows v) 1)))
@@ -689,7 +701,7 @@
       ;; (pprint sma)
       (cl-mpm/linear-solver::solve-conjugant-gradients
        (lambda (x)
-         (@-mass-matrix-vec sim x)
+         (@-mass-matrix-vec sim x d)
          ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
          ;;  e
          ;;  x
@@ -765,10 +777,11 @@
        (lambda (d)
          (let* ((vi (aggregate-vec
                      sim
-                     (assemble-global-vec sim #'cl-mpm/mesh::node-velocity d))))
+                     (assemble-global-vec sim #'cl-mpm/mesh::node-velocity d)
+                     d)))
            (project-global-vec
             sim
-            (extend-vec sim (linear-solve-with-bcs sim ma vi d))
+            (extend-vec sim (linear-solve-with-bcs sim ma vi d) d)
             #'cl-mpm/mesh::node-velocity
             d)))))))
 
@@ -834,12 +847,14 @@
            (let ((fa
                    (aggregate-vec
                     sim
-                    (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))))
-             (apply-internal-bcs sim fa d)
+                    (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d)
+                    d)))
              (let* ((acc (linear-solve-with-bcs sim ma fa d)))
                (cl-mpm/fastmaths::fast-scale! acc (/ 1d0 (sqrt mass-scale)))
-               (cl-mpm/aggregate::apply-internal-bcs sim acc d)
-               (project-global-vec sim (extend-vec sim acc) #'cl-mpm/mesh::node-acceleration d)))))))
+               (project-global-vec
+                sim
+                (extend-vec sim acc d)
+                #'cl-mpm/mesh::node-acceleration d)))))))
 
     ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     (iterate-over-nodes
@@ -869,10 +884,12 @@
      (cl-mpm/mesh::mesh-nd mesh)
      (lambda (d)
        (let ((vel-proj (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-displacment d)))
-         (apply-internal-bcs sim vel-proj d)
          (cl-mpm/aggregate::project-global-vec
           sim
-          (extend-vec sim vel-proj)
+          (apply-global-bcs 
+           sim
+           (extend-vec sim vel-proj d)
+           d)
           #'cl-mpm/mesh::node-displacment
           d))))
     (cl-mpm::apply-bcs mesh (cl-mpm:sim-bcs sim) dt)))
@@ -887,10 +904,12 @@
      (lambda (d)
        (let (
              (vel-proj (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)))
-         (apply-internal-bcs sim vel-proj d)
          (cl-mpm/aggregate::project-global-vec
           sim
-          (extend-vec sim vel-proj)
+          (apply-global-bcs
+           sim
+           (extend-vec sim vel-proj d)
+           d)
           #'cl-mpm/mesh::node-velocity
           d))))
     (cl-mpm::apply-bcs mesh (cl-mpm:sim-bcs sim) dt)))
@@ -904,10 +923,12 @@
      (cl-mpm/mesh::mesh-nd mesh)
      (lambda (d)
        (let ((vel-proj (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-acceleration d)))
-         (apply-internal-bcs sim vel-proj d)
          (cl-mpm/aggregate::project-global-vec
           sim
-          (extend-vec sim vel-proj)
+          (apply-global-bcs
+           sim
+           (extend-vec sim vel-proj d)
+           d)
           #'cl-mpm/mesh::node-acceleration
           d))))
     (cl-mpm::apply-bcs mesh (cl-mpm:sim-bcs sim) dt)))
@@ -942,6 +963,28 @@
              (setf (varef vec index) (* (varef bcs d) (varef vec index)))))))))
   vec)
 
+(defun apply-global-bcs (sim vec d)
+  (declare (magicl::matrix/double-float vec)
+           (fixnum d))
+  (let* ((agg-nodes (cl-mpm/aggregate::sim-agg-nodes-fd sim))
+         (vs (cl-mpm/utils:fast-storage vec)))
+    (declare ((simple-array double-float (*)) vs))
+    ;; (when (not (= (magicl:nrows vec) (length (cl-mpm/aggregate::sim-agg-nodes-fd sim))))
+    ;;   (error "Incorrect BCs applied"))
+    (cl-mpm::iterate-over-nodes-array
+     agg-nodes
+     (lambda (n)
+       (let ((index (cl-mpm/mesh::node-agg-fd n)))
+         (let ((bcs (cl-mpm/mesh::node-bcs n)))
+           (when bcs
+             (setf (aref vs index)
+                   (the double-float
+                        (*
+                         (varef bcs d)
+                         (varef vec index)))))))
+       (values))))
+  vec)
+
 
 (defun iterate-over-dimensions (nd func)
   (declare (fixnum nd)
@@ -969,7 +1012,8 @@
          (vi (assemble-global-vec sim #'cl-mpm/mesh::node-internal-force d))
          (va (aggregate-vec
               sim
-              vi))
+              vi
+              d))
          )
     (pprint vi)
     (pprint va)

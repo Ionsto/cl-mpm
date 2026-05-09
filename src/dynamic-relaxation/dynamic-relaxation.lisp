@@ -301,8 +301,7 @@
                  (cl-mpm/fastmaths:fast-.-
                   (cl-mpm/mesh::node-residual-prev node)
                   (cl-mpm/mesh::node-residual node)
-                  (cl-mpm/utils::object-pool-grab-unsafe work-pool)
-                  ))
+                  (cl-mpm/utils::object-pool-grab-unsafe work-pool)))
                 0d0))
           #'+))
         (setf
@@ -326,19 +325,14 @@
              (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
                     (res-prev (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual-prev d))
                     (vi
-                      (cl-mpm/aggregate::apply-internal-bcs
-                       sim
-                       (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)
-                       d)))
+                      (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)))
                (let ((dnum (cl-mpm/fastmaths:dot
                             vi
-                            (cl-mpm/aggregate::apply-internal-bcs
+                            (cl-mpm/aggregate::aggregate-vec
                              sim
-                             (cl-mpm/aggregate::aggregate-vec
-                              sim
-                              (cl-mpm/fastmaths::fast-.- res-prev res))
+                             (cl-mpm/fastmaths::fast-.- res-prev res)
                              d)))
-                     (ddenom (* dt (cl-mpm/fastmaths:dot vi (cl-mpm/aggregate::@-mass-matrix-vec sim vi)))))
+                     (ddenom (* dt (cl-mpm/fastmaths:dot vi (cl-mpm/aggregate::@-mass-matrix-vec sim vi d)))))
                  (declare (double-float num dnum denom ddenom))
                  (sb-thread::with-mutex (mut)
                    (incf num dnum)
@@ -379,8 +373,10 @@
            (2
             (let* ((grads (cl-mpm::gradient-push-forwards-cached (cl-mpm/utils::make-gradients 1d0 1d0 0d0) df-inv))
                    (peak-grad
-                     (abs (max (expt (cl-mpm/utils::gradients-dx grads) 2)
-                               (expt (cl-mpm/utils::gradients-dy grads) 2)))))
+                     (abs (max
+                           1d0
+                           (expt (cl-mpm/utils::gradients-dx grads) 2)
+                           (expt (cl-mpm/utils::gradients-dy grads) 2)))))
               peak-grad))
            (3
             (let* ((grads (cl-mpm::gradient-push-forwards-cached (cl-mpm/utils::make-gradients 1d0 1d0 1d0) df-inv))

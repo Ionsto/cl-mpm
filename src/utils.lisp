@@ -79,11 +79,11 @@
 
 (declaim (inline varef)
          (ftype (function (magicl:matrix/double-float fixnum)
-                          (double-float)) varef))
+                          double-float) varef))
 (defun varef (m i)
   (declare (magicl:matrix/double-float m)
            (fixnum i))
-  (aref (fast-storage m) i))
+  (aref (the (simple-array double-float (*)) (fast-storage m)) i))
 
 (declaim (inline mtref)
          (ftype (function (magicl:matrix/double-float fixnum fixnum)
@@ -1137,6 +1137,17 @@
   (cl-mpm/utils:vector-from-list (list (gradients-dx grads)
                                        (gradients-dy grads)
                                        (gradients-dz grads))))
+
+;; (defstruct mutex-vector
+;;   (length 0)
+;;   (vector (make-vector 2 :fill-pointer 0 :adjustable nil :element-type t))
+;;   (mutex (sb-thread:make-mutex)))
+
+;; (defun mutex-vector-reset (vec))
+;; (defun mutex-vector-push-extend (value vec)
+;;   ;; (when (< (+ (mutex-vector-length vec) 1)))
+;;   ;; ()
+;;   )
 
 
 

@@ -292,9 +292,15 @@
    (aggregate-element
     :accessor cell-aggregate-element
     :initform nil)
+   (agg-node-list
+    :accessor cell-agg-node-list
+    :initform (make-array 0 :fill-pointer 0 :adjustable t))
    (def-list
     :accessor cell-def-list
     :initform (list 0d0 0d0 0d0))
+   (lock
+    :accessor cell-lock
+    :initform (sb-thread:make-mutex))
    (pruned
     :accessor cell-pruned
     :type boolean

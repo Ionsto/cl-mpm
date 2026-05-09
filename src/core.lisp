@@ -457,12 +457,12 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
      mesh
      (lambda (node)
        (calculate-kinematics node)))))
-(defun update-node-forces-standard (sim)
-  (iterate-over-nodes
-   mesh
-   (lambda (node)
-     (when (cl-mpm/mesh:node-active node)
-       (calculate-forces node damping dt mass-scale)))))
+;; (defun update-node-forces-standard (sim)
+;;   (iterate-over-nodes
+;;    mesh
+;;    (lambda (node)
+;;      (when (cl-mpm/mesh:node-active node)
+;;        (calculate-forces node damping dt mass-scale)))))
 
 (defgeneric update-node-forces (sim)
   (:documentation "Update the acceleration from forces and apply any damping"))
@@ -620,6 +620,28 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   ;;    (calculate-strain-rate mesh mp dt)
   ;;    (map-jacobian mesh mp dt)))
   (iterate-over-mps
+   mps
+   (lambda (mp)
+     (update-stress-mp mesh mp dt fbar)
+     ;; (post-stress-step mesh mp dt)
+     ))
+  (values))
+
+
+
+(declaim (ftype (function (cl-mpm/mesh::mesh
+                           (array cl-mpm/particle:particle)
+                           double-float
+                           &optional boolean) (values)) update-stress-omp))
+(defun update-stress-omp (mesh mps dt &optional (fbar nil))
+  "Update all stresses, with optional f-bar"
+  (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
+  ;; (iterate-over-mps
+  ;;  mps
+  ;;  (lambda (mp)
+  ;;    (calculate-strain-rate mesh mp dt)
+  ;;    (map-jacobian mesh mp dt)))
+  (iterate-over-mps-omp
    mps
    (lambda (mp)
      (update-stress-mp mesh mp dt fbar)
@@ -1175,7 +1197,10 @@ This modifies the dt of the simulation in the process
       (let ((sorted-mps (make-array (length (cl-mpm:sim-mps sim)) :adjustable t :fill-pointer 0))
             (nd (cl-mpm/mesh:mesh-nD mesh))
             (new-id 0))
-        (loop for i from 0 to (round (expt (expt 2 (+ 0 (ceiling (log (reduce #'max (cl-mpm/mesh::mesh-count mesh)) 2)))) nd))
+        (loop for i from 0 to (round (expt
+                                      (expt 2 (+ 0
+                                                 (ceiling
+                                                  (log (reduce #'max (cl-mpm/mesh::mesh-count mesh)) 2)))) nd))
               do
                  (let ((trial-index (morton-to-index i nd)))
                    (when (cl-mpm/mesh::in-bounds mesh trial-index)

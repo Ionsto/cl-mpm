@@ -16,75 +16,155 @@
   (the fixnum (* (the fixnum +thread-parts-scale+) (the fixnum (lparallel.kernel:kernel-worker-count)))))
 
 
-;; (require 'sb-concurrency)
-;; (defparameter *workers* nil)
-;; (defparameter *workers-array* nil)
-;; (defparameter *work-queue* (sb-concurrency:make-queue))
-;; (defparameter *workers-run* (sb-thread:make-semaphore))
-;; (defparameter *workers-finish* (sb-thread:make-semaphore))
-;; (defparameter *workers-kill* nil)
-;; (defparameter *workers-func* (lambda ()))
-;; (defun make-workers ()
-;;   (unless *workers*
-;;     (let ((thread-count (lparallel:kernel-worker-count)))
-;;       (setf *workers*
-;;             (loop for i fixnum from 0 below thread-count
-;;                   collect
-;;                   (sb-thread:make-thread
-;;                    (lambda (thread-number thread-count)
-;;                      (loop
-;;                        while (not *workers-kill*)
-;;                        do
-;;                        (sb-thread:wait-on-semaphore *workers-run*)
-;;                        (unless *workers-kill*
-;;                          (let ((func (the function (sb-concurrency:dequeue *work-queue*))))
-;;                            (funcall func)))
-;;                        (sb-thread:signal-semaphore *workers-finish*))
-;;                      (values))
-;;                    :arguments (list i thread-count)
-;;                    ))))))
-;; (defun kill-workers ()
-;;   (when *workers*
-;;     (setf *workers-kill* t)
-;;     (sb-thread:signal-semaphore *workers-run* (length *workers*))
-;;     (loop for worker in *workers* do (sb-thread:join-thread worker))
-;;     (setf *workers* nil)
-;;     (setf *workers-kill* nil)
+;; (defun %pdotimes (channel size parts fn)
+;;   (declaim (fixnum size parts))
+;;   (flet ((compute-part (part-offset part-size)
+;;            (declare (type fixnum part-offset part-size))
+;;            (let ((start part-offset)
+;;                  (end (+ part-offset part-size)))
+;;              (declare (type fixnum start end))
+;;              (loop for index fixnum from start below end
+;;                    do (funcall fn index))))
+;;          ;; (fast-submit channel function args)
+;;          )
+;;     (let* ((chunk (round (/ size parts)))
+;;            (chunk-count (ceiling size chunk)))
+;;       (loop for i from 0 below chunk-count
+;;             do
+;;                (lparallel:submit-task
+;;                 channel
+;;                 #'compute-part
+;;                 (* i chunk) (* (1+ i) chunk)))
+;;       (loop for i from 0 below chunk-count
+;;             do
+;;                (lparallel.cognate::receive-result channel)))
+;;     ;; (lparallel.cognate::with-parts size parts
+;;     ;;   (loop while (lparallel.cognate::next-part)
+;;     ;;         do (lparallel:submit-task channel #'compute-part
+;;     ;;                                   (lparallel.cognate::part-offset) (lparallel.cognate::part-size)))
+;;     ;;   (lparallel.cognate::repeat (lparallel.cognate::num-parts)
+;;     ;;     (lparallel.cognate::receive-result channel)))
 ;;     ))
-;; (defun better-pdotimes (array func)
-;;   (declare (vector array)
-;;            (function func))
-;;   (make-workers)
-;;   (setf *workers-array* array)
-;;   (setf *workers-func* func)
-;;   (let ((length (length *workers*)))
-;;     (loop for i from 0 below length
-;;           do (sb-concurrency:enqueue
-;;               (let ((i-capt i)
-;;                     (length-capt length))
-;;                 (lambda () (funcall func i-capt length-capt))) *work-queue*)))
-;;   ;; (pprint *work-queue*)
-;;   (sb-thread:signal-semaphore *workers-run* (length *workers*))
-;;   (sb-thread:wait-on-semaphore *workers-finish* :n (length *workers*))
-;;   )
 
-;; (defmacro omp (array func)
-;;   (declare (vector array)
-;;            (function func))
-;;   (let ((job-sym (gensym)))
+;; (lparallel.cognate::defmacro/once pdotimes ((var &once count &optional result parts)
+;;                          &body body)
+;;   "Parallel version of `dotimes'.
+
+;; The `parts' option divides the integer range into `parts' number of
+;; parts. Default is (kernel-worker-count).
+
+;; Unlike `dotimes', `pdotimes' does not define an implicit block named
+;; nil."
+;;   (lparallel.cognate::with-parsed-body (body declares)
 ;;     `(progn
-;;        (let ((,job-sym (lambda (thread-number thread-count)
-;;                          (let* ((array cl-mpm::*workers-array*)
-;;                                 (total-size (length array))
-;;                                 (block-size (round (ceiling total-size thread-count))))
-;;                            (declare (vector array))
-;;                            (loop for j fixnum from (* thread-number block-size) below (min (* (+ thread-number 1) block-size) total-size)
-;;                                  do (funcall ,func j))
-;;                            (values))
-;;                          )))
-;;          (declare (function ,job-sym))
-;;          (cl-mpm::better-pdotimes ,array ,job-sym)
-;;          ))))
+;;        (%pdotimes ,count ,parts (lambda (,var)
+;;                                   ,@declares
+;;                                   (tagbody ,@body)))
+;;        (let ((,var (max ,count 0)))
+;;          (declare (ignorable ,var))
+;;          ,result))))
+
+
+
+(require 'sb-concurrency)
+(defparameter *workers* nil)
+(defparameter *workers-array* nil)
+(defparameter *work-queue* (sb-concurrency:make-queue))
+(defparameter *workers-run* (sb-thread:make-semaphore))
+(defparameter *workers-finish* (sb-thread:make-semaphore))
+(defparameter *workers-kill* nil)
+(defparameter *workers-func* (lambda (i len)))
+(declaim (function *workers-func*))
+(defparameter *workers-chunk* 1)
+(defparameter *workers-chunk-count* 0)
+(defparameter *workers-array-length* 0)
+(defparameter *workers-nesting* nil)
+(declaim (fixnum *workers-chunk* *workers-chunk-count* *workers-array-length*))
+(defparameter *workers-counter* (make-array 1 :element-type '(unsigned-byte 64)))
+(progn
+  ;; (kill-workers)
+  (defun make-workers (&key (worker-count nil))
+    (declare (function *workers-func*)
+             (fixnum *workers-chunk-count*)
+             )
+    (unless *workers*
+      (let ((thread-count (if worker-count worker-count (lparallel:kernel-worker-count))))
+        (setf *workers-nesting* nil)
+        (setf *workers*
+              (loop for i fixnum from 0 below thread-count
+                    collect
+                    (sb-thread:make-thread
+                     (lambda (thread-number thread-count)
+                       (let ((lparallel.kernel::*worker*
+                               (lparallel.kernel::make-worker-instance
+                                :thread nil
+                                :tasks (lparallel.kernel::make-spin-queue)
+                                :index thread-number)))
+                         (loop
+                           while (not *workers-kill*)
+                           do
+                              (sb-thread:wait-on-semaphore *workers-run*)
+                              (unless *workers-kill*
+                                (let ((iter (sb-ext:atomic-incf (aref *workers-counter* 0))))
+                                  (when (< iter *workers-chunk-count*)
+                                    (funcall *workers-func* iter))))
+                              (sb-thread:signal-semaphore *workers-finish*)))
+                       (values))
+                     :arguments (list i thread-count)
+                     ))))))
+  )
+(defun kill-workers ()
+  (when *workers*
+    (setf *workers-nesting* nil)
+    (setf *workers-kill* t)
+    (sb-thread:signal-semaphore *workers-run* (length *workers*))
+    (loop for worker in *workers* do (sb-thread:join-thread worker))
+    (setf *workers* nil)
+    (setf *workers-kill* nil)
+    ))
+(defun omp (total-length func &key (parts nil))
+  (declare (fixnum total-length)
+           (function func))
+  (make-workers)
+  (when *workers-nesting*
+    (setf *workers-nesting* nil)
+    (error "OMP construct does not accept nesting"))
+  (setf *workers-nesting* t)
+
+  (setf *workers-array-length* total-length)
+  (let* ((length (if parts parts (length *workers*)))
+         (block-size (ceiling total-length length)))
+    (setf *workers-func*
+          (lambda (thread-number)
+            (declare (fixnum thread-number))
+            (let* ((start (* thread-number block-size))
+                   (end (min (* (1+ thread-number) block-size) total-length)))
+              (declare (fixnum block-size start end))
+              (loop for j fixnum from start below end
+                    do (funcall func j))
+              (values))))
+    (setf *workers-chunk-count* length)
+    (sb-ext:atomic-update (aref *workers-counter* 0) (lambda (a) (declare (ignore a)) 0))
+    )
+  (sb-thread:signal-semaphore *workers-run* (length *workers*))
+  (sb-thread:wait-on-semaphore *workers-finish* :n (length *workers*))
+  (setf *workers-nesting* nil)
+  )
+
+(defmacro bpdotimes ((i length) &body func)
+  (let ((job-sym (gensym)))
+    `(progn
+       (let* ((total-size ,length)
+              (,job-sym (lambda (,i)
+                          (declare (fixnum ,i))
+                          ,@func
+                          )))
+         (declare (function ,job-sym))
+         (cl-mpm::omp
+          total-size
+          ,job-sym
+          :parts (get-parts)
+          )))))
 
 ;; (defun shit-pdotimes (array func)
 ;;   (declare (vector array)
@@ -115,17 +195,32 @@
   (declare (type function func))
   (let ((nodes (cl-mpm/mesh::mesh-active-nodes mesh)))
     (declare (type (vector cl-mpm/mesh::node *) nodes))
-    (lparallel:pdotimes (i (length nodes)
-                           nil
-                           (get-parts))
+    (bpdotimes (i (length nodes))
       (let ((node (aref nodes i)))
         (when node
           (funcall func node))))
     )
   (values))
+;; (declaim (inline iterate-over-nodes-omp)
+;;          (ftype (function (cl-mpm/mesh::mesh function) (values)) iterate-over-nodes-omp))
+;; (defun iterate-over-nodes-omp (mesh func)
+;;   "Helper function for iterating over all nodes in a mesh
+;;    Calls func with only the node"
+;;   (declare (type function func))
+;;   (let ((nodes (cl-mpm/mesh::mesh-active-nodes mesh)))
+;;     (declare (type (vector cl-mpm/mesh::node *) nodes))
+;;     (omp
+;;      (length nodes)
+;;      (lambda (i)
+;;        (let ((node (aref nodes i)))
+;;          (funcall func node))))
+;;     )
+;;   (values))
 
 
-(declaim (ftype (function
+(declaim
+ (inline iterate-over-nodes-array)
+ (ftype (function
                  ((vector cl-mpm/mesh::node *)
                   function)
                  (values))
@@ -163,9 +258,7 @@ Calls func with only the node"
   (declare (type function func))
   (let ((cells (cl-mpm/mesh::mesh-active-cells mesh)))
     (declare (type (vector cl-mpm/mesh::cell *) cells))
-    (lparallel:pdotimes (i (length cells)
-                           nil
-                           (get-parts))
+    (bpdotimes (i (length cells))
       (let ((cell (aref cells i)))
         (when cell
           (funcall func cell)))))
@@ -188,7 +281,7 @@ Calls func with only the node"
    Calls func with only the node"
   (declare (type function func))
   (let ((bcs (sim-bcs sim)))
-    (lparallel:pdotimes (i (array-total-size bcs))
+    (bpdotimes (i (array-total-size bcs))
       (let ((bc (aref bcs i)))
         (when bc
           (funcall func bc)))))
@@ -211,7 +304,7 @@ Calls func with only the node"
   (declare (type function func))
   (let ((bcs-f (sim-bcs-force-list sim)))
     (loop for bcs in bcs-f
-          do (lparallel:pdotimes (i (array-total-size bcs))
+          do (bpdotimes (i (array-total-size bcs))
                (let ((bc (aref bcs i)))
                  (when bc
                    (funcall func bc))))))
@@ -262,9 +355,28 @@ Calls func with only the node"
            (type (array cl-mpm/particle:particle) mps))
   ;; (dotimes (i (length mps))
   ;;   (funcall func (aref mps i)))
-  (lparallel:pdotimes (i (length mps) nil
-                         (get-parts))
+  (bpdotimes (i (length mps))
                       (funcall func (aref mps i)))
+
+  (values))
+
+
+(declaim (ftype (function
+                 ((vector cl-mpm/particle:particle *)
+                  function)
+                 (values))
+                iterate-over-mps-omp))
+(defun iterate-over-mps-omp (mps func)
+  "Helper function for iterating over all nodes in a mesh
+   Calls func with only the node"
+  (declare (type function func)
+           (type (array cl-mpm/particle:particle) mps))
+  ;; (dotimes (i (length mps))
+  ;;   (funcall func (aref mps i)))
+  (omp
+   (length mps)
+   (lambda (i)
+     (funcall func (aref mps i))))
 
   (values))
 

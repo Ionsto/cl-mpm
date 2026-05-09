@@ -259,6 +259,7 @@
                "cl-mpm/shape-function"
                "cl-mpm/bc"
                "cl-mpm/mesh"
+               "sb-concurrency"
                "cl-mpm/ext")
   :description "An explicit Material Point Method implementation"
   :in-order-to ((test-op (load-op "test/all")))
