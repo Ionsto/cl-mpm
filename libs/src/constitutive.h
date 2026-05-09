@@ -465,17 +465,19 @@ namespace constitutive{
         b(Eigen::seq(0,5)) += b_eps(Eigen::seq(0,5));
         b(6) = vm_yield_func(j2,rho);
       }
-      // Eigen::Matrix<double,7,7> A = Eigen::Matrix<double,7,7>::Zero();
-      // A.topLeftCorner(6,6) = de.inverse() + (ddf*dgam);
-      // A.topRightCorner(6,1) = df;
-      // A.bottomLeftCorner(1,6) = df.transpose();
-      // Eigen::Matrix<double,6,6> dep = A.inverse().topLeftCorner(6,6);
+      Eigen::Matrix<double,7,7> A = Eigen::Matrix<double,7,7>::Zero();
+      A.topLeftCorner(6,6) = de.inverse() + (ddf*dgam);
+      A.topRightCorner(6,1) = df;
+      A.bottomLeftCorner(1,6) = df.transpose();
+      Eigen::Matrix<double,6,6> dep = A.inverse().topLeftCorner(6,6);
 
       double pmod = pmod_0*1e-6;
-      Eigen::Matrix<double,6,1> n = Eigen::Matrix<double,6,1>::Zero();
-      n(0) = 1.0;
-      // pmod = std::max(pmod,(n.transpose() * dep * n)(0,0));
-      pmod = K;
+      for(int i = 0;i < 2;++i){
+        Eigen::Matrix<double,6,1> n = Eigen::Matrix<double,6,1>::Zero();
+        n(i) = 1.0;
+        pmod = std::max(pmod,(n.transpose() * dep * n)(0,0));
+      }
+      // pmod = K;
       double inc = std::sqrt(3* utils::voigt_j2(utils::voigt_deviatoric(epse-elastic_strain)));
       return MohrCoulombReturn(utils::swizzle_coombs_voigt(epse),f,inc,true,pmod);
     }
