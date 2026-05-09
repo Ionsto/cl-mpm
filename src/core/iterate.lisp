@@ -105,9 +105,13 @@
                            do
                               (sb-thread:wait-on-semaphore *workers-run*)
                               (unless *workers-kill*
+                                ;; (unwind-protect)
                                 (let ((iter (sb-ext:atomic-incf (aref *workers-counter* 0))))
                                   (when (< iter *workers-chunk-count*)
-                                    (funcall *workers-func* iter))))
+                                    (funcall *workers-func* iter)))
+                                ;; (print "cleanup unexpected thread termination")
+                                ;; (setf *workers-nesting* nil)
+                                )
                               (sb-thread:signal-semaphore *workers-finish*)))
                        (values))
                      :arguments (list i thread-count)
@@ -126,32 +130,35 @@
   (declare (fixnum total-length)
            (function func))
   (make-workers)
-  (when *workers-nesting*
-    (setf *workers-nesting* nil)
-    (error "OMP construct does not accept nesting"))
-  (setf *workers-nesting* t)
-
-  (setf *workers-array-length* total-length)
-  (let* ((length (if parts parts (length *workers*)))
-         (block-size (ceiling total-length length)))
-    (setf *workers-func*
-          (lambda (thread-number)
-            (declare (fixnum thread-number))
-            (let* ((start (* thread-number block-size))
-                   (end (min (* (1+ thread-number) block-size) total-length)))
-              (declare (fixnum block-size start end))
-              (loop for j fixnum from start below end
-                    do (funcall func j))
-              (values))))
-    (setf *workers-chunk-count* length)
-    (sb-ext:atomic-update (aref *workers-counter* 0) (lambda (a) (declare (ignore a)) 0))
-    )
-  (sb-thread:signal-semaphore *workers-run* (length *workers*))
-  (sb-thread:wait-on-semaphore *workers-finish* :n (length *workers*))
-  (setf *workers-nesting* nil)
-  )
+  (if *workers-nesting*
+      (progn
+        (loop for j fixnum from 0 below total-length 
+              do (funcall func j)))
+      (progn
+        (setf *workers-nesting* t)
+        (setf *workers-array-length* total-length)
+        (let* ((length (if parts parts (length *workers*)))
+               (block-size (ceiling total-length length)))
+          (setf *workers-func*
+                (lambda (thread-number)
+                  (declare (fixnum thread-number))
+                  (let* ((start (* thread-number block-size))
+                         (end (min (* (1+ thread-number) block-size) total-length)))
+                    (declare (fixnum block-size start end))
+                    (loop for j fixnum from start below end
+                          do (funcall func j))
+                    (values))))
+          (setf *workers-chunk-count* length)
+          (sb-ext:atomic-update (aref *workers-counter* 0) (lambda (a) (declare (ignore a)) 0))
+          )
+        (sb-thread:signal-semaphore *workers-run* (length *workers*))
+        (sb-thread:wait-on-semaphore *workers-finish* :n (length *workers*))
+        (setf *workers-nesting* nil))))
 
 (defmacro bpdotimes ((i length) &body func)
+  ;; `(lparallel:pdotimes (,i ,length)
+  ;;    ,@func
+  ;;    )
   (let ((job-sym (gensym)))
     `(progn
        (let* ((total-size ,length)
@@ -164,7 +171,8 @@
           total-size
           ,job-sym
           :parts (get-parts)
-          )))))
+          ))))
+  )
 
 ;; (defun shit-pdotimes (array func)
 ;;   (declare (vector array)

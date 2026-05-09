@@ -743,13 +743,23 @@
                            (setf (magicl:tref b 6 0) b-f)))))
           (let ((B (magicl:inv (magicl:block-matrix
                                 (list
-                                 (cl-mpm/fastmaths::fast-.+ (magicl:inv De)
-                                                            (magicl:scale! ddf dgam))
+                                 (cl-mpm/fastmaths::fast-.+
+                                  (magicl:inv De)
+                                  (magicl:scale! ddf dgam))
                                  df
                                  (magicl:transpose df)
                                  (magicl:from-diag (list 0d0)))
                                                     (list 2 2)))))
             (setf dep (magicl:slice B '(0 0) '(6 6))))
+          (pprint (magicl:block-matrix
+                   (list
+                    (cl-mpm/fastmaths::fast-.+
+                     (magicl:inv De)
+                     (magicl:scale! ddf dgam))
+                    df
+                    (magicl:transpose df)
+                    (magicl:from-diag (list 0d0)))
+                   (list 2 2)))
           ;; (pprint dgam)
           ;; (pprint ddf)
           ;; (pprint df)
@@ -780,12 +790,12 @@
                           (magicl:tref vec 0 0))))
 (defun swizzle-voigt->coombs (vec)
   (voigt-from-list (list
-                    (magicl:tref vec 0 0)
-                    (magicl:tref vec 1 0)
-                    (magicl:tref vec 2 0)
-                    (magicl:tref vec 5 0)
-                    (magicl:tref vec 3 0)
-                    (magicl:tref vec 4 0)
+                    (varef vec 0)
+                    (varef vec 1)
+                    (varef vec 2)
+                    (varef vec 5)
+                    (varef vec 3)
+                    (varef vec 4)
                     )))
 (defun swizzle-coombs->voigt (vec &optional res)
   (let ((res (if res

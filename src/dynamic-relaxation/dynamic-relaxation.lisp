@@ -301,7 +301,8 @@
                  (cl-mpm/fastmaths:fast-.-
                   (cl-mpm/mesh::node-residual-prev node)
                   (cl-mpm/mesh::node-residual node)
-                  (cl-mpm/utils::object-pool-grab-unsafe work-pool)))
+                  ;; (cl-mpm/utils::object-pool-grab-unsafe work-pool)
+                  ))
                 0d0))
           #'+))
         (setf

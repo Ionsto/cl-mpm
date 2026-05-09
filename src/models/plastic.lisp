@@ -182,34 +182,38 @@
       mp
     ;;Train elastic strain - plus trail kirchoff stress
     (cl-mpm/constitutive::linear-elastic-mat strain de stress)
+    (if (equal dep de)
+      (setf dep (cl-mpm/utils::deep-copy de))
+      (cl-mpm/utils::copy-into de dep))
     (if enable-plasticity
-        ;; (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm-tangent
-        ;;                                              stress
-        ;;                                              strain
-        ;;                                              de
-        ;;                                              e nu
-        ;;                                              rho
-        ;;                                              dep)
-        ;;   (setf stress sig
-        ;;         plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e plastic-strain)
-        ;;         p-mod pmod
-        ;;         yield-func f)
-        ;;   (setf ps-vm-inc inc)
-        ;;   (setf strain eps-e)
-        ;;   (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
-        (multiple-value-bind (sig eps-e f inc pmod dep-con) (cl-mpm/constitutive::plastic-vm-tangent stress de strain rho e nu)
-          (setf stress
-                sig
-                plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
+        (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm-tangent
+                                                     stress
+                                                     strain
+                                                     de
+                                                     e nu
+                                                     rho
+                                                     dep)
+          (setf stress sig
+                ;; plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e plastic-strain)
                 p-mod pmod
-                yield-func f
-                dep dep-con)
+                yield-func f)
           (setf ps-vm-inc inc)
           (setf strain eps-e)
           (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
+        ;; (multiple-value-bind (sig eps-e f inc pmod dep-con) (cl-mpm/constitutive::plastic-vm-tangent stress de strain rho e nu)
+        ;;   (setf stress
+        ;;         sig
+        ;;         plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
+        ;;         p-mod pmod
+        ;;         yield-func f
+        ;;         dep dep-con)
+        ;;   (setf ps-vm-inc inc)
+        ;;   (setf strain eps-e)
+        ;;   (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
       (progn
         (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
-        (setf dep (cl-mpm/utils::copy-into de dep))))
+        (when (equal dep de)
+          (setf dep (cl-mpm/utils::deep-copy de)))))
     stress))
 
 (defmethod constitutive-model ((mp particle-mc) strain dt)

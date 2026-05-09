@@ -486,8 +486,8 @@ namespace constitutive{
     }
   }
   inline
-  TangentReturn VonMisesTangent(Eigen::Matrix<double,6,1> elastic_strain, double E, double nu, double rho) {
-    elastic_strain = utils::swizzle_voigt_coombs(elastic_strain);
+  TangentReturn VonMisesTangent(Eigen::Matrix<double,6,1> nelastic_strain, double E, double nu, double rho) {
+    Eigen::Matrix<double,6,1> elastic_strain = utils::swizzle_voigt_coombs(nelastic_strain);
     Eigen::Matrix<double,6,6> de = AssembleDE(E,nu);
     Eigen::Matrix<double,6,1> sig = de * elastic_strain;
     Eigen::Matrix<double,6,1> sig_dev = voigt_deviatoric(sig);

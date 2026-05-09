@@ -13,6 +13,20 @@
   )
 (in-package :cl-mpm/implicit)
 
+
+(defun aggregate-vec (sim vec)
+  (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+   (cl-mpm/aggregate::sim-global-sparse-et sim)
+   vec
+   (cl-mpm/aggregate::sim-global-bcs-int sim)
+   (cl-mpm/aggregate::sim-global-bcs sim)))
+(defun extend-vec (sim vec)
+  (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+   (cl-mpm/aggregate::sim-global-sparse-e sim)
+   vec
+   (cl-mpm/aggregate::sim-global-bcs sim)
+   (cl-mpm/aggregate::sim-global-bcs-int sim)))
+
 (defclass mpm-sim-implicit (cl-mpm/dynamic-relaxation::mpm-sim-dr-ul)
   ((sim-nodes-fd
     :initform nil
@@ -275,6 +289,7 @@
     (setf
      (cl-mpm/aggregate::sim-agg-nodes-fd sim)
      (cl-mpm/implicit::sim-nodes-fd sim))
+
     (setf
      (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
      (cl-mpm::filter-nodes sim (lambda (n)
@@ -297,6 +312,7 @@
     (multiple-value-bind (e et) (cl-mpm/implicit::assemble-sparse-e sim)
       (setf (cl-mpm/aggregate::sim-global-sparse-e sim) e
             (cl-mpm/aggregate::sim-global-sparse-et sim) et))
+
     (setf (cl-mpm/aggregate::sim-global-bcs sim) (assemble-global-bcs sim))
     (setf (cl-mpm/aggregate::sim-global-bcs-int sim) (assemble-internal-bcs sim))
 
@@ -711,30 +727,32 @@
           (format t "Node ~D~%" i)
           (let* ((nodei (aref nodelist i))
                  (fn (cl-mpm/utils:vector-copy (cl-mpm/mesh::node-force nodei))))
-            (dotimes (j (length nodelist))
-              (let ((nodej (aref nodelist j)))
-                (dotimes (id nd)
-                  (dotimes (jd nd)
-                    (declare (fixnum id jd i j))
-                    (let ((dispin (varef (cl-mpm/mesh::node-displacment nodej) jd)))
-                      (setf (varef (cl-mpm/mesh::node-displacment nodej) jd) (+ dispin eps))
-                      (cl-mpm::reset-nodes-force sim)
-                      (cl-mpm::update-stress mesh mps dt-loadstep fbar)
-                      (cl-mpm::p2g-force-fs sim)
-                      ;; (cl-mpm::apply-bcs mesh bcs dt)
-                      (let ((df (/ (- (varef fn id) (varef (cl-mpm/mesh::node-force nodei) id))
-                                   eps)))
-                        (when (> (abs df) fdtol)
-                          (vector-push-extend
-                           df
-                           k-vals)
-                          (vector-push-extend
-                           (the fixnum (+ id (the fixnum (* i nd))))
-                           k-rows)
-                          (vector-push-extend
-                           (the fixnum (+ jd (the fixnum (* j nd))))
-                           k-cols)))
-                      (setf (varef (cl-mpm/mesh::node-displacment nodej) jd) dispin))))))))
+            (when (cl-mpm/mesh::node-active nodei)
+              (dotimes (j (length nodelist))
+                (let ((nodej (aref nodelist j)))
+                  (when (cl-mpm/mesh::node-active nodej)
+                    (dotimes (id nd)
+                      (dotimes (jd nd)
+                        (declare (fixnum id jd i j))
+                        (let ((dispin (varef (cl-mpm/mesh::node-displacment nodej) jd)))
+                          (setf (varef (cl-mpm/mesh::node-displacment nodej) jd) (+ dispin eps))
+                          (cl-mpm::reset-nodes-force sim)
+                          (cl-mpm::update-stress mesh mps dt-loadstep fbar)
+                          (cl-mpm::p2g-force-fs sim)
+                          ;; (cl-mpm::apply-bcs mesh bcs dt)
+                          (let ((df (/ (- (varef fn id) (varef (cl-mpm/mesh::node-force nodei) id))
+                                       eps)))
+                            (when (> (abs df) fdtol)
+                              (vector-push-extend
+                               df
+                               k-vals)
+                              (vector-push-extend
+                               (the fixnum (+ id (the fixnum (* i nd))))
+                               k-rows)
+                              (vector-push-extend
+                               (the fixnum (+ jd (the fixnum (* j nd))))
+                               k-cols)))
+                          (setf (varef (cl-mpm/mesh::node-displacment nodej) jd) dispin))))))))))
         (cl-mpm::reset-nodes-force sim)
         (cl-mpm::update-stress mesh mps dt-loadstep fbar)
         (cl-mpm::p2g-force-fs sim)
@@ -831,7 +849,7 @@
                 bcs)))
       (let ((vs (cl-mpm/linear-solver::solve-conjugant-gradients
                  #'system-operation v
-                 :tol 1d-15
+                 :tol 1d-12
                  :max-iters 1000
                  :mask bcs)))
         vs))))
@@ -850,17 +868,18 @@
                        target-vi
                        (cl-mpm/utils::arb-matrix (magicl:nrows f) 1)
                        )))
-    (let* ((fa (cl-mpm/aggregate::aggregate-vec sim f))
+    (let* ((fa (aggregate-vec sim f))
            (et (cl-mpm/aggregate::sim-global-sparse-et sim))
            (e (cl-mpm/aggregate::sim-global-sparse-e sim))
-           (int-bcs (cl-mpm/implicit::assemble-internal-bcs sim))
+           (int-bcs (cl-mpm/aggregate::sim-global-bcs-int sim))
+           (bcs (cl-mpm/aggregate::sim-global-bcs sim))
            (work-vec (cl-mpm/utils::arb-matrix (magicl:nrows f) 1))
            (work-vec-2 (cl-mpm/utils::arb-matrix (magicl:nrows f) 1))
            (work-vec-agg (cl-mpm/utils::arb-matrix (magicl:nrows int-bcs) 1)))
       ;; (break)
       ;; (pprint (magicl:nrows bcs))
       ;; (pprint (magicl:nrows int-bcs))
-      (cl-mpm/aggregate::extend-vec
+      (extend-vec
        sim
        (cl-mpm/linear-solver::solve-conjugant-gradients
         (lambda (v)
@@ -907,7 +926,8 @@
              e
              v
              bcs
-             int-bcs)
+             int-bcs
+             )
             bcs
             bcs)
            int-bcs
@@ -916,7 +936,7 @@
         fa
         :tol 1d-11
         ;;Really give it some welly
-        :max-iters 10000
+        :max-iters 100000
         :mask int-bcs
         )))))
 
@@ -1011,7 +1031,7 @@
                     (if bcs
                         (setf (cl-mpm/utils:varef v index) (cl-mpm/utils:varef bcs d))
                         (setf (cl-mpm/utils:varef v index) 1d0)))))))
-    (values v)))
+    v))
 
 
 
@@ -1271,8 +1291,8 @@
     (cl-mpm::apply-bcs mesh bcs dt)
     ;; (when enable-aggregate
     ;;   (cl-mpm/aggregate::update-aggregate-elements sim))
+    (setf (cl-mpm/aggregate::sim-global-bcs sim) (assemble-global-bcs sim))
     (when enable-aggregate
-      (setf (cl-mpm/aggregate::sim-global-bcs sim) (assemble-global-bcs sim))
       (setf (cl-mpm/aggregate::sim-global-bcs-int sim) (assemble-internal-bcs sim)))
     (setf initial-setup t)))
 
@@ -1340,6 +1360,7 @@
     (incf solve-count)
     ;; (cl-mpm::apply-bcs mesh bcs dt)
     (assemble-stiffness sim)
+    ;; (assemble-stiffness-forward-difference sim)
     ;;Assemble the global K matrix
     (if (cl-mpm/aggregate::sim-enable-aggregate sim)
         (solve-aggregate sim)
@@ -1481,12 +1502,11 @@
               (f-ext (assemble-global-vec sim #'cl-mpm/mesh::node-external-force))
               (bcs (assemble-internal-bcs sim)))
           (let ((doobf-num (cl-mpm/fastmaths::mag-squared
-                            (cl-mpm/fastmaths::fast-.*
-                             bcs (cl-mpm/aggregate::aggregate-vec sim res))))
+                            (aggregate-vec sim res)))
                 (doobf-denom (cl-mpm/fastmaths::mag-squared
                               (cl-mpm/fastmaths:fast-.*
                                bcs
-                               (cl-mpm/aggregate::aggregate-vec sim f-ext)))))
+                               (aggregate-vec sim f-ext)))))
             (incf oobf-num doobf-num)
             (incf oobf-denom doobf-denom))))
       (let ((oobf 0d0)
