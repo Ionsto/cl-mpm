@@ -72,14 +72,12 @@
 
     (let* ((h (cl-mpm/mesh::mesh-resolution mesh))
            (nd (cl-mpm/mesh::mesh-nd mesh))
-           (mass-scale (the double-float (/ 1d0
-                                            (the double-float (cl-mpm::sim-dt-scale sim))))))
+           (mass-scale (the double-float (/ 1d0 (the double-float (cl-mpm::sim-dt-scale sim))))))
       (declare (double-float h mass-scale)
                (fixnum nd))
       (cl-mpm::iterate-over-mps
        mps
        (lambda (mp)
-         ;; (setf (cl-mpm/particle::mp-p-modulus mp) (cl-mpm/particle::estimate-stiffness mp))
          (let* ((mp-volume (cl-mpm/particle::mp-volume mp))
                 (mp-pmod (cl-mpm/particle::estimate-stiffness mp))
                 (ul (estimate-ul-enhancement mp nd))
