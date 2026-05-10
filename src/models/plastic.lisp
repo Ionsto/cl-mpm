@@ -147,12 +147,13 @@
       (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm stress strain de e nu rho)
         (setf stress sig
               plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e plastic-strain)
-              ;; p-mod pmod
-              p-mod (cl-mpm/utils::calculate-bulk-modulus E nu)
+              p-mod pmod
+              ;; p-mod (cl-mpm/utils::calculate-bulk-modulus E nu)
               yield-func f)
         (setf ps-vm-inc inc)
         (setf strain eps-e)
-        (setf ps-vm (+ ps-vm-1 ps-vm-inc))))
+        (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
+      )
     (when (> soft 0d0)
       (with-accessors ((rho-r mp-rho-r)
                        (rho-0 mp-rho-0))

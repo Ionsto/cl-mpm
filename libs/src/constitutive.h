@@ -434,7 +434,7 @@ namespace constitutive{
     double f = vm_yield_func(j2,rho);
     double G = (E/(2*(1+nu)));
     double K = (E/(3*(1-(2*nu))));
-    double pmod_0 = (((1-nu)*E)/((1 + nu) * (1 - (2 * nu))));
+    double pmod_0 = K + ((4/3) * G);//(((1-nu)*E)/((1 + nu) * (1 - (2 * nu))));
     const double tol = 1e-9;
     if(f > tol){
       // std::cout<<f<<"\n";
@@ -472,12 +472,12 @@ namespace constitutive{
       Eigen::Matrix<double,6,6> dep = A.inverse().topLeftCorner(6,6);
 
       double pmod = pmod_0*1e-6;
-      for(int i = 0;i < 2;++i){
-        Eigen::Matrix<double,6,1> n = Eigen::Matrix<double,6,1>::Zero();
-        n(i) = 1.0;
-        pmod = std::max(pmod,(n.transpose() * dep * n)(0,0));
-      }
-      // pmod = K;
+      // for(int i = 0;i < 2;++i){
+      //   Eigen::Matrix<double,6,1> n = Eigen::Matrix<double,6,1>::Zero();
+      //   n(i) = 1.0;
+      //   pmod = std::max(pmod,(n.transpose() * dep * n)(0,0));
+      // }
+      pmod = K;
       double inc = std::sqrt(3* utils::voigt_j2(utils::voigt_deviatoric(epse-elastic_strain)));
       return MohrCoulombReturn(utils::swizzle_coombs_voigt(epse),f,inc,true,pmod);
     }

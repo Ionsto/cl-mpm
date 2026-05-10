@@ -1520,3 +1520,73 @@
                            (save-vtks sim output-dir steps))
                          (swank.live:update-swank))))))
     result))
+
+(defun run-load-control-timed (sim
+                               &key (output-dir "./output/")
+                                 (loading-function nil)
+                                 (load-steps 10)
+                                 (initial-load 0d0)
+                                 (substeps 50)
+                                 (damping 1d0)
+                                 (kinetic-damping nil)
+                                 (criteria 1d-3)
+                                 (conv-steps 50)
+                                 (post-conv-step (lambda (sim)))
+                                 (post-iter-step (lambda (sub-iter oobf energy)))
+                                 (pre-step (lambda ()))
+                                 (plotter (lambda (sim)))
+                                 (enable-damage t)
+                                 (enable-plastic t)
+                                 (save-vtk-dr t)
+                                 (save-vtk-loadstep t)
+                                 (dt-scale 1d0))
+  (uiop:ensure-all-directories-exist (list output-dir))
+  (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
+  (save-conv-preamble sim output-dir)
+  (cl-mpm/output::save-simulation-parameters (merge-pathnames output-dir "settings.json") sim)
+  (funcall pre-step)
+  ;; (save-conv-step sim output-dir 0 0 0d0 0d0)
+  (defparameter *total-iter* 0)
+  (save-vtks sim output-dir 0)
+  (with-accessors ((mps cl-mpm:sim-mps))
+      sim
+    (let* ((load (cl-mpm:sim-gravity sim)))
+      (unless loading-function
+        (setf loading-function (lambda (percent)
+                                 (cl-mpm:sim-format sim t "Loading factor ~E~%" percent)
+                                 (setf (cl-mpm:sim-gravity sim)
+                                       (* load percent)))))
+      (setf (cl-mpm::sim-dt-scale sim) dt-scale)
+      (let ((t0 (get-internal-real-time))
+            (tunits internal-time-units-per-second))
+        (declare (function loading-function))
+        (loop for step from 1 to load-steps
+              while (cl-mpm::sim-run-sim sim)
+              do
+                 (progn
+                   (cl-mpm:sim-format sim t "Load step ~D~%" step)
+                   (defparameter *ke-last* 0d0)
+                   (let* ((percent (/ (float step) load-steps)))
+                     (funcall loading-function (+ initial-load (* (- 1d0 initial-load) percent))))
+                   (let ()
+                     (setf (cl-mpm/dynamic-relaxation::sim-damping-scale sim) damping)
+                     (time
+                      (cl-mpm/dynamic-relaxation:converge-quasi-static
+                       sim
+                       :crit criteria
+                       :dt-scale dt-scale
+                       :substeps substeps
+                       :damping-factor damping
+                       :conv-steps conv-steps
+                       :post-iter-step
+                       (lambda (i energy oobf)
+                         (funcall post-iter-step i energy oobf))))))
+                 (cl-mpm::finalise-loadstep sim)
+                 ;; (funcall post-conv-step sim)
+                 ;; (funcall plotter sim)
+                 ;; (swank.live:update-swank)
+              )
+        (let ((dt (/ (- (get-internal-run-time) t0) tunits)))
+          dt
+          (save-vtks sim output-dir 1)
+          dt)))))
