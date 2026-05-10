@@ -139,20 +139,22 @@
                    (nu mp-nu)
                    (enable-plasticity mp-enable-plasticity))
       mp
+    (declare (double-float soft))
     ;;Train elastic strain - plus trail kirchoff stress
     (cl-mpm/constitutive::linear-elastic-mat strain de stress)
     (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
     (setf dep de)
     (when enable-plasticity
       (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm stress strain de e nu rho)
+        (declare (double-float f inc pmod ps-vm-1 ps-vm-inc))
         (setf stress sig
-              plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e plastic-strain)
+              ;; plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e plastic-strain)
               p-mod pmod
-              ;; p-mod (cl-mpm/utils::calculate-bulk-modulus E nu)
               yield-func f)
         (setf ps-vm-inc inc)
         (setf strain eps-e)
-        (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
+        (setf ps-vm (+ ps-vm-1 ps-vm-inc))
+        )
       )
     (when (> soft 0d0)
       (with-accessors ((rho-r mp-rho-r)
@@ -198,7 +200,7 @@
                                                      dep)
           (setf stress sig
                 ;; plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e plastic-strain)
-                ;; p-mod pmod
+                p-mod pmod
                 yield-func f)
           (setf ps-vm-inc inc)
           (setf strain eps-e)

@@ -69,7 +69,7 @@
                            0d0)))
                (setf node-oobf 0d0))))))
       (if (> mass 0d0)
-          ;(values (/ energy mass) oobf (/ power mass))
+          ;; (values (/ energy mass) oobf (/ power mass))
           (values energy oobf power)
           (values 0d0 0d0 0d0)))))
 
@@ -785,6 +785,15 @@
             stats-oobf o
             stats-power p)
       (incf stats-work p))
+    ;; (if (cl-mpm/aggregate::sim-enable-aggregate sim)
+    ;;    ;;Other 
+    ;;    ;; (progn)
+    ;;     ;; (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats sim)
+    ;;     ;;   (setf stats-energy e
+    ;;     ;;         stats-oobf o
+    ;;     ;;         stats-power p)
+    ;;     ;;   (incf stats-work p))
+    ;;     )
     ))
 
 (defmethod cl-mpm::update-dynamic-stats ((sim cl-mpm/aggregate::mpm-sim-aggregated))

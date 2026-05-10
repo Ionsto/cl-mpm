@@ -276,7 +276,8 @@
 (defun integrate-vel-midpoint (vel acc mass mass-scale dt damping)
   (declare (double-float mass mass-scale dt damping))
   (unless (= dt 0d0)
-    (let ((damp-dt (/ (* dt damping) mass-scale)))
+    (let ((damp-dt ;; (min 1.999d0)
+                   (/ (* dt damping) mass-scale)))
       (cl-mpm/fastmaths:fast-scale!
        vel
        (/ (- 2d0 damp-dt) (+ 2d0 damp-dt)))
@@ -524,6 +525,31 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
          (calculate-forces-cundall node damping dt mass-scale))))))
 
 
+(defun apply-essential-bcs (sim)
+  (with-accessors ((mesh sim-mesh)
+                   (dt sim-dt)
+                   (bcs sim-active-bcs))
+      sim
+    (declare ((vector cl-mpm/bc::bc *) bcs))
+    (with-accessors ((nodes  mesh-nodes)
+                     (nD     mesh-nD))
+        mesh
+      (cl-mpm/utils::bpdotimes
+       (i (length bcs))
+       (let ((bc (aref bcs i)))
+         (when bc
+           (with-accessors ((node cl-mpm/bc::bc-node)
+                            (index cl-mpm/bc::bc-index))
+               bc
+             (if (or node
+                     (not index))
+                 (cl-mpm/bc:apply-bc bc node mesh dt)
+                 (progn
+                   (setf node (cl-mpm/mesh:get-node mesh index))
+                   (if node
+                       (cl-mpm/bc:apply-bc bc node mesh dt)
+                       (error "BC attempted to get a nil node ~A ~A" bc index))))))))))
+  )
 
 (defun apply-bcs (mesh bcs dt)
   "Apply all normal bcs onto the mesh"

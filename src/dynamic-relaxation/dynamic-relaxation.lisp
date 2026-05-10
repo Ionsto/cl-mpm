@@ -255,7 +255,7 @@
                  (cl-mpm/fastmaths::fast-.--vector
                   (cl-mpm/mesh::node-residual-prev node)
                   (cl-mpm/mesh::node-residual node)
-                  ;; (cl-mpm/utils::object-pool-grab-unsafe work-pool)
+                  (cl-mpm/utils::object-pool-grab-unsafe work-pool)
                   ))
                 0d0))
           #'+))
@@ -267,7 +267,8 @@
              (lambda (node)
                (if (and (cl-mpm/mesh:node-active node)
                         (not (cl-mpm/mesh::node-agg node)))
-                   (* (cl-mpm/mesh:node-mass node)
+                   (*
+                    (cl-mpm/mesh:node-mass node)
                       (cl-mpm/fastmaths::dot
                        (cl-mpm/mesh::node-velocity node)
                        (cl-mpm/mesh::node-velocity node)))
@@ -297,7 +298,6 @@
           (lambda (node)
             (if (and (cl-mpm/mesh:node-active node)
                      (not (cl-mpm/mesh::node-agg node)))
-                ;; (* (expt (cl-mpm/mesh:node-mass node) 1))
                 (cl-mpm/fastmaths:dot
                  (cl-mpm/mesh:node-velocity node)
                  (cl-mpm/fastmaths:fast-.-
@@ -315,10 +315,10 @@
              (lambda (node)
                (if (and (cl-mpm/mesh:node-active node)
                         (not (cl-mpm/mesh::node-agg node)))
-                   ;; (* (expt (cl-mpm/mesh:node-mass node) 1))
-                   (* (the double-float (cl-mpm/mesh:node-mass node))
-                      (cl-mpm/fastmaths::mag-squared
-                       (cl-mpm/mesh::node-velocity node)))
+                   (*
+                    (the double-float (cl-mpm/mesh:node-mass node))
+                    (cl-mpm/fastmaths::mag-squared
+                     (cl-mpm/mesh::node-velocity node)))
                    0d0))
              #'+)))
 
