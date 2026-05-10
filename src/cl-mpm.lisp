@@ -8,6 +8,8 @@
    :magicl tref .+ .-
    )
   (:import-from
+   :cl-mpm/utils bpdotimes)
+  (:import-from
    :cl-mpm/forces
    det-int-force
    det-ext-force

@@ -1714,17 +1714,18 @@
           (declare ((simple-array double-float *) values)
                    ((simple-array fixnum *) rowindex cols)
                    ((simple-array double-float *) res-s vec-s))
-          (lparallel::pdotimes (r (length res-s))
-            (when (> (varef bcs-r r) 0d0)
-              (let* ((col-0 (aref rowindex r))
-                     (col-1 (aref rowindex (1+ r))))
-                (loop for c from col-0 below col-1
-                        do
-                           (when (> (varef bcs-c (aref cols c)) 0d0)
-                             (incf (aref res-s r)
-                                   (the double-float
-                                        (*
-                                         (aref values c)
-                                         (aref vec-s (aref cols c)))))))))))))
+          (cl-mpm/utils::bpdotimes
+           (r (length res-s))
+           (when (> (varef bcs-r r) 0d0)
+             (let* ((col-0 (aref rowindex r))
+                    (col-1 (aref rowindex (1+ r))))
+               (loop for c from col-0 below col-1
+                     do
+                        (when (> (varef bcs-c (aref cols c)) 0d0)
+                          (incf (aref res-s r)
+                                (the double-float
+                                     (*
+                                      (aref values c)
+                                      (aref vec-s (aref cols c)))))))))))))
     (fast-.* res bcs-r res)
     res))

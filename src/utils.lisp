@@ -1151,3 +1151,116 @@
 
 
 
+
+
+(defconstant +thread-parts-scale+ 1)
+(defun get-parts ()
+  (the fixnum (* (the fixnum +thread-parts-scale+) (the fixnum (lparallel.kernel:kernel-worker-count)))))
+
+(require 'sb-concurrency)
+(defparameter *workers* nil)
+(defparameter *workers-array* nil)
+(defparameter *work-queue* (sb-concurrency:make-queue))
+(defparameter *workers-run* (sb-thread:make-semaphore))
+(defparameter *workers-finish* (sb-thread:make-semaphore))
+(defparameter *workers-kill* nil)
+(defparameter *workers-func* (lambda (i len)))
+(declaim (function *workers-func*))
+(defparameter *workers-chunk* 1)
+(defparameter *workers-chunk-count* 0)
+(defparameter *workers-array-length* 0)
+(defparameter *workers-nesting* nil)
+(declaim (fixnum *workers-chunk* *workers-chunk-count* *workers-array-length*))
+(defparameter *workers-counter* (make-array 1 :element-type '(unsigned-byte 64)))
+(progn
+  ;; (kill-workers)
+  (defun make-workers (&key (worker-count nil))
+    (declare (function *workers-func*)
+             (fixnum *workers-chunk-count*)
+             )
+    (unless *workers*
+      (let ((thread-count (if worker-count worker-count (lparallel:kernel-worker-count))))
+        (setf *workers-nesting* nil)
+        (setf *workers*
+              (loop for i fixnum from 0 below thread-count
+                    collect
+                    (sb-thread:make-thread
+                     (lambda (thread-number thread-count)
+                       (let ((lparallel.kernel::*worker*
+                               (lparallel.kernel::make-worker-instance
+                                :thread nil
+                                :tasks (lparallel.kernel::make-spin-queue)
+                                :index thread-number)))
+                         (loop
+                           while (not *workers-kill*)
+                           do
+                              (sb-thread:wait-on-semaphore *workers-run*)
+                              (unless *workers-kill*
+                                ;; (unwind-protect)
+                                (let ((iter (sb-ext:atomic-incf (aref *workers-counter* 0))))
+                                  (when (< iter *workers-chunk-count*)
+                                    (funcall *workers-func* iter)))
+                                ;; (print "cleanup unexpected thread termination")
+                                ;; (setf *workers-nesting* nil)
+                                )
+                              (sb-thread:signal-semaphore *workers-finish*)))
+                       (values))
+                     :arguments (list i thread-count)
+                     ))))))
+  )
+(defun kill-workers ()
+  (when *workers*
+    (setf *workers-nesting* nil)
+    (setf *workers-kill* t)
+    (sb-thread:signal-semaphore *workers-run* (length *workers*))
+    (loop for worker in *workers* do (sb-thread:join-thread worker))
+    (setf *workers* nil)
+    (setf *workers-kill* nil)
+    ))
+(defun omp (total-length func &key (parts nil))
+  (declare (fixnum total-length)
+           (function func))
+  (make-workers)
+  (if *workers-nesting*
+      (progn
+        (loop for j fixnum from 0 below total-length 
+              do (funcall func j)))
+      (progn
+        (setf *workers-nesting* t)
+        (setf *workers-array-length* total-length)
+        (let* ((length (if parts parts (length *workers*)))
+               (block-size (ceiling total-length length)))
+          (setf *workers-func*
+                (lambda (thread-number)
+                  (declare (fixnum thread-number))
+                  (let* ((start (* thread-number block-size))
+                         (end (min (* (1+ thread-number) block-size) total-length)))
+                    (declare (fixnum block-size start end))
+                    (loop for j fixnum from start below end
+                          do (funcall func j))
+                    (values))))
+          (setf *workers-chunk-count* length)
+          (sb-ext:atomic-update (aref *workers-counter* 0) (lambda (a) (declare (ignore a)) 0))
+          )
+        (sb-thread:signal-semaphore *workers-run* (length *workers*))
+        (sb-thread:wait-on-semaphore *workers-finish* :n (length *workers*))
+        (setf *workers-nesting* nil))))
+
+(defmacro bpdotimes ((i length) &body func)
+  ;; `(lparallel:pdotimes (,i ,length)
+  ;;    ,@func
+  ;;    )
+  (let ((job-sym (gensym)))
+    `(progn
+       (let* ((total-size ,length)
+              (,job-sym (lambda (,i)
+                          (declare (fixnum ,i))
+                          ,@func
+                          )))
+         (declare (function ,job-sym))
+         (cl-mpm/utils::omp
+          total-size
+          ,job-sym
+          :parts (get-parts)
+          ))))
+  )

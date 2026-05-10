@@ -27,6 +27,7 @@
                "cl-mpm/errors"
                "cl-mpm/settings"
                "lparallel"
+               "sb-concurrency"
                "array-operations")
   :description "MPM utility functions definitions"
   :serial t
@@ -35,8 +36,7 @@
 (defsystem "cl-mpm/fastmaths"
   :depends-on ("cl-mpm/magicl"
                "cl-mpm/utils"
-               :sb-simd
-               )
+               :sb-simd)
   :description "MPM fast maths operations definitions"
   :serial t
   :components ((:file "src/fastmaths")))
@@ -259,7 +259,6 @@
                "cl-mpm/shape-function"
                "cl-mpm/bc"
                "cl-mpm/mesh"
-               "sb-concurrency"
                "cl-mpm/ext")
   :description "An explicit Material Point Method implementation"
   :in-order-to ((test-op (load-op "test/all")))

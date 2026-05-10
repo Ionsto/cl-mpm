@@ -369,6 +369,7 @@
     :type magicl:matrix/double-float)
    (tangent-stiffness
     :accessor mp-tangent-stiffness
+    :initform (cl-mpm/utils::tensor-voigt-4th-zeros)
     :type magicl:matrix/double-float)
    (2d-approximation
     :accessor mp-elastic-approximation
@@ -411,12 +412,14 @@
 
 (defun update-elastic-matrix (particle)
   (with-accessors ((de mp-elastic-matrix)
+                   (dep mp-tangent-stiffness)
                    (E  mp-E)
                    (nu mp-nu)
                    (p mp-p-modulus))
       particle
     (update-p-modulus particle)
-    (setf de (cl-mpm/constitutive::linear-elastic-matrix E nu))))
+    (setf de (cl-mpm/constitutive::linear-elastic-matrix E nu))
+    (cl-mpm/utils::copy-into de dep)))
 
 (defmethod (setf mp-E) :after (value (p particle-elastic))
   (update-elastic-matrix p))

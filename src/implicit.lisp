@@ -849,8 +849,8 @@
                 bcs)))
       (let ((vs (cl-mpm/linear-solver::solve-conjugant-gradients
                  #'system-operation v
-                 :tol 1d-12
-                 :max-iters 1000
+                 :tol 1d-13
+                 :max-iters 10000
                  :mask bcs)))
         vs))))
 
@@ -871,8 +871,8 @@
     (let* ((fa (aggregate-vec sim f))
            (et (cl-mpm/aggregate::sim-global-sparse-et sim))
            (e (cl-mpm/aggregate::sim-global-sparse-e sim))
-           (int-bcs (cl-mpm/aggregate::sim-global-bcs-int sim))
            (bcs (cl-mpm/aggregate::sim-global-bcs sim))
+           (int-bcs (cl-mpm/aggregate::sim-global-bcs-int sim))
            (work-vec (cl-mpm/utils::arb-matrix (magicl:nrows f) 1))
            (work-vec-2 (cl-mpm/utils::arb-matrix (magicl:nrows f) 1))
            (work-vec-agg (cl-mpm/utils::arb-matrix (magicl:nrows int-bcs) 1)))
@@ -934,9 +934,9 @@
            bcs)
           )
         fa
-        :tol 1d-11
+        :tol 1d-15
         ;;Really give it some welly
-        :max-iters 100000
+        :max-iters 1000000
         :mask int-bcs
         )))))
 

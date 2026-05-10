@@ -99,13 +99,13 @@
                                                  (mask nil))
   (declare (function a-operator))
   (labels ((mask-op (x)
-             (if mask
+             (if nil;mask
                  (cl-mpm/fastmaths:fast-.* x mask)
                  x))
            (mask-inplace (x)
                (when mask
                    (cl-mpm/fastmaths:fast-.* x mask x))))
-    (mask-inplace b)
+    ;; (mask-inplace b)
     (let ((vector-size (magicl:nrows b))
           (b-norm (mag b)))
       (if (= b-norm 0d0)
@@ -123,31 +123,31 @@
                   while (>= rs-new crit)
                   do
                      (progn
-                       (mask-inplace p)
+                       ;; (mask-inplace p)
                        (setf ap (mask-op (funcall a-operator p)))
-                       (mask-inplace ap)
+                       ;; (mask-inplace ap)
                        (let ((alpha
                                (/
                                 rs-old
                                 (dot p ap))))
                          (fast-.+ x (fast-scale p alpha) x)
                          (fast-.- r (fast-scale ap alpha) r)
-                         (mask-inplace x)
-                         (mask-inplace r)
+                         ;; (mask-inplace x)
+                         ;; (mask-inplace r)
                          (setf rs-new (cl-mpm/fastmaths::mag-squared r))
                          (unless (< rs-new crit)
                            (setf p
                                  (fast-.+
                                   r
                                   (fast-scale p (/ rs-new rs-old))))
-                           (mask-inplace p)
+                           ;; (mask-inplace p)
                            )
-                         (when (= (mod (1+ i) (floor (* max-iters 0.1d0))) 0)
+                         (when (= (mod (1+ i) (round (* max-iters 0.1d0))) 0)
                            (format t "Iter ~D ~E ~E~%" i rs-old rs-new))
                          (setf rs-old rs-new)))
                   finally (when (> rs-new crit)
                        (error "Conjugate gradients didn't converge")))
-            (mask-inplace x)
+            ;; (mask-inplace x)
             x)))))
 
 
