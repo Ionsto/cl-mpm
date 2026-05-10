@@ -620,7 +620,7 @@
     ;; (pprint eps)
     (multiple-value-bind (s1 s2 s3) (cl-mpm/fastmaths::eigenvalues-3x3 eps)
       (declare (double-float s1 s2 s3))
-      (let ((lmax (min s1 s2 s3)))
+      (let ((lmax (max s1 s2 s3)))
         (expt (exp (- lmax)) 2)))
     ;; (let ((l (multiple-value-list (cl-mpm/fastmaths::eigenvalues-3x3 eps))))
     ;;   (let ((lmax (reduce #'max (mapcar (lambda (x) (exp (- x))) l))))

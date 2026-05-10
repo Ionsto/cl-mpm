@@ -255,7 +255,8 @@
                  (cl-mpm/fastmaths::fast-.--vector
                   (cl-mpm/mesh::node-residual-prev node)
                   (cl-mpm/mesh::node-residual node)
-                  (cl-mpm/utils::object-pool-grab-unsafe work-pool)))
+                  ;; (cl-mpm/utils::object-pool-grab-unsafe work-pool)
+                  ))
                 0d0))
           #'+))
         (setf
@@ -296,12 +297,13 @@
           (lambda (node)
             (if (and (cl-mpm/mesh:node-active node)
                      (not (cl-mpm/mesh::node-agg node)))
+                ;; (* (expt (cl-mpm/mesh:node-mass node) 1))
                 (cl-mpm/fastmaths:dot
                  (cl-mpm/mesh:node-velocity node)
                  (cl-mpm/fastmaths:fast-.-
                   (cl-mpm/mesh::node-residual-prev node)
                   (cl-mpm/mesh::node-residual node)
-                  ;; (cl-mpm/utils::object-pool-grab-unsafe work-pool)
+                  (cl-mpm/utils::object-pool-grab-unsafe work-pool)
                   ))
                 0d0))
           #'+))
@@ -313,7 +315,8 @@
              (lambda (node)
                (if (and (cl-mpm/mesh:node-active node)
                         (not (cl-mpm/mesh::node-agg node)))
-                   (* (cl-mpm/mesh:node-mass node)
+                   ;; (* (expt (cl-mpm/mesh:node-mass node) 1))
+                   (* (the double-float (cl-mpm/mesh:node-mass node))
                       (cl-mpm/fastmaths::mag-squared
                        (cl-mpm/mesh::node-velocity node)))
                    0d0))
@@ -338,11 +341,17 @@
                  (sb-thread::with-mutex (mut)
                    (incf num dnum)
                    (incf denom ddenom)))))))
-        (if (> num 0d0)
-            (if (= denom 0d0)
-                0d0
-                (float (* (sqrt 2d0) (sqrt (/ num denom))) 0d0))
-            0d0)))))
+        (min 1.9d0
+             (max 0d0
+                  (* (the double-float (cl-mpm/dynamic-relaxation::sim-damping-scale sim))
+                     (if (> num 0d0)
+                         (if (= denom 0d0)
+                             0d0
+                             (the double-float
+                                  (* (sqrt 2d0)
+                                     (the double-float
+                                          (sqrt (the double-float (/ num denom)))))))
+                         0d0))))))))
 
 (defun compute-condition (sim)
   (/ 1d0 (expt (/ (dr-estimate-damping sim) 2) 2)))
@@ -362,30 +371,22 @@
   (cl-mpm::new-loadstep sim))
 
 
+(declaim (ftype (function (cl-mpm/particle::particle fixnum)
+                          double-float)
+                estimate-ul-enhancement)
+         (inline estimate-ul-enhancement))
 (defun estimate-ul-enhancement (particle nd)
+  (declare (cl-mpm/particle::particle particle)
+           (fixnum nd))
   (let ((df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse particle)))
     (max 1d0
          (ecase nd
            (1
-            (let* ((grads (cl-mpm::gradient-push-forwards-cached (cl-mpm/utils::make-gradients 1d0 0d0 0d0) df-inv))
-                   (peak-grad
-                     (abs (max (expt (cl-mpm/utils::gradients-dx grads) 2)))))
-              peak-grad))
+            (cl-mpm::UL-push-cached 1d0 0d0 0d0 df-inv))
            (2
-            (let* ((grads (cl-mpm::gradient-push-forwards-cached (cl-mpm/utils::make-gradients 1d0 1d0 0d0) df-inv))
-                   (peak-grad
-                     (abs (max
-                           1d0
-                           (expt (cl-mpm/utils::gradients-dx grads) 2)
-                           (expt (cl-mpm/utils::gradients-dy grads) 2)))))
-              peak-grad))
+            (cl-mpm::UL-push-cached 1d0 1d0 0d0 df-inv))
            (3
-            (let* ((grads (cl-mpm::gradient-push-forwards-cached (cl-mpm/utils::make-gradients 1d0 1d0 1d0) df-inv))
-                   (peak-grad
-                     (abs (max (expt (cl-mpm/utils::gradients-dx grads) 2)
-                               (expt (cl-mpm/utils::gradients-dy grads) 2)
-                               (expt (cl-mpm/utils::gradients-dz grads) 2)))))
-              peak-grad))))))
+            (cl-mpm::UL-push-cached 1d0 1d0 1d0 df-inv))))))
 
 
 

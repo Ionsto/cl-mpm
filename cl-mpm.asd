@@ -253,13 +253,13 @@
                "local-time"
                "array-operations"
                "lparallel"
-               ;; "symbolic-derivation"
                "cl-mpm/constitutive"
                "cl-mpm/particle"
                "cl-mpm/shape-function"
                "cl-mpm/bc"
                "cl-mpm/mesh"
-               "cl-mpm/ext")
+               "cl-mpm/ext"
+               )
   :description "An explicit Material Point Method implementation"
   :in-order-to ((test-op (load-op "test/all")))
   :perform (test-op (o c) (symbol-call :test/all :test-suite))
@@ -271,7 +271,8 @@
                (:file "src/core/splitting")
                (:file "src/core/p2g")
                (:file "src/core/g2p")
-               (:file "src/core")))
+               (:file "src/core")
+               ))
 (defsystem "cl-mpm"
   ;; :class :package-inferred-system
   :depends-on ("cl-mpm/core"

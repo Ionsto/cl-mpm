@@ -277,41 +277,71 @@
   (declare (double-float mass mass-scale dt damping))
   (unless (= dt 0d0)
     (let ((damp-dt (/ (* dt damping) mass-scale)))
-      (cl-mpm/fastmaths:fast-scale! vel (/ (- 2d0 damp-dt)
-                                           (+ 2d0 damp-dt)))
-      (cl-mpm/fastmaths:fast-fmacc vel acc (/ (* dt 2d0) (+ 2d0 damp-dt)))))
+      (cl-mpm/fastmaths:fast-scale!
+       vel
+       (/ (- 2d0 damp-dt) (+ 2d0 damp-dt)))
+      (cl-mpm/fastmaths:fast-fmacc
+       vel
+       acc
+       (/ (* dt 2d0) (+ 2d0 damp-dt)))))
   (values))
 
 (declaim (inline calculate-forces-midpoint)
          (ftype (function (cl-mpm/mesh::node double-float double-float double-float) (vaules)) calculate-forces-midpoint))
 (defun calculate-forces-midpoint (node damping dt mass-scale)
+  (declare (cl-mpm/mesh::node node)
+           (double-float damping dt mass-scale))
   "Update forces and nodal velocities with viscous damping"
-
-  (when (cl-mpm/mesh::node-active node)
-    (with-accessors ((mass node-mass)
-                     (vel node-velocity)
-                     (force node-force)
-                     (force-ext cl-mpm/mesh::node-external-force)
-                     (force-int cl-mpm/mesh::node-internal-force)
-                     (force-damp cl-mpm/mesh::node-damping-force)
-                     (force-ghost cl-mpm/mesh::node-ghost-force)
-                     (residual cl-mpm/mesh::node-residual)
-                     (residual-prev cl-mpm/mesh::node-residual-prev)
-                     (acc node-acceleration))
-        node
-      (declare (double-float mass dt damping mass-scale))
-      (progn
-        (cl-mpm/fastmaths::fast-zero-vector acc)
-        ;;Set acc to f/m
-        (cl-mpm/fastmaths::fast-.+-vector force-int force force)
-        (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
-        (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
-        (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
-
-        (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
-        (cl-mpm/utils::vector-copy-into residual residual-prev)
-        (cl-mpm/utils::vector-copy-into force residual)
-        )))
+  ;; (with-slots ((mass cl-mpm/mesh::mass)
+  ;;              (acc cl-mpm/mesh::acceleration)
+  ;;              (force cl-mpm/mesh::force)
+  ;;              (force-int cl-mpm/mesh::internal-force)
+  ;;              (force-ext cl-mpm/mesh::external-force)
+  ;;              (force-damp cl-mpm/mesh::damping-force)
+  ;;              (force-ghost cl-mpm/mesh::ghost-force)
+  ;;              (residual cl-mpm/mesh::residual)
+  ;;              (residual-prev cl-mpm/mesh::residual-prev))
+  ;;     node
+  ;;   (declare (double-float mass)
+  ;;            (magicl::matrix/double-float
+  ;;             acc force force-int force-ext force-damp force-ghost
+  ;;             residual
+  ;;             residual-prev)
+  ;;            )
+  ;;   (progn
+  ;;     (cl-mpm/fastmaths::fast-zero-vector acc)
+  ;;     ;;Set acc to f/m
+  ;;     (cl-mpm/fastmaths::fast-.+-vector force-int force force)
+  ;;     (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
+  ;;     (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
+  ;;     (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
+  ;;     (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
+  ;;     (cl-mpm/utils::vector-copy-into residual residual-prev)
+  ;;     (cl-mpm/utils::vector-copy-into force residual)
+  ;;     ))
+  (with-accessors ((mass node-mass)
+                   (vel node-velocity)
+                   (force node-force)
+                   (force-ext cl-mpm/mesh::node-external-force)
+                   (force-int cl-mpm/mesh::node-internal-force)
+                   (force-damp cl-mpm/mesh::node-damping-force)
+                   (force-ghost cl-mpm/mesh::node-ghost-force)
+                   (residual cl-mpm/mesh::node-residual)
+                   (residual-prev cl-mpm/mesh::node-residual-prev)
+                   (acc node-acceleration))
+      node
+    (declare (double-float mass dt damping mass-scale))
+    (progn
+      (cl-mpm/fastmaths::fast-zero-vector acc)
+      ;;Set acc to f/m
+      (cl-mpm/fastmaths::fast-.+-vector force-int force force)
+      (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
+      (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
+      (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
+      (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
+      (cl-mpm/utils::vector-copy-into residual residual-prev)
+      (cl-mpm/utils::vector-copy-into force residual)
+      ))
   (values))
 
 (defun calculate-forces-psudo-viscous (node damping dt mass-scale)
@@ -499,10 +529,9 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   "Apply all normal bcs onto the mesh"
   (declare (cl-mpm/mesh::mesh mesh))
   (with-accessors ((nodes  mesh-nodes)
-                   (nD     mesh-nD)
-                   )
+                   (nD     mesh-nD))
       mesh
-    (lparallel:pdotimes (i (length bcs))
+    (cl-mpm/utils::bpdotimes (i (length bcs))
       (let ((bc (aref bcs i)))
         (when bc
           (with-accessors ((node cl-mpm/bc::bc-node)
@@ -1112,6 +1141,43 @@ This modifies the dt of the simulation in the process
                  (* dz (mtref df-inv 2 2))))
             )
         (cl-mpm/utils::make-gradients x y z)))))
+
+(declaim (inline UL-push-cached)
+         (ftype (function (double-float double-float double-float
+                                        magicl::matrix/double-float)
+                          double-float
+                          )
+                UL-push-cached))
+(defun UL-push-cached (dx dy dz df-inv)
+  (declare (double-float dx dy dz))
+  (let ((x
+          (the double-float
+               (expt
+                (the double-float
+                     (+ (the double-float (* dx (cl-mpm/utils::mtref-3x3 df-inv 0 0)))
+                        (the double-float (* dy (cl-mpm/utils::mtref-3x3 df-inv 1 0)))
+                        (the double-float (* dz (cl-mpm/utils::mtref-3x3 df-inv 2 0)))))
+                2)))
+        (y
+          (the double-float
+               (expt
+                (the double-float
+                     (+ (the double-float (* dx (cl-mpm/utils::mtref-3x3 df-inv 0 1)))
+                        (the double-float (* dy (cl-mpm/utils::mtref-3x3 df-inv 1 1)))
+                        (the double-float (* dz (cl-mpm/utils::mtref-3x3 df-inv 2 1)))))
+                2)))
+        (z
+          (the double-float
+               (expt
+                (the double-float
+                     (+ (the double-float (* dx (cl-mpm/utils::mtref-3x3 df-inv 0 2)))
+                        (the double-float (* dy (cl-mpm/utils::mtref-3x3 df-inv 1 2)))
+                        (the double-float (* dz (cl-mpm/utils::mtref-3x3 df-inv 2 2)))))
+                2))))
+    (max x y z))
+  ;; (multiple-value-bind (l v) (cl-mpm/utils:eig df-inv)
+  ;;   (reduce #'max (mapcar (lambda (x) (expt x 2)) l)))
+  )
 
 (defun gradient-push-forwards-cached (grads df-inv)
   ;; Correct

@@ -20,6 +20,7 @@
    vec
    (cl-mpm/aggregate::sim-global-bcs-int sim)
    (cl-mpm/aggregate::sim-global-bcs sim)))
+
 (defun extend-vec (sim vec)
   (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
    (cl-mpm/aggregate::sim-global-sparse-e sim)

@@ -1581,24 +1581,6 @@
                         (the double-float (* maxAbsElement a22))))
             )
           (values 0d0 0d0 0d0)))))
-;; (let ((m (cl-mpm/utils:voigt-from-list (list 1d0 2d0 3d0 4d0 2d0 1d0)))
-;;       (iters 1000))
-;;   (pprint (multiple-value-list (eigenvalues-3x3 m)))
-;;   (pprint (magicl-eigen-values-3x3 (cl-mpm/utils::voigt-to-matrix m)))
-;;   ;; (time (dotimes (i iters) (eigenvalues-3x3 m)))
-;;   ;; (time (dotimes (i iters) (magicl-eigen-values-3x3 (cl-mpm/utils::voigt-to-matrix m))))
-;;   )
-
-
-;; (let ((m (cl-mpm/utils::matrix-from-list (loop repeat 9 collect (random 1d0))))
-;;       (iters 16))
-;;   (time
-;;    (lparallel:pdotimes (i iters)
-;;      (cl-mpm/fastmaths::magicl-eigen-values-3x3 m)))
-;;   (time
-;;    (lparallel:pdotimes (i iters)
-;;      (cl-mpm/utils::eig m)))
-;;   )
 
 (defun fast-@-sparse-mat-dense-vec (mat vec &optional res)
   (let ((res (if res
@@ -1639,7 +1621,7 @@
           (values (cl-mpm/utils::sparse-matrix-values mat))
           (res-s (cl-mpm/utils::fast-storage res))
           (vec-s (cl-mpm/utils::fast-storage vec)))
-      (lparallel:pdotimes (r (cl-mpm/utils::sparse-matrix-nrows mat))
+      (cl-mpm/utils::bpdotimes (r (cl-mpm/utils::sparse-matrix-nrows mat))
         (let ((col-0 (aref rowindex r))
               (col-1 (aref rowindex (1+ r))))
           (loop for c from col-0 below col-1 do

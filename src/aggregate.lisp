@@ -206,11 +206,11 @@
       ;;  1
       ;;  #'check-cell)
       (unless closest-elem
-        ;; (iterate-over-cell-patch
-        ;;  sim
-        ;;  node
-        ;;  2
-        ;;  #'check-cell)
+        (iterate-over-cell-patch
+         sim
+         node
+         2
+         #'check-cell)
         (unless closest-elem
           (let ((mutex (sb-thread:make-mutex)))
             (cl-mpm::iterate-over-cells

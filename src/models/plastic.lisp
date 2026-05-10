@@ -147,7 +147,8 @@
       (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm stress strain de e nu rho)
         (setf stress sig
               plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e plastic-strain)
-              p-mod pmod
+              ;; p-mod pmod
+              p-mod (cl-mpm/utils::calculate-bulk-modulus E nu)
               yield-func f)
         (setf ps-vm-inc inc)
         (setf strain eps-e)
@@ -185,6 +186,7 @@
     (if (equal dep de)
       (setf dep (cl-mpm/utils::deep-copy de))
       (cl-mpm/utils::copy-into de dep))
+    (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
     (if enable-plasticity
         (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm-tangent
                                                      stress
@@ -195,7 +197,7 @@
                                                      dep)
           (setf stress sig
                 ;; plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e plastic-strain)
-                p-mod pmod
+                ;; p-mod pmod
                 yield-func f)
           (setf ps-vm-inc inc)
           (setf strain eps-e)

@@ -55,10 +55,9 @@
     :initform nil
     )
    (mass
-     :accessor node-mass
-     :type double-float
-     :initform 0d0
-     )
+    :accessor node-mass
+    :type double-float
+    :initform 0d0)
    (volume
     :accessor node-volume
     :type double-float

@@ -46,6 +46,7 @@
    #:mtref
    #:deg-to-rad
    #:rad-to-deg
+   #:set-workers
    ))
 (in-package :cl-mpm/utils)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -87,7 +88,7 @@
 
 (declaim (inline mtref)
          (ftype (function (magicl:matrix/double-float fixnum fixnum)
-                          (double-float)) mtref))
+                          double-float) mtref))
 (defun mtref (m row col)
   (declare (magicl:matrix/double-float m)
            (fixnum row col))
@@ -101,7 +102,7 @@
 
 (declaim (inline mtref-3x3)
          (ftype (function (magicl:matrix/double-float fixnum fixnum)
-                          (double-float)) mtref-3x3))
+                          double-float) mtref-3x3))
 (defun mtref-3x3 (m row col)
   (declare (magicl:matrix/double-float m)
            (fixnum row col))
@@ -109,7 +110,7 @@
       ((assertion (eq (magicl::matrix/double-float-layout m) :column-major))
        (assertion (= 3 (magicl::matrix/double-float-nrows m)))
        (assertion (= 3 (magicl::matrix/double-float-ncols m))))
-    (aref (fast-storage m) (+ row (the fixnum (* 3 col))))))
+    (aref (fast-storage m) (the fixnum (+ row (the fixnum (* 3 col)))))))
 (declaim (inline mtref-2x2)
          (ftype (function (magicl:matrix/double-float fixnum fixnum)
                           (double-float)) mtref-2x2))
@@ -856,53 +857,61 @@
   (pool (make-array 0 :element-type t) :type (array t (*)))
   (constructor #'identity :type function))
 
-(defun object-pool-grab (pool)
-  (let ((thread-index (lparallel::kernel-worker-index)))
-    (unless thread-index
-      (setf thread-index -1))
-    (incf thread-index)
-    (progn
-      (when (>= (lparallel:kernel-worker-count) (length (object-pool-pool pool)))
-        ;;Trigger a re-build
-        (sb-thread:with-mutex ((object-pool-lock pool))
-          (when (>= (lparallel:kernel-worker-count) (length (object-pool-pool pool)))
-            (let* ((prev-pool (object-pool-pool pool))
-                   (wc (the fixnum (if (lparallel:kernel-worker-count) (lparallel:kernel-worker-count) 0)))
-                   (new-pool (make-array (1+ wc) :element-type t)))
-              (loop for i from 0 below (length new-pool)
-                    do (setf (aref new-pool i)
-                             (if (< i (length prev-pool))
-                                 (aref prev-pool i)
-                                 (funcall (object-pool-constructor pool)))))
-
-              (setf (object-pool-pool pool) new-pool)
-              ))))
-      (aref (object-pool-pool pool) thread-index))
-    ;; (funcall (object-pool-constructor pool))
-    ))
-
-(defun object-pool-ensure-size (pool)
-  (when (>= (lparallel:kernel-worker-count) (length (object-pool-pool pool)))
-    ;;Trigger a re-build
-    (sb-thread:with-mutex ((object-pool-lock pool))
-      (when (>= (lparallel:kernel-worker-count) (length (object-pool-pool pool)))
+(defun rebuild-object-pool (pool)
+  ;;Trigger a re-build
+  (sb-thread:with-mutex ((object-pool-lock pool))
+    (let ((ws (get-worker-size)))
+      (when (> ws (length (object-pool-pool pool)))
         (let* ((prev-pool (object-pool-pool pool))
-               (wc (the fixnum (if (lparallel:kernel-worker-count) (lparallel:kernel-worker-count) 0)))
-               (new-pool (make-array (1+ wc) :element-type t)))
+               (new-pool (make-array ws :element-type t)))
           (loop for i from 0 below (length new-pool)
                 do (setf (aref new-pool i)
                          (if (< i (length prev-pool))
                              (aref prev-pool i)
                              (funcall (object-pool-constructor pool)))))
-          (setf (object-pool-pool pool) new-pool))))))
+
+          (setf (object-pool-pool pool) new-pool)
+          )))))
+
+(defun object-pool-grab (pool)
+  (let ((thread-index (get-worker-index)))
+    (progn
+      (when (>= (lparallel:kernel-worker-count) (length (object-pool-pool pool)))
+        (rebuild-object-pool pool))
+      (aref (object-pool-pool pool) thread-index))))
+
+(defun get-worker-size ()
+  (let ((ls (lparallel:kernel-worker-count)))
+    (if ls
+        (the fixnum (1+ (the fixnum ls)))
+        1)))
+
+(defun object-pool-ensure-size (pool)
+  (let ((ws (get-worker-size)))
+    (when (> ws (length (object-pool-pool pool)))
+      ;;Trigger a re-build
+      (sb-thread:with-mutex ((object-pool-lock pool))
+        (when (> ws (length (object-pool-pool pool)))
+          (let* ((prev-pool (object-pool-pool pool))
+                 (wc (the fixnum ws))
+                 (new-pool (make-array (1+ wc) :element-type t)))
+            (loop for i from 0 below (length new-pool)
+                  do (setf (aref new-pool i)
+                           (if (< i (length prev-pool))
+                               (aref prev-pool i)
+                               (funcall (object-pool-constructor pool)))))
+            (setf (object-pool-pool pool) new-pool)))))))
+
+(defun get-worker-index ()
+  (let ((ls (or (lparallel:kernel-worker-index)
+                cl-mpm/utils::*worker-index*)))
+    (if ls
+        (1+ ls)
+        1)))
 
 (defun object-pool-grab-unsafe (pool)
-  (let ((thread-index (lparallel::kernel-worker-index)))
-    (unless thread-index
-      (setf thread-index -1))
-    (incf thread-index)
-    (progn
-      (aref (object-pool-pool pool) thread-index))))
+  (let ((thread-index (get-worker-index)))
+    (aref (object-pool-pool pool) thread-index)))
 
 (defstruct sparse-matrix
   "Sparse self-adjoint matrix"
@@ -1155,10 +1164,11 @@
 
 (defconstant +thread-parts-scale+ 1)
 (defun get-parts ()
-  (the fixnum (* (the fixnum +thread-parts-scale+) (the fixnum (lparallel.kernel:kernel-worker-count)))))
+  (the fixnum (* (the fixnum +thread-parts-scale+) *worker-count*)))
 
-(require 'sb-concurrency)
 (defparameter *workers* nil)
+(defparameter *worker-count* 0)
+(declaim (fixnum *worker-count*))
 (defparameter *workers-array* nil)
 (defparameter *work-queue* (sb-concurrency:make-queue))
 (defparameter *workers-run* (sb-thread:make-semaphore))
@@ -1170,81 +1180,109 @@
 (defparameter *workers-chunk-count* 0)
 (defparameter *workers-array-length* 0)
 (defparameter *workers-nesting* nil)
-(declaim (fixnum *workers-chunk* *workers-chunk-count* *workers-array-length*))
+(defparameter *workers-pool-age* 0)
+(defparameter *worker-index* nil)
+(declaim (fixnum *workers-chunk* *workers-chunk-count* *workers-array-length* *workers-pool-age*))
 (defparameter *workers-counter* (make-array 1 :element-type '(unsigned-byte 64)))
+(declaim ((simple-array (unsigned-byte 64) 1) *workers-counter*))
 (progn
   ;; (kill-workers)
   (defun make-workers (&key (worker-count nil))
     (declare (function *workers-func*)
-             (fixnum *workers-chunk-count*)
-             )
-    (unless *workers*
-      (let ((thread-count (if worker-count worker-count (lparallel:kernel-worker-count))))
-        (setf *workers-nesting* nil)
+             (fixnum *workers-chunk-count*))
+    (when *workers*
+      (kill-workers))
+    (let ((thread-count (if worker-count worker-count (lparallel:kernel-worker-count))))
+      (incf *workers-pool-age*)
+      (setf *workers-nesting* nil)
+      (setf *worker-count* thread-count)
+      (setf *workers-run* (sb-thread:make-semaphore))
+      (setf *workers-finish* (sb-thread:make-semaphore))
+      (let ((current-pool-age *workers-pool-age*))
         (setf *workers*
               (loop for i fixnum from 0 below thread-count
                     collect
                     (sb-thread:make-thread
-                     (lambda (thread-number thread-count)
-                       (let ((lparallel.kernel::*worker*
-                               (lparallel.kernel::make-worker-instance
-                                :thread nil
-                                :tasks (lparallel.kernel::make-spin-queue)
-                                :index thread-number)))
+                     (lambda (thread-number current-age)
+                       (declare (fixnum current-age))
+                       (let (;; (lparallel.kernel::*worker*
+                             ;;   (lparallel.kernel::make-worker-instance
+                             ;;    :thread nil
+                             ;;    :tasks (lparallel.kernel::make-spin-queue)
+                             ;;    :index thread-number))
+                             (*worker-index* thread-number)
+                             )
                          (loop
                            while (not *workers-kill*)
                            do
-                              (sb-thread:wait-on-semaphore *workers-run*)
-                              (unless *workers-kill*
-                                ;; (unwind-protect)
-                                (let ((iter (sb-ext:atomic-incf (aref *workers-counter* 0))))
-                                  (when (< iter *workers-chunk-count*)
-                                    (funcall *workers-func* iter)))
-                                ;; (print "cleanup unexpected thread termination")
-                                ;; (setf *workers-nesting* nil)
-                                )
-                              (sb-thread:signal-semaphore *workers-finish*)))
+                              (progn
+                                (sb-thread:wait-on-semaphore *workers-run*)
+                                (if (= *workers-pool-age* current-age)
+                                  (progn
+                                    (unless *workers-kill*
+                                      ;; (unwind-protect)
+                                      (let ((iter (sb-ext:atomic-incf (aref *workers-counter* 0))))
+                                        (when (< iter *workers-chunk-count*)
+                                          (funcall *workers-func* iter)))
+                                      ;; (print "cleanup unexpected thread termination")
+                                      ;; (setf *workers-nesting* nil)
+                                      ;; (setf *workers-kill* t)
+                                      ))
+                                  (sb-thread:signal-semaphore *workers-run*))
+                                (sb-thread:signal-semaphore *workers-finish*)
+                                )))
                        (values))
-                     :arguments (list i thread-count)
-                     ))))))
-  )
+                     :arguments (list i current-pool-age))))))
+    ))
 (defun kill-workers ()
   (when *workers*
     (setf *workers-nesting* nil)
     (setf *workers-kill* t)
-    (sb-thread:signal-semaphore *workers-run* (length *workers*))
-    (loop for worker in *workers* do (sb-thread:join-thread worker))
+    (sb-thread:signal-semaphore *workers-run* *worker-count*)
+    (ignore-errors
+     (loop for worker in *workers* do (sb-thread:join-thread worker)))
     (setf *workers* nil)
     (setf *workers-kill* nil)
     ))
+(defun set-workers (threads)
+  (kill-workers)
+  (lparallel:end-kernel)
+  (setf lparallel::*kernel* (lparallel::make-kernel threads))
+  (make-workers :worker-count threads)
+  )
+(declaim (ftype (function (fixnum function &key (:parts (or null fixnum))) (values))
+                 omp))
 (defun omp (total-length func &key (parts nil))
   (declare (fixnum total-length)
            (function func))
-  (make-workers)
+  ;; (make-workers)
+  (unless *workers*
+    (error "no workers"))
   (if *workers-nesting*
       (progn
-        (loop for j fixnum from 0 below total-length 
+        (loop for j fixnum from 0 below total-length
               do (funcall func j)))
       (progn
         (setf *workers-nesting* t)
         (setf *workers-array-length* total-length)
-        (let* ((length (if parts parts (length *workers*)))
+        (let* ((length (if parts parts *worker-count*))
                (block-size (ceiling total-length length)))
+          (declare (fixnum length block-size))
           (setf *workers-func*
-                (lambda (thread-number)
-                  (declare (fixnum thread-number))
-                  (let* ((start (* thread-number block-size))
-                         (end (min (* (1+ thread-number) block-size) total-length)))
+                (lambda (chunk-number)
+                  (declare (fixnum chunk-number))
+                  (let* ((start (* chunk-number block-size))
+                         (end (min (the fixnum (* (1+ chunk-number) block-size)) total-length)))
                     (declare (fixnum block-size start end))
                     (loop for j fixnum from start below end
                           do (funcall func j))
                     (values))))
           (setf *workers-chunk-count* length)
           (sb-ext:atomic-update (aref *workers-counter* 0) (lambda (a) (declare (ignore a)) 0))
-          )
-        (sb-thread:signal-semaphore *workers-run* (length *workers*))
-        (sb-thread:wait-on-semaphore *workers-finish* :n (length *workers*))
-        (setf *workers-nesting* nil))))
+          (sb-thread:signal-semaphore *workers-run* length)
+          (sb-thread:wait-on-semaphore *workers-finish* :n length))
+        (setf *workers-nesting* nil)))
+  (values))
 
 (defmacro bpdotimes ((i length) &body func)
   ;; `(lparallel:pdotimes (,i ,length)
