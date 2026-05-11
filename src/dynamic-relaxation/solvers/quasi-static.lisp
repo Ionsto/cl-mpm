@@ -32,11 +32,13 @@
                   (declare (boolean node-active)
                            (sb-thread:mutex node-lock))
                   (when node-active
-                    (let ((g-a (cl-mpm/implicit::assemble-g-3d-prealloc
-                                (cl-mpm::gradient-push-forwards-cached
-                                 grads
-                                 df-inv)
-                                g-a)))
+                    (let* ((g-a (cl-mpm/implicit::assemble-g-3d-prealloc
+                                 (cl-mpm::gradient-push-forwards-cached
+                                  grads
+                                  df-inv)
+                                 g-a))
+                           (gpa (cl-mpm/fastmaths::fast-@-arbt-arb g-a stiffness)))
+
                       (cl-mpm::iterate-over-neighbours
                        mesh
                        mp
@@ -47,17 +49,28 @@
                                         grads-b
                                         df-inv)
                                        g-b)))
-                             (let ((stiff (magicl:@ (magicl:transpose g-a) stiffness g-b)))
+                             (let ((stiff (cl-mpm/fastmaths::fast-@-arb-arb gpa g-b)))
                                (sb-thread:with-mutex (node-lock)
-                                 (loop for v across (cl-mpm/utils:fast-storage stiff)
-                                       do
-                                          (progn
-                                            (incf (the double-float (cl-mpm/mesh::node-mass node))
-                                                  (the double-float
-                                                       (* 0.25d0
-                                                          mass-scale
-                                                          (* mp-volume
-                                                             (the double-float (abs v))))))))))))))))))))))))))
+                                 (incf
+                                  (the double-float (cl-mpm/mesh::node-mass node))
+                                  (* 0.25d0
+                                     mass-scale
+                                     (* mp-volume
+                                        (max
+                                         (+ (the double-float (abs (cl-mpm/utils::mtref stiff 0 0)))
+                                            (the double-float (abs (cl-mpm/utils::mtref stiff 1 0))))
+                                         (+ (the double-float (abs (cl-mpm/utils::mtref stiff 0 1)))
+                                            (the double-float (abs (cl-mpm/utils::mtref stiff 1 1))))))))
+                                 ;; (loop for v across (cl-mpm/utils:fast-storage stiff)
+                                 ;;       do
+                                 ;;          (progn
+                                 ;;            (incf (the double-float (cl-mpm/mesh::node-mass node))
+                                 ;;                  (the double-float
+                                 ;;                       (* 0.25d0
+                                 ;;                          mass-scale
+                                 ;;                          (* mp-volume
+                                 ;;                             (the double-float (abs v))))))))
+                                 ))))))))))))))))))
 
 (defun map-stiffness-quasi-static (sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)
@@ -111,6 +124,8 @@
                                ;;    ;; (cl-mpm/mesh::node-volume-true node)
                                ;;    )
                                )))))))))))))
+
+
 
 (defmethod map-stiffness ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
   (map-stiffness-quasi-static sim))

@@ -933,7 +933,7 @@
 
 
 (declaim (inline det-3x3)
-         (ftype (function (magicl::matrix/double-float) (double-float)) det-3x3))
+         (ftype (function (magicl::matrix/double-float) double-float) det-3x3))
 (defun det-3x3 (m-mat)
   ;; (magicl:det m-mat)
   (let ((a (cl-mpm/utils:fast-storage m-mat)))
@@ -943,8 +943,7 @@
       (+
        (* (tref a 0 0) (- (* (tref a 1 1) (tref a 2 2)) (* (tref a 2 1) (tref a 1 2))))
        (* -1d0 (tref a 1 0) (- (* (tref a 0 1) (tref a 2 2)) (* (tref a 2 1) (tref a 0 2))))
-       (* (tref a 2 0) (- (* (tref a 0 1) (tref a 1 2)) (* (tref a 1 1) (tref a 0 2)))))))
-  )
+       (* (tref a 2 0) (- (* (tref a 0 1) (tref a 1 2)) (* (tref a 1 1) (tref a 0 2))))))))
 
 
 (defun test-sum ()
@@ -1220,19 +1219,42 @@
   "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"
   (declare (magicl:matrix/double-float a b result)
            (optimize (speed 3) (safety 0) (debug 0)))
-  (let ((rows (magicl::ncols b))
-        (cols (magicl::nrows a))
-        (inter (magicl::nrows a))
-        )
+  (let ((rows (magicl::nrows a))
+        (cols (magicl::ncols b))
+        (inter (magicl::ncols a)))
     (loop for i fixnum from 0 below rows
           do (loop for j fixnum from 0 below cols
                    do (loop for k fixnum from 0 below inter
                             do (incf
                                 (cl-mpm/utils::mtref result i j)
                                 (the double-float (* (cl-mpm/utils:mtref a i k)
-                                                     (cl-mpm/utils:mtref b k j))))))
-          ))
+                                                     (cl-mpm/utils:mtref b k j))))))))
   (values))
+
+(defun @-arbT-arb-lisp (a b result)
+  "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"
+  (declare (magicl:matrix/double-float a b result)
+           (optimize (speed 3) (safety 0) (debug 0)))
+  (let ((rows (magicl::ncols a))
+        (cols (magicl::ncols b))
+        (inter (magicl::nrows a)))
+    (loop for i fixnum from 0 below rows
+          do (loop for j fixnum from 0 below cols
+                   do (loop for k fixnum from 0 below inter
+                            do (incf
+                                (cl-mpm/utils::mtref result i j)
+                                (the double-float (* (cl-mpm/utils:mtref a k i)
+                                                     (cl-mpm/utils:mtref b k j))))))))
+  (values))
+
+(defun fast-@-arbT-arb (a b &optional res)
+  (let ((res (if res
+                 (fast-zero res)
+                 (cl-mpm/utils::arb-matrix
+                  (magicl::ncols a)
+                  (magicl::ncols b)))))
+    (@-arbt-arb-lisp a b res)
+    res))
 
 (defun fast-@-arb-arb (a b &optional res)
   (let ((res (if res
@@ -1453,18 +1475,23 @@
 
 
 (defun det-2x2 (mat)
-  (- (* (cl-mpm/utils::mtref-2x2 mat 0 0)
-        (cl-mpm/utils::mtref-2x2 mat 1 1))
-     (* (cl-mpm/utils::mtref-2x2 mat 0 1)
-        (cl-mpm/utils::mtref-2x2 mat 1 0))))
+  (- (* (cl-mpm/utils::mtref mat 0 0)
+        (cl-mpm/utils::mtref mat 1 1))
+     (* (cl-mpm/utils::mtref mat 0 1)
+        (cl-mpm/utils::mtref mat 1 0))))
 
+(declaim (ftype (function (magicl:matrix/double-float)
+                          (values double-float double-float))
+                eigenvalues-2x2))
 (defun eigenvalues-2x2 (mat)
-  (let* ((tr (+ (cl-mpm/utils:varef mat 0) (cl-mpm/utils:varef mat 3)))
+  (let* ((tr (+ (cl-mpm/utils:mtref mat 0 0) (cl-mpm/utils:mtref mat 1 1)))
          (det (det-2x2 mat))
-         (gap (* 0.5d0 (sqrt (- (* tr tr) (* 4 det)))))
+         (gap (* 0.5d0 (the double-float (sqrt (the double-float (- (* tr tr)
+                                                                    (* 4 det)))))))
          (mid (/ tr 2))
          (l1 (+ mid gap))
          (l2 (- mid gap)))
+    (declare (double-float l1 l2 mid gap det tr))
     (values l1 l2)))
 
 
@@ -1522,6 +1549,9 @@
             ;; (values (coerce w 'list) a-tensor)
             ))))))
 
+(declaim (ftype (function (magicl:matrix/double-float)
+                          (values double-float double-float double-float))
+                eigenvalues-3x3))
 ;;Algorithm for closed-form eigenvalues from "A Robust Eigensolver for 3 × 3 Symmetric Matrices" - David Eberly
 (defun eigenvalues-3x3 (voigt)
   (let* ((s (cl-mpm/utils::fast-storage voigt))
@@ -1581,6 +1611,64 @@
                         (the double-float (* maxAbsElement a22))))
             )
           (values 0d0 0d0 0d0)))))
+
+(declaim (ftype (function (magicl:matrix/double-float)
+                          double-float)
+                min-eigenvalue-3x3))
+;;Algorithm for closed-form eigenvalues from "A Robust Eigensolver for 3 × 3 Symmetric Matrices" - David Eberly
+(defun min-eigenvalue-3x3 (voigt)
+  (let* ((s (cl-mpm/utils::fast-storage voigt))
+         (a00 (aref s 0))
+         (a11 (aref s 1))
+         (a22 (aref s 2))
+         (a01 (* 0.5d0 (aref s 5)))
+         (a02 (* 0.5d0 (aref s 4)))
+         (a12 (* 0.5d0 (aref s 3)))
+         )
+    (declare (double-float a00 a01 a02 a11 a12 a22))
+    (let ((maxAbsElement (max (abs a00) (abs a01) (abs a02) (abs a12) (abs a22) (abs a11))))
+      (if (> maxAbsElement 0d0)
+          (let* ((invMaxAbsElement (/ 1d0 maxAbsElement))
+                 (a00 (* a00 invMaxAbsElement))
+                 (a01 (* a01 invMaxAbsElement))
+                 (a02 (* a02 invMaxAbsElement))
+                 (a11 (* a11 invMaxAbsElement))
+                 (a12 (* a12 invMaxAbsElement))
+                 (a22 (* a22 invMaxAbsElement))
+                 (norm (+ (* a01 a01) (* a02 a02) (* a12 a12))))
+            (declare (double-float a00 a01 a02 a11 a12 a22 norm))
+            (if (> norm 0d0)
+                (let* ((q (/ (+ a00 a11 a22) 3d0))
+                       (b00 (- a00 q))
+                       (b11 (- a11 q))
+                       (b22 (- a22 q))
+                       (p (the double-float
+                               (sqrt
+                                (/
+                                 (the double-float (+ (* b00 b00) (* b11 b11) (* b22 b22) (* norm 2d0))) 6d0))))
+                       (c00 (- (* b11 b22) (* a12 a12)))
+                       (c01 (- (* a01 b22) (* a12 a02)))
+                       (c02 (- (* a01 a12) (* b11 a02)))
+                       (det (/ (+ (* b00 c00) (* -1d0 a01 c01) (* a02 c02)) (* p p p)))
+                       (halfDet (min 1d0 (max -1d0 (/ det 2d0))))
+                       ;; (halfDet (/ det 2d0))
+                       (angle (/ (the double-float (acos halfDet)) 3d0))
+                       (twoThirdsPi 2.09439510239319549d0)
+                       (beta0 (* 2d0 (cos (+ angle twoThirdsPi)))))
+                  ;; The eigenvalues of A are ordered as alpha0 <= alpha1 <= alpha2.
+                  ;; eval[0] = q + p * beta0;
+                  ;; eval[1] = q + p * beta1;
+                  ;; eval[2] = q + p * beta2;
+                  ;; The preconditioning scaled the matrix A, which scales the
+                  ;; eigenvalues.
+                  (the double-float (* (+ q (* p beta0)) maxAbsElement))
+                  )
+                ;;Diagonal matrix
+                (min (the double-float (* maxAbsElement a00))
+                     (the double-float (* maxAbsElement a11))
+                     (the double-float (* maxAbsElement a22))))
+            )
+          0d0))))
 
 (defun fast-@-sparse-mat-dense-vec (mat vec &optional res)
   (let ((res (if res

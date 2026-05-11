@@ -598,35 +598,32 @@
 (defgeneric estimate-stiffness (mp)
     (:documentation "Estimate stiffness P-wave at current state"))
 
-
-(defmethod estimate-stiffness ((mp particle-elastic))
+(defun estimate-stiffness-hencky (mp)
   (*
-   (/ 1d0 (cl-mpm/fastmaths::det-3x3 (cl-mpm/particle::mp-deformation-gradient mp)))
+   (the double-float (/ 1d0 (cl-mpm/fastmaths::det-3x3 (cl-mpm/particle::mp-deformation-gradient mp))))
    (the double-float (estimate-log-enhancement mp))
    (the double-float (mp-p-modulus-0 mp))))
+
+(defmethod estimate-stiffness ((mp particle-elastic))
+  (estimate-stiffness-hencky mp))
 
 (defmethod estimate-stiffness ((mp particle-linear-elastic))
   (mp-p-modulus-0 mp))
 
+(declaim (ftype (function (particle) double-float)
+                estimate-log-enhancement
+                ))
 (defun estimate-log-enhancement (particle)
   (with-accessors ((def-inc mp-deformation-gradient-increment)
                    (def mp-deformation-gradient)
                    (eps mp-strain))
       particle
-    ;; (let ((l (cl-mpm/fastmaths::magicl-eigen-values-3x3 (voigt-to-matrix eps))))
-    ;;   (let ((lmax (reduce #'max (mapcar (lambda (x) (exp (- x))) l))))
-    ;;     (* lmax lmax)))
-    ;; (let ((l (cl-mpm/fastmaths::magicl-eigen-values-3x3 (voigt-to-matrix eps)))))
-    ;; (pprint eps)
-    (multiple-value-bind (s1 s2 s3) (cl-mpm/fastmaths::eigenvalues-3x3 eps)
-      (declare (double-float s1 s2 s3))
-      (let ((lmax (min s1 s2 s3)))
-        (expt (exp (- lmax)) 2)))
-    ;; (let ((l (multiple-value-list (cl-mpm/fastmaths::eigenvalues-3x3 eps))))
-    ;;   (let ((lmax (reduce #'max (mapcar (lambda (x) (exp (- x))) l))))
-    ;;     (* lmax lmax)))
-
-    ))
+    ;; (multiple-value-bind (s1 s2 s3) (cl-mpm/fastmaths::eigenvalues-3x3 eps)
+    ;;   (declare (double-float s1 s2 s3))
+    ;;   (let ((lmax (min s1 s2 s3)))
+    ;;     (the double-float (expt (the double-float (exp (- lmax))) 2))))
+    (let ((lmax (cl-mpm/fastmaths::min-eigenvalue-3x3 eps)))
+      (the double-float (expt (the double-float (exp (- lmax))) 1)))))
 
 
 (defgeneric constitutive-model (mp elastic-trial-strain dt)
