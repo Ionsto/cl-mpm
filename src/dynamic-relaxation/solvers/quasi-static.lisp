@@ -108,9 +108,7 @@
                                ;; (* 0.5d0
                                ;;    mp-factor
                                ;;    (the (double-float) (/ 1d0 (expt h nd)))
-                               ;;    ;; (cl-mpm/mesh::node-volume node)
-                               ;;    ;; (/ 1d0 )
-                               ;;    ;; svp
+                               ;;    ;; (cl-mpm/mesh::node-volume-true node)
                                ;;    )
                                )))))))))))))
 
@@ -381,13 +379,12 @@
       sim
     (declare (fixnum solve-count damping-update-count)
              (double-float dt damping damping-scale))
-    ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
+    (cl-mpm::apply-essential-bcs sim)
     (cl-mpm:iterate-over-nodes
      mesh
      (lambda (node)
        (when (cl-mpm/mesh:node-active node)
          (cl-mpm::calculate-forces-midpoint node 0d0 0d0 mass-scale))))
-    (cl-mpm::apply-essential-bcs sim)
     ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm::sim-active-bcs sim) dt)
     ;;For each aggregated element set solve mass matrix and velocity
     (when enable-aggregate

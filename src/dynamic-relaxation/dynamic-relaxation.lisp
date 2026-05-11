@@ -310,17 +310,19 @@
         (setf
          denom
          (* dt
-            (cl-mpm::reduce-over-nodes
-             mesh
-             (lambda (node)
-               (if (and (cl-mpm/mesh:node-active node)
-                        (not (cl-mpm/mesh::node-agg node)))
-                   (*
-                    (the double-float (cl-mpm/mesh:node-mass node))
-                    (cl-mpm/fastmaths::mag-squared
-                     (cl-mpm/mesh::node-velocity node)))
-                   0d0))
-             #'+)))
+            (the double-float 
+                 (cl-mpm::reduce-over-nodes
+                  mesh
+                  (lambda (node)
+                    (the double-float 
+                         (if (and (cl-mpm/mesh:node-active node)
+                                  (not (cl-mpm/mesh::node-agg node)))
+                             (*
+                              (the double-float (cl-mpm/mesh:node-mass node))
+                              (the double-float (cl-mpm/fastmaths::mag-squared
+                                                 (cl-mpm/mesh::node-velocity node))))
+                             0d0)))
+                  #'+))))
 
         (when (cl-mpm/aggregate::sim-enable-aggregate sim)
           (cl-mpm/aggregate::iterate-over-dimensions-with-mutex
