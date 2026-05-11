@@ -1573,9 +1573,11 @@
                      (time
                       (cl-mpm/dynamic-relaxation:converge-quasi-static
                        sim
-                       :crit criteria
+                       :oobf-crit criteria
+                       :energy-crit 1d0
                        :dt-scale dt-scale
                        :substeps substeps
+                       :kinetic-damping nil
                        :damping-factor damping
                        :conv-steps conv-steps
                        :post-iter-step
