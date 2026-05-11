@@ -941,7 +941,7 @@
            bcs)
           )
         fa
-        :tol 1d-15
+        :tol 1d-20
         ;;Really give it some welly
         :max-iters 1000000
         :mask int-bcs

@@ -886,10 +886,7 @@
        (let ((vel-proj (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-displacment d)))
          (cl-mpm/aggregate::project-global-vec
           sim
-          (apply-global-bcs 
-           sim
-           (extend-vec sim vel-proj d)
-           d)
+          (extend-vec sim vel-proj d)
           #'cl-mpm/mesh::node-displacment
           d))))
     (cl-mpm::apply-bcs mesh (cl-mpm:sim-bcs sim) dt)))

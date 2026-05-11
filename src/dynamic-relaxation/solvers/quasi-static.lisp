@@ -158,12 +158,16 @@
          (setf dt 1d0)
          (cl-mpm::update-stress mesh mps dt-loadstep fbar)
          (cl-mpm::p2g-force-fs sim)
+         (cl-mpm::apply-essential-bcs sim)
          (cl-mpm::apply-bcs mesh bcs-force dt-loadstep)
          (loop for bcs-f in bcs-force-list
                do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
          (setf (cl-mpm::sim-damping-factor sim) 0d0)
          (update-node-fictious-mass sim)
          (cl-mpm/aggregate::update-node-forces-agg sim (* -0.5d0 dt))
+         (cl-mpm::reset-node-displacement sim)
+         (cl-mpm::update-nodes sim)
+         ;; (cl-mpm/aggregate::project-displacement sim)
          (cl-mpm::iterate-over-nodes
           mesh
           (lambda (n)
@@ -272,7 +276,6 @@
     (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
     (cl-mpm::p2g-force-fs sim)
-    (cl-mpm::apply-essential-bcs sim)
     ;; (cl-mpm::apply-bcs mesh bcs-force dt)
     ;; ;; (loop for bcs-f in bcs-force-list
     ;; ;;       do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
@@ -284,7 +287,7 @@
     (when (= (mod solve-count mass-update-iter) 0)
       (update-node-fictious-mass sim))
     (incf solve-count)
-    ;; ;; ;;Update our nodes after force mapping
+    ;;Update our nodes after force mapping
     (update-node-forces-quasi-static sim)
     (cl-mpm::update-nodes sim)
     (cl-mpm::apply-essential-bcs sim)
@@ -461,7 +464,7 @@
            (when (or (not agg)
                      internal)
              (cl-mpm::integrate-vel-midpoint vel acc mass mass-scale dt damping))))))
-    (cl-mpm::apply-essential-bcs sim)
+    ;; (cl-mpm::apply-essential-bcs sim)
     ))
 (defmethod cl-mpm::update-node-forces ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
   (update-node-forces-quasi-static sim))

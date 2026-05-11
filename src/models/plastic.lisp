@@ -216,9 +216,8 @@
         ;;   (setf strain eps-e)
         ;;   (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
       (progn
-        (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
-        (when (equal dep de)
-          (setf dep (cl-mpm/utils::deep-copy de)))))
+        ;; (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
+        ))
     stress))
 
 (defmethod constitutive-model ((mp particle-mc) strain dt)
