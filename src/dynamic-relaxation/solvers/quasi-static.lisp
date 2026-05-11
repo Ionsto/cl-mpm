@@ -269,6 +269,7 @@
     (setf dt 1d0)
     ;; ;; (cl-mpm/penalty::reset-penalty sim)
     (cl-mpm::reset-nodes-force sim)
+    (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
     (cl-mpm::p2g-force-fs sim)
     (cl-mpm::apply-essential-bcs sim)
@@ -385,6 +386,7 @@
      (lambda (node)
        (when (cl-mpm/mesh:node-active node)
          (cl-mpm::calculate-forces-midpoint node 0d0 0d0 mass-scale))))
+    (cl-mpm::apply-essential-bcs sim)
     ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm::sim-active-bcs sim) dt)
     ;;For each aggregated element set solve mass matrix and velocity
     (when enable-aggregate

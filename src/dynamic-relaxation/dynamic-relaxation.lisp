@@ -310,11 +310,11 @@
         (setf
          denom
          (* dt
-            (the double-float 
+            (the double-float
                  (cl-mpm::reduce-over-nodes
                   mesh
                   (lambda (node)
-                    (the double-float 
+                    (the double-float
                          (if (and (cl-mpm/mesh:node-active node)
                                   (not (cl-mpm/mesh::node-agg node)))
                              (*
