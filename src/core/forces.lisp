@@ -247,21 +247,22 @@
     (declare (type double-float volume))
     (let ((dx (cl-mpm/utils::gradients-dx grads))
           (dy (cl-mpm/utils::gradients-dy grads))
-          (dz (cl-mpm/utils::gradients-dz grads)))
-      (declare (double-float dx dy dz))
+          ;; (dz (cl-mpm/utils::gradients-dz grads))
+          )
+      (declare (double-float dx dy))
       (let ((f-storage (cl-mpm/utils:fast-storage f-out))
             (stress-storage (cl-mpm/utils:fast-storage stress)))
         (incf (aref f-storage 0)
               (* -1d0 volume
                  (+
                   (* dx (aref stress-storage 0))
-                  (* dz (aref stress-storage 4))
+                  ;; (* dz (aref stress-storage 4))
                   (* dy (aref stress-storage 5)))))
         (incf (aref f-storage 1)
               (* -1d0 volume
                  (+
                   (* dy (aref stress-storage 1))
-                  (* dz (aref stress-storage 3))
+                  ;; (* dz (aref stress-storage 3))
                   (* dx (aref stress-storage 5)))))))
     f-out))
 

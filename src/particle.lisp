@@ -480,7 +480,7 @@
 
 (defmethod initialize-instance :after ((p particle-elastic) &key)
   (update-elastic-matrix p)
-  (setf (cl-mpm/particle::mp-tangent-stiffness p) (cl-mpm/particle::mp-elastic-matrix p))
+  ;; (setf (cl-mpm/particle::mp-tangent-stiffness p) (cl-mpm/particle::mp-elastic-matrix p))
   ;; (call-next-method)
   )
 (defmethod (setf mp-elastic-approximation) :after (value (p particle-elastic))

@@ -930,6 +930,24 @@
   ncols)
 
 
+(defun sparse-matrix-aref (mat row col)
+  (let* ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
+         (cols (cl-mpm/utils::sparse-matrix-cols mat))
+         (values (cl-mpm/utils::sparse-matrix-values mat))
+         (result 0d0)
+         )
+    (let* ((r row)
+           (col-0 (aref rowindex r))
+           (col-1 (aref rowindex (1+ r))))
+      (loop for c from col-0 below col-1
+            while (<= (aref cols c) col)
+            do
+               (when (= col (aref cols c))
+                 (setf result
+                       (the double-float
+                            (aref values c))))))
+    result))
+
 
 (declaim (notinline sort-and-sum))
 (defun sort-and-sum (values rows cols)

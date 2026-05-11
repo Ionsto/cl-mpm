@@ -95,17 +95,34 @@
 ;;    )
 ;;   )
 
-(defun solve-conjugant-gradients (A-operator b &key (tol 1d-9) (max-iters 10000)
+(defun make-preconditioner (sparse-mat)
+  (let* ((nrows (cl-mpm/utils::sparse-matrix-nrows sparse-mat))
+         (pre (cl-mpm/utils::arb-matrix nrows 1)))
+    (dotimes (r nrows)
+      (setf (varef pre r) (/ 1d0 (cl-mpm/utils::sparse-matrix-aref sparse-mat r r))))
+    pre))
+
+(defun solve-conjugant-gradients (A-operator b &key
+                                                 (tol 1d-9)
+                                                 (max-iters 10000)
                                                  (mask nil))
   (declare (function a-operator))
+  (let (;; (pre nil)
+        )
+    ;; (when jacobi-precondition
+    ;;   (setf pre (make-preconditioner A)))
   (labels ((mask-op (x)
              (if nil;mask
                  (cl-mpm/fastmaths:fast-.* x mask)
                  x))
            (mask-inplace (x)
                (when mask
-                   (cl-mpm/fastmaths:fast-.* x mask x))))
-    ;; (mask-inplace b)
+                   (cl-mpm/fastmaths:fast-.* x mask x)))
+           (operation (x)
+             (funcall a-operator x))
+           )
+
+    (mask-inplace b)
     (let ((vector-size (magicl:nrows b))
           (b-norm (mag b)))
       (if (= b-norm 0d0)
@@ -113,7 +130,7 @@
           (cl-mpm/utils::arb-matrix vector-size 1)
           ;;Nontrivial case
           (let* ((x (cl-mpm/utils::arb-matrix vector-size 1))
-                 (r (fast-.- b (mask-op (funcall a-operator x))))
+                 (r (fast-.- b (operation x)))
                  (p (cl-mpm/utils::deep-copy r))
                  (ap (cl-mpm/utils::arb-matrix vector-size 1))
                  (rs-old (cl-mpm/fastmaths::mag-squared r))
@@ -124,7 +141,7 @@
                   do
                      (progn
                        ;; (mask-inplace p)
-                       (setf ap (mask-op (funcall a-operator p)))
+                       (setf ap (operation p))
                        ;; (mask-inplace ap)
                        (let ((alpha
                                (/
@@ -132,6 +149,7 @@
                                 (dot p ap))))
                          (fast-.+ x (fast-scale p alpha) x)
                          (fast-.- r (fast-scale ap alpha) r)
+                         ;; (setf r (mask-op (fast-.- b (operation x))))
                          ;; (mask-inplace x)
                          ;; (mask-inplace r)
                          (setf rs-new (cl-mpm/fastmaths::mag-squared r))
@@ -147,8 +165,86 @@
                          (setf rs-old rs-new)))
                   finally (when (> rs-new crit)
                        (error "Conjugate gradients didn't converge")))
-            ;; (mask-inplace x)
-            x)))))
+            (mask-inplace x)
+            x))))))
+(defun solve-conjugant-gradients-jacobi (A-operator b &key
+                                                 (tol 1d-9)
+                                                 (max-iters 10000)
+                                                 (jacobi-precondition nil)
+                                                 (mask nil))
+  (declare (function a-operator))
+  (let (;; (pre nil)
+        )
+    ;; (when jacobi-precondition
+    ;;   (setf pre (make-preconditioner A)))
+  (labels ((mask-op (x)
+             (if nil;mask
+                 (cl-mpm/fastmaths:fast-.* x mask)
+                 x))
+           (mask-inplace (x)
+               (when mask
+                   (cl-mpm/fastmaths:fast-.* x mask x)))
+           (pre-inplace (x)
+             (when jacobi-precondition
+               (cl-mpm/fastmaths:fast-.* x jacobi-precondition x))
+             x)
+           (pre-into (source target)
+             (if jacobi-precondition
+               (cl-mpm/fastmaths:fast-.* source jacobi-precondition target)
+               (cl-mpm/utils::copy-into source target)))
+           (operation (x)
+             (funcall a-operator x))
+           (preconditioned-operation (x)
+             (pre-inplace
+              (funcall a-operator x))))
+
+    (mask-inplace b)
+    ;; (pre-inplace b)
+    (let ((vector-size (magicl:nrows b))
+          (b-norm (mag b)))
+      (if (= b-norm 0d0)
+          ;;Trivial case of 0 being the answer
+          (cl-mpm/utils::arb-matrix vector-size 1)
+          ;;Nontrivial case
+          (let* ((x (cl-mpm/utils::arb-matrix vector-size 1))
+                 (r (fast-.- b (operation x)))
+                 (z (pre-inplace (cl-mpm/utils::deep-copy r)))
+                 (p (cl-mpm/utils::deep-copy z))
+                 (ap (cl-mpm/utils::arb-matrix vector-size 1))
+                 (rs-old (cl-mpm/fastmaths::dot r z))
+                 (crit tol)
+                 (rs-new crit))
+            (loop for i from 0 to max-iters
+                  while (>= rs-new crit)
+                  do
+                     (progn
+                       ;; (mask-inplace p)
+                       (setf ap (operation p))
+                       ;; (mask-inplace ap)
+                       (let ((alpha
+                               (/
+                                rs-old
+                                (dot p ap))))
+                         (fast-.+ x (fast-scale p alpha) x)
+                         ;; (fast-.- r (fast-scale ap alpha) r)
+                         (setf r (fast-.- b (operation x)))
+                         (pre-into r z)
+                         ;; (mask-inplace x)
+                         ;; (mask-inplace r)
+                         (setf rs-new (cl-mpm/fastmaths::dot r z))
+                         (unless (< rs-new crit)
+                           (setf p
+                                 (fast-.+
+                                  z
+                                  (fast-scale p (/ rs-new rs-old))))
+                           )
+                         (when (= (mod (1+ i) (round (* max-iters 0.1d0))) 0)
+                           (format t "Iter ~D ~E ~E~%" i rs-old rs-new))
+                         (setf rs-old rs-new)))
+                  finally (when (> rs-new crit)
+                       (error "Conjugate gradients didn't converge")))
+            (mask-inplace x)
+            x))))))
 
 
 (defun test ()

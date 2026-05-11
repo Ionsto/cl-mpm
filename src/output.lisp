@@ -466,6 +466,10 @@
           (save-parameter-nodes "disp_y" (magicl:tref (cl-mpm/mesh::node-displacment node) 1 0))
           (save-parameter-nodes "disp_z" (magicl:tref (cl-mpm/mesh::node-displacment node) 2 0))
 
+          (save-parameter-nodes "bc_x" (if (cl-mpm/mesh::node-bcs node) (varef (cl-mpm/mesh::node-bcs node) 0) 0))
+          (save-parameter-nodes "bc_y" (if (cl-mpm/mesh::node-bcs node) (varef (cl-mpm/mesh::node-bcs node) 1) 0))
+          (save-parameter-nodes "bc_z" (if (cl-mpm/mesh::node-bcs node) (varef (cl-mpm/mesh::node-bcs node) 2) 0))
+
           ;; (save-parameter-nodes "disp_x" (magicl:tref (cl-mpm/mesh::node-displacment node) 0 0))
           ;; (save-parameter-nodes "disp_y" (magicl:tref (cl-mpm/mesh::node-displacment node) 1 0))
           ;; (save-parameter-nodes "disp_z" (magicl:tref (cl-mpm/mesh::node-displacment node) 2 0))
@@ -473,6 +477,7 @@
           (save-vector-nodes "force" (cl-mpm/mesh:node-force node))
           (save-vector-nodes "force-ext" (cl-mpm/mesh::node-external-force node))
           (save-vector-nodes "force-int" (cl-mpm/mesh::node-internal-force node))
+          (save-vector-nodes "force-rct" (cl-mpm/mesh::node-reaction-force node))
           (save-vector-nodes "force-buoyancy" (cl-mpm/mesh::node-buoyancy-force node))
           (save-vector-nodes "force-ghost" (cl-mpm/mesh::node-ghost-force node))
           (save-vector-nodes "force-damping" (cl-mpm/mesh::node-damping-force node))
