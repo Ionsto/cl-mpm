@@ -115,14 +115,15 @@
                   (sb-thread::with-mutex ((cl-mpm/mesh::node-lock node))
                     (incf node-mass
                           (the double-float
-                               (* 2d0
-                                  mp-factor
-                                  svp)
-                               ;; (* 0.5d0
+                               ;; (* 2d0
                                ;;    mp-factor
-                               ;;    (the (double-float) (/ 1d0 (expt h nd)))
-                               ;;    ;; (cl-mpm/mesh::node-volume-true node)
-                               ;;    )
+                               ;;    svp)
+                               (* 0.25d0
+                                  mp-factor
+                                  ;; (the (double-float) (/ 1d0 (expt h 0)))
+                                  ;; (/ 1d0 (cl-mpm/mesh::node-svp-sum node))
+                                  ;; (/ 1d0 (cl-mpm/mesh::node-volume-true node))
+                                  )
                                )))))))))))))
 
 
