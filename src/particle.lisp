@@ -158,6 +158,10 @@
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :strain
      :initform (cl-mpm/utils:voigt-zeros))
+   (trial-elastic-strain
+     :accessor mp-trial-elastic-strain
+     :type MAGICL:MATRIX/DOUBLE-FLOAT
+     :initform (cl-mpm/utils:voigt-zeros))
    (stretch-tensor
     :accessor mp-stretch-tensor
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -409,6 +413,7 @@
       particle
     (setf p (compute-p-modulus particle))
     (setf p-0 p)))
+
 
 (defun update-elastic-matrix (particle)
   (with-accessors ((de mp-elastic-matrix)

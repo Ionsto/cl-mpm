@@ -1799,3 +1799,29 @@
                                       (aref vec-s (aref cols c)))))))))))))
     (fast-.* res bcs-r res)
     res))
+
+(defun lumped@-sparse-mat-dense-vec (mat vec &optional res)
+  (let ((res (if res
+                 (cl-mpm/fastmaths::fast-zero res)
+                 (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows mat) 1))))
+    (declare (magicl:matrix/double-float vec res)
+             (cl-mpm/utils::sparse-matrix mat))
+    (assert (= (cl-mpm/utils::sparse-matrix-nrows mat) (magicl:nrows res)))
+    (assert (= (cl-mpm/utils::sparse-matrix-ncols mat) (magicl:nrows vec)))
+
+    (let ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
+          (cols (cl-mpm/utils::sparse-matrix-cols mat))
+          (values (cl-mpm/utils::sparse-matrix-values mat))
+          (res-s (cl-mpm/utils::fast-storage res))
+          (vec-s (cl-mpm/utils::fast-storage vec)))
+      (dotimes (r (cl-mpm/utils::sparse-matrix-nrows mat))
+        (let ((col-0 (aref rowindex r))
+              (col-1 (aref rowindex (1+ r))))
+          (loop for c from col-0 below col-1 do
+            (incf (aref res-s r)
+                  (the double-float
+                       (abs
+                        (*
+                         (aref values c)
+                         (aref vec-s (aref cols c))))))))))
+    res))

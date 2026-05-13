@@ -1112,16 +1112,16 @@
       ;;                 (nth 2 j))
       ;;              (< (nth 1 i)
       ;;                 (nth 1 j))))))
-      coords
-      ;; (sort coords
-      ;;       (lambda (i j)
-      ;;         (or (< (nth 1 i)
-      ;;                (nth 1 j))
-      ;;             (and
-      ;;              (= (nth 1 i)
-      ;;                 (nth 1 j))
-      ;;              (< (nth 2 i)
-      ;;                 (nth 2 j))))))
+      ;; coords
+      (sort coords
+            (lambda (i j)
+              (or (< (nth 1 i)
+                     (nth 1 j))
+                  (and
+                   (= (nth 1 i)
+                      (nth 1 j))
+                   (< (nth 2 i)
+                      (nth 2 j))))))
       )))
 
 (defun build-sparse-matrix-ccs (values rows cols nrows ncols)

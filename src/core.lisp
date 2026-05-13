@@ -683,26 +683,6 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
 
 
 
-(declaim (ftype (function (cl-mpm/mesh::mesh
-                           (array cl-mpm/particle:particle)
-                           double-float
-                           &optional boolean) (values)) update-stress-omp))
-(defun update-stress-omp (mesh mps dt &optional (fbar nil))
-  "Update all stresses, with optional f-bar"
-  (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
-  ;; (iterate-over-mps
-  ;;  mps
-  ;;  (lambda (mp)
-  ;;    (calculate-strain-rate mesh mp dt)
-  ;;    (map-jacobian mesh mp dt)))
-  (iterate-over-mps-omp
-   mps
-   (lambda (mp)
-     (update-stress-mp mesh mp dt fbar)
-     ;; (post-stress-step mesh mp dt)
-     ))
-  (values))
-
 
 (defgeneric update-stress-mp (mesh mp dt fbar)
   (:documentation "A mp dependent stress update scheme"))

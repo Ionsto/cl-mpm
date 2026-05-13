@@ -806,7 +806,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                              (let* ((node (cl-mpm/mesh:get-node mesh id))
                                     (gradx (cl-mpm/shape-function::shape-gimp-dsvp distx dox h))
                                     (grads-fbar
-                                      (list
+                                      (cl-mpm/utils::make-gradients
                                             (cl-mpm/shape-function::shape-gimp-dsvp distx dox h)
                                             0d0
                                             0d0)))

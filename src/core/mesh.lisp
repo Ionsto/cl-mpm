@@ -48,12 +48,59 @@
 ;;   (y 0 :type fixnum)
 ;;   (z 0 :type fixnum))
 
+(defclass soa-allocator ()
+  ((flat-data
+    :accessor soa-allocator-flat-data
+    :initarg :data
+    :initform (make-array 0))
+   (bump-pointer
+    :accessor soa-allocator-bump-pointer
+    :initform 0)
+   (pack-size
+    :accessor soa-allocator-pack-size
+    :initarg :pack-size
+    :initform 1)))
+(defun make-soa-vector (size)
+  (let ((pack 3))
+    (make-instance 'soa-allocator-vector
+                   :data (make-array (* pack size ) :element-type 'double-float)
+                   :pack-size pack)))
+(defclass soa-allocator-vector (soa-allocator)
+  ()
+  (:default-initargs
+   :pack-size 3))
+
+(deftype array-double-3 () '(simple-array double-float (3)))
+
+(declaim (ftype (function (fixnum)
+                          (simple-array array-double-3 (*)))
+                make-flat-vec-list))
+(defun make-flat-vec-list (length)
+  (let* ((disp-list (make-array length
+                                :initial-element (make-array 3 :element-type 'double-float)
+                                :element-type '(simple-array double-float (3))))
+         (disp-vecs (make-array length
+                                ;; :initial-contents
+                                ;; (loop for i from 0 below length
+                                ;;       collect
+                                ;;       (magicl::make-matrix/double-float
+                                ;;        3 1 3
+                                ;;        :column-major
+                                ;;        (aref disp-list i)))
+                                :element-type 'magicl::matrix/double-float)))
+    (loop for i from 0 below length
+          do (setf (aref disp-vecs i)
+                (magicl::make-matrix/double-float
+                 3 1 3
+                 :column-major
+                 (aref disp-list i))))
+    disp-vecs))
+
 (defclass node ()
   ((active
     :accessor node-active
     :type boolean
-    :initform nil
-    )
+    :initform nil)
    (mass
     :accessor node-mass
     :type double-float
@@ -61,8 +108,7 @@
    (volume
     :accessor node-volume
     :type double-float
-    :initform 0d0
-    )
+    :initform 0d0)
    (volume-true
     :accessor node-volume-true
     :type double-float
@@ -70,12 +116,15 @@
    (index
     :accessor node-index
     :initarg :index)
+   (id
+    :accessor node-id
+    :initarg :id)
    (position
     :accessor node-position
     :initarg :position
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:vector-zeros))
-  (acceleration
+   (acceleration
     :accessor node-acceleration
     :initarg :acceleration
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -338,6 +387,27 @@
   ((nodes
     :accessor mesh-nodes
     :initarg :nodes)
+   (masses
+    :accessor mesh-masses
+    :initarg :masses)
+   (displacements
+    :accessor mesh-displacements
+    :initarg :displacements)
+   (velocities
+    :accessor mesh-velocities
+    :initarg :velocities)
+   (forces
+    :accessor mesh-forces
+    :initarg :forces)
+   (internal-forces
+    :accessor mesh-internal-forces
+    :initarg :int-forces)
+   (external-forces
+    :accessor mesh-external-forces
+    :initarg :external-forces)
+   (damping-forces :accessor mesh-damping-forces)
+   (ghost-forces :accessor mesh-ghost-forces)
+   (mesh-buoyancy-forces :accessor mesh-buoyancy-forces)
    (active-nodes
     :accessor mesh-active-nodes
     :initarg :active-nodes)
@@ -379,12 +449,41 @@
         for i from 0
         do (setf (aref (mesh-count-array mesh) i) v)))
 
+(defmacro flatten-node-vecs (mesh &body arg-pairs)
+  `(let* ((nodes (cl-mpm/mesh::mesh-nodes ,mesh))
+          (len (array-total-size nodes)))
+     ,@(loop for pair in arg-pairs
+             collect
+             (destructuring-bind (mesh-acc node-acc) pair
+                 `(setf (,mesh-acc ,mesh) (make-flat-vec-list len))))
+     (loop for i from 0 below len
+           do (let ((node (row-major-aref value i)))
+                ;; (setf
+                ;;  (cl-mpm/mesh::node-displacment node) (aref (cl-mpm/mesh::mesh-displacements p) i))
+                ,@(loop for pair in arg-pairs
+                        collect
+                        (destructuring-bind (mesh-acc node-acc)
+                            pair
+                          `(setf (,node-acc node) (aref (,mesh-acc ,mesh) i))))))))
+
+
+
 (defmethod (setf mesh-nodes) :after (value (p mesh))
   (setf (mesh-active-nodes p)
         (make-array (array-total-size value)
                     :element-type 'node
-                    :displaced-to value)))
-
+                    :displaced-to value))
+  ;; (flatten-node-vecs
+  ;;  p
+  ;;  (mesh-displacements node-displacment)
+  ;;  (mesh-velocities node-velocity)
+  ;;  (mesh-forces node-force)
+  ;;  (mesh-internal-forces node-internal-force)
+  ;;  (mesh-external-forces node-external-force)
+  ;;  (mesh-damping-forces node-damping-force)
+  ;;  (mesh-ghost-forces node-ghost-force)
+  ;;  (mesh-buoyancy-forces node-buoyancy-force))
+  )
 
 (defmethod (setf mesh-cells) :after (value (p mesh))
   (setf (mesh-active-cells p)
@@ -403,6 +502,12 @@
     )))
 
 
+(defun make-mesh-node (mesh index pos)
+  "Default initialise a 2d node at pos"
+  (make-instance 'node
+                 :index (mapcar (lambda (x) (coerce x 'fixnum)) index)
+                 :position pos
+                 ))
 
 (defun make-node (index pos h)
   "Default initialise a 2d node at pos"
@@ -423,17 +528,9 @@
                                        (make-node
                                         (list x y z)
                                         (cl-mpm/utils:vector-from-list (index-to-position mesh (list x y z))) h)))))
+      (loop for i from 0 below (array-total-size nodes)
+            do (setf (cl-mpm/mesh::node-id (row-major-aref nodes i)) i))
       nodes))
-  ;; (make-array size :initial-contents
-  ;;     (loop for x from 0 to (- (nth 0 size) 1)
-  ;;           collect
-  ;;           (loop for y from 0 to (- (nth 1 size) 1)
-  ;;                         collect
-  ;;                         (loop for z from 0 to (- (nth 2 size) 1)
-  ;;                               collect
-  ;;                               (make-node (list x y z)
-  ;;                                          (cl-mpm/utils:vector-from-list (index-to-position mesh (list x y z)))
-  ;;                                          h)))))
   )
 
 (defun cell-calculate-centroid (nodes)
@@ -987,6 +1084,31 @@
     (cl-mpm/fastmaths::fast-zero-vector damping-force)
     (cl-mpm/fastmaths::fast-zero-vector ghost-force)
     (cl-mpm/fastmaths::fast-zero-vector buoyancy-force)))
+
+(defun reset-nodes-force (mesh)
+  (with-accessors ((forces mesh-forces)
+                   (int-forces mesh-internal-forces)
+                   (ext-forces mesh-external-forces)
+                   (damping-forces mesh-damping-forces)
+                   (ghost-forces mesh-ghost-forces)
+                   (buoyancy-forces mesh-buoyancy-forces))
+      mesh
+    (declare ((simple-array magicl::matrix/double-float *)
+              forces
+              int-forces
+              ext-forces
+              damping-forces
+              ghost-forces
+              buoyancy-forces))
+    (cl-mpm/utils::bpdotimes
+     (i (length forces))
+     (cl-mpm/fastmaths::fast-zero-vector (aref forces i))
+     (cl-mpm/fastmaths::fast-zero-vector (aref int-forces i))
+     (cl-mpm/fastmaths::fast-zero-vector (aref ext-forces i))
+     (cl-mpm/fastmaths::fast-zero-vector (aref damping-forces i))
+     (cl-mpm/fastmaths::fast-zero-vector (aref buoyancy-forces i))
+     (cl-mpm/fastmaths::fast-zero-vector (aref ghost-forces i)))))
+
 
 (defun reset-node-force (node)
   (with-slots ((acc acceleration)

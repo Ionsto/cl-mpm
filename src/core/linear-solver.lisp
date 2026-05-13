@@ -169,15 +169,18 @@
             x))))))
 
 (defun test-CG-squared ()
-  (let ((A (cl-mpm/utils::matrix-from-list (list 100d0 2d0 3d0
-                                                 5d0 6d0 9d0
-                                                 3d0 2d0 1d0)))
+  (let ((A (cl-mpm/utils::matrix-from-list (list 1d0 8d0 3d0
+                                                 2d0 6d0 9d0
+                                                 0d0 2d0 1d0)))
         ;; (A (cl-mpm/utils::matrix-from-list (list 1d0 0d0 0d0
         ;;                                          0d0 6d0 0d0
         ;;                                          0d0 0d0 1d0)))
-        (B (cl-mpm/utils:vector-from-list (list 4d0 2d0 1d0))))
+        (B (cl-mpm/utils:vector-from-list (list 0d0 2d0 9d0))))
     (pprint (magicl:linear-solve A B))
     (pprint (solve-conjugant-gradients-squared (lambda (v) (magicl:@ A v)) B))
+    (pprint (solve-conjugant-gradients-squared (lambda (v) (magicl:@ A v)) B
+                                               :jacobi-precondition (cl-mpm/utils::vector-from-list (list 0.001d0 1d0 100d0)))
+            )
     )
   )
 
@@ -196,8 +199,9 @@
                  (cl-mpm/fastmaths:fast-.* x mask)
                  x))
            (mask-inplace (x)
-               (when mask
-                   (cl-mpm/fastmaths:fast-.* x mask x)))
+               (if mask
+                   (cl-mpm/fastmaths:fast-.* x mask x)
+                   x))
            (preconditioner-op (x)
              (if jacobi-precondition
                  (fast-.* x jacobi-precondition)
@@ -211,10 +215,11 @@
                  (fast-.* x jacobi-precondition x)
                  x))
            (operation (x)
-             (funcall a-operator x)))
+             (mask-inplace
+              (funcall a-operator x))))
     (mask-inplace b)
     (let ((vector-size (magicl:nrows b))
-          (b-norm (mag b)))
+          (b-norm (cl-mpm/fastmaths::mag-squared b)))
       (assert (= (magicl:nrows b) vector-size))
       (when jacobi-precondition
         (assert (= (magicl:nrows jacobi-precondition) vector-size)))
@@ -236,6 +241,8 @@
                  (rs-old (cl-mpm/fastmaths:dot r-tilde r))
                  (residual crit)
                  (beta 0d0))
+            ;; (mask-inplace r)
+            ;; (mask-inplace r-tilde)
             (loop for i from 0 to max-iters
                   while (>= residual crit)
                   do
@@ -251,6 +258,10 @@
                                       q
                                       (fast-scale p beta))
                                      beta) p))
+
+                       ;; (mask-inplace r)
+                       ;; (mask-inplace u)
+
                        ;;We then want to apply preconditioner to ap
                        (setf ap (operation (preconditioner-op p)))
                        (let ((alpha
@@ -261,10 +272,12 @@
                          ;;Apply preconditioning to q
                          (preconditioner-into (fast-.+ u q) u-hat)
                          (fast-.+ x (fast-scale u-hat alpha) x)
+                         ;; (mask-inplace x)
                          (fast-.- r (fast-scale (operation u-hat) alpha) r)
+                         ;; (mask-inplace r)
                          (when (= (mod (1+ i) (round (* max-iters 0.1d0))) 0)
                            (format t "Iter ~D ~E ~E~%" i rs-old rs-new))
-                         (setf residual (dot r r))
+                         (setf residual (/ (cl-mpm/fastmaths::mag-squared r) b-norm))
                          (setf rs-old rs-new)))
                   finally (when (> residual crit)
                        (error "Conjugate gradients didn't converge ~E" residual)))

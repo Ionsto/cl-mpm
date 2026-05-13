@@ -164,11 +164,41 @@
         (setf
          rho (+ rho-r (* (- rho-0 rho-r) (exp (- (* soft ps-vm))))))))
     stress))
-(defmethod constitutive-model ((mp particle-vm-implicit) strain dt)
+
+(defun diff-tangent (func strain)
+  (let ())
+  (let ((stress-0 (funcall func (voigt-copy strain)))
+        (de (cl-mpm/utils::tensor-voigt-4th-zeros))
+        (eps 1d-9))
+    (loop for i from 0 below 6
+          do (loop for j from 0 below 6
+                   do (labels ((probe (eps)
+                                 (let ((tstrain (cl-mpm/utils::voigt-copy strain)))
+                                   (incf (varef tstrain j) eps)
+                                   (let ((stress (funcall func tstrain)))
+                                     (- (varef stress-0 i) (varef stress i))))))
+                        (setf (mtref de i j)
+                              (/ (- (probe eps) (probe (- eps)))
+                                 (* -2 eps))))))
+    (let ((mapping-list (list 0 1 2 5 3 4))
+          ;;Potentially corrected listing?
+          ;; (mapping-list (list 0 1 2 5 5 3 3 4 4))
+          (result (cl-mpm/utils::arb-matrix 9 9)))
+      (loop for i from 0
+            for im in mapping-list
+            do
+               (loop for j from 0
+                     for jm in mapping-list
+                     do (setf (magicl:tref result i j) (magicl:tref de im jm))))
+      result)
+    de))
+
+
+(defmethod constitutive-model ((mp particle-vm-implicit) strain-in dt)
   "Strain intergrated elsewhere, just using elastic tensor"
   (with-accessors ((de mp-elastic-matrix)
                    (dep mp-tangent-stiffness)
-                   (stress mp-stress)
+                   (stress mp-stress-kirchoff)
                    (rho mp-rho)
                    (soft mp-softening)
                    (plastic-strain mp-strain-plastic)
@@ -186,10 +216,11 @@
       mp
     ;;Train elastic strain - plus trail kirchoff stress
     (cl-mpm/constitutive::linear-elastic-mat strain de stress)
-    (if (equal dep de)
-      (setf dep (cl-mpm/utils::deep-copy de))
-      (cl-mpm/utils::copy-into de dep))
+    ;; (if (equal dep de)
+    ;;   (setf dep (cl-mpm/utils::deep-copy de))
+    ;;   (cl-mpm/utils::copy-into de dep))
     (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
+    (setf dep (cl-mpm/utils::deep-copy de))
     (if enable-plasticity
         (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm-tangent
                                                      stress
@@ -205,16 +236,47 @@
           (setf ps-vm-inc inc)
           (setf strain eps-e)
           (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
-        ;; (multiple-value-bind (sig eps-e f inc pmod dep-con) (cl-mpm/constitutive::plastic-vm-tangent stress de strain rho e nu)
-        ;;   (setf stress
-        ;;         sig
-        ;;         plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
-        ;;         p-mod pmod
-        ;;         yield-func f
-        ;;         dep dep-con)
-        ;;   (setf ps-vm-inc inc)
-        ;;   (setf strain eps-e)
-        ;;   (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
+        ;; (let ((teps (cl-mpm/utils::voigt-copy strain)))
+        ;;   ;; (pprint (diff-tangent
+        ;;   ;;          (lambda (eps)
+        ;;   ;;              (multiple-value-bind (sig eps f inc pmod dep-con)
+        ;;   ;;                  (cl-mpm/constitutive::plastic-vm-tangent (voigt-copy stress) de
+        ;;   ;;                                                           (voigt-copy strain) rho e nu)
+        ;;   ;;                sig))
+        ;;   ;;          strain
+        ;;   ;;          stress
+        ;;   ;;          ))
+        ;;   (multiple-value-bind (sig eps-e f inc pmod dep-con) (cl-mpm/constitutive::plastic-vm-tangent stress de strain rho e nu)
+        ;;     (setf stress sig
+        ;;           plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
+        ;;           p-mod pmod
+        ;;           yield-func f
+        ;;           dep dep-con)
+        ;;     (setf ps-vm-inc inc)
+        ;;     (setf strain eps-e)
+        ;;     (setf ps-vm (+ ps-vm-1 ps-vm-inc))
+        ;;     ;; (setf dep
+        ;;     ;;       (diff-tangent
+        ;;     ;;        (lambda (eps)
+        ;;     ;;          (let* (;(eps (cl-mpm/constitutive::swizzle-coombs->voigt eps))
+        ;;     ;;                 ;; (eps (cl-mpm/constitutive::swizzle-voigt->coombs eps))
+        ;;     ;;                 )
+        ;;     ;;            (let ((sig (magicl:@ de eps)))
+        ;;     ;;              (multiple-value-bind (sig eps f inc pmod dep-con)
+        ;;     ;;                  (cl-mpm/constitutive::plastic-vm-tangent
+        ;;     ;;                   sig
+        ;;     ;;                   de
+        ;;     ;;                   eps rho e nu)
+        ;;     ;;                ;; (cl-mpm/constitutive::swizzle-voigt->coombs sig)
+        ;;     ;;                ;; (cl-mpm/constitutive::swizzle-coombs->voigt sig)
+        ;;     ;;                sig
+        ;;     ;;                ;; sig
+        ;;     ;;                ))))
+        ;;     ;;        teps
+        ;;     ;;        ;; eps-e
+        ;;     ;;        ))
+        ;;     ;; (setf stress (cl-mpm/constitutive::linear-elastic-mat eps-e dep stress))
+        ;;     ))
       (progn
         ;; (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
         ))
