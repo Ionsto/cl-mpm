@@ -289,7 +289,7 @@
     (setf dt 1d0)
     ;; ;; (cl-mpm/penalty::reset-penalty sim)
     (cl-mpm::reset-nodes-force sim)
-    (cl-mpm::apply-essential-bcs sim)
+    ;; (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
     (cl-mpm::p2g-force-fs sim)
     ;; (cl-mpm::apply-bcs mesh bcs-force dt)
@@ -306,7 +306,7 @@
     ;;Update our nodes after force mapping
     (update-node-forces-quasi-static sim)
     (cl-mpm::update-nodes sim)
-    (cl-mpm::apply-essential-bcs sim)
+    ;; (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-filtered-cells sim)
     ;; ;; (cl-mpm::update-dynamic-stats sim)
     ;; ;; (cl-mpm::g2p mesh mps dt damping :TRIAL)
@@ -399,7 +399,6 @@
       sim
     (declare (fixnum solve-count damping-update-count)
              (double-float dt damping damping-scale))
-    (cl-mpm::apply-essential-bcs sim)
     (cl-mpm:iterate-over-nodes
      mesh
      (lambda (node)

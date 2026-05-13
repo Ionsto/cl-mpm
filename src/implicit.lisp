@@ -808,7 +808,9 @@
                   (let ((g-a (assemble-g-3d
                               (cl-mpm::gradient-push-forwards-cached
                                grads
-                               df-inv))))
+                               df-inv)))
+                        ;; (gpa (cl-mpm/fastmaths::fast-@-arbt-arb g-a stiffness))
+                        )
                     (cl-mpm::iterate-over-neighbours
                      mesh
                      mp
@@ -820,6 +822,7 @@
                                       grads-b
                                       df-inv))))
                            (let ((stiff (magicl:@ (magicl:transpose g-a) stiffness g-b))
+                                 ;; (stiff (cl-mpm/fastmaths::fast-@-arb-arb stiffness g-b))
                                  )
                              (sb-thread:with-mutex ((sim-global-k-lock sim))
                                (dotimes (i nd)
@@ -834,30 +837,11 @@
                                            (the double-float
                                                 (* (the double-float mp-volume)
                                                    (the double-float (cl-mpm/utils:mtref stiff i j)))))
-                                         ;; (stiff-entry-b
-                                         ;;   (the double-float
-                                         ;;        (* (the double-float mp-volume)
-                                         ;;           (the double-float (cl-mpm/utils:mtref stiff i j)))))
-                                         ;; (stiff-entry
-                                         ;;   (the double-float
-                                         ;;        (* (the double-float mp-volume)
-                                         ;;           (+
-                                         ;;            (the double-float (cl-mpm/utils:mtref stiff-opp i j))
-                                         ;;            (the double-float (cl-mpm/utils:mtref stiff i j))))))
                                          )
                                      (when t;(> (abs stiff-entry) 1d-40)
-                                       (when (> gi gj)
-                                         (vector-push-extend stiff-entry (sim-global-k-values sim))
-                                         (vector-push-extend gi (sim-global-k-rows sim))
-                                         (vector-push-extend gj (sim-global-k-cols sim))
-                                         (vector-push-extend stiff-entry (sim-global-k-values sim))
-                                         (vector-push-extend gj (sim-global-k-rows sim))
-                                         (vector-push-extend gi (sim-global-k-cols sim))
-                                         )
-                                       (when (= gi gj)
-                                         (vector-push-extend stiff-entry (sim-global-k-values sim))
-                                         (vector-push-extend gi (sim-global-k-rows sim))
-                                         (vector-push-extend gj (sim-global-k-cols sim)))
+                                       (vector-push-extend stiff-entry (sim-global-k-values sim))
+                                       (vector-push-extend gi (sim-global-k-rows sim))
+                                       (vector-push-extend gj (sim-global-k-cols sim))
 
                                        ;; (when (>= gi gj)
                                        ;;   (vector-push-extend stiff-entry (sim-global-k-values sim))
@@ -895,8 +879,7 @@
                 bcs
                 bcs)))
       ;; (pprint (cl-mpm/linear-solver::make-preconditioner ksparse))
-      ;; (break)
-      (let ((vs (cl-mpm/linear-solver::solve-conjugant-gradients;-jacobi
+      (let ((vs (cl-mpm/linear-solver::solve-conjugant-gradients-squared
                  #'system-operation v
                  :tol 1d-15
                  :max-iters 10000
@@ -925,32 +908,37 @@
            (int-bcs (cl-mpm/aggregate::sim-global-bcs-int sim))
            (work-vec (cl-mpm/utils::arb-matrix (magicl:nrows f) 1))
            (work-vec-2 (cl-mpm/utils::arb-matrix (magicl:nrows f) 1))
-           (work-vec-agg (cl-mpm/utils::arb-matrix (magicl:nrows int-bcs) 1)))
-      ;; (break)
-      ;; (pprint (magicl:nrows bcs))
-      ;; (pprint (magicl:nrows int-bcs))
+           (work-vec-agg (cl-mpm/utils::arb-matrix (magicl:nrows int-bcs) 1))
+           ;; (jacobi-pre
+           ;;   (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec;-masked
+           ;;    et
+           ;;    (cl-mpm/linear-solver::make-preconditioner K)
+           ;;    ;; int-bcs
+           ;;    ;; bcs
+           ;;    ))
+           )
       (extend-vec
        sim
-       (cl-mpm/linear-solver::solve-conjugant-gradients
+       (cl-mpm/linear-solver::solve-conjugant-gradients-squared
         (lambda (v)
-          ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
-          ;;  e
-          ;;  v
-          ;;  bcs
-          ;;  int-bcs
-          ;;  work-vec)
-          ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
-          ;;  K
-          ;;  work-vec
-          ;;  bcs
-          ;;  bcs
-          ;;  work-vec-2)
-          ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
-          ;;  et
-          ;;  work-vec-2
-          ;;  int-bcs
-          ;;  bcs
-          ;;  work-vec-agg)
+          (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
+           e
+           v
+           bcs
+           int-bcs
+           work-vec)
+          (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
+           K
+           work-vec
+           bcs
+           bcs
+           work-vec-2)
+          (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
+           et
+           work-vec-2
+           int-bcs
+           bcs
+           work-vec-agg)
           ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
           ;;  et
           ;;  (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
@@ -968,25 +956,26 @@
           ;;  ;; bcs
           ;;  )
 
-          (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
-           et
-           (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
-            K
-            (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
-             e
-             v
-             bcs
-             int-bcs
-             )
-            bcs
-            bcs)
-           int-bcs
-           bcs)
+          ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+          ;;  et
+          ;;  (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+          ;;   K
+          ;;   (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+          ;;    e
+          ;;    v
+          ;;    bcs
+          ;;    int-bcs
+          ;;    )
+          ;;   bcs
+          ;;   bcs)
+          ;;  int-bcs
+          ;;  bcs)
           )
         fa
         :tol 1d-20
+        ;; :jacobi-precondition jacobi-pre
         ;;Really give it some welly
-        :max-iters 1000000
+        :max-iters 10000
         :mask int-bcs
         )))))
 
@@ -1041,7 +1030,7 @@
               (setf (mtref a-r i j) (mtref ma (aref bc-map i) (aref bc-map j))))
             (setf (varef v-r i) (varef v (aref bc-map i))))
           (let ((vs ;; (magicl::linear-solve A-r v-r)
-                  (cl-mpm/linear-solver::solve-conjugant-gradients (lambda (x) (magicl:@ A-r x)) v-r :tol 1d-15 :max-iters 1000)
+                  (cl-mpm/linear-solver::solve-conjugant-gradients-squared (lambda (x) (magicl:@ A-r x)) v-r :tol 1d-15 :max-iters 1000)
                   ))
             (lparallel:pdotimes (i reduced-size)
               (setf (varef target-vi (aref bc-map i)) (varef vs i))))
@@ -1282,11 +1271,11 @@
     (loop for coord in coords
           do
              (destructuring-bind (value row col) coord
-               (when (> (abs value) 1d-30)
+               (when (> (abs value) 1d-10)
                  (let* ((sym-val (cl-mpm/utils::sparse-matrix-aref K col row))
                         (err (/ (abs (- value sym-val)) (abs value))))
                    ;; (format t "~D ~D ~E ~%" row col err)
-                   (when (> err 1d2)
+                   (when (> err 1d0)
                      (format t "~E ~E ~%" value sym-val)
                      (error "Non-symmetrical!"))))))))
 
