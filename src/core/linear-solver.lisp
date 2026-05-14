@@ -145,7 +145,8 @@
 
     (mask-inplace b)
     (let ((vector-size (magicl:nrows b))
-          (b-norm (mag b)))
+          (b-norm (cl-mpm/fastmaths::mag-squared b)))
+      ;; (pprint b-norm)
       (if (= b-norm 0d0)
           ;;Trivial case of 0 being the answer
           (cl-mpm/utils::arb-matrix vector-size 1)
@@ -157,9 +158,9 @@
                  (rs-old (cl-mpm/fastmaths::mag-squared r))
                  (crit tol)
                  (rs-new crit)
-                 )
+                 (residual crit))
             (loop for i from 0 to max-iters
-                  while (>= rs-new crit)
+                  while (>= residual crit)
                   do
                      (progn
                        ;; (mask-inplace p)
@@ -172,21 +173,24 @@
                          (fast-.+ x (fast-scale p alpha) x)
                          (fast-.- r (fast-scale ap alpha) r)
                          ;; (setf r (mask-op (fast-.- b (operation x))))
-                         ;; (mask-inplace x)
+                         (mask-inplace x)
                          ;; (mask-inplace r)
-                         (setf rs-new (/ (cl-mpm/fastmaths::mag-squared r) b-norm))
-                         (unless (< rs-new crit)
+                         (setf rs-new (cl-mpm/fastmaths::mag-squared r))
+                         (setf residual (/ rs-new b-norm))
+                         ;; (setf residual rs-new)
+                         (unless (< residual crit)
                            (setf p
                                  (fast-.+
                                   r
                                   (fast-scale p (/ rs-new rs-old))))
                            ;; (mask-inplace p)
                            )
-                         (when (= (mod (1+ i) (round (* max-iters 0.1d0))) 0)
-                           (format t "Iter ~D ~E ~E~%" i rs-old rs-new))
+                         (when (= (mod (1+ i) (round (* max-iters 0.01d0))) 0)
+                           (format t "Iter ~D ~E ~E ~E~%" i rs-old rs-new residual))
                          (setf rs-old rs-new)))
-                  finally (when (> rs-new crit)
-                       (error "Conjugate gradients didn't converge")))
+                  finally (when (> residual crit) 
+                            (error "Conjugate gradients didn't converge")))
+            ;; (format t "Solved in ~D iters~%" iters)
             (mask-inplace x)
             x))))))
 
@@ -367,7 +371,9 @@
                  (rs-new crit)
                  (rs-old (cl-mpm/fastmaths:dot r-tilde r))
                  (residual crit)
-                 (beta 0d0))
+                 (beta 0d0)
+                 (iters 0)
+                 )
             (preconditioner-inplace r-tilde)
             ;; (preconditioner-inplace r)
             (loop for i from 0 to max-iters
@@ -405,9 +411,11 @@
                          (setf residual (/ (cl-mpm/fastmaths::mag-squared r) b-norm))
                          (when (= (mod (1+ i) (round (* max-iters 0.1d0))) 0)
                            (format t "Iter ~D ~E ~E ~E~%" i rs-old rs-new residual))
+                         (incf iters)
                          (setf rs-old rs-new)))
                   finally (when (> residual crit)
                        (error "Conjugate gradients didn't converge ~E" residual)))
+            (format t "CG solved in ~D iters~%" iters)
             (mask-inplace x)
             x))))))
 

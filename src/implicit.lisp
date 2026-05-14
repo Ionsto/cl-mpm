@@ -298,7 +298,7 @@
                   (cl-mpm/mesh::node-position node)
                   (lambda (cn weight grads)
                     (dotimes (d nd)
-                      (when (> (abs weight) 1d-9)
+                      (when (> (abs weight) 1d-10)
                         (vector-push-extend weight v)
                         (vector-push-extend (+ d (* nd (cl-mpm/mesh::node-agg-fd node))) r)
                         (vector-push-extend (+ d (* nd (cl-mpm/mesh::node-agg-fdc cn)))  c)))))))))))
@@ -973,12 +973,12 @@
         ;; (jacobi (cl-mpm/linear-solver::make-lumped-preconditioner ksparse))
         )
     (labels ((system-operation (x)
-               (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked;-multithread
+               (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
                 ksparse
                 x
                 bcs
                 bcs)))
-      (let ((vs (cl-mpm/linear-solver::solve-conjugant-gradients-squared
+      (let ((vs (cl-mpm/linear-solver::solve-preconditioned-conjugant-gradients-squared
                  #'system-operation v
                  :tol 1d-15
                  :max-iters 10000
@@ -1065,7 +1065,11 @@
       (if enable-agg
           (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
            et
-           pre)
+           (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
+            e
+            (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
+             et
+             pre)))
           pre))
 
     ;; (let ((diag
@@ -1134,38 +1138,39 @@
        sim
        (cl-mpm/linear-solver::solve-preconditioned-conjugant-gradients-squared
         (lambda (v)
-          ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
-          ;;  e
-          ;;  v
-          ;;  bcs
-          ;;  int-bcs
-          ;;  work-vec)
-          ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
-          ;;  K
-          ;;  work-vec
-          ;;  bcs
-          ;;  bcs
-          ;;  work-vec-2)
-          ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
-          ;;  et
-          ;;  work-vec-2
-          ;;  int-bcs
-          ;;  bcs
-          ;;  work-vec-agg)
-          (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
-           et
-           (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
-            K
-            (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
-             e
-             v
-             bcs
-             int-bcs
-             )
-            bcs
-            bcs)
+          (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
+           e
+           v
+           bcs
            int-bcs
-           bcs))
+           work-vec)
+          (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
+           K
+           work-vec
+           bcs
+           bcs
+           work-vec-2)
+          (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
+           et
+           work-vec-2
+           int-bcs
+           bcs
+           work-vec-agg)
+          ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+          ;;  et
+          ;;  (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+          ;;   K
+          ;;   (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+          ;;    e
+          ;;    v
+          ;;    bcs
+          ;;    int-bcs
+          ;;    )
+          ;;   bcs
+          ;;   bcs)
+          ;;  int-bcs
+          ;;  bcs)
+          )
         fa
         :tol 1d-15
         :jacobi-precondition jacobi-pre

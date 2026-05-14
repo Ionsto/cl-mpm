@@ -690,8 +690,9 @@
     (let* ((et (cl-mpm/aggregate::sim-global-sparse-et sim))
            (e (cl-mpm/aggregate::sim-global-sparse-e sim))
            (sma (cl-mpm/aggregate::sim-global-sparse-ma sim))
-           (bcs (aref (sim-global-bcs-int sim) d))
-           (gbcs (assemble-global-bcs sim d))
+           (bcs-int (aref (sim-global-bcs-int sim) d))
+           (bcs (aref (sim-global-bcs sim) d))
+           ;; (gbcs (assemble-global-bcs sim d))
            (work-vec (cl-mpm/utils::arb-matrix (magicl:nrows sma) 1))
            (work-vec-agg (cl-mpm/utils::arb-matrix (magicl:nrows v) 1)))
       ;; (loop for i from 0 below (magicl:nrows bcs)
@@ -701,39 +702,27 @@
       ;; (pprint sma)
       (cl-mpm/linear-solver::solve-conjugant-gradients
        (lambda (x)
-         (@-mass-matrix-vec sim x d)
-         ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
-         ;;  e
-         ;;  x
-         ;;  work-vec)
-         ;; (cl-mpm/fastmaths::fast-.*
-         ;;  gbcs
-         ;;  work-vec
-         ;;  work-vec)
-         ;; (cl-mpm/fastmaths::fast-.*
-         ;;  sma
-         ;;  work-vec
-         ;;  work-vec)
-         ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
-         ;;  et
-         ;;  work-vec
-         ;;  work-vec-agg)
-         ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
-         ;;  et
-         ;;  (cl-mpm/fastmaths::fast-.*
-         ;;   gbcs
-         ;;   (cl-mpm/fastmaths::fast-.*
-         ;;    sma
-         ;;    (cl-mpm/fastmaths::fast-.*
-         ;;     gbcs
-         ;;     (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
-         ;;      e
-         ;;      x)))))
-         )
+         (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+          e
+          x
+          bcs
+          bcs-int
+          work-vec
+          )
+         (cl-mpm/fastmaths::fast-.*
+          sma
+          work-vec
+          work-vec)
+         (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+          et
+          work-vec
+          bcs-int
+          bcs
+          work-vec-agg))
        v
-       :tol 1d-20
+       :tol 1d-10
        :max-iters 10000
-       :mask bcs
+       :mask bcs-int
        ))))
 
 
