@@ -964,11 +964,13 @@
 
 
 
-(defun sparse-linear-solve-with-bcs (ksparse v bcs &optional (target-vi nil))
+(defun sparse-linear-solve-with-bcs (sim ksparse v bcs &optional (target-vi nil))
   (let ((target-vi (if target-vi
                        target-vi
                        (cl-mpm/utils::empty-copy v)))
         ;; (jacobi (cl-mpm/linear-solver::make-preconditioner ksparse))
+        (jacobi (make-diagonal-preconditioner sim))
+        ;; (jacobi (cl-mpm/linear-solver::make-lumped-preconditioner ksparse))
         )
     (labels ((system-operation (x)
                (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked;-multithread
@@ -976,12 +978,11 @@
                 x
                 bcs
                 bcs)))
-      ;; (pprint (cl-mpm/linear-solver::make-preconditioner ksparse))
       (let ((vs (cl-mpm/linear-solver::solve-conjugant-gradients-squared
                  #'system-operation v
                  :tol 1d-15
                  :max-iters 10000
-                 ;; :jacobi-precondition jacobi
+                 :jacobi-precondition jacobi
                  :mask bcs)))
         vs))))
 
@@ -1031,6 +1032,66 @@
   ;;     (setf (varef pre r) (/ 1d0 (cl-mpm/utils::sparse-matrix-aref sparse-mat r r))))
   ;;   pre)
   )
+(defun make-lumped-preconditioner (sim)
+  (let* ((enable-agg (cl-mpm/aggregate::sim-enable-aggregate sim))
+         (K (sim-global-k sim))
+         (pre (cl-mpm/linear-solver::make-lumped-preconditioner K)))
+    (if enable-agg
+        (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
+         (cl-mpm/aggregate::sim-global-sparse-et sim)
+         pre)
+        pre)))
+(defun make-diagonal-preconditioner (sim)
+  (let* ((enable-agg (cl-mpm/aggregate::sim-enable-aggregate sim))
+         (K (sim-global-k sim))
+         ;; (pre (cl-mpm/linear-solver::make-lumped-preconditioner K))
+         (et (cl-mpm/aggregate::sim-global-sparse-et sim))
+         (nd (cl-mpm/mesh::mesh-nd (cl-mpm:sim-mesh sim))))
+    (let* ((nodes (cl-mpm/implicit::sim-nodes-fd sim))
+           (pre (cl-mpm/utils::arb-matrix (* nd (length nodes)) 1)))
+      (cl-mpm::iterate-over-nodes-array
+       nodes
+       (lambda (n)
+         (dotimes (d nd)
+           (let* ((fdi (+ d (* nd (cl-mpm/mesh::node-stiffness-fd n))))
+                  (fdci (+ d (* nd (cl-mpm/mesh::node-stiffness-fd n)))))
+             (setf
+              (varef pre fdci)
+              (cl-mpm/utils::sparse-matrix-aref
+                  K
+                  fdi
+                  fdi))))))
+      (if enable-agg
+          (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
+           et
+           pre)
+          pre))
+    ;; (if enable-agg
+    ;;     ;; (let ((diag
+    ;;     ;;         (cl-mpm/utils::diagonal
+    ;;     ;;          (cl-mpm/fastmaths::fast-@-arb-arb
+    ;;     ;;           (cl-mpm/fastmaths::fast-@-arb-arb
+    ;;     ;;            (cl-mpm/utils::sparse-to-mat et)
+    ;;     ;;            (cl-mpm/utils::sparse-to-mat K))
+    ;;     ;;           (cl-mpm/utils::sparse-to-mat e)
+    ;;     ;;           ))))
+    ;;     ;;   ;; (cl-mpm/fastmaths::fast-./
+    ;;     ;;   ;;  (cl-mpm/utils::arb-matrix-constant 1d0 (magicl:nrows diag) 1)
+    ;;     ;;   ;;  diag
+    ;;     ;;   ;;  diag)
+    ;;     ;;   diag)
+    ;;     (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
+    ;;      (cl-mpm/aggregate::sim-global-sparse-et sim)
+    ;;      (cl-mpm/utils::diagonal
+    ;;       (cl-mpm/utils::sparse-to-mat K)))
+    ;;     (cl-mpm/utils::diagonal
+    ;;      (cl-mpm/utils::sparse-to-mat K)))
+    ;; (if enable-agg
+    ;;     (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
+    ;;      (cl-mpm/aggregate::sim-global-sparse-et sim)
+    ;;      pre)
+    ;;     pre)
+    ))
 
 (defun linear-solve-with-bcs-agg (sim K f bcs &optional (target-vi nil))
   (let ((target-vi (if target-vi
@@ -1045,12 +1106,17 @@
            (work-vec (cl-mpm/utils::arb-matrix (magicl:nrows f) 1))
            (work-vec-2 (cl-mpm/utils::arb-matrix (magicl:nrows f) 1))
            (work-vec-agg (cl-mpm/utils::arb-matrix (magicl:nrows int-bcs) 1))
-           (jacobi-pre (make-preconditioner sim))
-           ;; (jacobi-pre
-           ;;   (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
-           ;;    et
-           ;;    (cl-mpm/linear-solver::make-preconditioner K)))
+           ;; (jacobi-pre (make-preconditioner sim))
+           (jacobi-pre
+             (make-diagonal-preconditioner sim)
+             ;; (make-lumped-preconditioner sim)
+             ;; (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
+             ;;  et
+             ;;  (cl-mpm/linear-solver::make-preconditioner K))
+             )
            )
+      ;; (pprint jacobi-pre)
+      ;; (break)
       (extend-vec
        sim
        (cl-mpm/linear-solver::solve-conjugant-gradients-squared
@@ -1073,23 +1139,6 @@
           ;;  int-bcs
           ;;  bcs
           ;;  work-vec-agg)
-          ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
-          ;;  et
-          ;;  (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
-          ;;   K
-          ;;   (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
-          ;;    e
-          ;;    v
-          ;;    ;; bcs
-          ;;    ;; int-bcs
-          ;;    )
-          ;;   bcs
-          ;;   bcs
-          ;;   )
-          ;;  ;; int-bcs
-          ;;  ;; bcs
-          ;;  )
-
           (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
            et
            (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
@@ -1103,13 +1152,12 @@
             bcs
             bcs)
            int-bcs
-           bcs)
-          )
+           bcs))
         fa
         :tol 1d-15
-        ;; :jacobi-precondition jacobi-pre
+        :jacobi-precondition jacobi-pre
         ;;Really give it some welly
-        :max-iters 10000
+        :max-iters 100000
         :mask int-bcs
         )))))
 
@@ -1394,7 +1442,7 @@
          (f (assemble-forces sim))
          (bcs (assemble-global-bcs sim)))
     (if (sim-enable-sparse-k sim)
-        (let ((ddisp (sparse-linear-solve-with-bcs K f bcs)))
+        (let ((ddisp (sparse-linear-solve-with-bcs sim K f bcs)))
           (increment-global-vec sim ddisp #'cl-mpm/mesh::node-displacment))
         (let ((ddisp (linear-solve-with-bcs K f bcs)))
           (increment-global-vec sim ddisp #'cl-mpm/mesh::node-displacment)))))

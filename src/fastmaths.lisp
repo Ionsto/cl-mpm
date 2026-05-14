@@ -15,6 +15,7 @@
    #:fast-.+
    #:fast-.-
    #:fast-.*
+   #:fast-./
    #:fast-scale-vector
    #:fast-scale-voigt
    #:fast-scale!

@@ -398,6 +398,15 @@
   (magicl::make-matrix/double-float x y (* x y) :column-major
                                     (make-array (* x y) :element-type 'double-float :initial-element 0d0)))
 
+(defun arb-matrix-constant (const x y)
+  (declare (fixnum x y))
+  (magicl::make-matrix/double-float
+   x
+   y
+   (* x y)
+   :column-major
+   (make-array (* x y) :element-type 'double-float :initial-element const)))
+
 (declaim (inline matrix-from-diag)
          (ftype (function (list)
                           magicl:matrix/double-float) matrix-from-diag))
@@ -407,6 +416,13 @@
     (matrix-from-list (list i1 0d0 0d0
                             0d0 i2 0d0
                             0d0 0d0 i3))))
+
+(defun diagonal (mat)
+  (let* ((nrows (magicl:nrows mat))
+         (res (cl-mpm/utils::arb-matrix nrows 1)))
+    (loop for i from 0 below nrows
+          do (setf (varef res i) (mtref mat i i)))
+    res))
 
 
 (declaim (inline matrix-to-voight)
