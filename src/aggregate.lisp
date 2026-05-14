@@ -380,13 +380,13 @@
                                                 (cl-mpm/mesh::node-agg n)))))
 
     (let ((nodes (cl-mpm/aggregate::sim-agg-nodes-fdc sim)))
-      (lparallel:pdotimes (fdc (length nodes))
-        do (let ((n (aref nodes fdc)))
+      (cl-mpm/utils::bpdotimes (fdc (length nodes))
+        (let ((n (aref nodes fdc)))
              (setf (cl-mpm/mesh::node-agg-fdc n) fdc))))
 
     (let ((nodes (cl-mpm/aggregate::sim-agg-nodes-fd sim)))
-      (lparallel:pdotimes (fd (length nodes))
-        do (let ((n (aref nodes fd)))
+      (cl-mpm/utils::bpdotimes (fd (length nodes))
+        (let ((n (aref nodes fd)))
              (setf (cl-mpm/mesh::node-agg-fd n) fd))))))
 
 (defun assemble-global-scalar (sim accessor &optional (result nil))
@@ -697,9 +697,6 @@
            (work-vec-agg (cl-mpm/utils::arb-matrix (magicl:nrows v) 1)))
       ;; (loop for i from 0 below (magicl:nrows bcs)
       ;;       do (setf (cl-mpm/utils:varef bcs i) 1d0))
-      ;; (pprint bcs)
-      ;; (pprint v)
-      ;; (pprint sma)
       (cl-mpm/linear-solver::solve-conjugant-gradients
        (lambda (x)
          ;; (@-mass-matrix-vec x)
@@ -978,14 +975,14 @@
 (defun iterate-over-dimensions (nd func)
   (declare (fixnum nd)
            (function func))
-  (lparallel:pdotimes (d nd)
+  (cl-mpm/utils::bpdotimes (d nd)
     (funcall func d)))
 
 (defun iterate-over-dimensions-with-mutex (nd func)
   (declare (fixnum nd)
            (function func))
   (let ((mutex (sb-thread:make-mutex)))
-    (lparallel:pdotimes (d nd)
+    (cl-mpm/utils::bpdotimes (d nd)
       (funcall func d mutex))))
 
 (defun iterate-over-dimensions-serial (nd func)
@@ -1012,7 +1009,6 @@
      #'cl-mpm/mesh::node-internal-force
      d)
     (pprint (magicl:@ E (assemble-internal-vec sim #'cl-mpm/mesh::node-internal-force d)))
-    ;; (pprint (magicl:@ E (assemble-internal-vec sim #'cl-mpm/mesh::node-internal-force d)))
     ))
 
 (defmethod cl-mpm::calculate-min-dt-mps ((sim cl-mpm/aggregate::mpm-sim-aggregated))
@@ -1021,7 +1017,6 @@
                    (mass-scale cl-mpm::sim-mass-scale)
                    (enable-agg cl-mpm/aggregate::sim-enable-aggregate))
       sim
-    ;; (pprint "Hello")
     (let* ((inner-factor most-positive-double-float)
            (h (cl-mpm/mesh:mesh-resolution mesh))
            (h2 (* h h)))
@@ -1049,7 +1044,6 @@
                          most-positive-double-float))
                    most-positive-double-float))
              #'min))
-      ;; (pprint "Hello")
       ;; (when enable-agg
       ;;   (when (cl-mpm/aggregate::sim-global-ma sim)
       ;;     (let* ((E (magicl:transpose (cl-mpm/aggregate::sim-global-e sim)))
@@ -1057,8 +1051,6 @@
       ;;            (agg-inner inner-factor))
       ;;       (let* ((p-mod (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-pwave))
       ;;              (p-ratio (magicl:@ (assemble-internal-identity sim (magicl:@ E p-mod)) ma)))
-      ;;         (pprint p-mod)
-      ;;         (pprint p-ratio)
       ;;         (magicl:map! #'abs p-ratio)
       ;;         (loop for i from 0 below (magicl:nrows p-ratio)
       ;;               do (setf agg-inner
@@ -1069,7 +1061,6 @@
       ;;                        ))
       ;;         ;; (loop for v across (cl-mpm/utils:fast-storage p-ratio)
       ;;         ;;       do (setf agg-inner (min agg-inner (max 0d0 (/ 1d0 v)))))
-      ;;         (pprint agg-inner)
       ;;         )
       ;;       (setf inner-factor (min inner-factor agg-inner)))))
       (if (< inner-factor most-positive-double-float)

@@ -232,7 +232,6 @@
         ;;When delocal counter max is -1, we want to update never -> 0 is always
         (unless (= delocal-counter-max -1)
           (when (<= delocal-counter 0)
-            ;; (pprint "hello")
             ;;Ensure they have a home
             ;; (create-delocalisation-list mesh mps)
             (update-delocalisation-list mesh mps)
@@ -365,7 +364,6 @@
              (let* ((delta (cl-mpm/fastmaths::diff-norm (cl-mpm/particle:mp-position mp)
                                                         (cl-mpm/particle::mp-damage-position mp))))
                (declare (double-float delta h))
-               ;; (format t "~A ~A~%" (cl-mpm/particle:mp-position mp) (cl-mpm/particle::mp-damage-position mp))
                (when (> delta (/ h 4d0))
                  (when (not (equal
                              (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp))
@@ -770,7 +768,6 @@ Calls the function with the mesh mp and node"
   (call-next-method))
 
 (defmethod (setf cl-mpm::sim-mps) (mps (sim cl-mpm/damage::mpm-sim-damage))
-  ;; (format t "Resetting mps~%")
   ;; (with-accessors ((mesh cl-mpm::sim-mesh))
   ;;     sim
   ;;   (loop for mp across mps
@@ -1105,7 +1102,6 @@ Calls the function with the mesh mp and node"
 ;;           do
 ;;              (progn
 ;;                (setf damage-0 damage-1)
-;;                (format t "Staggered solve: ~D~%" i)
 ;;                (cl-mpm/dynamic-relaxation:converge-quasi-static
 ;;                 *sim*
 ;;                 :energy-crit 1d-2
@@ -1115,14 +1111,12 @@ Calls the function with the mesh mp and node"
 ;;                 :dt-scale dt-scale
 ;;                 :post-iter-step
 ;;                 (lambda (i energy oobf)
-;;                   (format t "Surcharge load ~E~%" (/ *piston-confinement* *piston-steps*))
 ;;                   (setf *piston-confinement* 0d0
 ;;                         *piston-steps* 0)))
 ;;                (cl-mpm/damage::calculate-damage *sim*)
 ;;                ;; (plot *sim*)
 ;;                (setf damage-1 (get-damage))
 ;;                ;; (plot-domain)
-;;                (format t "Staggered damage diff: ~E~%" (- damage-1 damage-0))
 ;;                ))
 ;;     (when (> damage-1 (* damage-0 1.1d0))
 ;;       (break "Staggered error"))))

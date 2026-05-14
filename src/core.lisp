@@ -1296,7 +1296,6 @@ This modifies the dt of the simulation in the process
            (nodes-sorted (make-array (length node-active) :fill-pointer 0)))
       (let ((nd (cl-mpm/mesh:mesh-nD mesh))
             (id 0))
-        ;; (pprint (length node-active))
         (loop for i from 0 to (round (expt (expt 2 (+ 0 (ceiling (log (reduce #'max (cl-mpm/mesh::mesh-count mesh)) 2)))) nd))
               do
                  (let ((trial-index (morton-to-index i nd)))
@@ -1304,8 +1303,6 @@ This modifies the dt of the simulation in the process
                      ;; (setf (aref nodes-sorted id) (cl-mpm/mesh::get-node mesh trial-index))
                      (vector-push-extend (cl-mpm/mesh::get-node mesh trial-index) nodes-sorted)
                      (incf id))))
-        ;; (pprint id)
         )
-      ;; (pprint (length nodes-sorted))
       (setf (cl-mpm/mesh::mesh-active-nodes mesh)
             nodes-sorted))))

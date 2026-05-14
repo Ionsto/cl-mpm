@@ -191,7 +191,6 @@
          (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
          (split-factor (cl-mpm::sim-split-factor sim))
          (crit (* h split-factor)))
-    (pprint crit)
     (split-mps-vector
      sim
      (lambda (mp)

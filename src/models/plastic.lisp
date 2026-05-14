@@ -143,18 +143,22 @@
     ;;Train elastic strain - plus trail kirchoff stress
     (cl-mpm/constitutive::linear-elastic-mat strain de stress)
     (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
-    (setf dep de)
+    ;; (setf dep de)
     (when enable-plasticity
-      (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm stress strain de e nu rho)
-        (declare (double-float f inc pmod ps-vm-1 ps-vm-inc))
-        (setf stress sig
-              ;; plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e plastic-strain)
-              p-mod pmod
-              yield-func f)
-        (setf ps-vm-inc inc)
-        (setf strain eps-e)
-        (setf ps-vm (+ ps-vm-1 ps-vm-inc))
-        )
+      (progn 
+        ;; (if (equal dep de)
+        ;;     (setf dep (cl-mpm/utils::deep-copy de))
+        ;;     (cl-mpm/utils::copy-into de dep))
+        (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm stress strain de e nu rho)
+          (declare (double-float f inc pmod ps-vm-1 ps-vm-inc))
+          (setf stress sig
+                ;; plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e plastic-strain)
+                p-mod pmod
+                yield-func f)
+          (setf ps-vm-inc inc)
+          (setf strain eps-e)
+          (setf ps-vm (+ ps-vm-1 ps-vm-inc))
+          ))
       )
     (when (> soft 0d0)
       (with-accessors ((rho-r mp-rho-r)
@@ -216,11 +220,10 @@
       mp
     ;;Train elastic strain - plus trail kirchoff stress
     (cl-mpm/constitutive::linear-elastic-mat strain de stress)
-    ;; (if (equal dep de)
-    ;;   (setf dep (cl-mpm/utils::deep-copy de))
-    ;;   (cl-mpm/utils::copy-into de dep))
+    (if (equal dep de)
+      (setf dep (cl-mpm/utils::deep-copy de))
+      (cl-mpm/utils::copy-into de dep))
     (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
-    (setf dep (cl-mpm/utils::deep-copy de))
     (if enable-plasticity
         (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm-tangent
                                                      stress
@@ -236,47 +239,6 @@
           (setf ps-vm-inc inc)
           (setf strain eps-e)
           (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
-        ;; (let ((teps (cl-mpm/utils::voigt-copy strain)))
-        ;;   ;; (pprint (diff-tangent
-        ;;   ;;          (lambda (eps)
-        ;;   ;;              (multiple-value-bind (sig eps f inc pmod dep-con)
-        ;;   ;;                  (cl-mpm/constitutive::plastic-vm-tangent (voigt-copy stress) de
-        ;;   ;;                                                           (voigt-copy strain) rho e nu)
-        ;;   ;;                sig))
-        ;;   ;;          strain
-        ;;   ;;          stress
-        ;;   ;;          ))
-        ;;   (multiple-value-bind (sig eps-e f inc pmod dep-con) (cl-mpm/constitutive::plastic-vm-tangent stress de strain rho e nu)
-        ;;     (setf stress sig
-        ;;           plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
-        ;;           p-mod pmod
-        ;;           yield-func f
-        ;;           dep dep-con)
-        ;;     (setf ps-vm-inc inc)
-        ;;     (setf strain eps-e)
-        ;;     (setf ps-vm (+ ps-vm-1 ps-vm-inc))
-        ;;     ;; (setf dep
-        ;;     ;;       (diff-tangent
-        ;;     ;;        (lambda (eps)
-        ;;     ;;          (let* (;(eps (cl-mpm/constitutive::swizzle-coombs->voigt eps))
-        ;;     ;;                 ;; (eps (cl-mpm/constitutive::swizzle-voigt->coombs eps))
-        ;;     ;;                 )
-        ;;     ;;            (let ((sig (magicl:@ de eps)))
-        ;;     ;;              (multiple-value-bind (sig eps f inc pmod dep-con)
-        ;;     ;;                  (cl-mpm/constitutive::plastic-vm-tangent
-        ;;     ;;                   sig
-        ;;     ;;                   de
-        ;;     ;;                   eps rho e nu)
-        ;;     ;;                ;; (cl-mpm/constitutive::swizzle-voigt->coombs sig)
-        ;;     ;;                ;; (cl-mpm/constitutive::swizzle-coombs->voigt sig)
-        ;;     ;;                sig
-        ;;     ;;                ;; sig
-        ;;     ;;                ))))
-        ;;     ;;        teps
-        ;;     ;;        ;; eps-e
-        ;;     ;;        ))
-        ;;     ;; (setf stress (cl-mpm/constitutive::linear-elastic-mat eps-e dep stress))
-        ;;     ))
       (progn
         ;; (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
         ))

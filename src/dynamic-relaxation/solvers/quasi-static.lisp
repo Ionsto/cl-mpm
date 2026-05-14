@@ -287,14 +287,14 @@
         (setf ke 0d0
               ke-prev 0d0)))
     (setf dt 1d0)
-    ;; ;; (cl-mpm/penalty::reset-penalty sim)
+    ;; (cl-mpm/penalty::reset-penalty sim)
     (cl-mpm::reset-nodes-force sim)
     ;; (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
     (cl-mpm::p2g-force-fs sim)
-    ;; (cl-mpm::apply-bcs mesh bcs-force dt)
-    ;; ;; (loop for bcs-f in bcs-force-list
-    ;; ;;       do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
+    (cl-mpm::apply-bcs mesh bcs-force dt)
+    (loop for bcs-f in bcs-force-list
+          do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
 
     ;; ;; (when ghost-factor
     ;; ;;   (cl-mpm/ghost::apply-ghost-cached sim)
@@ -309,7 +309,7 @@
     ;; (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-filtered-cells sim)
     ;; ;; (cl-mpm::update-dynamic-stats sim)
-    ;; ;; (cl-mpm::g2p mesh mps dt damping :TRIAL)
+    (cl-mpm::g2p mesh mps dt damping :TRIAL)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC))
   )
 

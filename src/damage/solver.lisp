@@ -39,6 +39,7 @@
                       (cl-mpm::update-stress mesh mps dt fbar)
                       (cl-mpm/damage::calculate-damage sim dt)
                       (cl-mpm::update-stiffness-mps sim)
+                      ;; (break)
                       ;; ;Map forces onto nodes
                       (cl-mpm::p2g-force sim)
                       (loop for bcs-f in bcs-force-list

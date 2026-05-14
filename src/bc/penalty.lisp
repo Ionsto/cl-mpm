@@ -601,7 +601,7 @@
                       :position (cl-mpm/utils:vector-copy trial-point)
                       :contact-area contact-area
                       :stiffness (*
-                                  2d0
+                                  1d0
                                   epsilon
                                   (+ 1d0 friction)
                                   contact-area)
