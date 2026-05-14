@@ -1175,7 +1175,7 @@
         :tol 1d-15
         :jacobi-precondition jacobi-pre
         ;;Really give it some welly
-        :max-iters 100000
+        :max-iters 10000
         :mask int-bcs
         )))))
 

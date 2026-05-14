@@ -702,6 +702,7 @@
       ;; (pprint sma)
       (cl-mpm/linear-solver::solve-conjugant-gradients
        (lambda (x)
+         ;; (@-mass-matrix-vec x)
          (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
           e
           x
@@ -718,10 +719,11 @@
           work-vec
           bcs-int
           bcs
-          work-vec-agg))
+          work-vec-agg)
+         )
        v
        :tol 1d-10
-       :max-iters 10000
+       :max-iters 1000
        :mask bcs-int
        ))))
 
@@ -808,8 +810,8 @@
 
 (defmethod cl-mpm::update-node-forces ((sim mpm-sim-aggregated))
   (if (sim-enable-aggregate sim)
-      (cl-mpm::update-node-forces-standard sim)
-      (update-node-forces-agg sim (cl-mpm:sim-dt sim))))
+      (update-node-forces-agg sim (cl-mpm:sim-dt sim))
+      (cl-mpm::update-node-forces-standard sim)))
 
 
 (defun update-node-forces-agg (sim dt)
@@ -825,6 +827,7 @@
      (lambda (node)
        (when (and (cl-mpm/mesh:node-active node))
          (cl-mpm::calculate-forces node damping 0d0 mass-scale))))
+
 
     ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     ;;For each aggregated element set solve mass matrix and velocity

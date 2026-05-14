@@ -487,16 +487,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
      mesh
      (lambda (node)
        (calculate-kinematics node)))))
-;; (defun update-node-forces-standard (sim)
-;;   (iterate-over-nodes
-;;    mesh
-;;    (lambda (node)
-;;      (when (cl-mpm/mesh:node-active node)
-;;        (calculate-forces node damping dt mass-scale)))))
 
-(defgeneric update-node-forces (sim)
-  (:documentation "Update the acceleration from forces and apply any damping"))
-(defmethod update-node-forces ((sim cl-mpm::mpm-sim))
+(defun update-node-forces-standard (sim)
   (with-accessors ((damping sim-damping-factor)
                    (mass-scale sim-mass-scale)
                    (mesh sim-mesh)
@@ -508,6 +500,11 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
      (lambda (node)
        (when (cl-mpm/mesh:node-active node)
          (calculate-forces node damping dt mass-scale))))))
+
+(defgeneric update-node-forces (sim)
+  (:documentation "Update the acceleration from forces and apply any damping"))
+(defmethod update-node-forces ((sim cl-mpm::mpm-sim))
+  (update-node-forces-standard sim))
 
 
 
