@@ -1547,7 +1547,8 @@
   (funcall pre-step)
   ;; (save-conv-step sim output-dir 0 0 0d0 0d0)
   (defparameter *total-iter* 0)
-  (save-vtks sim output-dir 0)
+  (when save-vtk-loadstep
+    (save-vtks sim output-dir 0))
   (with-accessors ((mps cl-mpm:sim-mps))
       sim
     (let* ((load (cl-mpm:sim-gravity sim)))
@@ -1590,5 +1591,6 @@
               )
         (let ((dt (/ (- (get-internal-run-time) t0) tunits)))
           dt
-          (save-vtks sim output-dir 1)
+          (when save-vtk-loadstep
+            (save-vtks sim output-dir 1))
           dt)))))
