@@ -42,46 +42,51 @@
 
 (defun solve-richardson (A-operator b
                          &key (tol 1d-9) (max-iters 10000)
-                                        )
+                           (jacobi-precondition nil))
   "Solve problems of the form Ax = b, where the computation of A(x) is supplied as a lambda function, and b is some vector"
   (let ((b-norm (cl-mpm/fastmaths::mag b))
-        (vector-size (magicl:nrows b))
-        )
+        (vector-size (magicl:nrows b)))
     (format t "Start~%")
-    (if (= b-norm 0d0)
-        ;;Trivial case of 0 being the answer
-        (cl-mpm/utils::arb-matrix vector-size 1)
-        ;;Nontrivial case
-        (let* ((x ;; (magicl:rand (list vector-size 1))
-                 (magicl:zeros (list vector-size 1))
-                  )
-               (xn (cl-mpm/utils::deep-copy x))
-               (r (cl-mpm/utils::deep-copy x))
-               (crit tol)
-               (err crit)
-               (eigen-max (* 1d0 (estimate-max-eigenvalue A-operator vector-size))))
-          (setf r (cl-mpm/fastmaths::fast-.-
-                   (funcall a-operator x)
-                   b))
-          (loop for i from 0 to max-iters
-                while (>= err crit)
-                do
-                   (progn
-                     (cl-mpm/fastmaths::fast-.+
-                      x
-                      (cl-mpm/fastmaths::fast-scale!
-                       r
-                       (/ -1d0 eigen-max))
-                      x)
-                     (cl-mpm/utils::copy-into x xn)
-                     (setf r (cl-mpm/fastmaths::fast-.-
-                              (funcall a-operator x)
-                              b))
-                     (setf err (cl-mpm/fastmaths:mag r))
-                     (format t "Iter ~D - ~E~%" i err)))
-          (when (> err crit)
-            (error "Richardson didn't converge"))
-          x))))
+    (labels ((operator (x)
+               (if jacobi-precondition
+                   (fast-./ (funcall A-operator x) jacobi-precondition)
+                   (funcall A-operator x))))
+      (if (= b-norm 0d0)
+          ;;Trivial case of 0 being the answer
+          (cl-mpm/utils::arb-matrix vector-size 1)
+          ;;Nontrivial case
+          (let* ((x ;; (magicl:rand (list vector-size 1))
+                   (magicl:zeros (list vector-size 1))
+                   )
+                 (xn (cl-mpm/utils::deep-copy x))
+                 (r (cl-mpm/utils::deep-copy x))
+                 (crit tol)
+                 (err crit)
+                 (eigen-max (* 1d0 (estimate-max-eigenvalue #'operator vector-size))))
+            (setf r (cl-mpm/fastmaths::fast-.-
+                     ;; (funcall a-operator x)
+                     (operator x)
+                     b))
+            (loop for i from 0 to max-iters
+                  while (>= err crit)
+                  do
+                     (progn
+                       (cl-mpm/fastmaths::fast-.+
+                        x
+                        (cl-mpm/fastmaths::fast-scale!
+                         r
+                         (/ -1d0 eigen-max))
+                        x)
+                       (cl-mpm/utils::copy-into x xn)
+                       (setf r (cl-mpm/fastmaths::fast-.-
+                                (operator x)
+                                b))
+                       (setf err (cl-mpm/fastmaths:mag r))
+                       (when (= (mod i 1000) 0)
+                         (format t "Iter ~D - ~E~%" i err))))
+            (when (> err crit)
+              (error "Richardson didn't converge"))
+            x)))))
 
 
 
@@ -151,7 +156,8 @@
                  (ap (cl-mpm/utils::arb-matrix vector-size 1))
                  (rs-old (cl-mpm/fastmaths::mag-squared r))
                  (crit tol)
-                 (rs-new crit))
+                 (rs-new crit)
+                 )
             (loop for i from 0 to max-iters
                   while (>= rs-new crit)
                   do
@@ -168,7 +174,7 @@
                          ;; (setf r (mask-op (fast-.- b (operation x))))
                          ;; (mask-inplace x)
                          ;; (mask-inplace r)
-                         (setf rs-new (cl-mpm/fastmaths::mag-squared r))
+                         (setf rs-new (/ (cl-mpm/fastmaths::mag-squared r) b-norm))
                          (unless (< rs-new crit)
                            (setf p
                                  (fast-.+
@@ -197,6 +203,9 @@
     (pprint (solve-conjugant-gradients-squared (lambda (v) (magicl:@ A v)) B
                                                :jacobi-precondition (cl-mpm/utils::vector-from-list (list 0.001d0 1d0 100d0)))
             )
+    (pprint (solve-preconditioned-conjugant-gradients-squared (lambda (v) (magicl:@ A v)) B
+                                               :jacobi-precondition (cl-mpm/utils::vector-from-list (list 2d0 2d0 2d0)))
+            )
     )
   )
 
@@ -208,10 +217,8 @@
                                                  (mask nil))
   (declare (function a-operator))
   (let ()
-    ;; (when jacobi-precondition
-    ;;   (setf pre (make-preconditioner A)))
   (labels ((mask-op (x)
-             (if nil;mask
+             (if mask
                  (cl-mpm/fastmaths:fast-.* x mask)
                  x))
            (mask-inplace (x)
@@ -259,6 +266,9 @@
                  (beta 0d0))
             ;; (mask-inplace r)
             ;; (mask-inplace r-tilde)
+
+            (when (= (cl-mpm/fastmaths:dot r-tilde r) 0d0)
+              (error "Conjugate gradients squared inital guess is orthoganal, rho=0"))
             (loop for i from 0 to max-iters
                   while (>= residual crit)
                   do
@@ -288,7 +298,7 @@
                          ;;Apply preconditioning to q
                          (preconditioner-into (fast-.+ u q) u-hat)
                          (fast-.+ x (fast-scale u-hat alpha) x)
-                         (mask-inplace x)
+                         ;; (mask-inplace x)
                          (fast-.- r (fast-scale (operation u-hat) alpha) r)
                          ;; (mask-inplace r)
                          (setf residual (/ (cl-mpm/fastmaths::mag-squared r) b-norm))
@@ -304,6 +314,9 @@
                                                                         (max-iters 10000)
                                                                         (jacobi-precondition nil)
                                                                         (mask nil))
+  ;; This is the improved preconditioned CGs from Formulation of a Preconditioned Algorithm
+  ;; for the Conjugate Gradient Squared Method in Accordance with Its Logical Structure
+  ;; Shoji Itoh1, Masaaki Sugihara (2015)
   (declare (function a-operator))
   (let ()
     ;; (when jacobi-precondition
@@ -356,6 +369,7 @@
                  (residual crit)
                  (beta 0d0))
             (preconditioner-inplace r-tilde)
+            ;; (preconditioner-inplace r)
             (loop for i from 0 to max-iters
                   while (>= residual crit)
                   do
@@ -363,14 +377,13 @@
                        (setf rs-new (cl-mpm/fastmaths:dot r-tilde (preconditioner-op r)))
                        (when (= rs-new 0d0)
                          (error "Conjugate gradients squared didn't converge, rho=0"))
-                       (unless (= i 0)
-                         (setf beta (/ rs-new rs-old))
-                         (fast-.+ (preconditioner-op r) (fast-scale q beta) u)
-                         (fast-.+ u (fast-scale
-                                     (fast-.+
-                                      q
-                                      (fast-scale p beta))
-                                     beta) p))
+                       (setf beta (/ rs-new rs-old))
+                       (fast-.+ (preconditioner-op r) (fast-scale q beta) u)
+                       (fast-.+ u (fast-scale
+                                   (fast-.+
+                                    q
+                                    (fast-scale p beta))
+                                   beta) p)
 
                        ;; (mask-inplace r)
                        ;; (mask-inplace u)
