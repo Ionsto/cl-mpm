@@ -1046,26 +1046,39 @@
          (K (sim-global-k sim))
          ;; (pre (cl-mpm/linear-solver::make-lumped-preconditioner K))
          (et (cl-mpm/aggregate::sim-global-sparse-et sim))
+         (e (cl-mpm/aggregate::sim-global-sparse-e sim))
          (nd (cl-mpm/mesh::mesh-nd (cl-mpm:sim-mesh sim))))
-    (let* ((nodes (cl-mpm/implicit::sim-nodes-fd sim))
-           (pre (cl-mpm/utils::arb-matrix (* nd (length nodes)) 1)))
-      (cl-mpm::iterate-over-nodes-array
-       nodes
-       (lambda (n)
-         (dotimes (d nd)
-           (let* ((fdi (+ d (* nd (cl-mpm/mesh::node-stiffness-fd n))))
-                  (fdci (+ d (* nd (cl-mpm/mesh::node-stiffness-fd n)))))
-             (setf
-              (varef pre fdci)
-              (cl-mpm/utils::sparse-matrix-aref
-                  K
-                  fdi
-                  fdi))))))
-      (if enable-agg
-          (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
-           et
-           pre)
-          pre))
+    ;; (let* ((nodes (cl-mpm/implicit::sim-nodes-fd sim))
+    ;;        (pre (cl-mpm/utils::arb-matrix (* nd (length nodes)) 1)))
+    ;;   (cl-mpm::iterate-over-nodes-array
+    ;;    nodes
+    ;;    (lambda (n)
+    ;;      (dotimes (d nd)
+    ;;        (let* ((fdi (+ d (* nd (cl-mpm/mesh::node-stiffness-fd n))))
+    ;;               (fdci (+ d (* nd (cl-mpm/mesh::node-stiffness-fd n)))))
+    ;;          (setf
+    ;;           (varef pre fdci)
+    ;;           (cl-mpm/utils::sparse-matrix-aref
+    ;;               K
+    ;;               fdi
+    ;;               fdi))))))
+    ;;   (if enable-agg
+    ;;       (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
+    ;;        et
+    ;;        pre)
+    ;;       pre))
+
+    (let ((diag
+            (cl-mpm/utils::diagonal
+             (cl-mpm/fastmaths::fast-@-arb-arb
+              (cl-mpm/fastmaths::fast-@-arb-arb
+               (cl-mpm/utils::sparse-to-mat et)
+               (cl-mpm/utils::sparse-to-mat K)
+               :multithreaded t
+               )
+              (cl-mpm/utils::sparse-to-mat e)
+              :multithreaded t))))
+      diag)
     ;; (if enable-agg
     ;;     ;; (let ((diag
     ;;     ;;         (cl-mpm/utils::diagonal
@@ -1119,7 +1132,7 @@
       ;; (break)
       (extend-vec
        sim
-       (cl-mpm/linear-solver::solve-conjugant-gradients-squared
+       (cl-mpm/linear-solver::solve-preconditioned-conjugant-gradients-squared
         (lambda (v)
           ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
           ;;  e

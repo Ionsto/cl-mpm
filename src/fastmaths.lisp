@@ -1232,6 +1232,22 @@
                                                      (cl-mpm/utils:mtref b k j))))))))
   (values))
 
+(defun @-arb-arb-multithreaded-lisp (a b result)
+  "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"
+  (declare (magicl:matrix/double-float a b result)
+           (optimize (speed 3) (safety 0) (debug 0)))
+  (let ((rows (magicl::nrows a))
+        (cols (magicl::ncols b))
+        (inter (magicl::ncols a)))
+    (cl-mpm/utils::bpdotimes (i rows)
+      (loop for j fixnum from 0 below cols
+            do (loop for k fixnum from 0 below inter
+                     do (incf
+                         (cl-mpm/utils::mtref result i j)
+                         (the double-float (* (cl-mpm/utils:mtref a i k)
+                                              (cl-mpm/utils:mtref b k j))))))))
+  (values))
+
 (defun @-arbT-arb-lisp (a b result)
   "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"
   (declare (magicl:matrix/double-float a b result)
@@ -1257,13 +1273,15 @@
     (@-arbt-arb-lisp a b res)
     res))
 
-(defun fast-@-arb-arb (a b &optional res)
+(defun fast-@-arb-arb (a b &key  (res nil) (multithreaded nil))
   (let ((res (if res
                  (fast-zero res)
                  (cl-mpm/utils::arb-matrix
                   (magicl::nrows a)
                   (magicl::ncols b)))))
-    (@-arb-arb-lisp a b res)
+    (if multithreaded
+        (@-arb-arb-multithreaded-lisp a b res)
+        (@-arb-arb-lisp a b res))
     res))
 
 (defun %lambert-w-0 (w z)
