@@ -118,7 +118,7 @@
                                ;; (* 2d0
                                ;;    mp-factor
                                ;;    svp)
-                               (* 0.5d0
+                               (* 0.25d0
                                   mp-factor
                                   ;; (the (double-float) (/ 1d0 (expt h 0)))
                                   ;; (/ 1d0 (cl-mpm/mesh::node-svp-sum node))

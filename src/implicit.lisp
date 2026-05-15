@@ -1252,25 +1252,26 @@
              )
            )
 
-      (let ((kdense
-              (cl-mpm/fastmaths::fast-@-arb-arb
-               (cl-mpm/fastmaths::fast-@-arb-arb
-                (cl-mpm/linear-solver::reduce-with-bcs
-                 (cl-mpm/utils::sparse-to-mat et)
-                 int-bcs
-                 bcs
-                 )
-                (cl-mpm/linear-solver::reduce-with-bcs
-                 (cl-mpm/utils::sparse-to-mat K)
-                 bcs
-                 bcs)
-                :multithreaded t)
-               (cl-mpm/linear-solver::reduce-with-bcs
-                (cl-mpm/utils::sparse-to-mat e)
-                bcs
-                int-bcs
-                )
-               :multithreaded t)))
+      (let (;; (kdense
+            ;;   (cl-mpm/fastmaths::fast-@-arb-arb
+            ;;    (cl-mpm/fastmaths::fast-@-arb-arb
+            ;;     (cl-mpm/linear-solver::reduce-with-bcs
+            ;;      (cl-mpm/utils::sparse-to-mat et)
+            ;;      int-bcs
+            ;;      bcs
+            ;;      )
+            ;;     (cl-mpm/linear-solver::reduce-with-bcs
+            ;;      (cl-mpm/utils::sparse-to-mat K)
+            ;;      bcs
+            ;;      bcs)
+            ;;     :multithreaded t)
+            ;;    (cl-mpm/linear-solver::reduce-with-bcs
+            ;;     (cl-mpm/utils::sparse-to-mat e)
+            ;;     bcs
+            ;;     int-bcs
+            ;;     )
+            ;;    :multithreaded t))
+            )
         ;;   (setf jacobi-pre (expand-vec-with-bcs (cl-mpm/utils::diagonal kdense) int-bcs :replacement-value 1d0))
         ;;   (format t "Condition number ~E~%" (condition-number kdense))
 
@@ -1283,59 +1284,59 @@
         ;;                                                            (magicl:@
         ;;                                                             mat
         ;;                                                             kdense)))))
-        ;; (extend-vec
-        ;;  sim
-        ;;  (cl-mpm/linear-solver::solve-preconditioned-conjugant-gradients-squared
-        ;;   (lambda (v)
-        ;;     ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
-        ;;     ;;  e
-        ;;     ;;  v
-        ;;     ;;  bcs
-        ;;     ;;  int-bcs
-        ;;     ;;  work-vec)
-        ;;     ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
-        ;;     ;;  K
-        ;;     ;;  work-vec
-        ;;     ;;  bcs
-        ;;     ;;  bcs
-        ;;     ;;  work-vec-2)
-        ;;     ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
-        ;;     ;;  et
-        ;;     ;;  work-vec-2
-        ;;     ;;  int-bcs
-        ;;     ;;  bcs
-        ;;     ;;  work-vec-agg)
-        ;;     ;; work-vec-agg
-        ;;     (expand-vec-with-bcs
-        ;;      (magicl:@ kdense
-        ;;                (cl-mpm/linear-solver::reduce-vector-with-bcs
-        ;;                 v int-bcs))
-        ;;      int-bcs)
-        ;;     )
-        ;;   ;; (cl-mpm/linear-solver::reduce-vector-with-bcs fa int-bcs)
-        ;;   fa
-        ;;   :tol (sim-linear-solve-tol sim)
-        ;;   :jacobi-precondition jacobi-pre
-        ;;   ;;Really give it some welly
-        ;;   :max-iters 1000
-        ;;   ;; :mask int-bcs
-        ;;   ))
         (extend-vec
          sim
-         (expand-vec-with-bcs 
-          (cl-mpm/linear-solver::solve-preconditioned-conjugant-gradients-squared
-           (lambda (v)
-             (magicl:@ kdense v)
-             )
-           (cl-mpm/linear-solver::reduce-vector-with-bcs fa int-bcs)
-           :tol (sim-linear-solve-tol sim)
-           :jacobi-precondition (cl-mpm/linear-solver::reduce-vector-with-bcs jacobi-pre int-bcs)
-           ;;Really give it some welly
-           :max-iters 1000
-           ;; :mask int-bcs
-           )
-          int-bcs
+         (cl-mpm/linear-solver::solve-preconditioned-conjugant-gradients-squared
+          (lambda (v)
+            (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+             e
+             v
+             bcs
+             int-bcs
+             work-vec)
+            (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
+             K
+             work-vec
+             bcs
+             bcs
+             work-vec-2)
+            (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+             et
+             work-vec-2
+             int-bcs
+             bcs
+             work-vec-agg)
+            work-vec-agg
+            ;; (expand-vec-with-bcs
+            ;;  (magicl:@ kdense
+            ;;            (cl-mpm/linear-solver::reduce-vector-with-bcs
+            ;;             v int-bcs))
+            ;;  int-bcs)
+            )
+          ;; (cl-mpm/linear-solver::reduce-vector-with-bcs fa int-bcs)
+          fa
+          :tol (sim-linear-solve-tol sim)
+          :jacobi-precondition jacobi-pre
+          ;;Really give it some welly
+          :max-iters 1000
+          ;; :mask int-bcs
           ))
+        ;; (extend-vec
+        ;;  sim
+        ;;  (expand-vec-with-bcs 
+        ;;   (cl-mpm/linear-solver::solve-preconditioned-conjugant-gradients-squared
+        ;;    (lambda (v)
+        ;;      (magicl:@ kdense v)
+        ;;      )
+        ;;    (cl-mpm/linear-solver::reduce-vector-with-bcs fa int-bcs)
+        ;;    :tol (sim-linear-solve-tol sim)
+        ;;    :jacobi-precondition (cl-mpm/linear-solver::reduce-vector-with-bcs jacobi-pre int-bcs)
+        ;;    ;;Really give it some welly
+        ;;    :max-iters 1000
+        ;;    ;; :mask int-bcs
+        ;;    )
+        ;;   int-bcs
+        ;;   ))
         )
       )))
 

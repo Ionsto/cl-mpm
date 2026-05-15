@@ -542,7 +542,9 @@
                  (q (cl-mpm/utils::empty-copy r))
                  ;; (q-hat (cl-mpm/utils::empty-copy r))
                  (ap (cl-mpm/utils::arb-matrix vector-size 1))
-                 (crit tol)
+                 (crit (* tol b-norm))
+                 ;;30 for col 60 for VM?
+                 (crit-rs (/ 1d-60 (* b-norm b-norm)))
                  (rs-new crit)
                  (rs-old (cl-mpm/fastmaths:dot r-tilde r))
                  (residual crit)
@@ -550,11 +552,15 @@
                  (iters 0)
                  (running t))
 
+            (format t "~%B-norm ~E~%" b-norm)
+
             (preconditioner-inplace r-tilde)
             (setf rs-new (cl-mpm/fastmaths:dot r-tilde (preconditioner-op r)))
+            (when (< (abs rs-new) crit-rs)
+              (format t "CG initial guess solved?~%"))
             (loop for i from 0 to max-iters
                   while (and (>= residual crit)
-                             (> (abs rs-new) 1d-30)
+                             (> (abs rs-new) crit-rs)
                              running)
                   do
                      (progn
@@ -577,33 +583,35 @@
                        (setf ap (preconditioner-op (operation p)))
                        ;; (mask-inplace ap)
                        (let ((rap (dot r-tilde ap)))
-                         (if (< (abs rap) 1d-30)
-                             (setf running nil)
+                         (if (< (abs rap) crit-rs)
+                             (progn
+                               (setf running nil)
+                               (format t "CG AP orthoganal~%"))
                              (let ((alpha
-                                   (/
-                                    rs-new
-                                    rap
-                                    )))
-                             (fast-.- u (fast-scale ap alpha) q)
-                             ;; (mask-inplace q)
-                             ;;Apply preconditioning to q
-                             (fast-.+ u q u-hat)
-                             ;; (mask-inplace u-hat)
+                                     (/
+                                      rs-new
+                                      rap
+                                      )))
+                               (fast-.- u (fast-scale ap alpha) q)
+                               ;; (mask-inplace q)
+                               ;;Apply preconditioning to q
+                               (fast-.+ u q u-hat)
+                               ;; (mask-inplace u-hat)
 
-                             (fast-.+ x (fast-scale u-hat alpha) x)
-                             (mask-inplace x)
-                             (fast-.- r (fast-scale (operation u-hat) alpha) r)
-                             ;; (mask-inplace r)
+                               (fast-.+ x (fast-scale u-hat alpha) x)
+                               (mask-inplace x)
+                               (fast-.- r (fast-scale (operation u-hat) alpha) r)
+                               ;; (mask-inplace r)
 
-                             (setf residual (/ (cl-mpm/fastmaths::mag r) b-norm))
+                               (setf residual (cl-mpm/fastmaths::mag r))
 
-                             (when (= (mod (1+ i) (round (* max-iters 0.01d0))) 0)
-                               (format t "Iter ~D ~E ~E ~E~%" i rs-old rs-new residual))
+                               (when (= (mod (1+ i) (round (* max-iters 0.01d0))) 0)
+                                 (format t "Iter ~D ~E ~E ~E~%" i rs-old rs-new (/ residual b-norm)))
 
-                             (setf rs-new (cl-mpm/fastmaths:dot r-tilde (preconditioner-op r)))
-                             (setf beta (/ rs-new rs-old))
-                             (incf iters)
-                             (setf rs-old rs-new)))))
+                               (setf rs-new (cl-mpm/fastmaths:dot r-tilde (preconditioner-op r)))
+                               (setf beta (/ rs-new rs-old))
+                               (incf iters)
+                               (setf rs-old rs-new)))))
                   ;; finally ;; (when (> residual crit)
                   ;;      ;; ;; (format t "Conjugate gradients didn't converge ~E" residual)
                   ;;      ;; )
