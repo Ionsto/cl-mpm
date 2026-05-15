@@ -1086,8 +1086,8 @@
             (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
              et
              ;;(cl-mpm/utils::sparse-row-abs-sum K)
-             ;; (cl-mpm/utils::sparse-row-abs-sum K)
-             pre
+             (cl-mpm/utils::sparse-row-abs-sum K)
+             ;; pre
              )))
           ;; (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
           ;;  et
@@ -1209,7 +1209,7 @@
                 bcs)))
       (let ((vs (cl-mpm/linear-solver::solve-conjugant-gradients-squared
                  #'system-operation v
-                 :tol 1d-9
+                 :tol 1d-12
                  :max-iters 10000
                  :jacobi-precondition jacobi
                  :mask bcs)))
@@ -1330,7 +1330,7 @@
           )
         ;; (cl-mpm/linear-solver::reduce-vector-with-bcs fa int-bcs)
         fa
-        :tol 1d-9
+        :tol 1d-12
         :jacobi-precondition jacobi-pre
         ;;Really give it some welly
         :max-iters 100000
