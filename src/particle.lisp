@@ -623,12 +623,19 @@
                    (def mp-deformation-gradient)
                    (eps mp-strain))
       particle
+    ;; (multiple-value-bind (l v) (cl-mpm/utils::eig  (cl-mpm/utils::voight-to-matrix eps))
+    ;;   (let ((lmax (reduce #'min l)))
+    ;;     (the double-float (expt (the double-float (exp (- lmax))) 1))))
     ;; (multiple-value-bind (s1 s2 s3) (cl-mpm/fastmaths::eigenvalues-3x3 eps)
     ;;   (declare (double-float s1 s2 s3))
     ;;   (let ((lmax (min s1 s2 s3)))
-    ;;     (the double-float (expt (the double-float (exp (- lmax))) 2))))
+    ;;     (format t "~E ~E ~E~%" s1 s2 s3)
+    ;;     (the double-float (expt (the double-float (exp (- lmax))) 1))))
     (let ((lmax (cl-mpm/fastmaths::min-eigenvalue-3x3 eps)))
-      (the double-float (expt (the double-float (exp (- lmax))) 1)))))
+      ;; (format t "~E ~%" lmax)
+      (the double-float (expt (the double-float (exp (- lmax))) 1)))
+    ;; (the double-float (expt (the double-float (exp (- (varef eps 0)))) 1))
+    ))
 
 
 (defgeneric constitutive-model (mp elastic-trial-strain dt)
@@ -640,8 +647,7 @@
   "Strain intergrated elsewhere, just using elastic tensor"
   (with-slots ((de elastic-matrix)
                (stress stress)
-               (stress-kirchoff stress-kirchoff)
-               )
+               (stress-kirchoff stress-kirchoff))
       mp
     (cl-mpm/constitutive::linear-elastic-mat strain de stress-kirchoff)))
 

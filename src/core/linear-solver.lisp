@@ -597,7 +597,7 @@
 
                              (setf residual (/ (cl-mpm/fastmaths::mag r) b-norm))
 
-                             (when (= (mod (1+ i) (round (* max-iters 0.1d0))) 0)
+                             (when (= (mod (1+ i) (round (* max-iters 0.01d0))) 0)
                                (format t "Iter ~D ~E ~E ~E~%" i rs-old rs-new residual))
 
                              (setf rs-new (cl-mpm/fastmaths:dot r-tilde (preconditioner-op r)))

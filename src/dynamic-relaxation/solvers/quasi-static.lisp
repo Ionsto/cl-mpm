@@ -95,15 +95,15 @@
                 (mp-pmod (cl-mpm/particle::estimate-stiffness mp))
                 (ul (estimate-ul-enhancement mp nd))
                 (mp-factor (* mp-pmod mp-volume ul mass-scale
-                              (/ 1d0  (* h h)))))
+                              (/ 1d0 (* h h)))))
            (declare (type double-float mp-factor mp-pmod ul mp-volume))
-           (cl-mpm::iterate-over-neighbours-cached
+           (cl-mpm::iterate-over-neighbours
             mesh mp
             (lambda (node svp grads fsvp fgrads)
               (declare
                (cl-mpm/particle:particle mp)
                (cl-mpm/mesh::node node)
-               (ignore grads fsvp fgrads)
+               ;; (ignore grads fsvp fgrads)
                (double-float svp))
               (declare (type double-float mp-pmod mp-volume ul))
               (with-slots ((node-active cl-mpm/mesh::active)
@@ -118,7 +118,7 @@
                                ;; (* 2d0
                                ;;    mp-factor
                                ;;    svp)
-                               (* 0.25d0
+                               (* 0.5d0
                                   mp-factor
                                   ;; (the (double-float) (/ 1d0 (expt h 0)))
                                   ;; (/ 1d0 (cl-mpm/mesh::node-svp-sum node))
@@ -399,6 +399,7 @@
       sim
     (declare (fixnum solve-count damping-update-count)
              (double-float dt damping damping-scale))
+    (cl-mpm::apply-essential-bcs sim)
     (cl-mpm:iterate-over-nodes
      mesh
      (lambda (node)
@@ -479,6 +480,7 @@
            (when (or (not agg)
                      internal)
              (cl-mpm::integrate-vel-midpoint vel acc mass mass-scale dt damping))))))
+         (cl-mpm::apply-essential-bcs sim)
     ;; (cl-mpm::apply-essential-bcs sim)
     ))
 (defmethod cl-mpm::update-node-forces ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
@@ -657,7 +659,7 @@
     (setf dt 1d0)
     ;; (cl-mpm/penalty::reset-penalty sim)
     (cl-mpm::reset-nodes-force sim)
-    ;; (cl-mpm::apply-essential-bcs sim)
+    (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
     (cl-mpm::p2g-force-fs sim)
     ;; (cl-mpm::apply-bcs mesh bcs-force dt)

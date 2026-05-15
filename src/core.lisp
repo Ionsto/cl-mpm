@@ -1146,11 +1146,13 @@ This modifies the dt of the simulation in the process
 
 (declaim (inline UL-push-cached)
          (ftype (function (double-float double-float double-float
-                                        magicl::matrix/double-float)
+                                        magicl::matrix/double-float
+                                        fixnum
+                                        )
                           double-float
                           )
                 UL-push-cached))
-(defun UL-push-cached (dx dy dz df-inv)
+(defun UL-push-cached (dx dy dz df-inv nd)
   (declare (double-float dx dy dz))
   (let ((x
           (the double-float
@@ -1176,7 +1178,10 @@ This modifies the dt of the simulation in the process
                         (the double-float (* dy (cl-mpm/utils::mtref-3x3 df-inv 1 2)))
                         (the double-float (* dz (cl-mpm/utils::mtref-3x3 df-inv 2 2)))))
                 2))))
-    (max x y z))
+    (ecase nd
+      (1 x)
+      (2 (max x y))
+      (3 (max x y z))))
   ;; (multiple-value-bind (l v) (cl-mpm/utils:eig df-inv)
   ;;   (reduce #'max (mapcar (lambda (x) (expt x 2)) l)))
   )

@@ -871,7 +871,8 @@
   (/ E (* 2 (+ 1d0 nu))))
 (declaim (ftype (function (double-float double-float) double-float) calculate-p-wave-modulus))
 (defun calculate-p-wave-modulus (E nu)
-  (/ (* (- 1d0 nu) E) (* (+ 1d0 nu) (- 1d0 (* 2d0 nu)))))
+  (/ (* (- 1d0 nu) E)
+     (* (+ 1d0 nu) (- 1d0 (* 2d0 nu)))))
 
 
 (defstruct object-pool
