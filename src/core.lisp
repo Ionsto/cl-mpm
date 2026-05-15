@@ -659,12 +659,12 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
 
 
 (declaim (ftype (function (cl-mpm/mesh::mesh
-                           (array cl-mpm/particle:particle)
+                           (vector cl-mpm/particle:particle *)
                            double-float
                            &optional boolean) (values)) update-stress))
 (defun update-stress (mesh mps dt &optional (fbar nil))
   "Update all stresses, with optional f-bar"
-  (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
+  (declare ((vector cl-mpm/particle:particle *) mps) (cl-mpm/mesh::mesh mesh))
   ;; (iterate-over-mps
   ;;  mps
   ;;  (lambda (mp)
@@ -1111,7 +1111,7 @@ This modifies the dt of the simulation in the process
 
 (defmethod new-loadstep ((sim mpm-sim))
   (update-particles sim)
-  (cl-mpm:iterate-over-mps
+  (cl-mpm::iterate-over-mps
    (cl-mpm:sim-mps sim)
    (lambda (mp)
      (cl-mpm/particle::new-loadstep-mp mp)))
@@ -1198,8 +1198,7 @@ This modifies the dt of the simulation in the process
           (z
             (+ (* dx (mtref df-inv 0 2))
                (* dy (mtref df-inv 1 2))
-               (* dz (mtref df-inv 2 2))))
-          )
+               (* dz (mtref df-inv 2 2)))))
       (cl-mpm/utils::make-gradients x y z))))
 
 (defun update-stiffness-mps (sim)

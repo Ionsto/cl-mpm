@@ -443,7 +443,7 @@
       p
     ;;(cl-mpm/utils:matrix-copy-into position position-trial)
     (setf position-trial (cl-mpm/utils:vector-copy position))
-    (setf gravity-axis (cl-mpm/utils::deep-copy gravity-axis))
+    (setf gravity-axis (cl-mpm/utils::vector-copy gravity-axis))
     (unless domain-true
       (setf domain-true (cl-mpm/utils::matrix-eye 1d0))
       ;; (dotimes (i 3)

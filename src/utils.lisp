@@ -423,6 +423,12 @@
     (loop for i from 0 below nrows
           do (setf (varef res i) (mtref mat i i)))
     res))
+(defun diagonal-to-arb (diag)
+  (let* ((nrows (magicl:nrows diag))
+         (mat (cl-mpm/utils::arb-matrix nrows nrows)))
+    (loop for i from 0 below nrows
+          do (setf (mtref mat i i) (varef diag i)))
+    diag))
 
 
 (declaim (inline matrix-to-voight)
@@ -1088,6 +1094,19 @@
                    (vector-push-extend x r)
                    (vector-push-extend y c))))
     (build-sparse-matrix v r c (magicl:nrows mat) (magicl:ncols mat))))
+
+(defun test-sparse-to-mat ()
+  (let* ((v #(1d0 2d0 3d0 4d0 5d0))
+         (r #(1 2 3 3 5))
+         (c #(1 2 3 4 5))
+         (sm (build-sparse-matrix v r c 6 6))
+        )
+    (pprint sm)
+    (pprint (sparse-to-mat sm))
+    )
+  )
+
+
 (defun sparse-to-mat (mat)
   (let ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
         (cols (cl-mpm/utils::sparse-matrix-cols mat))
@@ -1100,6 +1119,20 @@
           (setf (mtref res r (aref cols c))
                 (the double-float
                      (aref values c))))))
+    res))
+
+(defun sparse-row-abs-sum (mat)
+  (let ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
+        (cols (cl-mpm/utils::sparse-matrix-cols mat))
+        (values (cl-mpm/utils::sparse-matrix-values mat))
+        (res (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows mat) 1)))
+    (dotimes (r (cl-mpm/utils::sparse-matrix-nrows mat))
+      (let ((col-0 (aref rowindex r))
+            (col-1 (aref rowindex (1+ r))))
+        (loop for c from col-0 below col-1 do
+          (incf (varef res r)
+                (the double-float
+                     (abs (aref values c)))))))
     res))
 
 (defun sparse-to-coordinates (mat)
@@ -1139,6 +1172,23 @@
                    (< (nth 2 i)
                       (nth 2 j))))))
       )))
+
+(defun print-sparse-mat-as-coords (mat)
+  ;; (with-open-file (stream (merge-pathnames "tang.txt") :direction :output :if-exists :supersede))
+  (let ((coords
+          (cl-mpm/utils::sparse-to-coordinates
+           mat
+           )))
+    (destructuring-bind (r c v) (first coords)
+      (format t "~a ~a ~a~%" r c v))
+    (loop for vals in coords
+          do (format t "~a ~a ~a~%" 
+                     (nth 1 vals)
+                     (nth 2 vals)
+                     (nth 0 vals)
+                     )))
+  )
+
 
 (defun build-sparse-matrix-ccs (values rows cols nrows ncols)
   "Take a triplet of vectors of (value row col) and make a sparse matrix in compressed row storage"
@@ -1214,6 +1264,7 @@
 (defparameter *workers-chunk-count* 0)
 (defparameter *workers-array-length* 0)
 (defparameter *workers-nesting* nil)
+(defparameter *workers-nest-depth* 0)
 (defparameter *workers-pool-age* 0)
 (defparameter *worker-index* nil)
 (declaim (fixnum *workers-chunk* *workers-chunk-count* *workers-array-length* *workers-pool-age*))
@@ -1320,7 +1371,7 @@
 
 (defmacro bpdotimes ((i length) &body func)
   ;; `(lparallel:pdotimes (,i ,length)
-  ;;    ,@func
+  ;;   ,@func
   ;;    )
   (let ((job-sym (gensym)))
     `(progn

@@ -246,23 +246,22 @@
   (let* ((f-out (if f-out f-out (cl-mpm/utils:vector-zeros))))
     (declare (type double-float volume))
     (let ((dx (cl-mpm/utils::gradients-dx grads))
-          (dy (cl-mpm/utils::gradients-dy grads))
-          ;; (dz (cl-mpm/utils::gradients-dz grads))
-          )
+          (dy (cl-mpm/utils::gradients-dy grads)))
       (declare (double-float dx dy))
       (let ((f-storage (cl-mpm/utils:fast-storage f-out))
             (stress-storage (cl-mpm/utils:fast-storage stress)))
+        (declare (type (simple-array double-float (3)) f-storage)
+                 (type (simple-array double-float (6)) stress-storage)
+                 )
         (incf (aref f-storage 0)
               (* -1d0 volume
                  (+
                   (* dx (aref stress-storage 0))
-                  ;; (* dz (aref stress-storage 4))
                   (* dy (aref stress-storage 5)))))
         (incf (aref f-storage 1)
               (* -1d0 volume
                  (+
                   (* dy (aref stress-storage 1))
-                  ;; (* dz (aref stress-storage 3))
                   (* dx (aref stress-storage 5)))))))
     f-out))
 
@@ -290,28 +289,28 @@
            )
       (declare (type (simple-array double-float (3)) f-s b-s g-s))
       ;;Manually unrolled
-      ;; #+:sb-simd
-      ;; (progn
-      ;;   (setf
-      ;;    (sb-simd-avx:f64.2-aref f-s 0)
-      ;;    (sb-simd-avx:f64.2+
-      ;;     (sb-simd-avx:f64.2-aref f-s 0)
-      ;;     (sb-simd-avx:f64.2*
-      ;;      (sb-simd-avx:f64.2+
-      ;;       (sb-simd-avx:f64.2*
-      ;;        (sb-simd-avx:f64.2-aref g-s 0)
-      ;;        (* mass gravity))
-      ;;       (sb-simd-avx:f64.2*
-      ;;        (sb-simd-avx:f64.2-aref b-s 0)
-      ;;        volume))
-      ;;      svp)))
-      ;;   (incf (aref f-s 2)
-      ;;         (*
-      ;;          (+
-      ;;           (* mass gravity (aref g-s 2))
-      ;;           (* volume (aref b-s 2)))
-      ;;          svp)))
-      ;; #-:sb-simd
+      #+:sb-simd
+      (progn
+        (setf
+         (sb-simd-avx:f64.2-aref f-s 0)
+         (sb-simd-avx:f64.2+
+          (sb-simd-avx:f64.2-aref f-s 0)
+          (sb-simd-avx:f64.2*
+           (sb-simd-avx:f64.2+
+            (sb-simd-avx:f64.2*
+             (sb-simd-avx:f64.2-aref g-s 0)
+             (* mass gravity))
+            (sb-simd-avx:f64.2*
+             (sb-simd-avx:f64.2-aref b-s 0)
+             volume))
+           svp)))
+        (incf (aref f-s 2)
+              (*
+               (+
+                (* mass gravity (aref g-s 2))
+                (* volume (aref b-s 2)))
+               svp)))
+      #-:sb-simd
       (progn
         (dotimes (i 3)
           (incf (aref f-s i)

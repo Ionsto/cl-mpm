@@ -507,7 +507,7 @@
   (make-instance 'node
                  :index (mapcar (lambda (x) (coerce x 'fixnum)) index)
                  :position pos
-                 ))
+                 :lock (sb-thread:make-mutex)))
 
 (defun make-node (index pos h)
   "Default initialise a 2d node at pos"
@@ -1085,29 +1085,29 @@
     (cl-mpm/fastmaths::fast-zero-vector ghost-force)
     (cl-mpm/fastmaths::fast-zero-vector buoyancy-force)))
 
-(defun reset-nodes-force (mesh)
-  (with-accessors ((forces mesh-forces)
-                   (int-forces mesh-internal-forces)
-                   (ext-forces mesh-external-forces)
-                   (damping-forces mesh-damping-forces)
-                   (ghost-forces mesh-ghost-forces)
-                   (buoyancy-forces mesh-buoyancy-forces))
-      mesh
-    (declare ((simple-array magicl::matrix/double-float *)
-              forces
-              int-forces
-              ext-forces
-              damping-forces
-              ghost-forces
-              buoyancy-forces))
-    (cl-mpm/utils::bpdotimes
-     (i (length forces))
-     (cl-mpm/fastmaths::fast-zero-vector (aref forces i))
-     (cl-mpm/fastmaths::fast-zero-vector (aref int-forces i))
-     (cl-mpm/fastmaths::fast-zero-vector (aref ext-forces i))
-     (cl-mpm/fastmaths::fast-zero-vector (aref damping-forces i))
-     (cl-mpm/fastmaths::fast-zero-vector (aref buoyancy-forces i))
-     (cl-mpm/fastmaths::fast-zero-vector (aref ghost-forces i)))))
+;; (defun reset-nodes-force (mesh)
+;;   (with-accessors ((forces mesh-forces)
+;;                    (int-forces mesh-internal-forces)
+;;                    (ext-forces mesh-external-forces)
+;;                    (damping-forces mesh-damping-forces)
+;;                    (ghost-forces mesh-ghost-forces)
+;;                    (buoyancy-forces mesh-buoyancy-forces))
+;;       mesh
+;;     (declare ((simple-array magicl::matrix/double-float *)
+;;               forces
+;;               int-forces
+;;               ext-forces
+;;               damping-forces
+;;               ghost-forces
+;;               buoyancy-forces))
+;;     (cl-mpm/utils::bpdotimes
+;;      (i (length forces))
+;;      (cl-mpm/fastmaths::fast-zero-vector (aref forces i))
+;;      (cl-mpm/fastmaths::fast-zero-vector (aref int-forces i))
+;;      (cl-mpm/fastmaths::fast-zero-vector (aref ext-forces i))
+;;      (cl-mpm/fastmaths::fast-zero-vector (aref damping-forces i))
+;;      (cl-mpm/fastmaths::fast-zero-vector (aref buoyancy-forces i))
+;;      (cl-mpm/fastmaths::fast-zero-vector (aref ghost-forces i)))))
 
 
 (defun reset-node-force (node)

@@ -39,6 +39,7 @@
   ;; #+:sb-simd (require 'sb-simd)
   )
 #+:sb-simd (format t "~%Built with sb-simd~%")
+#-:sb-simd (format t "~%Built without sb-simd~%")
 
 #+:sb-simd
 (progn
@@ -266,7 +267,6 @@
 #+:sb-simd
 (progn
   (defun simd-any* (a b target)
-                                        ;(declare (optimize (speed 0) (debug 0) (safety 3)))
     (declare ((simple-array double-float (*)) a b target))
     (let ((offset 0))
       (declare (type sb-simd:f64vec a b target)
@@ -1741,7 +1741,7 @@
 
 (defun fast-@-sparse-mat-dense-vec-masked (mat vec bcs-r bcs-c &optional res)
   (let ((res (if res
-                 res
+                 (cl-mpm/fastmaths::fast-zero res)
                  (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows mat) 1))))
     (declare (magicl:matrix/double-float vec res)
              (cl-mpm/utils::sparse-matrix mat))
@@ -1847,7 +1847,7 @@
 
 (defun lumped@-sparse-mat-dense-vec-masked (mat vec bcs-r bcs-c &optional res)
   (let ((res (if res
-                 res
+                 (fast-zero res)
                  (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows mat) 1))))
     (declare (magicl:matrix/double-float vec res)
              (cl-mpm/utils::sparse-matrix mat))
@@ -1884,5 +1884,31 @@
           (loop for r from 0 below (length res-s)
                 do (when (= (varef bcs-r r) 0d0)
                      (setf (aref res-s r) 1d0))))
-          )))
-    res)
+        ))
+    res))
+
+;; (defun fast-@-sparse-mat-sparse-matT (mat matT &optional res)
+;;   (let ((res (if res
+;;                  (cl-mpm/fastmaths::fast-zero res)
+;;                  (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows mat) 1))))
+;;     (declare (magicl:matrix/double-float vec res)
+;;              (cl-mpm/utils::sparse-matrix mat))
+;;     (assert (= (cl-mpm/utils::sparse-matrix-nrows mat) (magicl:nrows res)))
+;;     (assert (= (cl-mpm/utils::sparse-matrix-ncols mat) (magicl:nrows vec)))
+
+;;     (labels ((iterate-over-row-A (mat ))))
+;;     (let ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
+;;           (cols (cl-mpm/utils::sparse-matrix-cols mat))
+;;           (values (cl-mpm/utils::sparse-matrix-values mat))
+;;           (res-s (cl-mpm/utils::fast-storage res))
+;;           (vec-s (cl-mpm/utils::fast-storage vec)))
+;;       (dotimes (r (cl-mpm/utils::sparse-matrix-nrows mat))
+;;         (let ((col-0 (aref rowindex r))
+;;               (col-1 (aref rowindex (1+ r))))
+;;           (loop for c from col-0 below col-1 do
+;;             (incf (aref res-s r)
+;;                   (the double-float
+;;                        (*
+;;                         (aref values c)
+;;                         (aref vec-s (aref cols c)))))))))
+;;     res))
