@@ -98,7 +98,7 @@
           density
           ;; 'cl-mpm/particle::particle-elastic
           ;; :E E
-          ;; :nu 0.3d0
+          ;; :nu 0d0
           'cl-mpm/particle::particle-vm-implicit
           :E E
           :nu 0.3d0
@@ -187,7 +187,7 @@
                 (multigrid-refine 0))
   (defparameter *sim* nil)
   (let ((mps-per-dim mps))
-    (setf *sim* (setup-test-column '(32 16) '(8 8) sim-type refine mps-per-dim multigrid-refine))
+    (setf *sim* (setup-test-column '(16 16) '(8 8) sim-type refine mps-per-dim multigrid-refine))
     ;; (setf *sim* (setup-test-column '(16) '(8) sim-type refine mps-per-dim multigrid-refine))
     ;; (setf *sim* (setup-test-column '(8 8) '(8 8) sim-type refine mps-per-dim multigrid-refine))
     ;; (setf *sim* (setup-test-column '(32 32 16) '(8 8 8) sim-type refine mps-per-dim multigrid-refine))
@@ -623,25 +623,29 @@
                 (cl-mpm::sim-ghost-factor *sim*) nil)
           (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
                 (cl-mpm::sim-ghost-factor *sim*) nil))
-      (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-1)
-      (setf (cl-mpm::sim-gravity *sim*) -1d0)
+      (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-9)
+      (setf (cl-mpm::sim-gravity *sim*) -10d0)
       (let ((step (list))
             (res (list))
             (total-step 0)
             (substeps 1)
             (iters 100)
             )
-        (cl-mpm::iterate-over-mps
-         (cl-mpm:sim-mps *sim*)
-         (lambda (mp)
-           (change-class mp 'cl-mpm/particle::particle-vm-implicit)))
+        ;; (cl-mpm::iterate-over-mps
+        ;;  (cl-mpm:sim-mps *sim*)
+        ;;  (lambda (mp)
+        ;;    (change-class mp 'cl-mpm/particle::particle-vm-implicit)))
+        ;; (time-form 100
+        ;;            (progn
+        ;;              (cl-mpm::reset-node-displacement *sim*)
+        ;;              (cl-mpm:update-sim *sim*)))
         (vgplot:close-all-plots)
         (time
          (cl-mpm/dynamic-relaxation::run-load-control
           *sim*
           :output-dir (format nil "./output-dr-~a-~d/" (if agg "agg" "noagg") r)
-          :plotter (lambda (sim) (vgplot:semilogy (reverse step) (reverse res)))
-          ;; :plotter #'plot
+          ;; :plotter (lambda (sim) (vgplot:semilogy (reverse step) (reverse res)))
+          :plotter #'plot
           :load-steps 10
           :damping (sqrt 2d0)
           :substeps substeps;(round (* 20 r))
@@ -1155,4 +1159,6 @@
                                    dt
                                    (compute-max-extent *sim*)
                                    )))))))
+
+
 
