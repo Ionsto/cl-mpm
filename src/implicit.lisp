@@ -1209,7 +1209,7 @@
                 bcs)))
       (let ((vs (cl-mpm/linear-solver::solve-conjugant-gradients-squared
                  #'system-operation v
-                 :tol 1d-15
+                 :tol 1d-9
                  :max-iters 10000
                  :jacobi-precondition jacobi
                  :mask bcs)))
