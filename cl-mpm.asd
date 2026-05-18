@@ -872,3 +872,9 @@
                   ((:file "triaxial")))))))
 
 
+
+
+(defsystem "cl-mpm/examples/octree/two-squares"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/octree/two-squares")))
