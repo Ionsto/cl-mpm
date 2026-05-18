@@ -448,8 +448,11 @@
             (save-parameter-nodes "agg" (if (cl-mpm/mesh::node-agg node) 1 0))
             (save-parameter-nodes "agg-int" (if (cl-mpm/mesh::node-interior node) 1 0))
             (save-parameter-nodes "agg-ext" (if (and (cl-mpm/mesh::node-agg node) (not (cl-mpm/mesh::node-interior node))) 1 0))
-            (save-parameter-nodes "agg-element-x" (if (cl-mpm/mesh::node-agg-interior-cell node) (nth 0 (cl-mpm/mesh::cell-index (cl-mpm/mesh::node-agg-interior-cell node))) -1))
-            (save-parameter-nodes "agg-element-y" (if (cl-mpm/mesh::node-agg-interior-cell node) (nth 1 (cl-mpm/mesh::cell-index (cl-mpm/mesh::node-agg-interior-cell node))) -1))
+            (save-parameter-nodes "agg-element-x" (if (cl-mpm/mesh::node-agg-interior-cell node)
+                                                      (nth 0 (cl-mpm/mesh::cell-index (cl-mpm/mesh::node-agg-interior-cell node))) -1))
+            (save-parameter-nodes "agg-element-y" (if (cl-mpm/mesh::node-agg-interior-cell node)
+                                                      (nth 1 (cl-mpm/mesh::cell-index (cl-mpm/mesh::node-agg-interior-cell node))) -1))
+            ;; (save-parameter-nodes "agg-element-mindex" (if (cl-mpm/mesh::node-agg-interior-cell node) (cl-mpm/dynamic-relaxation::cell-mesh-index (cl-mpm/mesh::node-agg-interior-cell node)) 0))
 
 
             (save-parameter-nodes "mass" (cl-mpm/mesh:node-mass node))

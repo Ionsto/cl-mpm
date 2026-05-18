@@ -158,7 +158,10 @@
     :accessor node-interior
     :type boolean
     :initform nil)
-  (force
+   (agg-building-flag
+    :accessor node-agg-building-flag
+    :initform nil)
+   (force
     :accessor node-force
     :initarg :force
      :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -855,7 +858,7 @@
              )
     (let ((res (make-array 3 :element-type 'fixnum)))
       (loop for v across p-a
-            do (setf (aref res 0) (coerce (funcall round-operator (/ (the double-float (mtref pos 0 0)) (the double-float h))) 'fixnum)))
+            do (setf (aref res 0) (coerce (funcall round-operator (/ (the double-float (varef pos 0)) (the double-float h))) 'fixnum)))
       res)
     ;; (aops:each (lambda (x) (/ (the double-float x) h)) p-a)
     ))
@@ -879,6 +882,28 @@
   ;;                                                 (the double-float (mesh-resolution mesh))))
   ;;                        ) '(0 1 2))
   )
+
+(defun position-to-index-cell (mesh pos &optional (round-operator #'round))
+  (declare (type function round-operator)
+           (type magicl:matrix/double-float pos))
+  "Turn a vector position into a list of indexes with rounding"
+  (let ((mc (the array-fixnum-3 (mesh-count-array mesh))))
+    (list
+     (min (max 0 (- (aref mc 0) 2))
+          (max 0 (coerce (floor (/ (the double-float (varef pos 0)) (the double-float (mesh-resolution mesh)))) 'fixnum)))
+     (min (max 0 (- (aref mc 1) 2))
+          (max 0
+               (coerce (floor (/ (the double-float (varef pos 1)) (the double-float (mesh-resolution mesh)))) 'fixnum)))
+     (min (max 0 (- (aref mc 2) 2))
+          (max 0
+           (coerce (floor (/ (the double-float (varef pos 2)) (the double-float (mesh-resolution mesh)))) 'fixnum)))
+     ))
+  ;; (mapcar (lambda (x) (funcall round-operator (/
+  ;;                                                 (the double-float (mtref pos x 0))
+  ;;                                                 (the double-float (mesh-resolution mesh))))
+  ;;                        ) '(0 1 2))
+  )
+
 (declaim (inline position-to-index-round))
 (defun position-to-index-round (mesh pos)
   (declare (type magicl:matrix/double-float pos))

@@ -216,7 +216,8 @@
                (vel-algo cl-mpm::velocity-algorithm))
       sim
     (setf (cl-mpm/dynamic-relaxation::sim-solve-count sim) 0)
-    (cl-mpm::apply-bcs mesh bcs dt)
+    ;; (cl-mpm::apply-bcs mesh bcs dt)
+    (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::reset-grid mesh :reset-displacement t)
     (cl-mpm::reset-node-displacement sim)
     (cl-mpm::p2g mesh mps vel-algo)
@@ -302,7 +303,6 @@
 
     (when (= (mod solve-count mass-update-iter) 0)
       (update-node-fictious-mass sim))
-    (incf solve-count)
     ;;Update our nodes after force mapping
     (update-node-forces-quasi-static sim)
     (cl-mpm::update-nodes sim)
@@ -310,6 +310,7 @@
     (cl-mpm::update-filtered-cells sim)
     ;; ;; (cl-mpm::update-dynamic-stats sim)
     (cl-mpm::g2p mesh mps dt damping :TRIAL)
+    (incf solve-count)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC))
   )
 
@@ -359,30 +360,32 @@
       (pre-step sim))
     (cl-mpm/penalty::reset-penalty sim)
     (setf dt 1d0)
-    (cl-mpm::update-nodes sim)
-    (cl-mpm::update-filtered-cells sim)
     (cl-mpm::reset-nodes-force sim)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
     (cl-mpm/damage::calculate-damage sim dt-loadstep)
     (cl-mpm::p2g-force-fs sim)
-    (cl-mpm::apply-bcs mesh bcs-force dt)
 
+    (cl-mpm::apply-bcs mesh bcs-force dt)
     (loop for bcs-f in bcs-force-list
           do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
 
-    (incf solve-count)
     (when ghost-factor
       (cl-mpm/ghost::apply-ghost-cached sim)
-      (cl-mpm::apply-bcs mesh bcs dt))
+      (cl-mpm::apply-essential-bcs sim)
+      )
 
     (when (= (mod solve-count mass-update-iter) 0)
       (update-node-fictious-mass sim))
 
     ;; ;;Update our nodes after force mapping
     (update-node-forces-quasi-static sim)
-    (cl-mpm::apply-bcs mesh bcs dt)
+    (cl-mpm::apply-essential-bcs sim)
+    (cl-mpm::update-nodes sim)
+    (cl-mpm::update-filtered-cells sim)
     ;; (cl-mpm::update-dynamic-stats sim)
     ;; (cl-mpm::g2p mesh mps dt damping :TRIAL)
+    (cl-mpm::g2p mesh mps dt damping :TRIAL)
+    (incf solve-count)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
     ))
 (defun update-node-forces-quasi-static (sim)
@@ -525,9 +528,9 @@
           (cl-mpm::filter-grid mesh mass-filter))
         (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm::calculate-min-dt sim)))
         (cl-mpm::filter-cells sim)
-        (cl-mpm::apply-bcs mesh bcs dt)
+        (cl-mpm::apply-essential-bcs sim)
         (cl-mpm::update-node-kinematics sim)
-        (cl-mpm::apply-bcs mesh bcs dt)
+        (cl-mpm::apply-essential-bcs sim)
         ;;trial update displacements
         (cl-mpm::update-nodes sim)
         (cl-mpm::update-cells sim)
@@ -544,7 +547,7 @@
         (cl-mpm::update-node-forces sim)
         (cl-mpm::reset-node-displacement sim)
         (cl-mpm::update-nodes sim)
-        (cl-mpm::apply-bcs mesh bcs dt)
+        (cl-mpm::apply-essential-bcs sim)
         ;; (cl-mpm::update-dynamic-stats sim)
         ;; Also updates mps inline
         (cl-mpm::g2p mesh mps dt damping vel-algo)

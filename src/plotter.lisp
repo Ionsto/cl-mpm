@@ -17,6 +17,7 @@
 
 (defun simple-plot-3d (sim &key (plot :point) (colour-func (lambda (mp) 0d0))
                              (trial nil)
+                             (fill nil)
                              )
   (declare (function colour-func))
   "A simple GIMP plot that display only the position and size of the MPs in a sim"
@@ -47,21 +48,25 @@
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (ms-x (first ms))
          (ms-y (second ms))
-         (ms-z (third ms))
-         )
+         (ms-z (third ms)))
+    (if fill
+        (vgplot:format-plot t "set style fill solid")
+        (vgplot:format-plot t "set style fill empty"))
     (vgplot:format-plot t "set xrange [~f:~f]" 0d0 ms-x)
     (vgplot:format-plot t "set yrange [~f:~f]" 0d0 ms-z)
     (vgplot:format-plot t "set zrange [~f:~f]" 0d0 ms-y)
     (vgplot:format-plot t "set ticslevel 0")
     (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
-    (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))
-      (vgplot:format-plot t "set ytics ~f" h)
-      (vgplot:format-plot t "set xtics ~f" h)
-      (vgplot:format-plot t "set ztics ~f" h)
-      )
+  (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))
+    (vgplot:format-plot t "set ytics ~f" h)
+    (vgplot:format-plot t "set xtics ~f" h)
+    (vgplot:format-plot t "set ztics ~f" h)
+    )
   (vgplot:replot))
 
-(defun simple-plot (sim &key (plot :point) (colour-func (lambda (mp) 0d0)) (trial nil))
+(defun simple-plot (sim &key (plot :point) (colour-func (lambda (mp) 0d0)) (trial nil)
+                          (fill nil)
+                          )
   (declare (function colour-func))
   "A simple GIMP plot that display only the position and size of the MPs in a sim"
   (vgplot:format-plot t "set palette defined (0 'blue', 2 'red')")
@@ -89,6 +94,9 @@
          (ms-x (first ms))
          (ms-y (second ms))
          )
+    (if fill
+        (vgplot:format-plot t "set style fill solid")
+        (vgplot:format-plot t "set style fill empty"))
     (vgplot:format-plot t "set xrange [~f:~f]" 0d0 ms-x)
     (vgplot:format-plot t "set yrange [~f:~f]" 0d0 ms-y)
 

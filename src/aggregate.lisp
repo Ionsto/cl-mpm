@@ -127,76 +127,75 @@
     :initform nil
     :accessor sim-internal-v)))
 
-(defun iterate-over-cell-patch-2d (sim node ring-size func)
+(defun iterate-over-cell-patch-2d (mesh position ring-size func)
   (declare (function func))
-  (with-accessors ((mesh cl-mpm::sim-mesh))
-      sim
-    (with-accessors ((index cl-mpm/mesh::node-index))
-        node
-      (destructuring-bind (ix iy iz) index
-        (declare (fixnum ix iy)
-                 (ignore iz))
-        (loop for dx from (- (+ ring-size 1)) to ring-size
-              do
-                 (when (cl-mpm/mesh::in-bounds-cell-1d mesh (+ ix dx) 0)
-                   (loop for dy from (- (+ ring-size 1)) to ring-size
-                         do
-                            (when (cl-mpm/mesh::in-bounds-cell-1d mesh (+ iy dy) 1)
-                              (let ((cell-index (mapcar #'+ index (list dx dy 0))))
-                                ;; (when (cl-mpm/mesh::in-bounds-cell mesh cell-index))
-                                (funcall func (cl-mpm/mesh::get-cell mesh cell-index)))))))))))
 
-(defun iterate-over-cell-patch-3d (sim node ring-size func)
+  (let ((index (cl-mpm/mesh::position-to-index mesh position)))
+    (destructuring-bind (ix iy iz) index
+      (declare (fixnum ix iy)
+               (ignore iz))
+      (loop for dx from (- (+ ring-size 1)) to ring-size
+            do
+               (when (cl-mpm/mesh::in-bounds-cell-1d mesh (+ ix dx) 0)
+                 (loop for dy from (- (+ ring-size 1)) to ring-size
+                       do
+                          (when (cl-mpm/mesh::in-bounds-cell-1d mesh (+ iy dy) 1)
+                            (let ((cell-index (mapcar #'+ index (list dx dy 0))))
+                              ;; (when (cl-mpm/mesh::in-bounds-cell mesh cell-index))
+                              (funcall func (cl-mpm/mesh::get-cell mesh cell-index))))))))))
+
+(defun iterate-over-cell-patch-3d (mesh position ring-size func)
   (declare (function func))
-  (with-accessors ((mesh cl-mpm::sim-mesh))
-      sim
-    (with-accessors ((index cl-mpm/mesh::node-index))
-        node
-      (destructuring-bind (ix iy iz) index
-        (loop for dx from (- ring-size 1) to ring-size
-              do
-                 (when (cl-mpm/mesh::in-bounds-cell-1d mesh (+ ix dx) 0)
-                   (loop for dy from (- ring-size 1) to ring-size
-                         do
-                            (when (cl-mpm/mesh::in-bounds-cell-1d mesh (+ iy dy) 1)
-                              (loop for dz from (- ring-size 1) to ring-size
-                                    do
-                                       (when (cl-mpm/mesh::in-bounds-cell-1d mesh (+ iz dz) 2)
-                                         (let ((cell-index (mapcar #'+ index (list dx dy dz))))
-                                           ;; (when (cl-mpm/mesh::in-bounds-cell mesh cell-index))
-                                           (funcall func (cl-mpm/mesh::get-cell mesh cell-index)))))))))))))
+  (let ((index (cl-mpm/mesh::position-to-index mesh position)))
+    (destructuring-bind (ix iy iz) index
+      (loop for dx from (- ring-size 1) to ring-size
+            do
+               (when (cl-mpm/mesh::in-bounds-cell-1d mesh (+ ix dx) 0)
+                 (loop for dy from (- ring-size 1) to ring-size
+                       do
+                          (when (cl-mpm/mesh::in-bounds-cell-1d mesh (+ iy dy) 1)
+                            (loop for dz from (- ring-size 1) to ring-size
+                                  do
+                                     (when (cl-mpm/mesh::in-bounds-cell-1d mesh (+ iz dz) 2)
+                                       (let ((cell-index (mapcar #'+ index (list dx dy dz))))
+                                         ;; (when (cl-mpm/mesh::in-bounds-cell mesh cell-index))
+                                         (funcall func (cl-mpm/mesh::get-cell mesh cell-index))))))))))))
 
-(defun iterate-over-cell-patch (sim node ring-size func)
+(defun iterate-over-cell-patch (mesh position ring-size func)
   (declare (function func))
-  (if (= (cl-mpm/mesh::mesh-nd (cl-mpm:sim-mesh sim)) 2)
-      (iterate-over-cell-patch-2d sim node ring-size func)
-      (iterate-over-cell-patch-3d sim node ring-size func)))
+  (if (= (cl-mpm/mesh::mesh-nd mesh) 2)
+      (iterate-over-cell-patch-2d mesh position ring-size func)
+      (iterate-over-cell-patch-3d mesh position ring-size func)))
 
-(defun get-closest-cell (sim node)
+(defun get-closest-cell (mesh position
+                         &key (exclude nil)
+                           (filter (lambda (c) (declare (ignore c)) t)))
   (let* ((closest-elem nil)
          (dist 0d0)
          (volume-ratio-min 0.25d0)
-         (mesh (cl-mpm:sim-mesh sim))
          (volume-t (expt (cl-mpm/mesh::mesh-resolution mesh) (cl-mpm/mesh:mesh-nd mesh)))
-         (pos (cl-mpm/mesh::node-position node)))
+         (pos position))
     (flet ((check-cell (cell)
              (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
                               (index cl-mpm/mesh::cell-index)
                               (centroid cl-mpm/mesh::cell-centroid)
                               (active cl-mpm/mesh::cell-active)
                               (volume cl-mpm/mesh::cell-volume)
-                              (agg cl-mpm/mesh::cell-agg))
+                              (agg cl-mpm/mesh::cell-agg)
+                              )
                  cell
                (when (and
                       (cl-mpm/mesh::cell-active cell)
                       (not (cl-mpm/mesh::cell-partial cell))
-                      (not (cl-mpm/mesh::cell-agg cell)))
+                      (not (cl-mpm/mesh::cell-agg cell))
+                      (not (eq cell exclude))
+                      (funcall filter cell)
+                      )
                  (let ((dist-tr (cl-mpm/fastmaths::diff-norm
                                  pos
                                  centroid)))
                    (when (or
                           (not closest-elem)
-                          ;; (> volume (* volume-ratio-min volume-t))
                           (> dist dist-tr))
                      (setf dist dist-tr
                            closest-elem cell)))))))
@@ -206,15 +205,15 @@
       ;;  1
       ;;  #'check-cell)
       (unless closest-elem
-        (iterate-over-cell-patch
-         sim
-         node
-         2
-         #'check-cell)
+        ;; (iterate-over-cell-patch
+        ;;  mesh
+        ;;  position 
+        ;;  2
+        ;;  #'check-cell)
         (unless closest-elem
           (let ((mutex (sb-thread:make-mutex)))
             (cl-mpm::iterate-over-cells
-             (cl-mpm:sim-mesh sim)
+             mesh
              (lambda (cell)
                (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
                                 (index cl-mpm/mesh::cell-index)
@@ -226,8 +225,9 @@
                  (when (and
                         (cl-mpm/mesh::cell-active cell)
                         (not (cl-mpm/mesh::cell-partial cell))
-                        ;; (> volume (* volume-ratio-min volume-t))
-                        (not (cl-mpm/mesh::cell-agg cell)))
+                        (not (cl-mpm/mesh::cell-agg cell))
+                        (not (eq cell exclude))
+                        (funcall filter cell))
                    (let ((dist-tr (cl-mpm/fastmaths::diff-norm
                                    pos
                                    centroid)))
@@ -350,7 +350,7 @@
                         (agg cl-mpm/mesh::node-agg))
            node
          (when (and active agg)
-           (let ((closest-elem (get-closest-cell sim node)))
+           (let ((closest-elem (get-closest-cell mesh (cl-mpm/mesh::node-position node))))
              (if closest-elem
                  (progn
                    (setf (cl-mpm/mesh::node-agg-interior-cell node) closest-elem)
@@ -569,7 +569,9 @@
                     (cl-mpm/mesh::node-agg-interior-cell node)
                     (cl-mpm/mesh::node-position node)
                     (lambda (cn weight grads)
-                      (when (and (cl-mpm/mesh::node-active cn) (> (abs weight) 1d-9))
+                      (when (and (cl-mpm/mesh::node-active cn)
+                                 (cl-mpm/mesh::node-agg-fdc cn)
+                                 (> (abs weight) 1d-9))
                         (let ((place (sb-ext:atomic-incf (aref counter 0))))
                           (setf (aref v place) weight)
                           (setf (aref r place) (cl-mpm/mesh::node-agg-fd node))

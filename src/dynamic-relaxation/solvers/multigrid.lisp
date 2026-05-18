@@ -238,7 +238,10 @@
 (defclass node-octree (cl-mpm/mesh::node)
   ((mesh-index
     :initform 0
-    :accessor node-mesh-index)))
+    :accessor node-mesh-index)
+   (transition-zone
+    :initform nil
+    :accessor node-transition-zone)))
 
 (defclass mesh-octree (cl-mpm/mesh::mesh)
   ())
@@ -270,13 +273,13 @@
 (defmethod cl-mpm::apply-essential-bcs ((sim mpm-sim-octree))
   (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
                    (bcs-list cl-mpm::sim-bcs-list)
+                   (refinement cl-mpm::sim-multigrid-refinement)
                    (dt cl-mpm::sim-dt))
       sim
-    (loop for i from 0 below (length bcs-list)
+    (loop for mesh-index from 0 to refinement
           do
-             (let ((mesh (aref mesh-list i))
-                   (bcs (aref bcs-list i)))
-               ;; (declare ((vector cl-mpm/bc::bc *) bcs))
+             (let ((mesh (aref mesh-list mesh-index))
+                   (bcs (aref bcs-list mesh-index)))
                (with-accessors ((nodes  mesh-nodes)
                                 (nD     mesh-nD))
                    mesh
@@ -291,6 +294,7 @@
                                 (not index))
                             (cl-mpm/bc:apply-bc bc node mesh dt)
                             (progn
+                              (break)
                               (setf node (cl-mpm/mesh:get-node mesh index))
                               (if node
                                   (cl-mpm/bc:apply-bc bc node mesh dt)
@@ -305,6 +309,7 @@
                                      front
                                      back)
   (with-accessors ((bcs-list cl-mpm::sim-bcs-list )
+                   (refinement cl-mpm::sim-multigrid-refinement)
                    (mesh-list cl-mpm::sim-mesh-list))
       sim
 
@@ -314,30 +319,31 @@
             do
                (progn
                  (set-mesh sim i)
-                 (setf (aref (cl-mpm::sim-bcs-list sim) i)
+                 (setf (aref bcs-list i)
                        (cl-mpm/bc::make-outside-bc-varfix
                         mesh
                         left right top bottom front back))
                  ;;Avoid triggering the setf bcs active rebuild
                  (setf
                   (cl-mpm::sim-bcs sim)
-                  (cl-mpm/bc::make-outside-bc-varfix
-                   mesh
-                   left right top bottom front back))
-                 (cl-mpm/setup::resolve-bc-nodes sim mesh (aref (cl-mpm::sim-bcs-list sim) i))
+                  (aref bcs-list i)
+                  )
+                 (cl-mpm/setup::resolve-bc-nodes sim mesh (aref bcs-list i))
                  (incf bc-count (length (aref bcs-list i))))))
-    (setf
-     (cl-mpm::sim-bcs sim)
-     (aref bcs-list 0))))
+    ;; (setf
+    ;;  (cl-mpm::sim-bcs sim)
+    ;;  (aref bcs-list 0))
+    ))
 
 
 
 (defmethod cl-mpm/setup::%post-make-simple-sim ((sim mpm-sim-octree) resolution element-count args-list)
   (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
+                   (refinement cl-mpm::sim-multigrid-refinement)
                    (bcs-list cl-mpm::sim-bcs-list))
       sim
     (let* ((size (mapcar (lambda (x) (* x resolution)) element-count)))
-      (let ((mesh-count (+ (cl-mpm::sim-multigrid-refinement sim) 1)))
+      (let ((mesh-count (+ refinement 1)))
         (setf (cl-mpm::sim-mesh-list sim) (make-array mesh-count)
               (cl-mpm::sim-bcs-list sim) (make-array mesh-count))
         (dotimes (refine (+ (cl-mpm::sim-multigrid-refinement sim) 1))
@@ -350,7 +356,7 @@
                            (bcs-list cl-mpm::sim-bcs-list))
               sim
             (let ((nc 0))
-              (dotimes (i (length mesh-list))
+              (dotimes (i (1+ refinement))
                 (let ((mesh (aref mesh-list i)))
                   (incf nc (length (cl-mpm/mesh::mesh-active-nodes mesh)))
                   (cl-mpm::iterate-over-cells
@@ -391,19 +397,44 @@
        (lambda (mp)
          (when (> refinement 0)
            (let ((resolved-mesh 0)
-                 (running t)
-                 (pos (cl-mpm/particle::mp-position mp)))
+                 (running t))
              (let ((mesh (aref mesh-list resolved-mesh)))
-               (let ((cell (cl-mpm/mesh::get-cell
-                            mesh
-                            (mapcar (lambda (x) (max 0 x))
-                                    (cl-mpm/mesh::position-to-index-floor
-                                     mesh
-                                     pos)))))
-                 (when (>= (cell-octree-refine cell) 1)
-                   (incf resolved-mesh)))
-               ;; (set-mesh sim resolved-mesh)
-               (setf mesh (aref mesh-list resolved-mesh))
+               (loop for i from 0 to refinement
+                     do
+                        (let ()
+                          (setf mesh (aref mesh-list resolved-mesh))
+                          (labels ((get-cell-at-pos (pos)
+                                     (let ((p (cl-mpm/utils::vector-copy pos)))
+                                       ;; (cl-mpm/mesh::clamp-point-to-bounds mesh p)
+                                       (cl-mpm/mesh::get-cell
+                                        mesh
+                                        (mapcar (lambda (x) (min (max 0 x)))
+                                                (cl-mpm/mesh::position-to-index-cell
+                                                 mesh
+                                                 p
+                                                 ))))))
+
+                            ;; (if (= 2 (cell-octree-refine (get-cell-at-pos (cl-mpm/particle::mp-position mp))))
+                            ;;     (progn
+                            ;;       (incf resolved-mesh)))
+                            (let ((max-index -1)
+                                  (min-index 3))
+                              (cl-mpm::iterate-over-corners
+                               mesh
+                               mp
+                               (lambda (corner)
+                                 (let ((cell (get-cell-at-pos corner)))
+                                   (setf max-index (max max-index (cell-octree-refine cell)))
+                                   (setf min-index (min min-index (cell-octree-refine cell))))))
+                              (if (and (>= max-index 1)
+                                       (> min-index 0))
+                                  (progn
+                                    (incf resolved-mesh))
+                                  (loop-finish))))))
+
+               ;; (setf resolved-mesh 0)
+               ;; (pprint resolved-mesh)
+
                (cl-mpm/particle::reset-mp-node-cache mp)
                (setf (cl-mpm/particle::mp-index mp) resolved-mesh)
                (setf (cl-mpm/particle::mp-mesh-index mp) resolved-mesh)
@@ -421,22 +452,19 @@
             (make-array (array-total-size (cl-mpm/mesh::mesh-nodes mesh))
                         :displaced-to
                         (cl-mpm/mesh::mesh-nodes mesh))))
+
       (cl-mpm::iterate-over-nodes-array
        mesh-nodes
-       (lambda (node)
-         (setf (cl-mpm/mesh::node-agg-interior-cell node) nil)
-         (setf (cl-mpm/mesh::node-interior node) nil)
-         (setf (cl-mpm/mesh::node-agg node) nil)))
+       (lambda (n)
+         (setf (cl-mpm/mesh::node-agg-building-flag n) nil)))
+      ;; (cl-mpm::iterate-over-cells
+      ;;  mesh
+      ;;  (lambda (c)
+      ;;    (setf (cl-mpm/mesh::cell-agg c) nil
+      ;;          (cl-mpm/mesh::cell-interior c) nil)))
 
-      (cl-mpm::iterate-over-cells
-       mesh
-       (lambda (node)
-         (setf (cl-mpm/mesh::cell-agg node) nil
-               (cl-mpm/mesh::cell-aggregate-element node) nil
-               (cell-reaggregation-element node) nil
-               (cl-mpm/mesh::cell-interior node) nil)))
 
-      ;;First set all outside nodes as aggregate
+      ;;First set all outside cells as aggregate
       (cl-mpm::iterate-over-cells
        mesh
        (lambda (cell)
@@ -448,9 +476,13 @@
              cell
            (when (and active partial)
              (setf agg t)
-             ;;Set all our neighbours to also be aggregate
              (loop for n in neighbours
-                   do (setf (cl-mpm/mesh::cell-agg n) t))))))
+                   do
+                      (when (cl-mpm/mesh::cell-active n)
+                        (if (cl-mpm/mesh::cell-interior n)
+                            (setf (cell-reaggregation-element n) t)
+                            (setf (cl-mpm/mesh::cell-agg n) t))))))))
+
       ;;Next set any nodes on agg elements to be agg
       (cl-mpm::iterate-over-cells
        mesh
@@ -459,40 +491,145 @@
                           (agg cl-mpm/mesh::cell-agg)
                           (active cl-mpm/mesh::cell-active))
              cell
-           ;;Set all aggregated nodes
-           (when (and active agg)
+           (when (and active agg (not (cell-reaggregation-element cell)))
              (loop for n across nodes
                    do (when (cl-mpm/mesh::node-active n)
-                        (setf (cl-mpm/mesh::node-agg n) t)))))))
+                        (setf (cl-mpm/mesh::node-agg n) t
+                              (cl-mpm/mesh::node-agg-building-flag n) t))))
+           )))
+
       ;;For each aggregate node, locate the closest support cell
       (cl-mpm::iterate-over-nodes-array
        mesh-nodes
        (lambda (node)
          (with-accessors ((active cl-mpm/mesh::node-active)
-                          (agg cl-mpm/mesh::node-agg))
+                          (agg cl-mpm/mesh::node-agg)
+                          (int cl-mpm/mesh::node-interior)
+                          (building cl-mpm/mesh::node-agg-building-flag)
+                          (int-cell cl-mpm/mesh::node-agg-interior-cell))
              node
-           (when (and active agg)
-             (let ((closest-elem (cl-mpm/aggregate::get-closest-cell sim node)))
-               (if closest-elem
-                   (progn
-                     (setf (cl-mpm/mesh::node-agg-interior-cell node) closest-elem)
-                     (setf (cl-mpm/mesh::cell-interior closest-elem) t))
-                   (error "No closest elem?"))))))))
+           (when (and active agg ; (not int-cell)
+                      )
+             (if int-cell
+                 (progn
+                   ;;If we've already got aggregation happening, we need to reaggregate
+                   ;; (setf (cell-reaggregation-element int-cell) closest-elem)
+                   ;; (loop for n across (cl-mpm/mesh::cell-nodes int-cell)
+                   ;;       do (setf (cl-mpm/mesh::node-interior n) nil))
+                   ;; (setf (cl-mpm/mesh::cell-interior int-cell) nil)
+                   ;; (setf (cl-mpm/mesh::cell-interior closest-elem) t)
+                   (setf int nil))
+                 (let ((closest-elem (cl-mpm/aggregate::get-closest-cell
+                                      mesh
+                                      (cl-mpm/mesh::node-position node)
+                                      :exclude int-cell
+                                      :filter (lambda (c)
+                                                (not (= (cell-octree-refine c) -1))))))
+                   (if closest-elem
+                       (progn
+                         (setf int-cell closest-elem)
+                         (setf (cl-mpm/mesh::cell-interior closest-elem) t))
+                       (error "No closest elem?")))))))))
   (cl-mpm::iterate-over-cells
    mesh
    (lambda (cell)
      (with-accessors ((nodes cl-mpm/mesh::cell-nodes)
                       (agg cl-mpm/mesh::cell-agg)
                       (int cl-mpm/mesh::cell-interior)
-                      (active cl-mpm/mesh::cell-active))
+                      (active cl-mpm/mesh::cell-active)
+                      (reagg cell-reaggregation-element)
+                      )
          cell
-       ;;Set all aggregated nodes - also set them all to be interior
-       (when (and active int)
+       (when (and active int (not reagg))
          (loop for n across nodes
-               do (when (cl-mpm/mesh::node-active n)
+               do (when (and (cl-mpm/mesh::node-active n)
+                             ;; (cl-mpm/mesh::node-agg-building-flag n)
+                             )
                     (setf (cl-mpm/mesh::node-agg n) t
                           (cl-mpm/mesh::node-agg-interior-cell n) cell
-                          (cl-mpm/mesh::node-interior n) t)))))))))
+                          (cl-mpm/mesh::node-interior n) t))))
+
+       (when reagg
+         (setf int nil)
+         (setf
+          (cell-reaggregation-element cell)
+          (cl-mpm/aggregate::get-closest-cell
+           mesh
+           (cl-mpm/mesh::cell-centroid cell)
+           :exclude cell
+           :filter
+           (lambda (c)
+             (not (= (cell-octree-refine c) -1))))))
+       )))))
+
+(defun inter-mesh-agg (sim mesh-index)
+  (with-accessors ((mesh-list cl-mpm::sim-mesh-list))
+      sim
+    (let ((mesh (aref mesh-list mesh-index))
+            (mesh-below (aref mesh-list (1+ mesh-index))))
+        (cl-mpm::iterate-over-cells
+         mesh
+         (lambda (cell)
+           (with-accessors ((nodes cl-mpm/mesh::cell-nodes)
+                            (active cl-mpm/mesh::cell-active)
+                            (index cl-mpm/mesh::cell-index))
+               cell
+             (when (= (cell-octree-refine cell) 1)
+               (when active
+                 (setf (cl-mpm/mesh::cell-interior cell) t)
+                 (setf (cl-mpm/mesh::cell-agg cell) t))
+
+               (iterate-over-sub-cells
+                sim
+                mesh-index
+                cell
+                (lambda (c)
+                  (setf (cl-mpm/mesh::cell-interior c) nil)
+                  (when (cl-mpm/mesh::cell-agg-int c)
+                    (setf (cell-reaggregation-element c) cell))))
+
+               (let ((sub-node-active nil))
+                 (iterate-over-sub-nodes
+                  sim
+                  mesh-index
+                  cell
+                  (lambda (n)
+                    (when (cl-mpm/mesh::node-active n)
+                      (setf sub-node-active t)
+                      (when t;(not (cl-mpm/mesh::node-agg n))
+                        (setf
+                         (cl-mpm/mesh::node-agg n) t
+                         (cl-mpm/mesh::node-interior n) nil
+                         (cl-mpm/mesh::node-agg-interior-cell n) cell
+                         ))
+                      (cl-mpm::iterate-over-cell-shape-local
+                       mesh
+                       cell
+                       (cl-mpm/mesh::node-position n)
+                       (lambda (n w grads)
+                         (when (not (= w 0d0))
+                           (setf (cl-mpm/mesh::node-active n) t)))))))
+                 (when sub-node-active
+                   (loop for n across nodes
+                         do (progn
+                              (when (cl-mpm/mesh::node-active n)
+                                (setf (cl-mpm/mesh::node-agg n) t
+                                      (cl-mpm/mesh::node-interior n) t)
+                                (unless (cl-mpm/mesh::node-agg-interior-cell n)
+                                  (setf (cl-mpm/mesh::node-agg-interior-cell n) cell)))
+                              ;; (setf (cl-mpm/mesh::node-active n) t)
+                              ))))))))
+
+      ;; (cl-mpm::iterate-over-cells
+      ;;  mesh-below
+      ;;  (lambda (cell)
+      ;;    (when (cl-mpm/mesh::cell-interior cell)
+      ;;      (loop for n across (cl-mpm/mesh::cell-nodes cell)
+      ;;            do (progn
+      ;;                 (setf (cl-mpm/mesh::node-agg n) t
+      ;;                       (cl-mpm/mesh::node-interior n) nil))))))
+      )))
+
 
 (defmethod cl-mpm::update-cells ((sim mpm-sim-octree))
   (with-accessors ((mesh-list cl-mpm::sim-mesh-list))
@@ -564,9 +701,11 @@
 (defun propogate-filter-cells-octree (sim)
   (with-accessors (;; (mesh cl-mpm::sim-mesh)
                    (mesh-list cl-mpm::sim-mesh-list)
+                   (refinement cl-mpm::sim-multigrid-refinement)
                    (agg cl-mpm/aggregate::sim-enable-aggregate))
       sim
-    (loop for i from 0 below (- (length mesh-list) 1)
+    ;;First when we propogate from the top down whether cells know they are fully populated
+    (loop for i from 0 below refinement
           do
              (let ((mesh (aref mesh-list i)))
                (cl-mpm::iterate-over-cells
@@ -575,38 +714,39 @@
                   (with-accessors ((active cl-mpm/mesh::cell-active)
                                    (partial cl-mpm/mesh::cell-partial))
                       cell
-                    (when active
+                    (when (= (cell-octree-refine cell) 2)
+                      (setf (cl-mpm/mesh::cell-active cell) nil))
+                    (when t;active
+                      (iterate-over-sub-cells
+                       sim
+                       i
+                       cell
+                       (lambda (c)
+                         (setf (cl-mpm/mesh::cell-active c)
+                               (or (cl-mpm/mesh::cell-active c)
+                                   active))
+                         (unless partial
+                           (setf (cl-mpm/mesh::cell-partial c) nil))
+                         ))))))))
+    ;;Next we check cells that do not know if they are full by gathering that infomation recursivly
+    (loop for i from 0 below refinement
+          do
+             (let ((mesh (aref mesh-list i)))
+               (cl-mpm::iterate-over-cells
+                mesh
+                (lambda (cell)
+                  (with-accessors ((active cl-mpm/mesh::cell-active)
+                                   (partial cl-mpm/mesh::cell-partial))
+                      cell
+                    (when t;active
                       (let ((trial-partial nil))
                         (iterate-over-sub-cells
                          sim
                          i
                          cell
                          (lambda (c)
-                           (setf (cl-mpm/mesh::cell-active c)
-                                 (or (cl-mpm/mesh::cell-active c)
-                                     active))
-                           ;; (unless partial
-                           ;;   (setf (cl-mpm/mesh::cell-partial c) nil))
-                           )))))))))
-    ;; (loop for i from 0 below (- (length mesh-list) 1)
-    ;;       do
-    ;;          (let ((mesh (aref mesh-list i)))
-    ;;            (cl-mpm::iterate-over-cells
-    ;;             mesh
-    ;;             (lambda (cell)
-    ;;               (with-accessors ((active cl-mpm/mesh::cell-active)
-    ;;                                (partial cl-mpm/mesh::cell-partial))
-    ;;                   cell
-    ;;                 (when active
-    ;;                   (let ((trial-partial nil))
-    ;;                     (iterate-over-sub-cells
-    ;;                      sim
-    ;;                      i
-    ;;                      cell
-    ;;                      (lambda (c)
-    ;;                        (setf trial-partial (and trial-partial (cl-mpm/mesh::cell-partial c)))
-    ;;                        ))
-    ;;                     (setf partial trial-partial))))))))
+                           (setf trial-partial (or trial-partial (cl-mpm/mesh::cell-partial c)))))
+                        (setf partial trial-partial))))))))
     ))
 
 (defmethod cl-mpm::filter-cells ((sim mpm-sim-octree))
@@ -632,96 +772,47 @@
                    (intra-mesh-agg sim-intra-mesh-aggregation)
                    (refinement cl-mpm::sim-multigrid-refinement))
       sim
+    ;;Reset aggregation structures
     (cl-mpm:iterate-over-nodes
      mesh
      (lambda (node)
-       (setf (cl-mpm/mesh::node-agg-interior-cell node) nil)
-       (setf (cl-mpm/mesh::node-interior node) nil)
-       (setf (cl-mpm/mesh::node-agg node) nil)))
+       (setf (cl-mpm/mesh::node-agg-interior-cell node) nil
+             (cl-mpm/mesh::node-interior node) nil
+             (cl-mpm/mesh::node-agg node) nil
+             (node-transition-zone node) nil)))
+    (loop for mesh across mesh-list
+          do (cl-mpm::iterate-over-cells
+              mesh
+              (lambda (node)
+                (setf (cl-mpm/mesh::cell-agg node) nil
+                      (cl-mpm/mesh::cell-aggregate-element node) nil
+                      (cell-reaggregation-element node) nil
+                      (cl-mpm/mesh::cell-interior node) nil))))
 
-    (when intra-mesh-agg
-      (loop for mesh across mesh-list
-            do (intra-mesh-agg sim mesh)))
 
     ;;First set all outside nodes as aggregate
 
     (when (> refinement 0)
       ;;Build the inter-mesh aggregation
-      (let* ((mesh-index 0)
-             (mesh (aref mesh-list mesh-index))
-             (mesh-below (aref mesh-list (1+ mesh-index))))
-        (set-mesh sim mesh-index)
-        (cl-mpm::iterate-over-cells
-         mesh
-         (lambda (cell)
-           (with-accessors ((nodes cl-mpm/mesh::cell-nodes)
-                            (active cl-mpm/mesh::cell-active)
-                            (index cl-mpm/mesh::cell-index))
-               cell
-             (when (= (cell-octree-refine cell) 1)
-               (when active
-                 (setf (cl-mpm/mesh::cell-interior cell) t)
-                 (setf (cl-mpm/mesh::cell-agg cell) t))
-               ;; (loop for n across nodes
-               ;;       do (let ((nb
-               ;;                  (cl-mpm/mesh::get-node
-               ;;                   mesh-below
-               ;;                   (mapcar
-               ;;                    (lambda (x) (* 2 x))
-               ;;                    (cl-mpm/mesh::node-index n)))))
-               ;;            (setf (cl-mpm/mesh::node-agg n) t
-               ;;                  (cl-mpm/mesh::node-interior n) t)
-               ;;            (unless (cl-mpm/mesh::node-agg-interior-cell n)
-               ;;              (setf (cl-mpm/mesh::node-agg-interior-cell n) cell))
-               ;;            (setf (cl-mpm/mesh::node-active n) t)
-               ;;            (when (and (not (cl-mpm/mesh::node-active n))
-               ;;                       (cl-mpm/mesh::node-active nb))
-               ;;              (setf (cl-mpm/mesh::node-active n) t))))
-               (iterate-over-sub-cells
-                sim
-                mesh-index
-                cell
-                (lambda (c)
-                  (when (cl-mpm/mesh::cell-agg-int c)
-                    (setf (cell-reaggregation-element c) cell))))
+      (loop for mesh-index from (- refinement 1) downto 0
+            do
+               (progn
+                 (when intra-mesh-agg
+                   (intra-mesh-agg sim (aref mesh-list (1+ mesh-index))))
+                 (set-mesh sim mesh-index)
+                 (inter-mesh-agg sim mesh-index))))
+    (when intra-mesh-agg
+      (intra-mesh-agg sim (aref mesh-list 0)))
 
-               (let ((sub-node-active nil))
-                 (iterate-over-sub-nodes
-                  sim
-                  mesh-index
-                  cell
-                  (lambda (n)
-                    (when (cl-mpm/mesh::node-active n)
-                      (setf sub-node-active t)
-                      (when (not (cl-mpm/mesh::node-agg n))
-                        (setf
-                         (cl-mpm/mesh::node-agg n) t
-                         (cl-mpm/mesh::node-agg-interior-cell n) cell)))))
-                 (when sub-node-active
-                   (loop for n across nodes
-                         do (let ((nb
-                                    (cl-mpm/mesh::get-node
-                                     mesh-below
-                                     (mapcar
-                                      (lambda (x) (* 2 x))
-                                      (cl-mpm/mesh::node-index n)))))
-                              (setf (cl-mpm/mesh::node-agg n) t
-                                    (cl-mpm/mesh::node-interior n) t)
-                              (unless (cl-mpm/mesh::node-agg-interior-cell n)
-                                (setf (cl-mpm/mesh::node-agg-interior-cell n) cell))
-                              (setf (cl-mpm/mesh::node-active n) t)
-                              ;; (when (and (not (cl-mpm/mesh::node-active n))
-                              ;;            (cl-mpm/mesh::node-active nb))
-                              ;;   (setf (cl-mpm/mesh::node-active n) t))
-                              ))
-                   ))
-
-               )))))
-
+    (when (> refinement 0)
       (labels ((resolve-reaggregation (cell)
                  (let ((current-cell cell))
                    (loop while (cell-reaggregation-element current-cell)
-                         do (setf current-cell (cell-reaggregation-element current-cell)))
+                         do
+                            (progn
+                              (when (eq (cell-reaggregation-element current-cell) cell) nil
+                                    (error "Recursive reaggregation setup? ~A at ~A" cell (cl-mpm/mesh::cell-index cell)))
+                              (setf current-cell (cell-reaggregation-element current-cell))))
                    current-cell)))
         (set-mesh-default sim)
         (cl-mpm::iterate-over-nodes
@@ -729,12 +820,8 @@
          (lambda (n)
            (when (cl-mpm/mesh::node-active n)
              (when (cl-mpm/mesh::node-agg n)
-               (with-accessors ((int-cell cl-mpm/mesh::node-agg-interior-cell)
-                                (interior cl-mpm/mesh::node-interior))
+               (with-accessors ((int-cell cl-mpm/mesh::node-agg-interior-cell))
                    n
-                 (when interior
-                   (when (cell-reaggregation-element int-cell)
-                     (setf interior nil)))
                  (setf int-cell (resolve-reaggregation int-cell)))))))
         ;; (loop for mesh across mesh-list
         ;;       do (progn
@@ -754,8 +841,6 @@
         ))
     (set-mesh-default sim)
     (setf mesh (aref mesh-list 0))
-    (pprint (array-total-size (cl-mpm/mesh::mesh-nodes mesh)))
-    (pprint (array-total-size (cl-mpm/mesh::mesh-active-nodes mesh)))
     ;;For each aggregate node, locate the closest support cell
     (setf
      (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
@@ -779,9 +864,9 @@
       (cl-mpm/utils::bpdotimes (fd (length nodes))
         (let ((n (aref nodes fd)))
              (setf (cl-mpm/mesh::node-agg-fd n) fd))))
-    (format t "FDC list ~D~%" (length (cl-mpm/aggregate::sim-agg-nodes-fd sim)))
+    ;; (format t "FDC list ~D~%" (length (cl-mpm/aggregate::sim-agg-nodes-fd sim)))
 
-    (dotimes (i refinement)
+    (dotimes (i (1+ refinement))
       (let ((mesh (aref mesh-list i)))
         (cl-mpm::iterate-over-nodes-array
          (make-array (array-total-size (cl-mpm/mesh::mesh-nodes mesh))
@@ -804,24 +889,47 @@
 (defun set-mesh-refinement (sim filter)
   (declare (function filter))
   (set-mesh-default sim)
-  (with-accessors ((mesh-list cl-mpm::sim-mesh-list))
-      sim
-      (let* ((mesh-index 0)
-             (mesh (aref mesh-list mesh-index)))
-        (set-mesh sim mesh-index)
-        (cl-mpm::iterate-over-cells
-         mesh
-         (lambda (c)
-           (let ((to-refine (funcall filter mesh c)))
-             (when (and to-refine
-                        (not (= (cell-octree-refine c) 2)))
-               (setf (cell-octree-refine c) 2)
-               (loop for cn in (cl-mpm/mesh::cell-neighbours c)
-                     do (setf (cell-octree-refine cn)
-                           (max
-                            (cell-octree-refine cn)
-                            1)))))))
-        (set-mesh-default sim))))
+  (let ((mesh-updated nil))
+    (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
+                     (refinement cl-mpm::sim-multigrid-refinement))
+        sim
+      (loop for mesh-index from 0 below (- refinement 0)
+            do
+               (let* ((mesh (aref mesh-list mesh-index)))
+                 (set-mesh sim mesh-index)
+                 (cl-mpm::iterate-over-cells
+                  mesh
+                  (lambda (c)
+                    (let ((current-refine (cell-octree-refine c))
+                          (to-refine (funcall filter mesh c)))
+                      (when (and to-refine
+                                 (not (= (cell-octree-refine c) 2)))
+                        (setf (cell-octree-refine c) 2)
+                        (loop for cn in (cl-mpm/mesh::cell-neighbours c)
+                              do (setf (cell-octree-refine cn)
+                                       (max
+                                        (cell-octree-refine cn)
+                                        1))))
+                      (when (not (= current-refine (cell-octree-refine c)))
+                        (setf mesh-updated t)))))
+                 (when (> (cl-mpm::sim-multigrid-refinement sim) 0)
+                   (cl-mpm::iterate-over-cells
+                    mesh
+                    (lambda (cell)
+                      (when (= (cell-octree-refine cell) 2)
+                        (setf (cl-mpm/mesh::cell-active cell) nil))
+                      (iterate-over-sub-cells
+                       sim
+                       mesh-index
+                       cell
+                       (lambda (c)
+                         (ecase (cell-octree-refine cell)
+                           (-1 nil)
+                           (0 (setf (cell-octree-refine c) -1))
+                           (1 (setf (cell-octree-refine c) 0))
+                           (2 (setf (cell-octree-refine c) 0))))))))
+                 (set-mesh-default sim))))
+    mesh-updated))
 
 (defun resolve-h (sim mp)
   (with-accessors ((mesh-list cl-mpm::sim-mesh-list))
@@ -992,3 +1100,4 @@
               ))))))
 
 (in-package :cl-mpm/dynamic-relaxation)
+
