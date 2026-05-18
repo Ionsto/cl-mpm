@@ -146,6 +146,7 @@
           (spacing (mapcar (lambda (s m) (/ (coerce s 'double-float)
                                             (coerce m 'double-float)
                                             )) size mps))
+          (angle (float angle 0d0))
           (offset (mapcar #'+ offset
                           (mapcar (lambda (x) (* x 0.5d0)) spacing)
                           ))
@@ -769,6 +770,12 @@
                         back)
   (:documentation "Implements outside bc setup for different sims"))
 
+
+(defun resolve-bc-nodes (sim mesh bcs)
+  (loop for bc across bcs
+        do (setf (cl-mpm/bc::bc-node bc)
+                 (cl-mpm/mesh::get-node mesh (cl-mpm/bc:bc-index bc)))))
+
 (defmethod %setup-bcs ((sim cl-mpm:mpm-sim)
                        left
                        right
@@ -776,11 +783,18 @@
                        bottom
                        front
                        back)
-  (setf
-   (cl-mpm:sim-bcs sim)
-   (cl-mpm/bc::make-outside-bc-varfix
-    (cl-mpm:sim-mesh sim)
-    left right top bottom front back)))
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (let ((bcs
+            (cl-mpm/bc::make-outside-bc-varfix
+             (cl-mpm:sim-mesh sim)
+             left right top bottom front back)))
+      (loop for bc across bcs
+            do (setf (cl-mpm/bc::bc-node bc)
+                     (cl-mpm/mesh::get-node mesh (cl-mpm/bc:bc-index bc))))
+      (setf
+       (cl-mpm:sim-bcs sim)
+       bcs))))
 
 
 

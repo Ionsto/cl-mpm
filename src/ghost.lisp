@@ -203,7 +203,7 @@
            (cl-mpm/mesh::mesh mesh))
   (with-accessors ((nodes cl-mpm/mesh::cell-nodes))
       cell
-    (loop for node in nodes
+    (loop for node across nodes
           do (funcall func node))))
 (defun iterate-over-face-nodes (mesh midpoint normal func)
   (iterate-over-face-nodes-2d

@@ -203,12 +203,6 @@
               (if (> pind 0d0)
                   (- 1d0 (expt damage-t exponent))
                   (- 1d0 (expt damage-c exponent))))
-        ;; (setf p
-        ;;       (if (> pind 0d0)
-        ;;           (* (- 1d0 (expt damage-t exponent)) p)
-        ;;           (* (- 1d0 (expt damage-c exponent)) p)))
-        ;; (pprint pressure)
-        ;; (break)
         (setf stress
               (cl-mpm/fastmaths:fast-.+
                (cl-mpm/constitutive::voight-eye (* p-degredation p))

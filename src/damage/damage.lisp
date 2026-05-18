@@ -244,6 +244,7 @@
          (when (typep mp 'cl-mpm/particle:particle-damage)
            (damage-model-calculate-y mp dt))))
 
+      (g2p-damage sim)
       (if non-local-damage
           (progn
             (when (sim-enable-length-localisation sim)
@@ -692,7 +693,7 @@ Calls the function with the mesh mp and node"
    (cl-mpm:sim-mesh sim)
    (lambda (n)
      (if (> (cl-mpm/mesh::node-volume n) 0d0);(cl-mpm/mesh::node-active n)
-         (progn 
+         (progn
            (setf (cl-mpm/mesh::node-damage n)
                  (min 1d0
                       (max 0d0 (/ (cl-mpm/mesh::node-damage n)

@@ -42,6 +42,8 @@
    #:voigt-eye
    #:matrix-eye
    #:fast-storage
+   #:nrows
+   #:ncols
    #:varef
    #:mtref
    #:deg-to-rad
@@ -77,6 +79,20 @@
                           (simple-array double-float (*))) fast-storage))
 (defun fast-storage (m)
   (magicl::matrix/double-float-storage m))
+
+
+(declaim (inline nrows)
+         (ftype (function (magicl:matrix/double-float)
+                          fixnum) nrows))
+(defun nrows (m)
+  (magicl::matrix/double-float-nrows m))
+
+
+(declaim (inline ncols)
+         (ftype (function (magicl:matrix/double-float)
+                          fixnum) ncols))
+(defun ncols (m)
+  (magicl::matrix/double-float-ncols m))
 
 (declaim (inline varef)
          (ftype (function (magicl:matrix/double-float fixnum)
@@ -293,6 +309,16 @@
     (loop for i from 0 below (length t-s)
           do (setf (aref t-s i) (aref s-s i))))
    target)
+
+(defun array-copy-into (source target)
+  "Copy a matrix from source into target"
+  (let ((s-s (cl-mpm/utils::fast-storage source))
+        (t-s (cl-mpm/utils::fast-storage target)))
+    (declare ((simple-array double-float (*)) s-s)
+             ((simple-array double-float (*)) t-s))
+    (loop for i from 0 below (length t-s)
+          do (setf (aref t-s i) (aref s-s i))))
+  target)
 
 (defun voigt-contra->covar (vec)
   (let* ((v (voigt-copy vec))
@@ -1062,27 +1088,34 @@
 
 (defun build-sparse-matrix (values rows cols nrows ncols)
   "Take a triplet of vectors of (value row col) and make a sparse matrix in compressed row storage"
-  (multiple-value-bind (v cr cc) (cl-mpm/utils::sort-and-sum values rows cols)
-    (let ((rolling-index 0)
-          (row 0)
-          (rowindex (make-array (1+ nrows) :element-type 'fixnum :initial-element 0)))
-      (loop for i from 0
-            for r across cr
-            do
-               (progn
-                 (unless (= row r)
-                   (loop for j from (1+ row) below r
-                         when (> j 0)
-                           do (setf (aref rowindex j) rolling-index))
-                   (setf (aref rowindex r) rolling-index)
-                   (setf row r))
-                 (incf rolling-index)))
-      (setf (aref rowindex (1+ row)) rolling-index)
-      (make-sparse-matrix :values v
-                          :cols cc
-                          :rowindex rowindex
+  (if (> (length values) 0)
+      (multiple-value-bind (v cr cc) (cl-mpm/utils::sort-and-sum values rows cols)
+        (let ((rolling-index 0)
+              (row 0)
+              (rowindex (make-array (1+ nrows) :element-type 'fixnum :initial-element 0)))
+          (loop for i from 0
+                for r across cr
+                do
+                   (progn
+                     (unless (= row r)
+                       (loop for j from (1+ row) below r
+                             when (> j 0)
+                               do (setf (aref rowindex j) rolling-index))
+                       (setf (aref rowindex r) rolling-index)
+                       (setf row r))
+                     (incf rolling-index)))
+          (setf (aref rowindex (1+ row)) rolling-index)
+          (make-sparse-matrix :values v
+                              :cols cc
+                              :rowindex rowindex
+                              :nrows nrows
+                              :ncols ncols)))
+      (make-sparse-matrix :values values
+                          :cols rows
+                          :rowindex rows
                           :nrows nrows
-                          :ncols ncols))))
+                          :ncols ncols)
+      ))
 (defun mat-to-sparse (mat)
   (let ((v (make-array 0 :adjustable t :fill-pointer 0 :element-type 'double-float))
         (r (make-array 0 :adjustable t :fill-pointer 0 :element-type 'fixnum))
@@ -1388,3 +1421,12 @@
           :parts (get-parts)
           ))))
   )
+
+
+(defun resize-vector (mat size)
+  (when (= (magicl:nrows mat) size)
+    mat
+    (let ((new-mat (make-array size :element-type 'double-float :initial-element 0d0)))
+      (setf (magicl::matrix/double-float-storage mat) new-mat
+            (magicl::matrix/double-float-nrows mat) size)
+      mat)))

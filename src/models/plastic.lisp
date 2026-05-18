@@ -236,6 +236,15 @@
                 ;; plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e plastic-strain)
                 p-mod pmod
                 yield-func f)
+          (let ((p-mod-elastic (* 1d-6 (cl-mpm/particle::compute-p-modulus mp)))
+                (probe-vec (cl-mpm/utils::voigt-zeros)))
+            (setf pmod p-mod-elastic)
+            (loop for d from 0 below 2
+                  do (progn
+                       (setf p-mod
+                             (max p-mod
+                                  (cl-mpm/utils:varef (cl-mpm/fastmaths::fast-@-tensor-voigt dep probe-vec)
+                                                      d))))))
           (setf ps-vm-inc inc)
           (setf strain eps-e)
           (setf ps-vm (+ ps-vm-1 ps-vm-inc)))

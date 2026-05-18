@@ -707,10 +707,10 @@
            (cl-mpm:sim-mesh sim)
            (lambda (node)
              (if (and (cl-mpm/mesh:node-active node)
-                      ;; (or
-                      ;;  (not (cl-mpm/mesh::node-agg node))
-                      ;;  ;; (cl-mpm/mesh::node-interior node)
-                      ;;  )
+                      (or
+                       (not (cl-mpm/mesh::node-agg node))
+                       ;; (cl-mpm/mesh::node-interior node)
+                       )
                       )
                  (with-accessors ((active cl-mpm/mesh::node-active)
                                   (f-ext cl-mpm/mesh::node-external-force)

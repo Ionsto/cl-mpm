@@ -266,11 +266,14 @@
   ((index
     :accessor cell-index
     :initarg :index)
+   (h
+    :accessor cell-h
+    :initarg :h)
    (nodes
     :accessor cell-nodes
     :initarg :nodes
-    :type list
-    :initform '())
+    :type (vector t *)
+    :initform (make-array 0 :adjustable t :fill-pointer 0))
    (agg-int
     :accessor cell-agg-int
     :initform 0)
@@ -535,58 +538,66 @@
 
 (defun cell-calculate-centroid (nodes)
   (let ((centroid (cl-mpm/utils:vector-zeros)))
-    (loop for node in nodes
+    (loop for node across nodes
           do
              (cl-mpm/fastmaths::fast-.+ centroid (node-position node) centroid))
     (magicl:scale centroid (/ 1d0 (length nodes)))))
 (defun make-cell (mesh index h)
   ;;Get local nodes
   (let* ((nodes
-           (let ((res nil))
-             (array-operations/utilities:nested-loop (x y z) '(2 2 2)
-               (push (get-node mesh (mapcar #'+ index (list x y z))) res))
+           (let ((res (make-array (expt 2 (cl-mpm/mesh::mesh-nd mesh)))))
+             (let ((i 0))
+               (array-operations/utilities:nested-loop (x y z) '(2 2 2)
+                 (setf (aref res i)(get-node mesh (mapcar #'+ index (list x y z))))
+                 (incf i)))
              res))
          (volume (expt h (mesh-nd mesh)))
          ;; (centroid (cell-calculate-centroid nodes))
          (centroid (cl-mpm/fastmaths::fast-.+
                     (cl-mpm/utils:vector-from-list (index-to-position mesh index))
-                    (magicl:scale! (cl-mpm/utils:vector-from-list (list h h h)) 0.5d0)))
-         )
-    (loop for n in nodes
+                    (magicl:scale! (cl-mpm/utils:vector-from-list (list h h h)) 0.5d0))))
+    (loop for n across nodes
           do (incf (node-volume-true n) (/ volume (length nodes))))
-    (make-instance 'cell
-                   :index index
-                   :nodes nodes
-                   :centroid centroid
-                   :volume volume
-                   )))
+    (let ((c (make-instance 'cell
+                            :index index
+                            :nodes nodes
+                            :centroid centroid
+                            :volume volume
+                            :h h
+                            ))))))
 
 (defun make-cell-1d (mesh index h)
   ;;Get local nodes
   (let* ((nodes
-           (let ((res nil))
-             (array-operations/utilities:nested-loop (x y z) '(2 1 1)
-               (push (get-node mesh (mapcar #'+ index (list x y z))) res))
-             res))
+           (let ((res (make-array (expt 2 (cl-mpm/mesh::mesh-nd mesh)))))
+             (let ((i 0))
+               (array-operations/utilities:nested-loop (x y z) '(2 1 1)
+                 (setf (aref res i)(get-node mesh (mapcar #'+ index (list x y z))))
+                 (incf i)))
+             res)
+           )
          (volume (expt h 1))
          (centroid (cl-mpm/fastmaths::fast-.+ (cl-mpm/utils:vector-from-list (index-to-position mesh index))
                                               (magicl:scale! (cl-mpm/utils:vector-from-list (list h 0d0 0d0)) 0.5d0)))
          )
-    (loop for n in nodes
+    (loop for n across nodes
           do (incf (node-volume-true n) (/ volume (length nodes))))
     (make-instance 'cell
                    :index index
                    :nodes nodes
                    :centroid centroid
                    :volume volume
+                   :h h
                    )))
 
 (defun make-cell-2d (mesh index h)
   ;;Get local nodes
   (let* ((nodes
-           (let ((res nil))
-             (array-operations/utilities:nested-loop (x y z) '(2 2 1)
-               (push (get-node mesh (mapcar #'+ index (list x y z))) res))
+           (let ((res (make-array (expt 2 (cl-mpm/mesh::mesh-nd mesh)))))
+             (let ((i 0))
+               (array-operations/utilities:nested-loop (x y z) '(2 2 1)
+                 (setf (aref res i)(get-node mesh (mapcar #'+ index (list x y z))))
+                 (incf i)))
              res))
          (volume (expt h 2))
          ;; (centroid (cell-calculate-centroid nodes))
@@ -594,13 +605,14 @@
                     (cl-mpm/utils:vector-from-list (index-to-position mesh index))
                     (cl-mpm/fastmaths:fast-scale! (cl-mpm/utils:vector-from-list (list h h 0d0)) 0.5d0)))
          )
-    (loop for n in nodes
+    (loop for n across nodes
           do (incf (node-volume-true n) (/ volume (length nodes))))
     (make-instance 'cell
                     :index index
                     :nodes nodes
                     :centroid centroid
                     :volume volume
+                    :h h
                     )))
 
 (defun make-cells (mesh size h)
@@ -1211,7 +1223,7 @@
             do
         (let ((quad (cl-mpm/fastmaths::fast-.+ centroid point))
               (volume-ratio (/ 1 (expt gp 2))))
-          (loop for node in nodes
+          (loop for node across nodes
                 do
                    (with-accessors ((n-pos node-position))
                        node
@@ -1219,8 +1231,6 @@
                             (dist (list (mtref dist-vec 0 0) (mtref dist-vec 1 0)))
                             (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
                             (weight (reduce #'* weights))
-                            ;; (weight 1d0)
-                            ;; (weights ())
                             (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
                                            dist (nreverse weights)))
                             )
@@ -1244,7 +1254,7 @@
 ;;   ;;                    (centroid cell-centroid)
 ;;   ;;                    (volume cell-volume))
 ;;   ;;       cell
-;;   ;;     (loop for node in nodes
+;;   ;;     (loop for node across nodes
 ;;   ;;           do
 ;;   ;;              (with-accessors ((n-pos node-position))
 ;;   ;;                  node
@@ -1277,7 +1287,7 @@
                      (centroid cell-centroid)
                      (volume cell-volume))
         cell
-      (loop for node in nodes
+      (loop for node across nodes
             do
                (with-accessors ((n-pos node-position))
                    node
@@ -1336,12 +1346,15 @@
 
 
 (defun clamp-point-to-bounds (mesh point)
-  (with-accessors ((mesh-size cl-mpm/mesh::mesh-mesh-size))
-      mesh
-    (loop for i from 0 to 2
+  (let ((nd (cl-mpm/mesh:mesh-nd mesh))
+        (ms-list (cl-mpm/mesh:mesh-mesh-size mesh)))
+    (declare (fixnum nd)
+             (list ms-list))
+    (loop for i from 0 below nd
+          for ms in ms-list
           do (setf (the double-float (varef point i))
                    (max 0d0 (min
-                             (the double-float (coerce (nth i mesh-size) 'double-float))
+                             (the double-float ms)
                              (the double-float (varef point i))))))))
 
 ;; (defun point-in-bounds (mesh point)

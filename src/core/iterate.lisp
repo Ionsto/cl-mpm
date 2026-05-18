@@ -2,8 +2,8 @@
 ;;All the various ways of iterating over the mesh
 ;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;; (declaim #.cl-mpm/settings:*optimise-setting*)
-(declaim #.cl-mpm/settings::*optimise-speed*)
-;; (declaim #.cl-mpm/settings::*optimise-debug*)
+;; (declaim #.cl-mpm/settings::*optimise-speed*)
+(declaim #.cl-mpm/settings::*optimise-debug*)
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (eval-when
@@ -1394,12 +1394,14 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                 grads-local-pos))
 (defun grads-local-pos (x nd dx h)
   (let ((dx (the fixnum (- (* dx 2) 1))))
-    (/
-     (ecase nd
-       (1 (* -1d0 dx))
-       (2 (* -1d0 dx))
-       (3 (* -1d0 dx)))
-     (* h 1)))
+    (if (< (abs x) 1d-15)
+        0d0
+        (/
+         (ecase nd
+           (1 (* -1d0 dx))
+           (2 (* -1d0 dx))
+           (3 (* -1d0 dx)))
+         (* h 1))))
   )
 
 (defun iterate-over-cell-shape-local-1d (mesh cell local-position func)
@@ -1437,25 +1439,26 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (cl-mpm/mesh::mesh mesh)
            (function func))
   (progn
-    (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
+    (let* ((h ;; (cl-mpm/mesh:mesh-resolution mesh)
+             (cl-mpm/mesh::cell-h cell))
            (nd 2)
            (pos-vec local-position)
-           (cell-pos (cl-mpm/mesh::cell-centroid cell))
-           (cell-index (cl-mpm/mesh::cell-index cell)))
-      (declare (dynamic-extent cell-index pos-vec)
-               (double-float h))
-      (loop for dx from 0 to 1
-            do (loop for dy from 0 to 1
-                     do
-                        (let* ((id (mapcar #'+ cell-index (list dx dy 0))))
-                          ;; (declare (dynamic-extent id))
-                          (when (cl-mpm/mesh:in-bounds mesh id)
+           (cell-nodes (cl-mpm/mesh::cell-nodes cell))
+           (cell-pos (cl-mpm/mesh::cell-centroid cell)))
+      (declare (double-float h))
+      (let ((i 0))
+        (loop for dx from 0 to 1
+              do (loop for dy from 0 to 1
+                       do
+                          (let* (;; (id (mapcar #'+ cell-index (list dx dy 0)))
+                                 )
+                            ;; (declare (dynamic-extent id))
                             (let ((pvx (varef pos-vec 0))
                                   (pvy (varef pos-vec 1))
                                   (cpx (varef cell-pos 0))
                                   (cpy (varef cell-pos 1)))
                               (declare (double-float pvx pvy cpx cpy))
-                              (let* ((node (cl-mpm/mesh:get-node mesh id))
+                              (let* ((node (aref cell-nodes i))
                                      (dist-x (* 2d0 (/ (- pvx cpx) h)))
                                      (dist-y (* 2d0 (/ (- pvy cpy) h)))
                                      (weight-x (weights-local-pos dist-x nd dx))
@@ -1468,7 +1471,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                (list weight-x weight-y 1d0)
                                                (list grad-x grad-y 0d0))))
                                   (declare (double-float weight))
-                                  (funcall func node weight grads)))))))))))
+                                  (funcall func node weight grads)
+                                  (incf i)))))))))))
 
 (defun iterate-over-cell-shape-local-3d (mesh cell local-position func)
   "Iterating over a given cell's basis functions"
@@ -1479,35 +1483,35 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
            (nd (cl-mpm/mesh::mesh-nd mesh))
            (pos-vec local-position)
            (cell-pos (cl-mpm/mesh::cell-centroid cell))
-           (cell-index (cl-mpm/mesh::cell-index cell)))
-      (declare (dynamic-extent cell-index pos-vec)
-               (double-float h))
+           (cell-nodes (cl-mpm/mesh::cell-nodes cell))
+           (i 0)
+           )
+      (declare (double-float h))
       (loop for dx from 0 to 1
             do (loop for dy from 0 to 1
                      do (loop for dz from 0 to 1
-                              do (let* ((id (mapcar #'+ cell-index (list dx dy dz))))
-                                   (declare (dynamic-extent id))
-                                   (when (cl-mpm/mesh:in-bounds mesh id)
-                                     (let* ((node (cl-mpm/mesh:get-node mesh id))
-                                            (dist-x (* 2d0 (/ (- (varef pos-vec 0) (varef cell-pos 0)) h)))
-                                            (dist-y (* 2d0 (/ (- (varef pos-vec 1) (varef cell-pos 1)) h)))
-                                            (dist-z (* 2d0 (/ (- (varef pos-vec 2) (varef cell-pos 2)) h)))
-                                            (weight-x (weights-local-pos dist-x nd dx))
-                                            (weight-y (weights-local-pos dist-y nd dy))
-                                            (weight-z (weights-local-pos dist-z nd dz)))
-                                       (declare (double-float weight-x weight-y weight-z))
-                                       (let* ((weight (* weight-x weight-y weight-z))
-                                              (grad-x (grads-local-pos dist-x nd dx h))
-                                              (grad-y (grads-local-pos dist-y nd dy h))
-                                              (grad-z (grads-local-pos dist-z nd dz h))
-                                              (grads (cl-mpm/shape-function::grads-3d
-                                                      (list weight-x weight-y weight-z)
-                                                      (list grad-x grad-y grad-z)))
-                                              )
-                                         (declare
-                                          (double-float weight))
-                                         (when t;(> weight 0d0)
-                                           (funcall func node weight grads))))))))))))
+                              do (let* ()
+                                   (let* ((node (aref cell-nodes i))
+                                          (dist-x (* 2d0 (/ (- (varef pos-vec 0) (varef cell-pos 0)) h)))
+                                          (dist-y (* 2d0 (/ (- (varef pos-vec 1) (varef cell-pos 1)) h)))
+                                          (dist-z (* 2d0 (/ (- (varef pos-vec 2) (varef cell-pos 2)) h)))
+                                          (weight-x (weights-local-pos dist-x nd dx))
+                                          (weight-y (weights-local-pos dist-y nd dy))
+                                          (weight-z (weights-local-pos dist-z nd dz)))
+                                     (declare (double-float weight-x weight-y weight-z))
+                                     (let* ((weight (* weight-x weight-y weight-z))
+                                            (grad-x (grads-local-pos dist-x nd dx h))
+                                            (grad-y (grads-local-pos dist-y nd dy h))
+                                            (grad-z (grads-local-pos dist-z nd dz h))
+                                            (grads (cl-mpm/shape-function::grads-3d
+                                                    (list weight-x weight-y weight-z)
+                                                    (list grad-x grad-y grad-z)))
+                                            )
+                                       (declare
+                                        (double-float weight))
+                                       (when t;(> weight 0d0)
+                                           (funcall func node weight grads))
+                                       (incf i))))))))))
 
 (defun iterate-over-cell-shape-local (mesh cell local-position func)
   "Iterating over a given cell's basis functions"

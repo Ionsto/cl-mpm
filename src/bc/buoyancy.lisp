@@ -233,7 +233,7 @@
     (if (and active (not partial))
      ;(> mp-count 0)
         (progn
-          ;; (loop for n in nodes
+          ;; (loop for n across nodes
           ;;       do (setf (cl-mpm/mesh::node-boundary-node n) t))
           t)
         nil)))
@@ -342,7 +342,7 @@
                                                         (cl-mpm/mesh::node-volume-true n))))))
                             (when (< vest 0.5d0)
                               (setf boundary t)
-                              (loop for n in nodes
+                              (loop for n across nodes
                                     do
                                        (when (cl-mpm/mesh:node-active n)
                                          (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
@@ -392,7 +392,7 @@
                                                         (cl-mpm/mesh::node-volume-true n))))))
                             (when (< vest 0.5d0)
                               (setf boundary t)
-                              (loop for n in nodes
+                              (loop for n across nodes
                                     do
                                        (when (cl-mpm/mesh:node-active n)
                                          (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
@@ -439,7 +439,7 @@
 ;;                                                       (cl-mpm/mesh::node-volume-true n))))))
 ;;                           (when (< vest 0.5d0)
 ;;                             (setf boundary t)
-;;                             (loop for n in nodes
+;;                             (loop for n across nodes
 ;;                                   do
 ;;                                      (when (cl-mpm/mesh:node-active n)
 ;;                                        (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
@@ -507,7 +507,7 @@
                    (boundary cl-mpm/mesh::cell-boundary))
       cell
     (setf boundary t)
-    (loop for n in nodes
+    (loop for n across nodes
           do
              (when (cl-mpm/mesh:node-active n)
                (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
@@ -560,7 +560,7 @@
                             ;; (setf (cl-mpm/mesh::cell-boundary neighbour) t)
                             (set-boundary neighbour)
                             ;; (setf boundary t)
-                            ;; (loop for n in nodes
+                            ;; (loop for n across nodes
                             ;;       do
                             ;;          (when (cl-mpm/mesh:node-active n)
                             ;;            (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
@@ -605,7 +605,7 @@
                         (when (funcall clip-function (cl-mpm/mesh::cell-centroid neighbour))
                           (when (check-neighbour-cell neighbour)
                             (setf boundary t)
-                            (loop for n in nodes
+                            (loop for n across nodes
                                   do
                                      (when (cl-mpm/mesh:node-active n)
                                        (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))

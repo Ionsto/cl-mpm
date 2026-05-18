@@ -722,11 +722,8 @@
                    (stress cl-mpm/particle::mp-stress)
                    (damage cl-mpm/particle::mp-damage)
                    (enable-damage cl-mpm/particle::mp-enable-damage)
-                   (p-mod cl-mpm/particle::mp-p-modulus)
                    )
       mp
-    ;; (apply-tensile-vol-degredation mp dt)
-    ;; (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (cl-mpm/particle::compute-p-modulus mp)))
     (when enable-damage
       (cl-mpm/damage::apply-tcs-degredation mp)
       ;; (apply-vol-degredation mp dt)

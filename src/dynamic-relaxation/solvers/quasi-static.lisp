@@ -138,7 +138,7 @@
                    (dt cl-mpm::sim-dt)
                    (bcs-force-list cl-mpm::sim-bcs-force-list))
       sim
-    (map-stiffness-quasi-static sim)
+    (map-stiffness sim)
     ;; (implicit-assemble-stiffness sim)
     (loop for bcs-f in bcs-force-list
           do (loop for bc across bcs-f

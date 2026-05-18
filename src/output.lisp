@@ -713,7 +713,9 @@
      (format-scalar-cell fs ,name id cells (lambda (cell) ,accessor))
      (incf id)))
 
-(defun save-vtk-cells (filename sim)
+(defgeneric save-vtk-cells (filename sim))
+
+(defmethod save-vtk-cells (filename (sim cl-mpm::mpm-sim))
   (with-accessors ((mesh cl-mpm:sim-mesh)) sim
     (with-accessors ((cells cl-mpm/mesh::mesh-cells))
         mesh
@@ -752,6 +754,7 @@
             (let ((id 1))
               (declare (special id))
               (format fs "POINT_DATA ~d~%" (array-total-size cells))
+              ;; (save-parameter-cells "octree" (cl-mpm/dynamic-relaxation::cell-octree-refine cell))
               (save-parameter-cells "buoyancy" (if (cl-mpm/mesh::cell-boundary cell) 1 0))
               (save-parameter-cells "active" (if (cl-mpm/mesh::cell-active cell) 1 0))
               (save-parameter-cells "partial" (if (cl-mpm/mesh::cell-partial cell) 1 0))

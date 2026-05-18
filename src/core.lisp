@@ -107,7 +107,7 @@
     (setf active nil)
     ;;False only if all nodes active
     (setf partial t)
-    (loop for n in nodes
+    (loop for n across nodes
           do
              (let ((oc (cl-mpm/mesh:node-active n)))
                (setf mp-count (and mp-count oc))
@@ -117,7 +117,7 @@
           partial (not partial))))
 
 (defgeneric filter-cells (sim))
-(defmethod filter-cells (sim)
+(defmethod filter-cells ((sim mpm-sim))
   (with-accessors ((mesh sim-mesh)
                    (dt sim-dt))
       sim
@@ -166,7 +166,7 @@
       (cl-mpm/fastmaths:fast-.+ centroid disp trial-pos))))
 
 (defgeneric update-cells (sim))
-(defmethod update-cells (sim)
+(defmethod update-cells ((sim mpm-sim))
   (with-accessors ((mesh sim-mesh)
                    (dt sim-dt))
       sim
@@ -260,7 +260,8 @@
       (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping -1d0 mass))
       (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
       ;; (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
-      (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
+      (when (> mass 0d0)
+        (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale))))
       (integrate-vel-euler vel acc mass mass-scale dt 0d0)
       ;; (cl-mpm/utils::vector-copy-into residual residual-prev)
       ;; (cl-mpm/utils::vector-copy-into force residual)
@@ -338,7 +339,8 @@
       (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
       (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
       (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
-      (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
+      (when (> mass 0d0)
+        (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale))))
       (cl-mpm/utils::vector-copy-into residual residual-prev)
       (cl-mpm/utils::vector-copy-into force residual)
       ))
@@ -477,7 +479,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       (declare (double-float mass volume))
       (progn
         (setf damage (/ damage volume))
-        (cl-mpm/fastmaths::fast-scale! vel (/ 1.0d0 mass))))))
+        (when (> mass 0d0)
+          (cl-mpm/fastmaths::fast-scale! vel (/ 1.0d0 mass)))))))
 
 (defgeneric update-node-kinematics (sim))
 (defmethod update-node-kinematics ((sim mpm-sim))
@@ -521,7 +524,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
          (calculate-forces-cundall node damping dt mass-scale))))))
 
 
-(defun apply-essential-bcs (sim)
+(defgeneric apply-essential-bcs (sim))
+(defmethod apply-essential-bcs ((sim mpm-sim))
   (with-accessors ((mesh sim-mesh)
                    (dt sim-dt)
                    (bcs sim-active-bcs))

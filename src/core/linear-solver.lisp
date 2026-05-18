@@ -5,7 +5,11 @@
    :magicl tref .+ .-
    )
   (:import-from
-   :cl-mpm/utils varef)
+   :cl-mpm/utils
+   varef
+   nrows
+   ncols
+   )
   (:export
    #:solve-richardson
    #:solve-conjugant-gradients))
@@ -123,15 +127,9 @@
         (setf (varef pre r) (varef pre r))))
     pre))
 
-(defun solve-conjugant-gradients (A-operator b &key
-                                                 (tol 1d-9)
-                                                 (max-iters 10000)
-                                                 (mask nil))
+(defun solve-conjugant-gradients (A-operator b &key (tol 1d-9) (max-iters 10000) (mask nil))
   (declare (function a-operator))
-  (let (;; (pre nil)
-        )
-    ;; (when jacobi-precondition
-    ;;   (setf pre (make-preconditioner A)))
+  (let ()
   (labels ((mask-op (x)
              (if nil;mask
                  (cl-mpm/fastmaths:fast-.* x mask)
@@ -142,12 +140,11 @@
            (operation (x)
              (funcall a-operator x))
            )
-
     (mask-inplace b)
-    (let ((vector-size (magicl:nrows b))
-          (b-norm (cl-mpm/fastmaths::mag-squared b)))
+    (let ((vector-size (nrows b))
+          (b-norm (cl-mpm/fastmaths::mag b)))
       ;; (pprint b-norm)
-      (if (= b-norm 0d0)
+      (if (or (= b-norm 0d0) (= (nrows b) 0))
           ;;Trivial case of 0 being the answer
           (cl-mpm/utils::arb-matrix vector-size 1)
           ;;Nontrivial case
@@ -177,7 +174,7 @@
                          ;; (mask-inplace r)
                          (setf rs-new (cl-mpm/fastmaths::mag-squared r))
                          ;(setf residual (/ rs-new b-norm))
-                         (setf residual rs-new)
+                         (setf residual (/ (sqrt rs-new) b-norm))
                          ;; (setf residual rs-new)
                          (unless (< residual crit)
                            (setf p

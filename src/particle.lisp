@@ -49,6 +49,8 @@
 
 (defun make-empty-node-cache ()
   (make-node-cache nil 0d0 (cl-mpm/utils::make-gradients 0d0 0d0 0d0) 0d0 (cl-mpm/utils::make-gradients 0d0 0d0 0d0)))
+(defun reset-mp-node-cache (mp)
+  (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0))
 
 ;(defun make-node-cache (&key node weight grads weight-fbar grads-fbar))
 
@@ -118,6 +120,11 @@
     :type integer
     :initform -1
     :initarg :mpi-index)
+   (mesh-index
+    :accessor mp-mesh-index
+    :type integer
+    :initform 0
+    :initarg :mesh-index)
    (volume-0
     :accessor mp-volume-0
     :type double-float

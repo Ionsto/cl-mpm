@@ -185,7 +185,9 @@
           do (setf (varef v-d i) (abs (varef v i))))
     v-d))
 
-(defun split-mps-eigenvalue (sim)
+
+(defgeneric split-mps-eigenvalue (sim))
+(defmethod split-mps-eigenvalue (sim)
   (declare (optimize (speed 0) (debug 3) (safety 3)))
   (let* ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))

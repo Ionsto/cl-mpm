@@ -906,7 +906,7 @@
   (let ((s (cl-mpm/utils:fast-storage matrix)))
     (declare ((simple-array double-float (*)) s))
     (loop for v double-float across s
-          sum v)))
+          sum v double-float)))
 (declaim
  (inline fast-sum-vector)
  (ftype (function (magicl::matrix/double-float)
@@ -1698,20 +1698,21 @@
     (assert (= (cl-mpm/utils::sparse-matrix-nrows mat) (magicl:nrows res)))
     (assert (= (cl-mpm/utils::sparse-matrix-ncols mat) (magicl:nrows vec)))
 
-    (let ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
-          (cols (cl-mpm/utils::sparse-matrix-cols mat))
-          (values (cl-mpm/utils::sparse-matrix-values mat))
-          (res-s (cl-mpm/utils::fast-storage res))
-          (vec-s (cl-mpm/utils::fast-storage vec)))
-      (dotimes (r (cl-mpm/utils::sparse-matrix-nrows mat))
-        (let ((col-0 (aref rowindex r))
-              (col-1 (aref rowindex (1+ r))))
-          (loop for c from col-0 below col-1 do
-            (incf (aref res-s r)
-                  (the double-float
-                       (*
-                        (aref values c)
-                        (aref vec-s (aref cols c)))))))))
+    (when (> (cl-mpm/utils:nrows res) 0)
+      (let ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
+            (cols (cl-mpm/utils::sparse-matrix-cols mat))
+            (values (cl-mpm/utils::sparse-matrix-values mat))
+            (res-s (cl-mpm/utils::fast-storage res))
+            (vec-s (cl-mpm/utils::fast-storage vec)))
+        (dotimes (r (cl-mpm/utils::sparse-matrix-nrows mat))
+          (let ((col-0 (aref rowindex r))
+                (col-1 (aref rowindex (1+ r))))
+            (loop for c from col-0 below col-1 do
+              (incf (aref res-s r)
+                    (the double-float
+                         (*
+                          (aref values c)
+                          (aref vec-s (aref cols c))))))))))
     res))
 
 (defun fast-@-sparse-mat-dense-vec-multithread (mat vec &optional res)
@@ -1723,20 +1724,21 @@
 
     (assert (= (cl-mpm/utils::sparse-matrix-nrows mat) (magicl:nrows res)))
     (assert (= (cl-mpm/utils::sparse-matrix-ncols mat) (magicl:nrows vec)))
-    (let ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
-          (cols (cl-mpm/utils::sparse-matrix-cols mat))
-          (values (cl-mpm/utils::sparse-matrix-values mat))
-          (res-s (cl-mpm/utils::fast-storage res))
-          (vec-s (cl-mpm/utils::fast-storage vec)))
-      (cl-mpm/utils::bpdotimes (r (cl-mpm/utils::sparse-matrix-nrows mat))
-        (let ((col-0 (aref rowindex r))
-              (col-1 (aref rowindex (1+ r))))
-          (loop for c from col-0 below col-1 do
-            (incf (aref res-s r)
-                  (the double-float
-                       (*
-                        (aref values c)
-                        (aref vec-s (aref cols c)))))))))
+    (when (> (cl-mpm/utils:nrows res) 0)
+      (let ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
+            (cols (cl-mpm/utils::sparse-matrix-cols mat))
+            (values (cl-mpm/utils::sparse-matrix-values mat))
+            (res-s (cl-mpm/utils::fast-storage res))
+            (vec-s (cl-mpm/utils::fast-storage vec)))
+        (cl-mpm/utils::bpdotimes (r (cl-mpm/utils::sparse-matrix-nrows mat))
+          (let ((col-0 (aref rowindex r))
+                (col-1 (aref rowindex (1+ r))))
+            (loop for c from col-0 below col-1 do
+              (incf (aref res-s r)
+                    (the double-float
+                         (*
+                          (aref values c)
+                          (aref vec-s (aref cols c))))))))))
     res))
 
 (defun fast-@-sparse-mat-dense-vec-masked (mat vec bcs-r bcs-c &optional res)
@@ -1757,7 +1759,7 @@
     (assert (= (cl-mpm/utils::sparse-matrix-nrows mat) (magicl:nrows res)))
     (assert (= (cl-mpm/utils::sparse-matrix-ncols mat) (magicl:nrows vec)))
     (let ()
-      (let ()
+      (when (> (cl-mpm/utils:nrows res) 0)
         ;;When we are solving a fully fixed system - i.e. out of plane dimensions
         (let* ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
                (cols (cl-mpm/utils::sparse-matrix-cols mat))
@@ -1792,7 +1794,7 @@
     (assert (= (cl-mpm/utils::sparse-matrix-ncols mat) (magicl:nrows bcs-c)))
     (assert (= (cl-mpm/utils::sparse-matrix-nrows mat) (magicl:nrows res)))
     (assert (= (cl-mpm/utils::sparse-matrix-ncols mat) (magicl:nrows vec)))
-    (let ()
+    (when (> (cl-mpm/utils:nrows res) 0)
       (let ()
         ;;When we are solving a fully fixed system - i.e. out of plane dimensions
         (let* ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))
@@ -1856,7 +1858,7 @@
     (assert (= (cl-mpm/utils::sparse-matrix-ncols mat) (magicl:nrows bcs-c)))
     (assert (= (cl-mpm/utils::sparse-matrix-nrows mat) (magicl:nrows res)))
     (assert (= (cl-mpm/utils::sparse-matrix-ncols mat) (magicl:nrows vec)))
-    (let ()
+    (when (> (cl-mpm/utils:nrows res) 0)
       (let ()
         ;;When we are solving a fully fixed system - i.e. out of plane dimensions
         (let* ((rowindex (cl-mpm/utils::sparse-matrix-rowindex mat))

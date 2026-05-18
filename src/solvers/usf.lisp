@@ -33,10 +33,10 @@
         (p2g mesh mps vel-algo)
         (when (> mass-filter 0d0)
           (filter-grid mesh (sim-mass-filter sim)))
-        (apply-bcs mesh bcs dt)
+        (apply-essential-bcs sim)
         (filter-cells sim)
         (update-node-kinematics sim)
-        (apply-bcs mesh bcs dt)
+        (apply-essential-bcs sim)
         ;;Trial update displacements
         (update-nodes sim)
         (update-cells sim)
@@ -51,7 +51,7 @@
         (update-node-forces sim)
         (reset-node-displacement sim)
         (update-nodes sim)
-        (apply-bcs mesh bcs dt)
+        (apply-essential-bcs sim)
         ;; (cl-mpm/ghost::apply-half-step-ghost sim)
         (update-dynamic-stats sim)
         ;; Also updates mps inline

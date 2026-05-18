@@ -28,10 +28,10 @@
                       (when (> mass-filter 0d0)
                         (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
 
-                      (cl-mpm::apply-bcs mesh bcs dt)
+                      (cl-mpm::apply-essential-bcs sim)
                       (cl-mpm::filter-cells sim)
                       (cl-mpm::update-node-kinematics sim)
-                      (cl-mpm::apply-bcs mesh bcs dt)
+                      (cl-mpm::apply-essential-bcs sim)
                       (cl-mpm::update-nodes sim)
                       (cl-mpm::update-cells sim)
                       ;; (cl-mpm/ghost::apply-half-step-ghost sim)
@@ -47,7 +47,7 @@
                       (cl-mpm::update-node-forces sim)
                       (cl-mpm::reset-node-displacement sim)
                       (cl-mpm::update-nodes sim)
-                      (cl-mpm::apply-bcs mesh bcs dt)
+                      (cl-mpm::apply-essential-bcs sim)
                       (cl-mpm/ghost::apply-half-step-ghost sim)
 
                       (cl-mpm::update-dynamic-stats sim)
