@@ -878,3 +878,8 @@
   :depends-on ("cl-mpm/example")
   :serial t
   :components ((:file "examples/octree/two-squares")))
+
+#+asdf-system-connections
+(defsystem-connection "cl-mpm/octree-penalty"
+  :requires ("cl-mpm/dynamic-relaxation" "cl-mpm/penalty")
+  :components ((:file "src/solvers/octree/penalty")))
