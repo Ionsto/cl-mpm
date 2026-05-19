@@ -130,6 +130,12 @@
 (defmethod estimate-min-dt-bc (sim (bc bc))
   sb-ext:double-float-positive-infinity)
 
+(defgeneric apply-sim-bc (sim bc dt)
+  (:documentation
+   "This is an application of a BC that is not tied to the mesh itself, perhaps it is a non-conforming contact condition"))
+
+(defmethod apply-sim-bc (sim bc dt))
+
 (defmethod apply-bc (bc node mesh dt)
   "Natural BC condition is nothing")
 

@@ -459,7 +459,10 @@
     ;; (cl-mpm/particle::mp-p-modulus mp)
     )))
 
-(defstruct dr-contact-point position stiffness contact-area density)
+(defstruct dr-contact-point
+  position stiffness contact-area density
+  mesh
+  )
 
 (defun apply-penalty-point (mesh bc mp
                             point
@@ -606,7 +609,7 @@
                                   (+ 1d0 friction)
                                   contact-area)
                       :density (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))
-                      )
+                      :mesh mesh)
                      (bc-penalty-contact-points bc)))
                   (setf (cl-mpm/particle::mp-penalty-stiffness mp)
                         (max
@@ -685,7 +688,7 @@
            (incf mass (* node-mass svp))))))
     mass))
 
-(defmethod cl-mpm/bc::apply-bc ((bc bc-penalty) node mesh dt)
+(defmethod cl-mpm/bc::apply-sim-bc (sim (bc bc-penalty) dt)
   (with-accessors ((epsilon bc-penalty-epsilon)
                    (friction bc-penalty-friction)
                    (normal bc-penalty-normal)
@@ -697,7 +700,6 @@
                    (mp-stiffness bc-mp-stiffness)
                    (sim bc-penalty-sim))
       bc
-    ;; (setf (bc-penalty-margin bc) (* 0.5d0 (cl-mpm/mesh:mesh-resolution mesh)))
     (reset-load bc)
     (setf mp-stiffness nil)
     (with-accessors ((mps cl-mpm:sim-mps)
@@ -731,37 +733,7 @@
                                            corner
                                            corner-trial
                                            disp
-                                           ;; penetration-dist
-                                           dt)
-                      ;; (if in-contact
-                      ;;     (cond
-                      ;;       ;; ((and (< (abs (- penetration-dist (contact-penetration closest-point))) 1d-3))
-                      ;;       ;;  (setf (contact-point closest-point)
-                      ;;       ;;        (cl-mpm/fastmaths:fast-.+
-                      ;;       ;;         corner
-                      ;;       ;;         (contact-point closest-point)))
-                      ;;       ;;  (cl-mpm/fastmaths:fast-scale! (contact-point closest-point) 0.5d0))
-                      ;;       ((or ;; (< (contact-penetration closest-point) 0d0)
-                      ;;            (and (>= penetration-dist 0d0) (< (contact-penetration closest-point) 0d0))
-                      ;;            (< (abs penetration-dist) (abs (contact-penetration closest-point))))
-                      ;;        (setf
-                      ;;         (contact-point closest-point) corner
-                      ;;         (contact-penetration closest-point) penetration-dist)))
-                      ;;     (progn
-                      ;;       (setf in-contact t)
-                      ;;       (setf
-                      ;;        (contact-point closest-point) corner
-                      ;;        (contact-trial-point closest-point) corner-trial
-                      ;;        (contact-disp closest-point) disp
-                      ;;        (contact-penetration closest-point) penetration-dist)))
-                      )))))
-             ;; (when in-contact
-             ;;   (apply-penalty-point mesh bc mp
-             ;;                        (contact-point closest-point)
-             ;;                        (contact-trial-point closest-point)
-             ;;                        (contact-disp closest-point)
-             ;;                        dt))
-             )))))))
+                                           dt)))))))))))))
 
 
 (defgeneric resolve-closest-contact (bc corner))
@@ -815,16 +787,16 @@
                            (setf closest-point point)))))))
       (values in-contact (contact-penetration closest-point) closest-point))))
 
-(defmethod cl-mpm/bc::apply-bc ((bc bc-penalty-structure) node mesh dt)
+(defmethod cl-mpm/bc::apply-sim-bc (sim (bc bc-penalty-structure) dt)
   (with-accessors ((epsilon bc-penalty-epsilon)
                    (friction bc-penalty-friction)
                    (damping bc-penalty-damping)
                    (sub-bcs bc-penalty-structure-sub-bcs)
                    (debug-mutex bc-penalty-load-lock)
                    (debug-force bc-penalty-load)
-                   (sim bc-penalty-sim))
+                   ;; (sim bc-penalty-sim)
+                   )
       bc
-    ;; (setf (bc-penalty-margin bc) (cl-mpm/mesh:mesh-resolution mesh))
     (reset-load bc)
     (with-accessors ((mps cl-mpm:sim-mps)
                      (mesh cl-mpm:sim-mesh))
@@ -832,8 +804,7 @@
       (cl-mpm:iterate-over-mps
        mps
        (lambda (mp)
-         (let (;; (disp-inc (cl-mpm/particle::mp-displacement-increment mp))
-               )
+         (let ()
            (when t;(early-sweep-intersection bc mp)
              (
               cl-mpm::iterate-over-midpoints
@@ -849,14 +820,14 @@
                     (when in-contact
                       (setf (contact-trial-point closest-point) corner-trial
                              (contact-disp closest-point) disp)
-                      (let ((load (apply-penalty-point mesh
-                                                       (contact-sub-bc closest-point)
-                                                       mp
-                                                       (contact-point closest-point)
-                                                       (contact-trial-point closest-point)
-                                                       (contact-disp closest-point)
-                                                       dt)))
-                        ;; (push (contact-point closest-point) (bc-penalty-contact-points bc))
+                      (let ((load (apply-penalty-point
+                                   mesh
+                                   (contact-sub-bc closest-point)
+                                   mp
+                                   (contact-point closest-point)
+                                   (contact-trial-point closest-point)
+                                   (contact-disp closest-point)
+                                   dt)))
                         (sb-thread:with-mutex (debug-mutex)
                           (incf debug-force load)))))))))))))))
 
@@ -1136,8 +1107,6 @@
 (defun iterate-over-penalty-point-normal ())
 
 (defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc cl-mpm/penalty::bc-penalty))
-  ;; (assemble-penalty-stiffness-matrix sim)
-  ;; (pprint "Hello")
   (let* ((mesh (cl-mpm:sim-mesh sim))
          (mps (cl-mpm:sim-mps sim))
          (nd (cl-mpm/mesh::mesh-nd mesh))
@@ -1300,7 +1269,8 @@
                   :stiffness (*
                               4d0
                               epsilon
-                              contact-area))
+                              contact-area)
+                  :mesh mesh)
                  (bc-penalty-contact-points bc)))
               normal-force)))))))
 
@@ -1393,7 +1363,7 @@
 ;;   (bc-penalty-disp-contacts bc)
 ;;   )
 
-(defmethod cl-mpm/bc::apply-bc ((bc bc-penalty-displacment) node mesh dt)
+(defmethod cl-mpm/bc::apply-sim-bc (sim (bc bc-penalty-displacment) dt)
   (with-accessors ((epsilon bc-penalty-epsilon)
                    (friction bc-penalty-friction)
                    (normal bc-penalty-normal)
@@ -1402,8 +1372,7 @@
                    (sub-bcs bc-penalty-structure-sub-bcs)
                    (debug-mutex bc-penalty-load-lock)
                    (debug-force bc-penalty-load)
-                   (mp-stiffness bc-mp-stiffness)
-                   (sim bc-penalty-sim))
+                   (mp-stiffness bc-mp-stiffness))
       bc
     (reset-load bc)
     (setf mp-stiffness nil)

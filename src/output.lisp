@@ -408,7 +408,8 @@
      (format-vector-node fs ,name id nodes (lambda (node) ,accessor))
      (incf id)))
 
-(defun save-vtk-mesh-nodes (filename mesh)
+(defgeneric save-vtk-mesh-nodes (filename mesh))
+(defmethod save-vtk-mesh-nodes (filename mesh)
   (with-accessors ((full-nodes cl-mpm/mesh::mesh-nodes))
       mesh
     (with-open-file (fs filename :direction :output :if-exists :supersede)
@@ -530,7 +531,8 @@
                                       0d0))
             ))))))
 
-(defun save-vtk-nodes (filename sim)
+(defgeneric save-vtk-nodes (filename sim))
+(defmethod save-vtk-nodes (filename sim)
   (save-vtk-mesh-nodes filename (cl-mpm:sim-mesh sim)))
 
 

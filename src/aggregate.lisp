@@ -205,11 +205,11 @@
       ;;  1
       ;;  #'check-cell)
       (unless closest-elem
-        ;; (iterate-over-cell-patch
-        ;;  mesh
-        ;;  position 
-        ;;  2
-        ;;  #'check-cell)
+        (iterate-over-cell-patch
+         mesh
+         position
+         2
+         #'check-cell)
         (unless closest-elem
           (let ((mutex (sb-thread:make-mutex)))
             (cl-mpm::iterate-over-cells
@@ -338,7 +338,7 @@
            cell
          ;;Set all aggregated nodes
          (when (and active agg)
-           (loop for n in nodes
+           (loop for n across nodes
                  do (when (cl-mpm/mesh::node-active n)
                       (setf (cl-mpm/mesh::node-agg n) t)))))))
 
@@ -367,7 +367,7 @@
            cell
          ;;Set all aggregated nodes - also set them all to be interior
          (when (and active int)
-           (loop for n in nodes
+           (loop for n across nodes
                  do (when (cl-mpm/mesh::node-active n)
                       (setf (cl-mpm/mesh::node-agg n) t
                             (cl-mpm/mesh::node-interior n) t
@@ -536,6 +536,7 @@
            (ndof (length active-nodes))
            (ndofC (length agg-nodes))
            (est-size (+ ndofC (* (expt 2 nd) (- ndof ndofC))))
+           (lock (sb-thread:make-mutex))
            (v (make-array est-size :fill-pointer est-size :adjustable t :element-type 'double-float))
            (r (make-array est-size :fill-pointer est-size :adjustable t :element-type 'fixnum))
            (c (make-array est-size :fill-pointer est-size :adjustable t :element-type 'fixnum)))
@@ -557,10 +558,14 @@
              (if (cl-mpm/mesh::node-interior node)
                  (progn
                    ;;Interior -> populate 1s
-                   (let ((place (sb-ext:atomic-incf (aref counter 0))))
-                     (setf (aref v place) 1d0)
-                     (setf (aref r place) (cl-mpm/mesh::node-agg-fd node))
-                     (setf (aref c place) (cl-mpm/mesh::node-agg-fdc node))
+                   (sb-thread:with-mutex (lock)
+                     ;let ((place (sb-ext:atomic-incf (aref counter 0))))
+                     ;; (setf (aref v place) 1d0)
+                     ;; (setf (aref r place) (cl-mpm/mesh::node-agg-fd node))
+                     ;; (setf (aref c place) (cl-mpm/mesh::node-agg-fdc node))
+                     (vector-push-extend  1d0 v)
+                     (vector-push-extend  (cl-mpm/mesh::node-agg-fd node) r)
+                     (vector-push-extend  (cl-mpm/mesh::node-agg-fdc node) c)
                      ))
                  (progn
                    ;;Aggregate -> populate svp
@@ -572,10 +577,15 @@
                       (when (and (cl-mpm/mesh::node-active cn)
                                  (cl-mpm/mesh::node-agg-fdc cn)
                                  (> (abs weight) 1d-9))
-                        (let ((place (sb-ext:atomic-incf (aref counter 0))))
-                          (setf (aref v place) weight)
-                          (setf (aref r place) (cl-mpm/mesh::node-agg-fd node))
-                          (setf (aref c place) (cl-mpm/mesh::node-agg-fdc cn))))))))))))
+                        (sb-thread:with-mutex (lock)
+                                        ;let ((place (sb-ext:atomic-incf (aref counter 0))))
+                          ;; (setf (aref v place) weight)
+                          ;; (setf (aref r place) (cl-mpm/mesh::node-agg-fd node))
+                          ;; (setf (aref c place) (cl-mpm/mesh::node-agg-fdc cn))
+                          (vector-push-extend  weight v)
+                          (vector-push-extend  (cl-mpm/mesh::node-agg-fd node) r)
+                          (vector-push-extend  (cl-mpm/mesh::node-agg-fdc cn) c)
+                          ))))))))))
       (values (cl-mpm/utils::build-sparse-matrix v r c ndof ndofC)
               (cl-mpm/utils::build-sparse-matrix v c r ndofC ndof)))))
 
@@ -698,7 +708,7 @@
            (work-vec-agg (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows et) 1)))
       (cl-mpm/linear-solver::solve-conjugant-gradients
        (lambda (x)
-         (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+         (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
           e
           x
           bcs
@@ -709,7 +719,7 @@
           sma
           work-vec
           work-vec)
-         (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+         (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
           et
           work-vec
           bcs-int
@@ -718,7 +728,7 @@
          )
        v
        :tol 1d-10
-       :max-iters 1000
+       :max-iters 10000
        :mask bcs-int
        ))))
 

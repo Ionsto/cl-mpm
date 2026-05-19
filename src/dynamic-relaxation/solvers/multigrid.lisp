@@ -95,7 +95,8 @@
 ;;     (let ((m (cl-mpm:sim-mesh sim)))
 ;;       (setf mesh (aref mesh-list (- (length mesh-list) 1)))
 ;;       (call-next-method)
-;;       (setf mesh m))))
+;;       (setf mesh m)
+;;       )))
 
 ;; (defmethod cl-mpm::sim-add-mp :around ((sim mpm-sim-dr-multigrid) mp)
 ;;   (with-accessors ((mesh cl-mpm::sim-mesh)
@@ -107,15 +108,15 @@
 ;;       (call-next-method)
 ;;       (setf mesh m))))
 
-;; ;; (defmethod pre-step ((sim mpm-sim-dr-multigrid))
-;; ;;   (with-accessors ((mesh cl-mpm:sim-mesh)
-;; ;;                    (mps cl-mpm:sim-mps)
-;; ;;                    (delocal-counter cl-mpm/damage::sim-damage-delocal-counter-max))
-;; ;;       sim
-;; ;;     (call-next-method)
-;; ;;     (setf delocal-counter -1)
-;; ;;     (progn
-;; ;;       (cl-mpm/damage::update-delocalisation-list (first (last (cl-mpm::sim-mesh-list sim))) mps))))
+;; (defmethod pre-step ((sim mpm-sim-dr-multigrid))
+;;   (with-accessors ((mesh cl-mpm:sim-mesh)
+;;                    (mps cl-mpm:sim-mps)
+;;                    (delocal-counter cl-mpm/damage::sim-damage-delocal-counter-max))
+;;       sim
+;;     (call-next-method)
+;;     (setf delocal-counter -1)
+;;     (progn
+;;       (cl-mpm/damage::update-delocalisation-list (first (last (cl-mpm::sim-mesh-list sim))) mps))))
 
 ;; (defmethod pre-step ((sim mpm-sim-dr-multigrid))
 ;;   (with-slots ((mesh cl-mpm::mesh)
@@ -226,10 +227,18 @@
 (defclass cell-octree (cl-mpm/mesh::cell)
   ((octree-refine
     :initform 0
-    :accessor cell-octree-refine)
+    :accessor cell-octree-refine
+    ;;-1: transition in mesh above
+    ;; 0: unrefined
+    ;; 1: transition
+    ;; 2: refined
+    )
    (mesh-index
     :initform 0
     :accessor cell-mesh-index)
+   (coupling
+    :initform nil
+    :accessor cell-coupling)
    (reaggregation-element
     :initform nil
     :accessor cell-reaggregation-element)))
@@ -257,17 +266,23 @@
     :accessor sim-intra-mesh-aggregation)))
 
 
-(defclass mpm-sim-octree-usf (cl-mpm/aggregate::mpm-sim-agg-usf mpm-sim-octree )
+;;abstract class
+(defclass mpm-sim-octree-damage (cl-mpm/damage::mpm-sim-damage mpm-sim-octree)
   ())
 
-(defclass mpm-sim-octree-damage-usf (cl-mpm/damage::mpm-sim-agg-damage mpm-sim-octree-usf)
+(defclass mpm-sim-octree-usf (cl-mpm/aggregate::mpm-sim-agg-usf mpm-sim-octree)
+  ())
+
+(defclass mpm-sim-octree-damage-usf (cl-mpm/damage::mpm-sim-agg-damage mpm-sim-octree-usf mpm-sim-octree-damage)
   ())
 
 (defclass mpm-sim-octree-quasi-static (cl-mpm/dynamic-relaxation::mpm-sim-dr-ul mpm-sim-octree)
   ())
 
-(defclass mpm-sim-octree-damage-quasi-static (cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul mpm-sim-octree-quasi-static)
+(defclass mpm-sim-octree-damage-quasi-static (cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul mpm-sim-octree-quasi-static  mpm-sim-octree-damage)
   ())
+
+
 
 
 (defmethod cl-mpm::apply-essential-bcs ((sim mpm-sim-octree))
@@ -326,8 +341,8 @@
                  ;;Avoid triggering the setf bcs active rebuild
                  (setf
                   (cl-mpm::sim-bcs sim)
-                  (aref bcs-list i)
-                  )
+                  (aref bcs-list i))
+
                  (cl-mpm/setup::resolve-bc-nodes sim mesh (aref bcs-list i))
                  (incf bc-count (length (aref bcs-list i))))))
     ;; (setf
@@ -348,9 +363,11 @@
               (cl-mpm::sim-bcs-list sim) (make-array mesh-count))
         (dotimes (refine (+ (cl-mpm::sim-multigrid-refinement sim) 1))
           (let* ((m (cl-mpm::make-mesh size (/ resolution (expt 2 (+ refine 0))) nil))
-                 (bcs (cl-mpm/bc:make-outside-bc m)))
+                 )
             (setf (aref mesh-list refine) m)
-            (setf (aref bcs-list refine) bcs)))
+            (setf (aref bcs-list refine) (cl-mpm/bc:make-outside-bc m))
+            (cl-mpm/setup::resolve-bc-nodes sim m (aref bcs-list refine))
+            ))
 
           (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
                            (bcs-list cl-mpm::sim-bcs-list))
@@ -445,91 +462,97 @@
     (set-mesh-default sim)))
 
 (defun intra-mesh-agg (sim mesh)
-  (with-accessors ()
-    sim
-    (setf (cl-mpm::sim-mesh sim) mesh)
-    (let ((mesh-nodes
-            (make-array (array-total-size (cl-mpm/mesh::mesh-nodes mesh))
-                        :displaced-to
-                        (cl-mpm/mesh::mesh-nodes mesh))))
+  (setf (cl-mpm::sim-mesh sim) mesh)
+  (let ((mesh-nodes
+          (make-array (array-total-size (cl-mpm/mesh::mesh-nodes mesh))
+                      :displaced-to
+                      (cl-mpm/mesh::mesh-nodes mesh))))
 
-      (cl-mpm::iterate-over-nodes-array
-       mesh-nodes
-       (lambda (n)
-         (setf (cl-mpm/mesh::node-agg-building-flag n) nil)))
-      ;; (cl-mpm::iterate-over-cells
-      ;;  mesh
-      ;;  (lambda (c)
-      ;;    (setf (cl-mpm/mesh::cell-agg c) nil
-      ;;          (cl-mpm/mesh::cell-interior c) nil)))
+    (cl-mpm::iterate-over-nodes-array
+     mesh-nodes
+     (lambda (n)
+       (setf (cl-mpm/mesh::node-agg-building-flag n) nil
+             (node-transition-zone n) nil)))
+    (cl-mpm::iterate-over-cells
+     mesh
+     (lambda (c)
+       (setf (cl-mpm/mesh::cell-agg c) nil
+             (cl-mpm/mesh::cell-interior c) nil)))
 
 
-      ;;First set all outside cells as aggregate
-      (cl-mpm::iterate-over-cells
-       mesh
-       (lambda (cell)
-         (with-accessors ((partial cl-mpm/mesh::cell-partial)
-                          (nodes cl-mpm/mesh::cell-nodes)
-                          (agg cl-mpm/mesh::cell-agg)
-                          (neighbours cl-mpm/mesh::cell-cartesian-neighbours)
-                          (active cl-mpm/mesh::cell-active))
-             cell
-           (when (and active partial)
-             (setf agg t)
-             (loop for n in neighbours
-                   do
-                      (when (cl-mpm/mesh::cell-active n)
-                        (if (cl-mpm/mesh::cell-interior n)
-                            (setf (cell-reaggregation-element n) t)
-                            (setf (cl-mpm/mesh::cell-agg n) t))))))))
+    ;;First set all outside cells as aggregate
+    (cl-mpm::iterate-over-cells
+     mesh
+     (lambda (cell)
+       (with-accessors ((partial cl-mpm/mesh::cell-partial)
+                        (nodes cl-mpm/mesh::cell-nodes)
+                        (agg cl-mpm/mesh::cell-agg)
+                        (neighbours cl-mpm/mesh::cell-cartesian-neighbours)
+                        (active cl-mpm/mesh::cell-active))
+           cell
+         (when (and active partial)
+           (setf agg t)
+           (loop for n in neighbours
+                 do
+                    (when (cl-mpm/mesh::cell-active n)
+                      (setf (cl-mpm/mesh::cell-agg n) t)))))))
 
-      ;;Next set any nodes on agg elements to be agg
-      (cl-mpm::iterate-over-cells
-       mesh
-       (lambda (cell)
-         (with-accessors ((nodes cl-mpm/mesh::cell-nodes)
-                          (agg cl-mpm/mesh::cell-agg)
-                          (active cl-mpm/mesh::cell-active))
-             cell
-           (when (and active agg (not (cell-reaggregation-element cell)))
+    ;;Next set any nodes on agg elements to be agg
+    (cl-mpm::iterate-over-cells
+     mesh
+     (lambda (cell)
+       (with-accessors ((nodes cl-mpm/mesh::cell-nodes)
+                        (agg cl-mpm/mesh::cell-agg)
+                        (coupling cell-coupling)
+                        (active cl-mpm/mesh::cell-active))
+           cell
+         (when (and active agg)
+           (unless coupling
+             (loop for n across nodes
+                   do (when (and (cl-mpm/mesh::node-active n))
+                        (setf (cl-mpm/mesh::node-agg n) t))))
+           (when coupling
              (loop for n across nodes
                    do (when (cl-mpm/mesh::node-active n)
-                        (setf (cl-mpm/mesh::node-agg n) t
-                              (cl-mpm/mesh::node-agg-building-flag n) t))))
-           )))
+                        (setf (cl-mpm/mesh::node-interior n) nil
+                              (cl-mpm/mesh::node-agg n) t
+                              (node-transition-zone n) t
+                              )))))
+         (when (and active coupling)
+           (setf (cl-mpm/mesh::cell-interior cell) t)
+           (loop for n across nodes
+                 do (when (cl-mpm/mesh::node-active n)
+                      (setf
+                       (cl-mpm/mesh::node-agg n) t
+                       (node-transition-zone n) t))))
+         )))
 
-      ;;For each aggregate node, locate the closest support cell
-      (cl-mpm::iterate-over-nodes-array
-       mesh-nodes
-       (lambda (node)
-         (with-accessors ((active cl-mpm/mesh::node-active)
-                          (agg cl-mpm/mesh::node-agg)
-                          (int cl-mpm/mesh::node-interior)
-                          (building cl-mpm/mesh::node-agg-building-flag)
-                          (int-cell cl-mpm/mesh::node-agg-interior-cell))
-             node
-           (when (and active agg ; (not int-cell)
-                      )
-             (if int-cell
+    ;;For each aggregate node, locate the closest support cell
+    (cl-mpm::iterate-over-nodes-array
+     mesh-nodes
+     (lambda (node)
+       (with-accessors ((active cl-mpm/mesh::node-active)
+                        (agg cl-mpm/mesh::node-agg)
+                        (int cl-mpm/mesh::node-interior)
+                        (building cl-mpm/mesh::node-agg-building-flag)
+                        (transition node-transition-zone)
+                        (int-cell cl-mpm/mesh::node-agg-interior-cell))
+           node
+         (when (and active agg (not transition))
+           (let ((closest-elem (cl-mpm/aggregate::get-closest-cell
+                                mesh
+                                (cl-mpm/mesh::node-position node)
+                                ;; :exclude int-cell
+                                :filter (lambda (c)
+                                          (and 
+                                           (not (cell-coupling c))
+                                           (not (= (cell-octree-refine c) -1))))
+                                )))
+             (if closest-elem
                  (progn
-                   ;;If we've already got aggregation happening, we need to reaggregate
-                   ;; (setf (cell-reaggregation-element int-cell) closest-elem)
-                   ;; (loop for n across (cl-mpm/mesh::cell-nodes int-cell)
-                   ;;       do (setf (cl-mpm/mesh::node-interior n) nil))
-                   ;; (setf (cl-mpm/mesh::cell-interior int-cell) nil)
-                   ;; (setf (cl-mpm/mesh::cell-interior closest-elem) t)
-                   (setf int nil))
-                 (let ((closest-elem (cl-mpm/aggregate::get-closest-cell
-                                      mesh
-                                      (cl-mpm/mesh::node-position node)
-                                      :exclude int-cell
-                                      :filter (lambda (c)
-                                                (not (= (cell-octree-refine c) -1))))))
-                   (if closest-elem
-                       (progn
-                         (setf int-cell closest-elem)
-                         (setf (cl-mpm/mesh::cell-interior closest-elem) t))
-                       (error "No closest elem?")))))))))
+                   (setf int-cell closest-elem)
+                   (setf (cl-mpm/mesh::cell-interior closest-elem) t))
+                 (error "No closest elem?"))))))))
   (cl-mpm::iterate-over-cells
    mesh
    (lambda (cell)
@@ -538,29 +561,46 @@
                       (int cl-mpm/mesh::cell-interior)
                       (active cl-mpm/mesh::cell-active)
                       (reagg cell-reaggregation-element)
+                      (coupling cell-coupling)
                       )
          cell
-       (when (and active int (not reagg))
+       (when (and active agg coupling)
+         (setf int nil)
+         (let ((closest-elem (cl-mpm/aggregate::get-closest-cell
+                              mesh
+                              (cl-mpm/mesh::cell-centroid cell)
+                              :exclude cell
+                              :filter (lambda (c)
+                                        (and 
+                                         (not (cell-coupling c))
+                                         (not (= (cell-octree-refine c) -1))))
+                              )))
+           (setf
+            (cell-reaggregation-element cell)
+            closest-elem)
+           (setf (cl-mpm/mesh::cell-interior closest-elem) t))))))
+  (cl-mpm::iterate-over-cells
+   mesh
+   (lambda (cell)
+     (with-accessors ((nodes cl-mpm/mesh::cell-nodes)
+                      (agg cl-mpm/mesh::cell-agg)
+                      (int cl-mpm/mesh::cell-interior)
+                      (active cl-mpm/mesh::cell-active)
+                      (reagg cell-reaggregation-element)
+                      (coupling cell-coupling)
+                      )
+         cell
+       (when (and active int ;; (not coupling)
+                  )
          (loop for n across nodes
                do (when (and (cl-mpm/mesh::node-active n)
+                             ;; (not (node-transition-zone n))
                              ;; (cl-mpm/mesh::node-agg-building-flag n)
+                             ;; (not (cl-mpm/mesh::node-agg-interior-cell n))
                              )
                     (setf (cl-mpm/mesh::node-agg n) t
                           (cl-mpm/mesh::node-agg-interior-cell n) cell
-                          (cl-mpm/mesh::node-interior n) t))))
-
-       (when reagg
-         (setf int nil)
-         (setf
-          (cell-reaggregation-element cell)
-          (cl-mpm/aggregate::get-closest-cell
-           mesh
-           (cl-mpm/mesh::cell-centroid cell)
-           :exclude cell
-           :filter
-           (lambda (c)
-             (not (= (cell-octree-refine c) -1))))))
-       )))))
+                          (cl-mpm/mesh::node-interior n) t))))))))
 
 (defun inter-mesh-agg (sim mesh-index)
   (with-accessors ((mesh-list cl-mpm::sim-mesh-list))
@@ -577,48 +617,69 @@
              (when (= (cell-octree-refine cell) 1)
                (when active
                  (setf (cl-mpm/mesh::cell-interior cell) t)
-                 (setf (cl-mpm/mesh::cell-agg cell) t))
-
-               (iterate-over-sub-cells
-                sim
-                mesh-index
-                cell
-                (lambda (c)
-                  (setf (cl-mpm/mesh::cell-interior c) nil)
-                  (when (cl-mpm/mesh::cell-agg-int c)
-                    (setf (cell-reaggregation-element c) cell))))
-
-               (let ((sub-node-active nil))
-                 (iterate-over-sub-nodes
+                 (setf (cl-mpm/mesh::cell-agg cell) t)
+                 (setf (cell-coupling cell) t)
+                 (iterate-over-sub-cells
                   sim
                   mesh-index
                   cell
-                  (lambda (n)
-                    (when (cl-mpm/mesh::node-active n)
-                      (setf sub-node-active t)
-                      (when t;(not (cl-mpm/mesh::node-agg n))
-                        (setf
-                         (cl-mpm/mesh::node-agg n) t
-                         (cl-mpm/mesh::node-interior n) nil
-                         (cl-mpm/mesh::node-agg-interior-cell n) cell
-                         ))
-                      (cl-mpm::iterate-over-cell-shape-local
-                       mesh
-                       cell
-                       (cl-mpm/mesh::node-position n)
-                       (lambda (n w grads)
-                         (when (not (= w 0d0))
-                           (setf (cl-mpm/mesh::node-active n) t)))))))
-                 (when sub-node-active
-                   (loop for n across nodes
-                         do (progn
-                              (when (cl-mpm/mesh::node-active n)
-                                (setf (cl-mpm/mesh::node-agg n) t
-                                      (cl-mpm/mesh::node-interior n) t)
-                                (unless (cl-mpm/mesh::node-agg-interior-cell n)
-                                  (setf (cl-mpm/mesh::node-agg-interior-cell n) cell)))
-                              ;; (setf (cl-mpm/mesh::node-active n) t)
-                              ))))))))
+                  (lambda (c)
+                    (setf (cl-mpm/mesh::cell-interior c) nil)
+                    (when (cl-mpm/mesh::cell-agg-int c)
+                      (setf (cell-coupling c) t)
+                      (setf (cell-reaggregation-element c) cell))))
+                 (let ((sub-node-active nil))
+                   (iterate-over-sub-nodes
+                    sim
+                    mesh-index
+                    cell
+                    (lambda (n)
+                      (when (cl-mpm/mesh::node-active n)
+                        (setf sub-node-active t)
+                        (when t
+                          ;; (when (and (cl-mpm/mesh::node-agg)
+                          ;;            (not (cl-mpm/mesh::node-))
+                          ;;            )
+                          ;;   (setf
+                          ;;    (cl-mpm/mesh::node-agg n) t
+                          ;;    ))
+                          ;;When we are "free" we can just grab them by pointing
+                          (when t ;(or (not (cl-mpm/mesh::node-agg n)) (not (cl-mpm/mesh::node-interior n)))
+                            (setf
+                             (cl-mpm/mesh::node-agg n) t
+                             (cl-mpm/mesh::node-agg-interior-cell n) cell
+                             (cl-mpm/mesh::node-interior n) nil)))
+                        ;; Interior
+                        ;; (when (cl-mpm/mesh::node-interior n)
+                        ;;   ;;Sneaky trick, because we're running bottom to top this will always resolve to cell
+                        ;;   ;;if we've just reaggregated this interior's element
+                        ;;   (when (eq
+                        ;;          (resolve-reaggregation (cl-mpm/mesh::node-agg-interior-cell n))
+                        ;;          cell)
+                        ;;     (setf
+                        ;;      (cl-mpm/mesh::node-agg n) t
+                        ;;      (setf (cl-mpm/mesh::node-agg-interior-cell n) cell)
+                        ;;      (cl-mpm/mesh::node-interior n) nil)
+                        ;;     ))
+
+                        (cl-mpm::iterate-over-cell-shape-local
+                         mesh
+                         cell
+                         (cl-mpm/mesh::node-position n)
+                         (lambda (n w grads)
+                           (when (not (= w 0d0))
+                             (setf (cl-mpm/mesh::node-active n) t)))))))
+                   (when sub-node-active
+                     (loop for n across nodes
+                           do (progn
+                                (when (cl-mpm/mesh::node-active n)
+                                  (setf (cl-mpm/mesh::node-agg n) t
+                                        (node-transition-zone n) t
+                                        (cl-mpm/mesh::node-interior n) t)
+                                  (unless (cl-mpm/mesh::node-agg-interior-cell n)
+                                    (setf (cl-mpm/mesh::node-agg-interior-cell n) cell)))
+                                ;; (setf (cl-mpm/mesh::node-active n) t)
+                                )))))))))
 
       ;; (cl-mpm::iterate-over-cells
       ;;  mesh-below
@@ -645,6 +706,21 @@
                   (cl-mpm::update-cell mesh cell dt)))))
     (propogate-filter-cells-octree sim)))
 
+(defun iterate-over-sub-cells-1d (sim mesh-index cell func)
+  (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
+                   (dt cl-mpm::sim-dt)
+                   (agg cl-mpm/aggregate::sim-enable-aggregate))
+      sim
+    (let ((mesh (aref mesh-list (1+ mesh-index))))
+      (destructuring-bind (x y z) (cl-mpm/mesh::cell-index cell)
+        (dotimes (dx 2)
+            (let ((nb (cl-mpm/mesh::get-cell
+                       mesh
+                       (list (+ dx (* 2 x))
+                             0
+                             0))))
+              (funcall func nb)))))))
+
 (defun iterate-over-sub-cells-2d (sim mesh-index cell func)
   (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
                    (dt cl-mpm::sim-dt)
@@ -668,9 +744,23 @@
       sim
     (let ((mesh (aref mesh-list mesh-index)))
       (ecase (cl-mpm/mesh::mesh-nd mesh)
-        (1 (error "Not implemented"))
+        (1 (iterate-over-sub-cells-1d sim mesh-index cell func))
         (2 (iterate-over-sub-cells-2d sim mesh-index cell func))
         (3 (error "Not implemented"))))))
+
+(defun iterate-over-sub-nodes-1d (sim mesh-index cell func)
+  (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
+                   (dt cl-mpm::sim-dt)
+                   (agg cl-mpm/aggregate::sim-enable-aggregate))
+      sim
+    (let ((mesh (aref mesh-list (1+ mesh-index))))
+      (destructuring-bind (x y z) (cl-mpm/mesh::cell-index cell)
+        (dotimes (dx 3)
+          (let ((n (cl-mpm/mesh::get-node
+                    mesh
+                    (list (+ (* 2 x) dx)
+                          0 0))))
+            (funcall func n)))))))
 
 (defun iterate-over-sub-nodes-2d (sim mesh-index cell func)
   (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
@@ -686,6 +776,22 @@
                       (list (+ (* 2 x) dx)
                             (+ (* 2 y) dy) 0))))
               (funcall func n))))))))
+(defun iterate-over-sub-nodes-3d (sim mesh-index cell func)
+  (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
+                   (dt cl-mpm::sim-dt)
+                   (agg cl-mpm/aggregate::sim-enable-aggregate))
+      sim
+    (let ((mesh (aref mesh-list (1+ mesh-index))))
+      (destructuring-bind (x y z) (cl-mpm/mesh::cell-index cell)
+        (dotimes (dx 3)
+          (dotimes (dy 3)
+            (dotimes (dz 3)
+              (let ((n (cl-mpm/mesh::get-node
+                        mesh
+                        (list (+ (* 2 x) dx)
+                              (+ (* 2 y) dy)
+                              (+ (* 2 z) dz)))))
+                (funcall func n)))))))))
 
 (defun iterate-over-sub-nodes (sim mesh-index cell func)
   (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
@@ -694,9 +800,9 @@
       sim
     (let ((mesh (aref mesh-list mesh-index)))
       (ecase (cl-mpm/mesh::mesh-nd mesh)
-        (1 (error "Not implemented"))
+        (1 (iterate-over-sub-nodes-1d sim mesh-index cell func))
         (2 (iterate-over-sub-nodes-2d sim mesh-index cell func))
-        (3 (error "Not implemented"))))))
+        (3 (iterate-over-sub-nodes-3d sim mesh-index cell func))))))
 
 (defun propogate-filter-cells-octree (sim)
   (with-accessors (;; (mesh cl-mpm::sim-mesh)
@@ -786,6 +892,7 @@
               (lambda (node)
                 (setf (cl-mpm/mesh::cell-agg node) nil
                       (cl-mpm/mesh::cell-aggregate-element node) nil
+                      (cell-coupling node) nil
                       (cell-reaggregation-element node) nil
                       (cl-mpm/mesh::cell-interior node) nil))))
 
@@ -798,11 +905,14 @@
             do
                (progn
                  (when intra-mesh-agg
+                   (set-mesh sim (1+ mesh-index))
                    (intra-mesh-agg sim (aref mesh-list (1+ mesh-index))))
                  (set-mesh sim mesh-index)
                  (inter-mesh-agg sim mesh-index))))
     (when intra-mesh-agg
+      (set-mesh sim 0)
       (intra-mesh-agg sim (aref mesh-list 0)))
+    (set-mesh-default sim)
 
     (when (> refinement 0)
       (labels ((resolve-reaggregation (cell)
@@ -901,15 +1011,19 @@
                   mesh
                   (lambda (c)
                     (let ((current-refine (cell-octree-refine c))
-                          (to-refine (funcall filter mesh c)))
+                          (to-refine (funcall filter sim mesh c)))
                       (when (and to-refine
-                                 (not (= (cell-octree-refine c) 2)))
+                                 ;; (not (= (cell-octree-refine c) 1))
+                                 )
+
                         (setf (cell-octree-refine c) 2)
+
                         (loop for cn in (cl-mpm/mesh::cell-neighbours c)
                               do (setf (cell-octree-refine cn)
                                        (max
                                         (cell-octree-refine cn)
-                                        1))))
+                                        1)
+                                       )))
                       (when (not (= current-refine (cell-octree-refine c)))
                         (setf mesh-updated t)))))
                  (when (> (cl-mpm::sim-multigrid-refinement sim) 0)
@@ -1038,8 +1152,21 @@
                           (the double-float
                                (* 0.25d0 mp-factor))))))))))))))
 
-(defmethod cl-mpm/setup::%estimate-elastic-dt ((sim mpm-sim-octree))
-  (* (call-next-method) (expt 2 (- (cl-mpm::sim-multigrid-refinement sim)))))
+;; (defmethod cl-mpm/setup::%estimate-elastic-dt ((sim mpm-sim-octree))
+;;   (* (call-next-method) (expt 2 (- (cl-mpm::sim-multigrid-refinement sim)))))
+(defmethod cl-mpm/setup::%estimate-elastic-dt-mps ((sim mpm-sim-octree))
+  (with-accessors ((mps cl-mpm:sim-mps))
+      sim
+    (cl-mpm::reduce-over-mps
+     mps
+     (lambda (mp)
+       (cl-mpm/setup::estimate-elastic-dt-mp
+        sim
+        (cl-mpm/particle::mp-p-modulus mp)
+        (/ (the double-float (cl-mpm/particle:mp-mass mp))
+           (the double-float (cl-mpm/particle:mp-volume mp)))
+        (resolve-h sim mp)))
+     #'min)))
 
 (in-package :cl-mpm/output)
 (defmethod save-vtk-cells (filename (sim cl-mpm/dynamic-relaxation::mpm-sim-octree))
@@ -1084,6 +1211,7 @@
               (declare (special id))
               (format fs "POINT_DATA ~d~%" (array-total-size cells))
               (save-parameter-cells "octree" (cl-mpm/dynamic-relaxation::cell-octree-refine cell))
+              (save-parameter-cells "coupling" (if (cl-mpm/dynamic-relaxation::cell-coupling cell) 1 0))
               (save-parameter-cells "reaggregate" (if (cl-mpm/dynamic-relaxation::cell-reaggregation-element cell) 1 0))
               (save-parameter-cells "buoyancy" (if (cl-mpm/mesh::cell-boundary cell) 1 0))
               (save-parameter-cells "active" (if (cl-mpm/mesh::cell-active cell) 1 0))
@@ -1099,5 +1227,189 @@
               (save-parameter-cells "j" (magicl:det (cl-mpm/mesh::cell-deformation-gradient cell)))
               ))))))
 
+(defmethod save-vtk-nodes (filename (sim cl-mpm/dynamic-relaxation::mpm-sim-octree))
+  (let ((nc 0))
+    (loop for mesh across (cl-mpm::sim-mesh-list sim)
+          do (incf nc (cl-mpm::reduce-over-nodes
+                       mesh
+                       (lambda (n) (if (cl-mpm/mesh::node-active n) 1 0))
+                       #'+)))
+    (let ((nodes (make-array nc))
+          (iter 0))
+      (loop for mesh across (cl-mpm::sim-mesh-list sim)
+            do (cl-mpm::iterate-over-nodes-serial
+                mesh
+                (lambda (n)
+                  (when (cl-mpm/mesh::node-active n)
+                    (setf (aref nodes iter) n)
+                    (incf iter)))))
+      (with-open-file (fs filename :direction :output :if-exists :supersede)
+        (format fs "# vtk DataFile Version 2.0~%")
+        (format fs "Lisp generated vtk file, SJVS~%")
+        (format fs "ASCII~%")
+        (format fs "DATASET UNSTRUCTURED_GRID~%")
+
+        (let* (;; (node-count (array-total-size full-nodes))
+               ;; (nodes (remove-if-not 'cl-mpm/mesh:node-active
+               ;;                       (make-array node-count :displaced-to full-nodes)))
+               )
+          ;; (when (= (length nodes) 0)
+          ;;   (setf nodes (make-array node-count :displaced-to full-nodes)))
+          (let ((node-count (array-total-size nodes)))
+            (format fs "POINTS ~d double~%" (array-total-size nodes))
+            (loop for i from 0 below (array-total-size nodes)
+                  do
+                     (let ((node (row-major-aref nodes i)))
+                       (when node
+                         ;; (incf node-count)
+                         (let ((pos (cl-mpm/fastmaths:fast-.+
+                                     (cl-mpm/mesh::node-position node)
+                                     (cl-mpm/mesh::node-displacment node))))
+                           (format fs "~E ~E ~E ~%"
+                                   (coerce (cl-mpm/utils::varef pos 0) 'single-float)
+                                   (coerce (cl-mpm/utils::varef pos 1) 'single-float)
+                                   (coerce (cl-mpm/utils::varef pos 2) 'single-float))))))
+            (format fs "~%")
+            (let ((id 1))
+              (declare (special id))
+              (format fs "POINT_DATA ~d~%" (array-total-size nodes))
+
+
+              (save-parameter-nodes "active" (if (cl-mpm/mesh::node-active node) 1 0))
+
+              (save-parameter-nodes "agg" (if (cl-mpm/mesh::node-agg node) 1 0))
+              (save-parameter-nodes "agg-int" (if (cl-mpm/mesh::node-interior node) 1 0))
+              (save-parameter-nodes "agg-ext" (if (and (cl-mpm/mesh::node-agg node) (not (cl-mpm/mesh::node-interior node))) 1 0))
+              (save-parameter-nodes "agg-element-x" (if (cl-mpm/mesh::node-agg-interior-cell node)
+                                                        (nth 0 (cl-mpm/mesh::cell-index (cl-mpm/mesh::node-agg-interior-cell node))) -1))
+              (save-parameter-nodes "agg-element-y" (if (cl-mpm/mesh::node-agg-interior-cell node)
+                                                        (nth 1 (cl-mpm/mesh::cell-index (cl-mpm/mesh::node-agg-interior-cell node))) -1))
+              ;; (save-parameter-nodes "agg-element-mindex" (if (cl-mpm/mesh::node-agg-interior-cell node) (cl-mpm/dynamic-relaxation::cell-mesh-index (cl-mpm/mesh::node-agg-interior-cell node)) 0))
+
+
+              (save-parameter-nodes "mass" (cl-mpm/mesh:node-mass node))
+              (save-parameter-nodes "density" (if (> (cl-mpm/mesh::node-volume node) 0d0)
+                                                  (/ (cl-mpm/mesh:node-mass node) (cl-mpm/mesh::node-volume node))
+                                                  0d0))
+              (save-parameter-nodes "mass-inv" (if (> (cl-mpm/mesh:node-mass node) 0d0)
+                                                   (/ 1d0 (cl-mpm/mesh:node-mass node))
+                                                   0d0))
+
+              (save-parameter-nodes "vel_norm" (cl-mpm/fastmaths::mag (cl-mpm/mesh:node-velocity node)))
+              (save-parameter-nodes "vel_x" (magicl:tref (cl-mpm/mesh:node-velocity node) 0 0))
+              (save-parameter-nodes "vel_y" (magicl:tref (cl-mpm/mesh:node-velocity node) 1 0))
+              (save-parameter-nodes "vel_z" (magicl:tref (cl-mpm/mesh:node-velocity node) 2 0))
+
+              (save-parameter-nodes "disp_x" (magicl:tref (cl-mpm/mesh::node-displacment node) 0 0))
+              (save-parameter-nodes "disp_y" (magicl:tref (cl-mpm/mesh::node-displacment node) 1 0))
+              (save-parameter-nodes "disp_z" (magicl:tref (cl-mpm/mesh::node-displacment node) 2 0))
+
+              (save-parameter-nodes "bc_x" (if (cl-mpm/mesh::node-bcs node) (varef (cl-mpm/mesh::node-bcs node) 0) 0))
+              (save-parameter-nodes "bc_y" (if (cl-mpm/mesh::node-bcs node) (varef (cl-mpm/mesh::node-bcs node) 1) 0))
+              (save-parameter-nodes "bc_z" (if (cl-mpm/mesh::node-bcs node) (varef (cl-mpm/mesh::node-bcs node) 2) 0))
+
+              (save-vector-nodes "force" (cl-mpm/mesh:node-force node))
+              (save-vector-nodes "force-ext" (cl-mpm/mesh::node-external-force node))
+              (save-vector-nodes "force-int" (cl-mpm/mesh::node-internal-force node))
+              (save-vector-nodes "force-rct" (cl-mpm/mesh::node-reaction-force node))
+              (save-vector-nodes "force-buoyancy" (cl-mpm/mesh::node-buoyancy-force node))
+              (save-vector-nodes "force-ghost" (cl-mpm/mesh::node-ghost-force node))
+              (save-vector-nodes "force-damping" (cl-mpm/mesh::node-damping-force node))
+              (save-vector-nodes "acc" (cl-mpm/mesh:node-acceleration node))
+
+              (save-parameter-nodes "j-inc" (if (= (cl-mpm/mesh::node-jacobian-inc node) 0d0)
+                                                1d0
+                                                (cl-mpm/mesh::node-jacobian-inc node)
+                                                ))
+              (save-parameter-nodes "buoyancy_node" (if
+                                                     (cl-mpm/mesh::node-boundary-node node) 1 0))
+              (save-parameter-nodes "buoyancy-scalar" (cl-mpm/mesh::node-boundary-scalar node))
+              (save-parameter-nodes "pressure" (cl-mpm/mesh::node-pressure node))
+              (save-parameter-nodes "local-list-size" (length (cl-mpm/mesh::node-local-list node)))
+              (save-parameter-nodes "energy"
+                                    (*
+                                     (cl-mpm/mesh::node-mass node)
+                                     (cl-mpm/mesh::node-mass node)
+                                     (cl-mpm/fastmaths::mag-squared (cl-mpm/mesh::node-velocity node))))
+
+              (save-parameter-nodes "oobf" (cl-mpm/mesh::node-oobf node))
+              (save-parameter-nodes "volume" (cl-mpm/mesh::node-volume node))
+              (save-parameter-nodes "volume-true" (cl-mpm/mesh::node-volume-true node))
+              (save-parameter-nodes "damage"
+                                    (if (slot-exists-p node 'cl-mpm/mesh::damage)
+                                        (cl-mpm/mesh::node-damage node)
+                                        0d0)))))))))
+
 (in-package :cl-mpm/dynamic-relaxation)
+
+
+
+(defmethod cl-mpm/damage::calculate-damage :around ((sim mpm-sim-octree-damage) dt)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm:sim-mps)
+                   (mesh-list cl-mpm::sim-mesh-list))
+      sim
+    (set-mesh-default sim)
+    (call-next-method)
+    (set-mesh-default sim)))
+
+(defmethod cl-mpm::sim-add-mp :around ((sim mpm-sim-dr-multigrid) mp)
+  (with-accessors ((mesh cl-mpm::sim-mesh)
+                   (mesh-list cl-mpm::sim-mesh-list)
+                   )
+      sim
+    (set-mesh-default sim)
+    (call-next-method)
+    (set-mesh-default sim)))
+
+;; (defmethod pre-step ((sim mpm-sim-dr-multigrid))
+;;   (with-accessors ((mesh cl-mpm:sim-mesh)
+;;                    (mps cl-mpm:sim-mps)
+;;                    (delocal-counter cl-mpm/damage::sim-damage-delocal-counter-max))
+;;       sim
+;;     (call-next-method)
+;;     (setf delocal-counter -1)
+;;     (progn
+;;       (cl-mpm/damage::update-delocalisation-list (first (last (cl-mpm::sim-mesh-list sim))) mps))))
+
+(defmethod cl-mpm::calculate-min-dt-mps ((sim mpm-sim-octree))
+  "Estimate minimum p-wave modulus"
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mass-scale cl-mpm::sim-mass-scale))
+      sim
+    (set-mesh-default sim)
+    (let ((inner-factor most-positive-double-float)
+          (h (cl-mpm/mesh:mesh-resolution mesh)))
+      (declare (double-float inner-factor mass-scale))
+      (setf inner-factor
+            (cl-mpm::reduce-over-nodes
+             mesh
+             (lambda (node)
+               (if (and (cl-mpm/mesh::node-active node)
+                        (or (not (cl-mpm/mesh::node-agg node))
+                            (cl-mpm/mesh::node-interior node)))
+                   (with-accessors ((node-active  cl-mpm/mesh:node-active)
+                                    (pmod cl-mpm/mesh::node-pwave)
+                                    (mass cl-mpm/mesh::node-mass)
+                                    (svp-sum cl-mpm/mesh::node-svp-sum)
+                                    (vol cl-mpm/mesh::node-volume)
+                                    (mesh-index node-mesh-index)
+                                    (vel cl-mpm/mesh::node-velocity)
+                                    ) node
+                     (declare (double-float pmod mass svp-sum vol h)
+                              (fixnum mesh-index))
+                     (if (and (> vol 0d0)
+                              (> pmod 0d0)
+                              (> svp-sum 0d0))
+                         (let* ((h-resolved (the double-float (* h (expt 2 (- mesh-index)))))
+                                (nf (* (expt h-resolved 2) (/ mass pmod))))
+                           nf)
+                         most-positive-double-float))
+                   most-positive-double-float))
+             #'min))
+      (if (< inner-factor most-positive-double-float)
+          (* (sqrt mass-scale) (sqrt inner-factor))
+          (cl-mpm:sim-dt sim)))))
+
+
 

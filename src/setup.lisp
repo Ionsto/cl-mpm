@@ -477,30 +477,33 @@
                             ))))))
     data))
 
-(defun estimate-elastic-dt-mp (sim p-modulus density)
+(defun estimate-elastic-dt-mp (sim p-modulus density h)
   "Calculate the estimated critical timestep for an elastic mp in a mesh"
   (declare (double-float p-modulus density))
   (*
-   (the double-float (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
+   (the double-float h)
    (the double-float
         (sqrt
          (*
           (the double-float (cl-mpm::sim-mass-scale sim))
           (the double-float (/ density p-modulus)))))))
 
-(defun %estimate-elastic-dt-mps (sim)
+(defgeneric %estimate-elastic-dt-mps (sim))
+(defmethod %estimate-elastic-dt-mps ((sim cl-mpm::mpm-sim))
   (with-accessors ((mps cl-mpm:sim-mps)
                    (bcs-force-list cl-mpm:sim-bcs-force-list))
       sim
-    (cl-mpm::reduce-over-mps
-     mps
-     (lambda (mp)
-       (estimate-elastic-dt-mp
-        sim
-        (cl-mpm/particle::mp-p-modulus mp)
-        (/ (the double-float (cl-mpm/particle:mp-mass mp))
-           (the double-float (cl-mpm/particle:mp-volume mp)))))
-     #'min)))
+    (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))
+      (cl-mpm::reduce-over-mps
+       mps
+       (lambda (mp)
+         (estimate-elastic-dt-mp
+          sim
+          (cl-mpm/particle::mp-p-modulus mp)
+          (/ (the double-float (cl-mpm/particle:mp-mass mp))
+             (the double-float (cl-mpm/particle:mp-volume mp)))
+          h))
+       #'min))))
 (defun %estimate-elastic-dt-bcs (sim)
   (with-accessors ((mps cl-mpm:sim-mps)
                    (bcs-force-list cl-mpm:sim-bcs-force-list))

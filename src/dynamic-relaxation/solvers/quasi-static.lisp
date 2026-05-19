@@ -175,9 +175,10 @@
          (cl-mpm::update-stress mesh mps dt-loadstep fbar)
          (cl-mpm::p2g-force-fs sim)
          (cl-mpm::apply-essential-bcs sim)
-         (cl-mpm::apply-bcs mesh bcs-force dt-loadstep)
-         (loop for bcs-f in bcs-force-list
-               do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
+         (cl-mpm::apply-force-bcs sim dt-loadstep)
+         ;; (cl-mpm::apply-bcs mesh bcs-force dt-loadstep)
+         ;; (loop for bcs-f in bcs-force-list
+         ;;       do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
          (setf (cl-mpm::sim-damping-factor sim) 0d0)
          (update-node-fictious-mass sim)
          (cl-mpm/aggregate::update-node-forces-agg sim (* -0.5d0 dt))
@@ -293,9 +294,7 @@
     ;; (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
     (cl-mpm::p2g-force-fs sim)
-    (cl-mpm::apply-bcs mesh bcs-force dt)
-    (loop for bcs-f in bcs-force-list
-          do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
+    (cl-mpm::apply-force-bcs sim dt-loadstep)
 
     ;; ;; (when ghost-factor
     ;; ;;   (cl-mpm/ghost::apply-ghost-cached sim)
@@ -365,9 +364,10 @@
     (cl-mpm/damage::calculate-damage sim dt-loadstep)
     (cl-mpm::p2g-force-fs sim)
 
-    (cl-mpm::apply-bcs mesh bcs-force dt)
-    (loop for bcs-f in bcs-force-list
-          do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
+    (cl-mpm::apply-force-bcs sim dt-loadstep)
+    ;; (cl-mpm::apply-bcs mesh bcs-force dt)
+    ;; (loop for bcs-f in bcs-force-list
+    ;;       do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
 
     (when ghost-factor
       (cl-mpm/ghost::apply-ghost-cached sim)
@@ -540,9 +540,10 @@
         ;; (setf (cl-mpm:sim-dt sim) 1d0)
         ;; map forces onto nodes
         (cl-mpm::p2g-force sim)
-        (when bcs-force-list
-          (loop for bcs-f in bcs-force-list
-                do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep)))
+        (cl-mpm::apply-force-bcs sim dt-loadstep)
+        ;; (when bcs-force-list
+        ;;   (loop for bcs-f in bcs-force-list
+        ;;         do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep)))
 
         (cl-mpm::update-node-forces sim)
         (cl-mpm::reset-node-displacement sim)

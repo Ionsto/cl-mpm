@@ -548,8 +548,21 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                    (setf node (cl-mpm/mesh:get-node mesh index))
                    (if node
                        (cl-mpm/bc:apply-bc bc node mesh dt)
-                       (error "BC attempted to get a nil node ~A ~A" bc index))))))))))
-  )
+                       (error "BC attempted to get a nil node ~A ~A" bc index)))))))))))
+
+(defgeneric apply-force-bcs (sim dt))
+(defmethod apply-force-bcs ((sim mpm-sim) dt)
+  (with-accessors ((mesh sim-mesh)
+                   (dt sim-dt)
+                   (bcs-list sim-bcs-force-list)
+                   (bcs-force sim-bcs-force)
+                   )
+      sim
+    (cl-mpm::apply-bcs mesh bcs-force dt)
+    (loop for bcs in bcs-list
+          do (cl-mpm/utils::bpdotimes (i (length bcs))
+               (let ((bc (aref bcs i)))
+                 (cl-mpm/bc::apply-sim-bc sim bc dt))))))
 
 (defun apply-bcs (mesh bcs dt)
   "Apply all normal bcs onto the mesh"

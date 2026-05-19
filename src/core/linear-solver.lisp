@@ -186,9 +186,10 @@
                          (when (= (mod (1+ i) (round (* max-iters 0.1d0))) 0)
                            (format t "CG Iter ~D ~E ~E ~E~%" i rs-old rs-new residual))
                          (setf rs-old rs-new)))
-                  finally (when (> residual crit) 
-                            (error "Conjugate gradients didn't converge")))
-            ;; (format t "Solved in ~D iters~%" iters)
+                  finally (progn
+                            ;; (format t "Solved in ~D iters ~E~%" i residual)
+                            (when (> residual crit)
+                              (error "Conjugate gradients didn't converge"))))
             (mask-inplace x)
             x))))))
 

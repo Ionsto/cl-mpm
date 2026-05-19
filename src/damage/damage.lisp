@@ -469,18 +469,18 @@
      (cl-mpm/mesh:in-bounds mesh (list (+ x bound) (+ y bound) (+ z bound)))
      (cl-mpm/mesh:in-bounds mesh (list (- x bound) (- y bound) (- z bound))))))
 
-(defun iterate-over-damage-bounds (mesh mp length func)
+(defun iterate-over-damage-bounds (mesh pos length func)
   "Function for calling a function over every node that could contain mps within 2*length
 Calls the function with the mesh mp and node"
   (if (= (cl-mpm/mesh:mesh-nd mesh) 2)
-      (iterate-over-damage-bounds-2d mesh mp length func)
-      (iterate-over-damage-bounds-3d mesh mp length func)))
+      (iterate-over-damage-bounds-2d mesh pos length func)
+      (iterate-over-damage-bounds-3d mesh pos length func)))
 
-(defun iterate-over-damage-bounds-2d (mesh mp length func)
+(defun iterate-over-damage-bounds-2d (mesh pos length func)
   (declare (optimize (speed 3)))
   (declare (function func)
            (double-float length))
-  (let* ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
+  (let* ((node-id (cl-mpm/mesh:position-to-index mesh pos))
          (node-reach (the fixnum (ceiling (* length 1d0) (the double-float (cl-mpm/mesh:mesh-resolution mesh)))))
          (potentially-in-bounds (patch-in-bounds-2d mesh node-id node-reach)))
     (declare (dynamic-extent node-id))
@@ -500,8 +500,8 @@ Calls the function with the mesh mp and node"
                               (let ((node (cl-mpm/mesh:get-node mesh idx)))
                                 (funcall func node))))))))))
 
-(defun iterate-over-damage-bounds-3d (mesh mp length func)
-  (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
+(defun iterate-over-damage-bounds-3d (mesh pos length func)
+  (let ((node-id (cl-mpm/mesh:position-to-index mesh pos))
         (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 1d0)
                                                         (the double-float (cl-mpm/mesh:mesh-resolution mesh))))))))
     (declare (dynamic-extent node-id))
@@ -534,7 +534,9 @@ Calls the function with the mesh mp and node"
   (let ((len-squared (* length length)))
     (declare (double-float length len-squared))
     (iterate-over-damage-bounds
-     mesh mp length
+     mesh
+     (cl-mpm/particle::mp-position mp)
+     length
      (lambda (node)
        (loop for mp-other across (cl-mpm/mesh::node-local-list node)
                                         ;(the (vector cl-mpm/particle::particle *))
@@ -547,6 +549,31 @@ Calls the function with the mesh mp and node"
                   (let ((distance (diff-squared mp mp-other)))
                     (when (< distance len-squared)
                       (funcall func mesh mp mp-other (sqrt distance)))))))))
+  (values))
+
+(defun iterate-over-point-neighbour-mps (mesh point length func)
+  "Search for mps in a patch sized 2*length, then return the "
+  (declare (double-float length)
+           (function func))
+  (let ((len-squared (* length length)))
+    (declare (double-float length len-squared))
+    (iterate-over-damage-bounds
+     mesh
+     point
+     length
+     (lambda (node)
+       (loop for mp-other across (cl-mpm/mesh::node-local-list node)
+             do
+                (with-accessors ((d cl-mpm/particle::mp-damage)
+                                 (m cl-mpm/particle:mp-volume)
+                                 (ll cl-mpm/particle::mp-true-local-length)
+                                 (p cl-mpm/particle:mp-position))
+                    mp-other
+                  (let ((distance (cl-mpm/fastmaths::diff-norm
+                                   point
+                                   (cl-mpm/particle::mp-position mp-other))))
+                    (when (< distance len-squared)
+                      (funcall func mesh mp-other (sqrt distance)))))))))
   (values))
 
 (defun calculate-average-damage (mesh mp length)

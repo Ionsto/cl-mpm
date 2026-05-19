@@ -216,7 +216,8 @@
                     (* (- 1d0 (expt damage-t exponent)) K)
                     (* (- 1d0 (expt damage-c exponent)) K)))
           (setf G (* G (- 1d0 (expt damage-s exponent))))
-          (setf p-mod (max (* P-0 1d-9) (+ K (* 4/3 G)))))))))
+          (setf p-mod (max (* P-0 1d-9) (* p-mod (/ (+ K (* 4/3 G))
+                                                    P-0)))))))))
 
 (defun apply-tcs-strain-degredation (mp)
   (with-accessors ((damage        cl-mpm/particle::mp-damage)
