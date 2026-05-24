@@ -881,11 +881,10 @@
                    (p-mod cl-mpm/particle::mp-p-modulus))
       mp
     (when enable-damage
-      ;; (pprint "hello")
       ;; (cl-mpm/damage::apply-tensile-strain-degredation mp)
       ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
       ;; (cl-mpm/damage::apply-vol-degredation mp)
-      (apply-vol-pressure-degredation mp dt (* -1d0
+      (apply-vol-pressure-degredation mp dt (* -0d0
                                                ;; (/ 1d0 (magicl:det def))
                                                (/ p 1)
                                                (expt damage 1)
@@ -894,11 +893,7 @@
       ;;               (/ p 3)
       ;;               (expt damage 1))))
       ;;   (setf stress (cl-mpm/utils:voigt-eye pd)))
-      )
-    ;; (cl-mpm/particle::update-log-p-wave mp)
-    )
-  
-  )
+      )))
 
 
 (defmethod cl-mpm/particle::compute-mp-energy-release ((mp cl-mpm/particle::particle-ice-brittle))

@@ -453,9 +453,6 @@
     (setf gravity-axis (cl-mpm/utils::vector-copy gravity-axis))
     (unless domain-true
       (setf domain-true (cl-mpm/utils::matrix-eye 1d0))
-      ;; (dotimes (i 3)
-      ;;   (when (> (varef domain i) 0d0)
-      ;;     (setf (magicl:tref domain-true i i) (varef domain i))))
       (setf
        (magicl:tref domain-true 0 0) (varef domain 0)
        (magicl:tref domain-true 1 1) (varef domain 1)
@@ -469,25 +466,9 @@
                    (position-trial mp-position-trial)
                    (gravity-axis mp-gravity-axis))
       p
-    ;;(cl-mpm/utils:matrix-copy-into position position-trial)
     (setf position-trial (cl-mpm/utils:vector-copy position))
-    ;; (setf gravity-axis (cl-mpm/utils::deep-copy gravity-axis))
     (unless domain-true
-      (setf domain-true (cl-mpm/utils::matrix-eye 1d0))
-      ;; (setf
-      ;;  (magicl:tref domain-true 0 0) (varef domain 0)
-      ;;  (magicl:tref domain-true 1 1) (varef domain 1)
-      ;;  (magicl:tref domain-true 2 2) (varef domain 2))
-      )
-    )
-  ;; (call-next-method)
-  ;; (with-accessors ((domain mp-domain-size)
-  ;;                  (domain-true mp-true-domain))
-  ;;     p
-  ;;   (setf
-  ;;    (magicl:tref domain-true 0 0) (varef domain 0)
-  ;;    (magicl:tref domain-true 1 1) (varef domain 1)
-  ;;    (magicl:tref domain-true 2 2) (varef domain 2)))
+      (setf domain-true (cl-mpm/utils::matrix-eye 1d0))))
   )
 
 (defmethod initialize-instance :after ((p particle-elastic) &key)

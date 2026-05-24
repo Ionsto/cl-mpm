@@ -1,5 +1,8 @@
 (in-package :asdf-user)
 
+(when (find-system :asdf-system-connections)
+  (asdf:oos 'asdf:load-op :asdf-system-connections))
+
 ;; (defsystem "symbolic-derivation"
 ;;   :description "Symbolic derivation library from #TODO"
 ;;   :author "Aleksander Ksiazek"
@@ -879,7 +882,36 @@
   :serial t
   :components ((:file "examples/octree/two-squares")))
 
+(defsystem "cl-mpm/examples/octree/collapse"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/octree/collapse")))
+
+(defsystem "cl-mpm/examples/octree/column"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/octree/column")))
+
+(defsystem "cl-mpm/examples/octree/float"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/octree/float")))
+
+
 #+asdf-system-connections
 (defsystem-connection "cl-mpm/octree-penalty"
   :requires ("cl-mpm/dynamic-relaxation" "cl-mpm/penalty")
   :components ((:file "src/solvers/octree/penalty")))
+
+#+asdf-system-connections
+(defsystem-connection "cl-mpm/octree-buoyancy"
+  :requires ("cl-mpm/dynamic-relaxation" "cl-mpm/buoyancy")
+  ;; :perform (load-op :after (op c)
+  ;;                   ;; (use-package (find-package :metabang-bind)
+  ;;                   ;;              (find-package :metatilities)))
+  ;;                   (compile-op "src/solvers/octree/buoyancy")
+  ;;                   )
+
+  ;; :serial t
+  :components ((:file "src/solvers/octree/buoyancy"))
+  )

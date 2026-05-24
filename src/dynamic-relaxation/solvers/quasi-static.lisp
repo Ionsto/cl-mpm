@@ -176,9 +176,6 @@
          (cl-mpm::p2g-force-fs sim)
          (cl-mpm::apply-essential-bcs sim)
          (cl-mpm::apply-force-bcs sim dt-loadstep)
-         ;; (cl-mpm::apply-bcs mesh bcs-force dt-loadstep)
-         ;; (loop for bcs-f in bcs-force-list
-         ;;       do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
          (setf (cl-mpm::sim-damping-factor sim) 0d0)
          (update-node-fictious-mass sim)
          (cl-mpm/aggregate::update-node-forces-agg sim (* -0.5d0 dt))
@@ -191,7 +188,7 @@
             (when (cl-mpm/mesh:node-active n)
               (cl-mpm/utils::vector-copy-into (cl-mpm/mesh::node-force n)
                                               (cl-mpm/mesh::node-residual n)))))
-         (cl-mpm::apply-bcs mesh bcs dt-loadstep))))
+         (cl-mpm::apply-essential-bcs sim))))
 (defmethod cl-mpm::reset-loadstep ((sim mpm-sim-dr-ul))
   (setf (sim-initial-setup sim) nil)
   (call-next-method))
@@ -217,18 +214,18 @@
                (vel-algo cl-mpm::velocity-algorithm))
       sim
     (setf (cl-mpm/dynamic-relaxation::sim-solve-count sim) 0)
-    ;; (cl-mpm::apply-bcs mesh bcs dt)
-    (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::reset-grid mesh :reset-displacement t)
     (cl-mpm::reset-node-displacement sim)
     (cl-mpm::p2g mesh mps vel-algo)
     (setf (cl-mpm::sim-dt sim) 1d0)
     (when (> mass-filter 0d0)
       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+    (cl-mpm::apply-essential-bcs sim)
     ;; (cl-mpm::compact-mesh-active sim)
     (cl-mpm::filter-cells sim)
     (when ghost-factor
       (cl-mpm/ghost::build-ghost-cache sim))
+    (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::iterate-over-nodes
      mesh
      (lambda (n)
@@ -291,23 +288,20 @@
     (setf dt 1d0)
     (cl-mpm/penalty::reset-penalty sim)
     (cl-mpm::reset-nodes-force sim)
-    ;; (cl-mpm::apply-essential-bcs sim)
+    (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
     (cl-mpm::p2g-force-fs sim)
     (cl-mpm::apply-force-bcs sim dt-loadstep)
-
-    ;; ;; (when ghost-factor
-    ;; ;;   (cl-mpm/ghost::apply-ghost-cached sim)
-    ;; ;;   (cl-mpm::apply-bcs mesh bcs dt))
-
+    (when ghost-factor
+      (cl-mpm/ghost::apply-ghost-cached sim)
+      (cl-mpm::apply-bcs mesh bcs dt))
     (when (= (mod solve-count mass-update-iter) 0)
       (update-node-fictious-mass sim))
     ;;Update our nodes after force mapping
     (update-node-forces-quasi-static sim)
+    (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-nodes sim)
-    ;; (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-filtered-cells sim)
-    ;; ;; (cl-mpm::update-dynamic-stats sim)
     (cl-mpm::g2p mesh mps dt damping :TRIAL)
     (incf solve-count)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC))
@@ -360,30 +354,21 @@
     (cl-mpm/penalty::reset-penalty sim)
     (setf dt 1d0)
     (cl-mpm::reset-nodes-force sim)
+    (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
     (cl-mpm/damage::calculate-damage sim dt-loadstep)
     (cl-mpm::p2g-force-fs sim)
-
     (cl-mpm::apply-force-bcs sim dt-loadstep)
-    ;; (cl-mpm::apply-bcs mesh bcs-force dt)
-    ;; (loop for bcs-f in bcs-force-list
-    ;;       do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
-
     (when ghost-factor
       (cl-mpm/ghost::apply-ghost-cached sim)
-      (cl-mpm::apply-essential-bcs sim)
-      )
-
+      (cl-mpm::apply-essential-bcs sim))
     (when (= (mod solve-count mass-update-iter) 0)
       (update-node-fictious-mass sim))
-
     ;; ;;Update our nodes after force mapping
     (update-node-forces-quasi-static sim)
     (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-nodes sim)
     (cl-mpm::update-filtered-cells sim)
-    ;; (cl-mpm::update-dynamic-stats sim)
-    ;; (cl-mpm::g2p mesh mps dt damping :TRIAL)
     (cl-mpm::g2p mesh mps dt damping :TRIAL)
     (incf solve-count)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
@@ -402,13 +387,13 @@
       sim
     (declare (fixnum solve-count damping-update-count)
              (double-float dt damping damping-scale))
-    (cl-mpm::apply-essential-bcs sim)
+    ;; (cl-mpm::apply-essential-bcs sim)
     (cl-mpm:iterate-over-nodes
      mesh
      (lambda (node)
        (when (cl-mpm/mesh:node-active node)
          (cl-mpm::calculate-forces-midpoint node 0d0 0d0 mass-scale))))
-    (cl-mpm::apply-essential-bcs sim)
+    (cl-mpm::compute-reaction-force sim)
     ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm::sim-active-bcs sim) dt)
     ;;For each aggregated element set solve mass matrix and velocity
     (when enable-aggregate
@@ -416,22 +401,20 @@
         (cl-mpm/aggregate::iterate-over-dimensions
          (cl-mpm::mesh-nd mesh)
          (lambda (d)
-           (let* ((f
-                    (cl-mpm/aggregate::aggregate-vec
-                     sim
-                     (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d) d))
+           (let* ((f (cl-mpm/aggregate::aggregate-vec
+                      sim
+                      (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d) d))
                   (et (cl-mpm/aggregate::sim-global-sparse-et sim))
                   (e (cl-mpm/aggregate::sim-global-sparse-e sim))
                   (sma (cl-mpm/aggregate::sim-global-sparse-ma sim))
                   (bcs-int (aref (cl-mpm/aggregate::sim-global-bcs-int sim) d))
                   (bcs (aref (cl-mpm/aggregate::sim-global-bcs sim) d))
-                  (work-vec (cl-mpm/utils::arb-matrix (length (cl-mpm/aggregate::sim-agg-nodes-fd sim)) 1))
-                  (work-vec-agg (cl-mpm/utils::arb-matrix (length (cl-mpm/aggregate::sim-agg-nodes-fdc sim)) 1)))
-             (cl-mpm/aggregate::apply-internal-bcs sim f d)
+                  (work-vec (cl-mpm/utils::arb-vector (length (cl-mpm/aggregate::sim-agg-nodes-fd sim))))
+                  (work-vec-agg (cl-mpm/utils::arb-vector (length (cl-mpm/aggregate::sim-agg-nodes-fdc sim)))))
              (let* ((acc
                       (cl-mpm/linear-solver::solve-conjugant-gradients
                        (lambda (v)
-                         (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+                         (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
                           e
                           v
                           bcs
@@ -442,7 +425,7 @@
                           sma
                           work-vec
                           work-vec)
-                         (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+                         (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
                           et
                           work-vec
                           bcs-int
@@ -483,7 +466,7 @@
            (when (or (not agg)
                      internal)
              (cl-mpm::integrate-vel-midpoint vel acc mass mass-scale dt damping))))))
-         (cl-mpm::apply-essential-bcs sim)
+    (cl-mpm::apply-essential-bcs sim)
     ;; (cl-mpm::apply-essential-bcs sim)
     ))
 (defmethod cl-mpm::update-node-forces ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
@@ -661,18 +644,11 @@
         (setf ke 0d0
               ke-prev 0d0)))
     (setf dt 1d0)
-    ;; (cl-mpm/penalty::reset-penalty sim)
+
     (cl-mpm::reset-nodes-force sim)
     (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
     (cl-mpm::p2g-force-fs sim)
-    ;; (cl-mpm::apply-bcs mesh bcs-force dt)
-    ;; (loop for bcs-f in bcs-force-list
-    ;;       do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
-
-    ;; ;; (when ghost-factor
-    ;; ;;   (cl-mpm/ghost::apply-ghost-cached sim)
-    ;; ;;   (cl-mpm::apply-bcs mesh bcs dt))
 
     (when (= (mod solve-count mass-update-iter) 0)
       (update-node-fictious-mass sim))
@@ -680,10 +656,6 @@
     ;;Update our nodes after force mapping
     (update-node-forces-quasi-static sim)
     (cl-mpm::update-nodes sim)
-    ;; (cl-mpm::apply-essential-bcs sim)
-    ;; (cl-mpm::update-filtered-cells sim)
-    ;; ;; (cl-mpm::update-dynamic-stats sim)
-    ;; (cl-mpm::g2p mesh mps dt damping :TRIAL)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC))
   )
 (defmethod update-node-fictious-mass ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-paper))

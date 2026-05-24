@@ -68,6 +68,11 @@
   ;;  (magicl:transpose (cl-mpm/aggregate::sim-global-e sim))
   ;;  vec)
   )
+(defun aggregate-vec-nobcs (sim vec d)
+  (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
+   (cl-mpm/aggregate::sim-global-sparse-et sim)
+   vec))
+
 (defun extend-vec (sim vec d)
   (if (sim-global-bcs sim)
       (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
@@ -86,6 +91,10 @@
   ;;  (cl-mpm/aggregate::sim-global-e sim)
   ;;  vec)
   )
+(defun extend-vec-nobcs (sim vec d)
+  (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
+   (cl-mpm/aggregate::sim-global-sparse-e sim)
+   vec))
 
 
 (defclass mpm-sim-aggregated (mpm-sim)
@@ -401,7 +410,7 @@
      active-nodes
      (lambda (n)
        (setf (varef v (cl-mpm/mesh::node-agg-fd n)) (funcall accessor n))))
-    (values v)))
+    v))
 
 (defun assemble-global-vec (sim accessor dim &optional (res nil))
   (declare (function accessor))
@@ -545,21 +554,21 @@
       ;; (setf v (adjust-array v est-size :fill-pointer 0))
       ;; (setf r (adjust-array r est-size :fill-pointer 0))
       ;; (setf c (adjust-array c est-size :fill-pointer 0))
-      ;; (setf 
+      ;; (setf
       ;;  (fill-pointer v) 0
       ;;  (fill-pointer r) 0
       ;;  (fill-pointer c) 0)
+      ;; (break)
       (cl-mpm::iterate-over-nodes
        mesh
        (lambda (node)
          (when (cl-mpm/mesh:node-active node)
            (when (cl-mpm/mesh::node-agg node)
-             ;; (sb-thread:with-mutex (lock))
              (if (cl-mpm/mesh::node-interior node)
                  (progn
                    ;;Interior -> populate 1s
                    (sb-thread:with-mutex (lock)
-                     ;let ((place (sb-ext:atomic-incf (aref counter 0))))
+                                        ;let ((place (sb-ext:atomic-incf (aref counter 0))))
                      ;; (setf (aref v place) 1d0)
                      ;; (setf (aref r place) (cl-mpm/mesh::node-agg-fd node))
                      ;; (setf (aref c place) (cl-mpm/mesh::node-agg-fdc node))
@@ -567,25 +576,68 @@
                      (vector-push-extend  (cl-mpm/mesh::node-agg-fd node) r)
                      (vector-push-extend  (cl-mpm/mesh::node-agg-fdc node) c)
                      ))
-                 (progn
-                   ;;Aggregate -> populate svp
-                   (cl-mpm::iterate-over-cell-shape-local
-                    mesh
-                    (cl-mpm/mesh::node-agg-interior-cell node)
-                    (cl-mpm/mesh::node-position node)
-                    (lambda (cn weight grads)
-                      (when (and (cl-mpm/mesh::node-active cn)
-                                 (cl-mpm/mesh::node-agg-fdc cn)
-                                 (> (abs weight) 1d-9))
-                        (sb-thread:with-mutex (lock)
-                                        ;let ((place (sb-ext:atomic-incf (aref counter 0))))
-                          ;; (setf (aref v place) weight)
-                          ;; (setf (aref r place) (cl-mpm/mesh::node-agg-fd node))
-                          ;; (setf (aref c place) (cl-mpm/mesh::node-agg-fdc cn))
-                          (vector-push-extend  weight v)
-                          (vector-push-extend  (cl-mpm/mesh::node-agg-fd node) r)
-                          (vector-push-extend  (cl-mpm/mesh::node-agg-fdc cn) c)
-                          ))))))))))
+                 (let ((node-list (list node))
+                       (weight-list (list 1d0)))
+                   (labels ((populate-agg (node
+                                           current-weight
+                                           fd)
+                              (when (cl-mpm/mesh::node-agg-interior-cell node)
+                                (cl-mpm::iterate-over-cell-shape-local
+                                 mesh
+                                 (cl-mpm/mesh::node-agg-interior-cell node)
+                                 (cl-mpm/mesh::node-position node)
+                                 (lambda (cn weight grads)
+                                   (let ((weight (* weight current-weight)))
+                                     (when (> (abs weight) 1d-9)
+                                       (if (and ;(cl-mpm/mesh::node-active cn)
+                                            (cl-mpm/mesh::node-interior cn))
+                                           (sb-thread:with-mutex (lock)
+                                             (vector-push-extend weight v)
+                                             (vector-push-extend fd r)
+                                             (vector-push-extend (cl-mpm/mesh::node-agg-fdc cn) c))
+                                           (progn
+                                             (setf node-list (push cn node-list))
+                                             (setf weight-list (push weight weight-list))
+                                             ;; (populate-agg
+                                             ;;  cn
+                                             ;;  weight
+                                             ;;  fd)
+                                             )))))))))
+                     (loop
+                       for i from 0 below 100
+                       while node-list
+                           do (let ((n (pop node-list))
+                                    (weight (pop weight-list)))
+                                (populate-agg n
+                                              weight
+                                              (cl-mpm/mesh::node-agg-fd node)))))))
+             ;; (if (cl-mpm/mesh::node-interior node)
+             ;;     (progn
+             ;;       ;;Interior -> populate 1s
+             ;;       (sb-thread:with-mutex (lock)
+             ;;         ;; (setf (aref v place) 1d0)
+             ;;         ;; (setf (aref r place) (cl-mpm/mesh::node-agg-fd node))
+             ;;         ;; (setf (aref c place) (cl-mpm/mesh::node-agg-fdc node))
+             ;;         (vector-push-extend  1d0 v)
+             ;;         (vector-push-extend  (cl-mpm/mesh::node-agg-fd node) r)
+             ;;         (vector-push-extend  (cl-mpm/mesh::node-agg-fdc node) c)
+             ;;         ))
+             ;;     (progn
+             ;;       ;;Aggregate -> populate svp
+             ;;       (cl-mpm::iterate-over-cell-shape-local
+             ;;        mesh
+             ;;        (cl-mpm/mesh::node-agg-interior-cell node)
+             ;;        (cl-mpm/mesh::node-position node)
+             ;;        (lambda (cn weight grads)
+             ;;          (when (and (cl-mpm/mesh::node-active cn)
+             ;;                     (cl-mpm/mesh::node-agg-fdc cn)
+             ;;                     (> (abs weight) 1d-9))
+             ;;            (sb-thread:with-mutex (lock)
+             ;;              (vector-push-extend  weight v)
+             ;;              (vector-push-extend  (cl-mpm/mesh::node-agg-fd node) r)
+             ;;              (vector-push-extend  (cl-mpm/mesh::node-agg-fdc cn) c)))))))
+             ))))
+
       (values (cl-mpm/utils::build-sparse-matrix v r c ndof ndofC)
               (cl-mpm/utils::build-sparse-matrix v c r ndofC ndof)))))
 
@@ -713,8 +765,7 @@
           x
           bcs
           bcs-int
-          work-vec
-          )
+          work-vec)
          (cl-mpm/fastmaths::fast-.*
           sma
           work-vec
@@ -725,13 +776,11 @@
           bcs-int
           bcs
           work-vec-agg)
-         )
+         work-vec-agg)
        v
-       :tol 1d-10
+       :tol 1d-15
        :max-iters 10000
-       :mask bcs-int
-       ))))
-
+       :mask bcs-int))))
 
 (defun @-with-bcs (ma v bcs &optional (target-vi nil))
   (let ((target-vi (if target-vi
@@ -833,6 +882,7 @@
        (when (and (cl-mpm/mesh:node-active node))
          (cl-mpm::calculate-forces node damping 0d0 mass-scale))))
 
+    (cl-mpm::apply-essential-bcs sim)
 
     ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     ;;For each aggregated element set solve mass matrix and velocity
@@ -853,6 +903,7 @@
                 (extend-vec sim acc d)
                 #'cl-mpm/mesh::node-acceleration d)))))))
 
+    (cl-mpm::apply-essential-bcs sim)
     ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     (iterate-over-nodes
      mesh

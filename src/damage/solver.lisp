@@ -33,7 +33,7 @@
                       (cl-mpm::update-node-kinematics sim)
                       (cl-mpm::apply-essential-bcs sim)
                       (cl-mpm::update-nodes sim)
-                      (cl-mpm::update-cells sim)
+                      (cl-mpm::update-filtered-cells sim)
                       ;; (cl-mpm/ghost::apply-half-step-ghost sim)
 
                       (cl-mpm::update-stress mesh mps dt fbar)
@@ -42,8 +42,7 @@
                       ;; (break)
                       ;; ;Map forces onto nodes
                       (cl-mpm::p2g-force sim)
-                      (loop for bcs-f in bcs-force-list
-                            do (cl-mpm::apply-bcs mesh bcs-f dt))
+                      (cl-mpm::apply-force-bcs sim dt)
                       (cl-mpm::update-node-forces sim)
                       (cl-mpm::reset-node-displacement sim)
                       (cl-mpm::update-nodes sim)

@@ -327,7 +327,7 @@
                       (with-accessors ((pos cl-mpm/particle:mp-position)) mp
                         (setf value (or value (apply-sdf-pos pos mp)))
                         (setf not-partial (and not-partial (apply-sdf-pos pos mp)))
-                        (cl-mpm:iterate-over-corners
+                        (cl-mpm::iterate-over-midpoints
                          mesh
                          mp
                          (lambda (pos)
@@ -342,7 +342,7 @@
          (let ((value nil))
            (with-accessors ((pos cl-mpm/particle:mp-position)) mp
              (setf value (or value (apply-sdf-pos pos mp)))
-             (cl-mpm:iterate-over-corners
+             (cl-mpm::iterate-over-midpoints
               mesh
               mp
               (lambda (pos)
@@ -776,8 +776,10 @@
 
 (defun resolve-bc-nodes (sim mesh bcs)
   (loop for bc across bcs
-        do (setf (cl-mpm/bc::bc-node bc)
-                 (cl-mpm/mesh::get-node mesh (cl-mpm/bc:bc-index bc)))))
+        do (progn
+             (setf (cl-mpm/bc::bc-node bc)
+                   (cl-mpm/mesh::get-node mesh (cl-mpm/bc:bc-index bc)))
+             (cl-mpm/bc::apply-bc bc (cl-mpm/bc::bc-node bc) mesh 0d0))))
 
 (defmethod %setup-bcs ((sim cl-mpm:mpm-sim)
                        left
@@ -788,6 +790,13 @@
                        back)
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
+    (setf (cl-mpm/mesh::mesh-boundary-bcs mesh)
+          (list :left left
+                :right right
+                :top top
+                :bottom bottom
+                :front front
+                :back back))
     (let ((bcs
             (cl-mpm/bc::make-outside-bc-varfix
              (cl-mpm:sim-mesh sim)

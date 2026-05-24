@@ -444,6 +444,9 @@
    (boundary-shapes
     :accessor mesh-boundary-shapes
     :initform nil)
+   (boundary-bcs
+    :accessor mesh-boundary-bcs
+    :initform (list))
    (boundary-order
     :accessor mesh-boundary-order
     :initarg :boundary-order))
@@ -598,9 +601,10 @@
   (let* ((nodes
            (let ((res (make-array (expt 2 (cl-mpm/mesh::mesh-nd mesh)))))
              (let ((i 0))
-               (array-operations/utilities:nested-loop (x y z) '(2 2 1)
-                 (setf (aref res i)(get-node mesh (mapcar #'+ index (list x y z))))
-                 (incf i)))
+               (dotimes (x 2)
+                 (dotimes (y 2)
+                   (setf (aref res i) (get-node mesh (mapcar #'+ index (list x y 0))))
+                   (incf i))))
              res))
          (volume (expt h 2))
          ;; (centroid (cell-calculate-centroid nodes))
@@ -1152,6 +1156,7 @@
                (force force)
                (int-force internal-force)
                (ext-force external-force)
+               (rct-force reaction-force)
                (ghost-force ghost-force)
                (damping-force damping-force)
                (buoyancy-force buoyancy-force))
@@ -1161,6 +1166,7 @@
     (cl-mpm/fastmaths::fast-zero-vector force)
     (cl-mpm/fastmaths::fast-zero-vector int-force)
     (cl-mpm/fastmaths::fast-zero-vector ext-force)
+    (cl-mpm/fastmaths::fast-zero-vector rct-force)
     (cl-mpm/fastmaths::fast-zero-vector damping-force)
     (cl-mpm/fastmaths::fast-zero-vector ghost-force)
     (cl-mpm/fastmaths::fast-zero-vector buoyancy-force)))

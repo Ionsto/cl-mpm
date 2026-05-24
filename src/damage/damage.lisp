@@ -249,9 +249,13 @@
           (progn
             (when (sim-enable-length-localisation sim)
               (update-localisation-lengths sim))
-            (if (cl-mpm/damage::sim-enable-ekl sim)
-                (delocalise-damage-ekl sim)
-                (delocalise-damage sim)))
+            (cond
+              ((cl-mpm/damage::sim-enable-ekl sim)
+               (delocalise-damage-ekl sim))
+              ((cl-mpm/damage::sim-enable-stress-based-length sim)
+               (delocalise-damage-stress sim))
+              (t
+               (delocalise-damage sim))))
           (localise-damage mesh mps dt))
       (cl-mpm:iterate-over-mps
        mps
@@ -668,6 +672,97 @@ Calls the function with the mesh mp and node"
       (setf damage-inc (/ damage-inc mass-total)))
     damage-inc))
 
+(defun compute-effective-length-stress (stress init-stress direction length)
+  (let ((effect 0d0)
+        (fts (expt init-stress 2))
+        (direction (cl-mpm/fastmaths::norm direction)))
+    (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils::voight-to-matrix stress))
+      (loop for val in l
+            for i from 0
+            do (when (> (abs val) init-stress)
+                 (setf effect (+ effect
+                                 (/ (*
+                                     (expt val 2)
+                                     (abs
+                                      (expt
+                                       (cl-mpm/fastmaths::dot
+                                        (cl-mpm/utils::matrix-column v i)
+                                        direction)
+                                       1)))
+                                    fts))))))
+    (/ length (sqrt (max 1d0 effect)))))
+
+(defun calculate-delocalised-damage-stress (mesh mp length)
+  (let ((damage-inc 0d0)
+        (mass-total 0d0))
+    (declare (double-float damage-inc mass-total))
+    (iterate-over-neighour-mps
+     mesh mp length
+     (lambda (mesh mp mp-other dist)
+       (with-accessors ((d cl-mpm/particle::mp-damage)
+                        (m cl-mpm/particle:mp-volume)
+                        (ll cl-mpm/particle::mp-true-local-length)
+                        (p cl-mpm/particle:mp-position))
+           mp-other
+         (when t;(< (the double-float d) 1d0)
+           (let (
+                 ;;Nodally averaged local funcj
+                 ;; (weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll))))
+                 ;; (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
+                 ;;
+                 (weight
+                   (weight-func-mps mesh mp mp-other
+                                    (compute-effective-length-stress
+                                     (cl-mpm/particle::mp-undamaged-stress mp-other)
+                                     (cl-mpm/particle::mp-initiation-stress mp-other)
+                                     (cl-mpm/fastmaths:fast-.-
+                                      (cl-mpm/particle::mp-position mp-other)
+                                      (cl-mpm/particle::mp-position mp)
+                                      )
+                                     (cl-mpm/particle::mp-local-length mp-other)))
+                   ;; (weight-func-mps mesh mp mp-other length)
+                   ;; (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))
+                   ;; (weight-func-mps mesh mp mp-other ll)
+                   ;; (weight-func-mps mesh mp mp-other ll)
+                   ;; (weight-func-mps-damaged mesh mp mp-other
+                   ;;                          (cl-mpm/particle::mp-local-length mp)
+                   ;;                          )
+                   ))
+             (declare (double-float weight m d mass-total damage-inc))
+             (incf mass-total (* weight m))
+             (incf damage-inc
+                   (* (the double-float (cl-mpm/particle::mp-damage-y-local mp-other))
+                      weight m)))
+           (macrolet ((reflect-axis (axis enable)
+                        (declare (fixnum axis))
+                        `(when (and ,enable
+                                    (< (magicl:tref (cl-mpm/particle::mp-position mp) ,axis 0) (* 0.5d0 length)))
+                           (let ((weight (weight-func-pos
+                                          mesh
+                                          (cl-mpm/particle::mp-position mp)
+                                          (cl-mpm/fastmaths::fast-.* (cl-mpm/particle:mp-position mp-other)
+                                                                     (cl-mpm/utils::vector-from-list
+                                                                      (list ,(if (= axis 0) -1d0 0d0)
+                                                                            ,(if (= axis 1) -1d0 0d0)
+                                                                            ,(if (= axis 2) -1d0 0d0)
+                                                                            )))
+                                          (sqrt (* length ll))
+                                          )))
+                             (declare (double-float weight m d mass-total damage-inc))
+                             (incf mass-total (* weight m))
+                             (incf damage-inc
+                                   (* (the double-float (cl-mpm/particle::mp-damage-y-local mp-other))
+                                      weight m))))))
+             (reflect-axis 0 *enable-reflect-x*)
+             (reflect-axis 1 *enable-reflect-y*)
+             (reflect-axis 2 *enable-reflect-z*)
+             )
+           ))
+       ))
+    (when (> mass-total 0d0)
+      (setf damage-inc (/ damage-inc mass-total)))
+    damage-inc))
+
 (declaim (notinline length-localisation))
 (defun length-localisation (local-length local-length-damaged damage)
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
@@ -730,15 +825,15 @@ Calls the function with the mesh mp and node"
 (defgeneric update-localisation-lengths (sim))
 (defmethod update-localisation-lengths ((sim cl-mpm/damage::mpm-sim-damage))
   (with-accessors ((mps cl-mpm::sim-mps)
-                   (mesh cl-mpm:sim-mesh))
+                   (mesh cl-mpm:sim-mesh)
+                   (stress-based sim-enable-stress-based-length)
+                   )
       sim
-    ;; (g2p-damage sim)
     (cl-mpm:iterate-over-mps
      mps
      (lambda (mp)
        (when (typep mp 'cl-mpm/particle:particle-damage)
          (find-intergral-local-length mesh mp)
-         ;; (find-mp-local-length mesh mp)
          )))))
 
 (defgeneric delocalise-damage (sim))
@@ -760,6 +855,24 @@ Calls the function with the mesh mp and node"
            (setf damage-ybar (calculate-delocalised-damage mesh mp local-length-t)))))))
   (values))
 
+(defgeneric delocalise-damage-stress (sim))
+
+(defmethod delocalise-damage-stress ((sim cl-mpm/damage::mpm-sim-damage))
+  (declare (optimize (speed 3)))
+  (with-accessors ((mps cl-mpm::sim-mps)
+                   (mesh cl-mpm:sim-mesh))
+      sim
+    ;; Calculate the delocalised damage for each damage particle
+    (cl-mpm:iterate-over-mps
+     mps
+     (lambda (mp)
+       (when (typep mp 'cl-mpm/particle:particle-damage)
+         (with-accessors ((damage-ybar cl-mpm/particle::mp-damage-ybar)
+                          (damage cl-mpm/particle::mp-damage)
+                          (local-length-t cl-mpm/particle::mp-local-length))
+             mp
+           (setf damage-ybar (calculate-delocalised-damage-stress mesh mp local-length-t)))))))
+  (values))
 
 
 (defun localise-damage (mesh mps dt)
@@ -1176,6 +1289,49 @@ Calls the function with the mesh mp and node"
                     (cl-mpm/particle::mp-position mp)
                     ) data-positions)
              (let ((weight (weight-func-mps-damaged mesh mp mp-other length)))
+               (declare (double-float weight m d mass-total damage-inc))
+               (incf mass-total (* weight m))
+               (incf damage-inc
+                     (* (the double-float (cl-mpm/particle::mp-damage-y-local mp-other))
+                        weight m))
+               (push (* weight m) data-weights))))))
+      (when (> mass-total 0d0)
+        (setf damage-inc (/ damage-inc mass-total))
+        (setf data-weights (mapcar (lambda (w) (/ w mass-total)) data-weights)))
+      (values data-positions data-weights))))
+
+(defun get-nonlocal-interactions-stress-based (sim mp)
+  (g2p-damage sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm:sim-mps)) sim
+    (let ((data-positions (list))
+          (data-weights (list))
+          (damage-inc 0d0)
+          (mass-total 0d0)
+          (length (* 1d0 (cl-mpm/particle::mp-local-length mp))))
+      (declare (double-float damage-inc mass-total))
+      (iterate-over-neighour-mps
+       mesh mp length
+       (lambda (mesh mp mp-other dist)
+         (with-accessors ((d cl-mpm/particle::mp-damage)
+                          (m cl-mpm/particle:mp-volume)
+                          (ll cl-mpm/particle::mp-local-length)
+                          (p cl-mpm/particle:mp-position))
+             mp-other
+           (when t;(< (the double-float d) 1d0)
+             (push (cl-mpm/fastmaths::fast-.-
+                    (cl-mpm/particle::mp-position mp-other)
+                    (cl-mpm/particle::mp-position mp)
+                    ) data-positions)
+             (let ((weight (weight-func-mps mesh mp mp-other
+                                            (compute-effective-length-stress
+                                             (cl-mpm/particle::mp-undamaged-stress mp-other)
+                                             (cl-mpm/particle::mp-initiation-stress mp-other)
+                                             (cl-mpm/fastmaths:fast-.-
+                                              (cl-mpm/particle::mp-position mp-other)
+                                              (cl-mpm/particle::mp-position mp)
+                                              )
+                                             (cl-mpm/particle::mp-local-length mp)))))
                (declare (double-float weight m d mass-total damage-inc))
                (incf mass-total (* weight m))
                (incf damage-inc

@@ -39,15 +39,13 @@
         (apply-essential-bcs sim)
         ;;Trial update displacements
         (update-nodes sim)
-        (update-cells sim)
+        (update-filtered-cells sim)
         ;; (cl-mpm/ghost::apply-half-step-ghost sim)
         (update-stress mesh mps dt fbar)
         (cl-mpm::update-stiffness-mps sim)
         ;; Map forces onto nodes
         (p2g-force sim)
-        (when bcs-force-list
-          (loop for bcs-f in bcs-force-list
-                do (apply-bcs mesh bcs-f dt)))
+        (apply-force-bcs sim dt)
         (update-node-forces sim)
         (reset-node-displacement sim)
         (update-nodes sim)

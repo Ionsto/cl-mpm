@@ -12,10 +12,7 @@
         (cond
           ((typep (slot-value original slot) 'magicl::abstract-tensor)
            (setf (slot-value copy slot)
-                 ;; (magicl:deep-copy-tensor (slot-value original slot))
-                 ;; (magicl:scale (slot-value original slot) 1d0)
-                 (cl-mpm/utils::deep-copy (slot-value original slot))
-                 ))
+                 (cl-mpm/utils::deep-copy (slot-value original slot))))
           (t (setf (slot-value copy slot)
                   (slot-value original slot))))))
     (apply #'reinitialize-instance copy initargs)))
@@ -214,7 +211,9 @@
          split-dir)))))
 
 
-(defun split-mps-cartesian (sim)
+
+(defgeneric split-mps-cartesian (sim))
+(defmethod split-mps-cartesian ((sim mpm-sim))
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
                    (max-split-depth cl-mpm::sim-max-split-depth)
@@ -236,8 +235,8 @@
 
 (defun split-mps (sim)
   "Split mps that match the split-criteria"
-  (split-mps-eigenvalue sim)
-  ;; (split-mps-cartesian sim)
+  ;; (split-mps-eigenvalue sim)
+  (split-mps-cartesian sim)
   )
 
 (defun split-mps-criteria (sim criteria)

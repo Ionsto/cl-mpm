@@ -231,10 +231,7 @@
                    (nodes cl-mpm/mesh::cell-nodes))
       cell
     (if (and active (not partial))
-     ;(> mp-count 0)
         (progn
-          ;; (loop for n across nodes
-          ;;       do (setf (cl-mpm/mesh::node-boundary-node n) t))
           t)
         nil)))
 
@@ -319,8 +316,7 @@
                           (boundary cl-mpm/mesh::cell-boundary)
                           (pos cl-mpm/mesh::cell-centroid)
                           (vt cl-mpm/mesh::cell-volume)
-                          (active cl-mpm/mesh::cell-active)
-                          )
+                          (active cl-mpm/mesh::cell-active))
              cell
            (setf boundary nil)
            (when t
@@ -333,7 +329,7 @@
                           c
                         (when (and (funcall clip-function pos))
                           (let ((vest 0d0))
-                            (loop for n in nns
+                            (loop for n across nns
                                   do
                                      (when (cl-mpm/mesh:node-active n)
                                        (incf vest
@@ -383,7 +379,7 @@
                           c
                         (when (and (funcall clip-function pos))
                           (let ((vest 0d0))
-                            (loop for n in nns
+                            (loop for n across nns
                                   do
                                      (when (cl-mpm/mesh:node-active n)
                                        (incf vest
@@ -508,13 +504,12 @@
       cell
     (setf boundary t)
     (loop for n across nodes
-          do
-             (when (cl-mpm/mesh:node-active n)
+          do (when (cl-mpm/mesh:node-active n)
                (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
                  (setf (cl-mpm/mesh::node-boundary-node n) t))))))
 
 (defgeneric locate-mps-cells (sim clip-function))
-(defmethod locate-mps-cells (sim clip-function)
+(defmethod locate-mps-cells ((sim cl-mpm::mpm-sim) clip-function)
   "mark boundary nodes based on neighbour mp inclusion"
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh))
@@ -672,11 +667,10 @@
   (:documentation "A nonconforming pressure bc"))
 
 
-(defmethod cl-mpm/bc::apply-bc ((bc bc-pressure) node mesh dt)
+(defmethod cl-mpm/bc::apply-sim-bc (sim (bc bc-pressure) dt)
   "Arbitrary closure BC"
   (with-accessors ((pressures bc-pressure-pressures)
-                   (clip-func bc-pressure-clip-func)
-                   (sim bc-pressure-sim))
+                   (clip-func bc-pressure-clip-func))
       bc
     ;; (markup-cells-nodes sim bc)
     (markup-cells-nodes sim bc)
@@ -831,8 +825,8 @@
 (defgeneric markup-cells-nodes (sim bc))
 
 (defmethod markup-cells-nodes (sim (bc cl-mpm/buoyancy::bc-pressure))
-  (populate-cells-volume sim (lambda (pos) (funcall (bc-pressure-clip-func bc) pos)))
-  ;; (locate-mps-cells sim (lambda (pos) (funcall (bc-pressure-clip-func bc) pos)))
+  ;; (populate-cells-volume sim (lambda (pos) (funcall (bc-pressure-clip-func bc) pos)))
+  (locate-mps-cells sim (lambda (pos) (funcall (bc-pressure-clip-func bc) pos)))
   )
 
 (defmethod markup-cells-nodes (sim (bc cl-mpm/buoyancy::bc-buoyancy))
@@ -840,8 +834,8 @@
                    (clip-function bc-buoyancy-clip-func))
       bc
     (declare (function clip-function))
-    (populate-cells-volume sim (lambda (pos) (funcall clip-function pos datum)))
-    ;;(locate-mps-cells sim (lambda (pos) (funcall clip-function pos datum)))
+    ;; (populate-cells-volume sim (lambda (pos) (funcall clip-function pos datum)))
+    (locate-mps-cells sim (lambda (pos) (funcall clip-function pos datum)))
     ))
 
 (defgeneric apply-buoyancy (sim func-stress func-div clip-function datum))
@@ -853,14 +847,6 @@
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
-      ;; (locate-mps-cells sim clip-function)
-      ;; (populate-cells-volume sim (lambda (pos) (funcall clip-function pos datum)))
-      ;; (locate-mps-cells sim (lambda (pos) (funcall clip-function pos datum)))
-      ;; (markup-cells-nodes sim)
-      ;; (locate-mps-cells sim clip-function)
-      ;; (populate-nodes-volume mesh clip-function)
-      ;; (populate-nodes-volume-damage mesh clip-function)
-      ;; (populate-nodes-domain mesh clip-function)
 
       (cl-mpm:iterate-over-nodes
        mesh
@@ -872,26 +858,18 @@
        (lambda (mp)
          (compute-mp-displacement mesh mp)))
 
-      (apply-force-mps-3d mesh mps
-                       ;; (lambda (mp) (calculate-val-mp mp func-stress))
-                       ;; (lambda (mp) (calculate-val-mp mp func-div))
-                       (lambda (mp) (calculate-val-mp-datum-propotional mp func-stress datum))
-                       (lambda (mp) (calculate-val-mp-datum-propotional mp func-div datum))
-                       (lambda (pos) (funcall clip-function pos datum))
-                       (lambda (mp) (calculate-scalar-val-mp-datum-proportional mp #'melt-rate datum))
-                       )
-      (apply-force-cells-3d mesh
-                            func-stress
-                            func-div
-                            (lambda (pos) (funcall clip-function pos datum)))
-
-      ;; (apply-scalar-mps-3d mesh mps
-      ;;                      #'melt-rate
-      ;;                      (lambda (pos) (funcall clip-function pos datum)))
-      ;; (apply-scalar-cells-3d mesh #'melt-rate
-      ;;                        (lambda (pos) (funcall clip-function pos datum))
-      ;;                        )
-      )))
+      (apply-force-mps-3d
+       mesh
+       mps
+       (lambda (mp) (calculate-val-mp-datum-propotional mp func-stress datum))
+       (lambda (mp) (calculate-val-mp-datum-propotional mp func-div datum))
+       (lambda (pos) (funcall clip-function pos datum))
+       (lambda (mp) (calculate-scalar-val-mp-datum-proportional mp #'melt-rate datum)))
+      (apply-force-cells-3d
+       mesh
+       func-stress
+       func-div
+       (lambda (pos) (funcall clip-function pos datum))))))
 
 
 (in-package :cl-mpm/mpi)
@@ -936,7 +914,7 @@
                     ))
               (error "Buoancy MPI exchange touched invalid node?"))))))))
 
-(defmethod cl-mpm/bc::apply-bc ((bc bc-buoyancy) node mesh dt)
+(defmethod cl-mpm/bc::apply-sim-bc ((sim mpm-sim) (bc bc-buoyancy) dt)
   "Arbitrary closure BC"
   (with-accessors ((datum bc-buoyancy-datum)
                    (datum-true bc-buoyancy-datum-true)
@@ -945,7 +923,6 @@
                    (sim bc-buoyancy-sim))
       bc
     (declare (function clip-func))
-
     (markup-cells-nodes sim bc)
     (let ((datum-rounding nil))
       (when datum-rounding
@@ -1221,7 +1198,7 @@
                            (incf node-boundary-scalar
                                  (* volume svp (funcall scalar mp)))))))))))))))))
 
-(defmethod cl-mpm/bc::apply-bc ((bc bc-scalar) node mesh dt)
+(defmethod cl-mpm/bc::apply-sim-bc (sim (bc bc-scalar) dt)
   "Arbitrary closure BC"
   (with-accessors ((datum bc-buoyancy-datum)
                    (clip-func bc-buoyancy-clip-func)
@@ -1363,7 +1340,7 @@
                      :rho rho
                      :datum datum))))
 
-(defmethod cl-mpm/bc::apply-bc ((bc bc-buoyancy-body) node mesh dt)
+(defmethod cl-mpm/bc::apply-sim-bc (sim (bc bc-buoyancy-body) dt)
   "Arbitrary closure BC"
   (with-accessors ((datum bc-buoyancy-datum)
                    (rho bc-buoyancy-rho)
@@ -1534,18 +1511,18 @@
 
 
 (defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc bc-buoyancy))
-  (with-accessors ((datum bc-buoyancy-datum)
-                   (clip-func bc-buoyancy-clip-func)
-                   (rho bc-buoyancy-rho))
-      bc
-    (declare (function clip-func))
-    (locate-mps-cells sim (lambda (pos) (funcall clip-func pos datum)))
-    (markup-cells-nodes sim bc)
-    (compute-stiffness-cells-3d
-     (cl-mpm:sim-mps sim)
-     (cl-mpm:sim-mesh sim)
-     (lambda (pos) (abs (* (max 0d0 (- datum (varef pos 1))) rho (cl-mpm:sim-gravity sim))))
-     clip-func))
+  ;; (with-accessors ((datum bc-buoyancy-datum)
+  ;;                  (clip-func bc-buoyancy-clip-func)
+  ;;                  (rho bc-buoyancy-rho))
+  ;;     bc
+  ;;   (declare (function clip-func))
+  ;;   (locate-mps-cells sim (lambda (pos) (funcall clip-func pos datum)))
+  ;;   (markup-cells-nodes sim bc)
+  ;;   (compute-stiffness-cells-3d
+  ;;    (cl-mpm:sim-mps sim)
+  ;;    (cl-mpm:sim-mesh sim)
+  ;;    (lambda (pos) (abs (* (max 0d0 (- datum (varef pos 1))) rho (cl-mpm:sim-gravity sim))))
+  ;;    clip-func))
   ;; (apply-force-mps-3d mesh mps
   ;;                     (lambda (mp) (calculate-val-mp mp func-stress))
   ;;                     (lambda (mp) (calculate-val-mp mp func-div))

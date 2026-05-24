@@ -1442,8 +1442,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (cl-mpm/mesh::mesh mesh)
            (function func))
   (progn
-    (let* ((h ;; (cl-mpm/mesh:mesh-resolution mesh)
-             (cl-mpm/mesh::cell-h cell))
+    (let* ((h (cl-mpm/mesh::cell-h cell))
            (nd 2)
            (pos-vec local-position)
            (cell-nodes (cl-mpm/mesh::cell-nodes cell))
@@ -1453,9 +1452,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         (loop for dx from 0 to 1
               do (loop for dy from 0 to 1
                        do
-                          (let* (;; (id (mapcar #'+ cell-index (list dx dy 0)))
-                                 )
-                            ;; (declare (dynamic-extent id))
+                          (let* ()
                             (let ((pvx (varef pos-vec 0))
                                   (pvy (varef pos-vec 1))
                                   (cpx (varef cell-pos 0))

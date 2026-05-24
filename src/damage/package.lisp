@@ -27,6 +27,11 @@
     :accessor sim-enable-length-localisation
     :initarg :enable-length-localisation
     :initform nil)
+   (enable-stress-based-length
+    :type boolean
+    :accessor sim-enable-stress-based-length
+    :initarg :enable-stress-based-length
+    :initform nil)
    (enable-ekl
     :type boolean
     :accessor sim-enable-ekl

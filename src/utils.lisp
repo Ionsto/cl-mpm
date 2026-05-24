@@ -51,8 +51,9 @@
    #:set-workers
    ))
 (in-package :cl-mpm/utils)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
 (declaim (inline eig)
          (ftype (function (magicl:matrix/double-float)
@@ -424,6 +425,13 @@
   (magicl::make-matrix/double-float x y (* x y) :column-major
                                     (make-array (* x y) :element-type 'double-float :initial-element 0d0)))
 
+(declaim (inline arb-vector)
+         (ftype (function (fixnum)
+                          magicl:matrix/double-float) arb-vector))
+(defun arb-vector (x)
+  (magicl::make-matrix/double-float x 1 x :column-major
+                                    (make-array x :element-type 'double-float :initial-element 0d0)))
+
 (defun arb-matrix-constant (const x y)
   (declare (fixnum x y))
   (magicl::make-matrix/double-float
@@ -454,7 +462,7 @@
          (mat (cl-mpm/utils::arb-matrix nrows nrows)))
     (loop for i from 0 below nrows
           do (setf (mtref mat i i) (varef diag i)))
-    diag))
+    mat))
 
 
 (declaim (inline matrix-to-voight)
@@ -888,6 +896,9 @@
 (defun matrix-column (mat i)
   (magicl:vector->column-matrix (magicl:column mat i)))
 
+(defun matrix-row (mat i)
+  (magicl:vector->column-matrix (magicl:row mat i)))
+
 
 (declaim (ftype (function (double-float double-float) double-float) calculate-bulk-modulus))
 (defun calculate-bulk-modulus (E nu)
@@ -1301,6 +1312,8 @@
 (defparameter *workers-nest-depth* 0)
 (defparameter *workers-pool-age* 0)
 (defparameter *worker-index* nil)
+(defparameter *worker-error-lock* (sb-thread:make-mutex))
+(defparameter *worker-error-list* nil)
 (declaim (fixnum *workers-chunk* *workers-chunk-count* *workers-array-length* *workers-pool-age*))
 (defparameter *workers-counter* (make-array 1 :element-type '(unsigned-byte 64)))
 (declaim ((simple-array (unsigned-byte 64) 1) *workers-counter*))
@@ -1313,6 +1326,7 @@
       (kill-workers))
     (let ((thread-count (if worker-count worker-count (lparallel:kernel-worker-count))))
       (incf *workers-pool-age*)
+      (setf *worker-error-list* nil)
       (setf *workers-nesting* nil)
       (setf *worker-count* thread-count)
       (setf *workers-run* (sb-thread:make-semaphore))
@@ -1339,10 +1353,14 @@
                                 (if (= *workers-pool-age* current-age)
                                   (progn
                                     (unless *workers-kill*
-                                      ;; (unwind-protect)
-                                      (let ((iter (sb-ext:atomic-incf (aref *workers-counter* 0))))
-                                        (when (< iter *workers-chunk-count*)
-                                          (funcall *workers-func* iter)))
+                                      (handler-case
+                                          (let ((iter (sb-ext:atomic-incf (aref *workers-counter* 0))))
+                                            (when (< iter *workers-chunk-count*)
+                                              (funcall *workers-func* iter)))
+                                        (error (c)
+                                          (sb-thread:with-mutex (*worker-error-lock*)
+                                            (format t "Thread threw error: ~a~%" c)
+                                            (push c *worker-error-list*))))
                                       ;; (print "cleanup unexpected thread termination")
                                       ;; (setf *workers-nesting* nil)
                                       ;; (setf *workers-kill* t)
@@ -1383,6 +1401,7 @@
               do (funcall func j)))
       (progn
         (setf *workers-nesting* t)
+        (setf *worker-error-list* nil)
         (setf *workers-array-length* total-length)
         (let* ((length (if parts parts *worker-count*))
                (block-size (ceiling total-length length)))
@@ -1399,7 +1418,10 @@
           (setf *workers-chunk-count* length)
           (sb-ext:atomic-update (aref *workers-counter* 0) (lambda (a) (declare (ignore a)) 0))
           (sb-thread:signal-semaphore *workers-run* length)
-          (sb-thread:wait-on-semaphore *workers-finish* :n length))
+          (sb-thread:wait-on-semaphore *workers-finish* :n length)
+          (when *worker-error-list*
+            (dolist (er *worker-error-list*)
+              (error er))))
         (setf *workers-nesting* nil)))
   (values))
 

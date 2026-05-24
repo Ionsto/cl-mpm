@@ -178,6 +178,18 @@
                                        (if (slot-exists-p mp 'cl-mpm/particle::true-local-length)
                                            (cl-mpm/particle::mp-true-local-length mp)
                                            0d0))
+        (cl-mpm/output::save-parameter "length-x"
+                                       (compute-effective-length-stress
+                                        (cl-mpm/particle::mp-undamaged-stress mp)
+                                        (cl-mpm/particle::mp-initiation-stress mp)
+                                        (cl-mpm/utils::vector-from-list (list 1d0 0d0 0d0))
+                                        (cl-mpm/particle::mp-local-length mp)))
+        (cl-mpm/output::save-parameter "length-y"
+                                       (compute-effective-length-stress
+                                        (cl-mpm/particle::mp-undamaged-stress mp)
+                                        (cl-mpm/particle::mp-initiation-stress mp)
+                                        (cl-mpm/utils::vector-from-list (list 0d0 1d0 0d0))
+                                        (cl-mpm/particle::mp-local-length mp)))
         (cl-mpm/output::save-parameter "p-undamaged"
                                        (if (slot-exists-p mp 'cl-mpm/particle::undamaged-stress)
                                            (cl-mpm/utils::trace-voigt (cl-mpm/particle::mp-undamaged-stress mp))
