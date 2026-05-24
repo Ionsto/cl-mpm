@@ -14,6 +14,7 @@
     (cl-mpm/plotter:simple-plot
      *sim*
      :plot :deformed
+     :fill nil
      :trial t
      ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-index mp))
      :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
@@ -35,24 +36,24 @@
          (nu 0.3d0)
          (domain-size (list 16 8))
          (element-count (mapcar (lambda (x) (round x h)) domain-size))
-         (block-size (list 8 height)))
+         (block-size (list 16 4)))
     (setf
      *sim*
      (cl-mpm/setup::make-simple-sim
       h
       element-count
       :sim-type
-      'cl-mpm/dynamic-relaxation::mpm-sim-octree-usf
+      ;; 'cl-mpm/dynamic-relaxation::mpm-sim-octree-usf
       ;; 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static
+      'cl-mpm/dynamic-relaxation::mpm-sim-octree-quasi-static
       :args-list
       (list
        :enable-aggregate t
        :intra-mesh-agg t
        :enable-split t
-       :enable-fbar enable-fbar
-       :refinement 1
-       :vel-algo :TBLEND
-       )))
+       :split-factor (* 1.01d0 (sqrt 2) (/ 1d0 mps))
+       :max-split-depth 10
+       :refinement multigrid-refines)))
     (setf h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
     (let ((h h))
       (cl-mpm:add-mps
@@ -62,42 +63,23 @@
         block-size
         (mapcar (lambda (e) (* (/ e h) mps)) block-size)
         density
-        'cl-mpm/particle::particle-vm-implicit
+        'cl-mpm/particle::particle-elastic
         :E E
         :nu nu
-        :rho 10d3
-
-        ;; 'cl-mpm/particle::particle-elastic-damage-delayed
-        ;; :E 1d6
-        ;; :nu 0.3d0
-        ;; :initiation-stress 1d4
-        ;; :local-length (* h)
-        ;; :ductility 10d0
-        ;; :delay-time 1000d0
-        ;; :delay-exponent 1d0
-        ))
-
-      ;; (cl-mpm:add-mps
-      ;;  *sim*
-      ;;  (cl-mpm/setup:make-block-mps
-      ;;   (list 8d0 0d0)
-      ;;   block-size
-      ;;   (mapcar (lambda (e) (* (/ e h) mps)) block-size)
-      ;;   density
-      ;;   'cl-mpm/particle::particle-elastic
-      ;;   :E E
-      ;;   :nu nu))
-      )
+        ;; 'cl-mpm/particle::particle-vm-implicit
+        ;; :E E
+        ;; :nu nu
+        ;; :rho 10d3
+        )))
 
     (setf (cl-mpm::sim-gravity *sim*) -10d0)
-    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-3)
+    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-15)
     (cl-mpm/setup::setup-bcs
      *sim*
      :left '(0 nil nil)
      :right '(0 nil nil)
      :bottom '(nil 0 nil)))
-  (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
-  )
+  (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*))))
 
 
 
@@ -112,99 +94,134 @@
 (defmethod cl-mpm/dynamic-relaxation::save-vtks ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree) output-dir step)
   (cl-mpm:sim-format sim t "Save vtks ~D~%" step)
   (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" step)) sim)
+  ;; (break)
   (dotimes (i (1+ (cl-mpm::sim-multigrid-refinement sim)))
     (setf (cl-mpm::sim-mesh sim) (aref (cl-mpm::sim-mesh-list sim) i))
-    (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~D_~5,'0d.vtk" i step)) sim)
+    (cl-mpm/output::save-vtk-mesh-nodes (merge-pathnames output-dir (format nil "sim_nodes_~D_~5,'0d.vtk" i step)) (aref (cl-mpm::sim-mesh-list sim) i))
     (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~D_~5,'0d.vtk" i step)) sim))
-
   (setf (cl-mpm::sim-mesh sim) (aref (cl-mpm::sim-mesh-list sim) 0))
-  
   )
 
-(defun refinement-criteria (mesh c)
+(defun refinement-criteria (sim mesh c)
   (let ((d-damage (cl-mpm/utils:vector-zeros))
         (damage 0d0)
-        (volume 0d0)
-        )
-    (cl-mpm/aggregate::iterate-over-cell-shape-local
-     mesh
-     c
+        (volume 0d0))
+    (cl-mpm/damage::iterate-over-point-neighbour-mps
+     (aref (cl-mpm::sim-mesh-list sim) 0)
      (cl-mpm/mesh::cell-centroid c)
-     (lambda (node weight grads)
-       ;; (let ((dsvp (cl-mpm/utils::arb-matrix-from-list (list (cl-mpm/utils::gradient-dx grads) 0d0 0d0
-       ;;                                                       0d0 (cl-mpm/utils::gradients-dy grads) 0d0
-       ;;                                                       0d0 0d0 (cl-mpm/utils::gradients-dz grads))
-       ;;                                                 3 3))))
-       ;; (cl-mpm/fastmaths::fast-.+
-       ;;  (cl-mpm/fastmaths::fast-@-arb-vector
-       ;;   )
-       ;;  )
-       (incf damage (* weight (cl-mpm/mesh::node-damage node)))
-       (incf volume (* weight (cl-mpm/mesh::node-volume node)))
-       ))
-    (if (> volume 0d0)
-        (> (/ damage volume) 0.5d0)
-        nil)))
+     (lambda (mesh mp dist)
+       (setf damage (max (/ (cl-mpm/particle::mp-damage-ybar mp)
+                            (cl-mpm/particle::mp-initiation-stress mp)) damage))))
+    (> damage 0.95d0)))
 
 (defun test (&key (output-dir "./output/"))
   (cl-mpm/utils::set-workers 8)
-  (setup :refine 2)
-  ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static)
+  (setup :mps 4 :refine 1 :multigrid-refines 2)
   (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree-quasi-static)
-  ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-usf)
-  ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree-usf)
-  ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :QUASI-STATIC)
-  (let* ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
-         (transition-pos 4d0)
-         (upper-pos (+ 4d0 h)))
-    (setf (cl-mpm/dynamic-relaxation::sim-octree-refinement-criteria
-           *sim*)
-          ;; #'refinement-criteria
-          (lambda (mesh c)
-            (and
-             (> (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 0) 4)
-             ))
+
+  (setf (cl-mpm/dynamic-relaxation::sim-octree-refinement-criteria
+         *sim*)
+        (lambda (sim mesh c)
+          (and
+           (>
+            (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 1)
+               2d0)
+           (<
+            (abs (- (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 0)
+                   8d0))
+            2))
+          ;; (and
+          ;;  (>
+          ;;   (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 0)
+          ;;   (* ;; (1+ (cl-mpm/dynamic-relaxation::cell-mesh-index c))
+          ;;        8d0)))
           ))
 
   ;; (cl-mpm:update-sim *sim*)
   ;; (cl-mpm/dynamic-relaxation::save-vtks *sim* "./output/" 0)
   ;; (cl-mpm/dynamic-relaxation::save-vtks *sim* "./output/" 1)
-  ;; (cl-mpm/dynamic-relaxation::run-quasi-time
-  ;;  *sim*
-  ;;  :output-dir "./output/"
-  ;;  :dt-scale 1d0
-  ;;  :plotter (lambda (sim) (plot-domain))
-  ;;  :conv-criteria 1d-3
-  ;;  ;; :min-adaptive-steps -8
-  ;;  ;; :max-adaptive-steps 8
-  ;;  ;; :adaption-constant 2
-  ;;  :substeps 20
-  ;;  :dt 100d0
-  ;;  :total-time 100000d0
-  ;;  )
-  ;; (cl-mpm/dynamic-relaxation::run-time
-  ;;  *sim*
-  ;;  :output-dir output-dir
-  ;;  :plotter (lambda (sim)
-  ;;             (plot-domain))
-  ;;  :total-time 100d0
-  ;;  :damping 0.1d0
-  ;;  :dt 0.1d0
-  ;;  :initial-quasi-static nil
-  ;;  :dt-scale 0.25d0)
+  (cl-mpm/setup::set-mass-filter *sim* 1d3 :proportion 0d-15)
   (cl-mpm/dynamic-relaxation::run-load-control
    *sim*
    :output-dir (format nil "./output/")
    :plotter (lambda (s) (plot-domain))
-   :load-steps 40
-   :damping 1d0
-   :substeps 100
-   :criteria 1d-3
+   :load-steps 1
+   :damping (sqrt 2d0)
+   :substeps 50
+   :conv-steps 1000
+   :criteria 1d-9
    :save-vtk-dr t
-   :save-vtk-loadstep t
+   :save-vtk-loadstep nil
    :dt-scale 0.9d0)
+  ;; (cl-mpm/dynamic-relaxation::run-time
+  ;;  *sim*
+  ;;  :output-dir output-dir
+  ;;  :plotter (lambda (sim)
+  ;;             (plot-domain)
+  ;;             )
+  ;;  :total-time 100d0
+  ;;  :damping 0.1d0
+  ;;  :dt 0.01d0
+  ;;  :initial-quasi-static nil
+  ;;  :dt-scale 0.5d0)
   )
 
 
 
 
+
+(defun disp-test ()
+  (let* ((d 1)
+         (et (cl-mpm/aggregate::sim-global-sparse-et *sim*))
+         (e (cl-mpm/aggregate::sim-global-sparse-e *sim*))
+         (m (cl-mpm/aggregate::sim-global-sparse-ma *sim*))
+         (bcs-int (aref (cl-mpm/aggregate::sim-global-bcs-int *sim*) d))
+         (bcs (aref (cl-mpm/aggregate::sim-global-bcs *sim*) d))
+         (disp (cl-mpm/utils::arb-matrix 4 1))
+         )
+    ;; (pprint (magicl:nrows bcs))
+    (cl-mpm::reset-node-displacement *sim*)
+    (loop for i from 0 to 10
+          do
+             (progn
+               (cl-mpm/aggregate::project-global-vec
+                *sim*
+                (cl-mpm/aggregate::extend-vec
+                 *sim*
+                 disp
+                 d)
+                #'cl-mpm/mesh::node-displacment
+                d
+                )
+               (cl-mpm/dynamic-relaxation::save-vtks *sim* "./output/" i)
+               ;; (incf (varef disp 1) 0.1d0)
+               ;; (incf (varef disp 5) 0.1d0)
+               ;; (incf (varef disp 15) 0.1d0)
+               (incf (varef disp 1) 0.1d0)
+               ;; (incf (varef disp 19) 0.1d0)
+               ;; (incf (varef disp 17) 0.1d0)
+               ;; (incf (varef disp 3) 0.1d0)
+               ))
+    ;; (pprint
+    ;;  ; (cl-mpm/utils::diagonal-to-arb m)
+    ;;  (cl-mpm/fastmaths::fast-@-arb-arb
+    ;;   (cl-mpm/fastmaths::fast-@-arb-arb
+    ;;    (cl-mpm/implicit::reduce-with-bcs
+    ;;     (cl-mpm/utils::sparse-to-mat et)
+    ;;     bcs-int
+    ;;     bcs
+    ;;     )
+    ;;    (cl-mpm/implicit::reduce-with-bcs
+    ;;     (cl-mpm/utils::diagonal-to-arb m)
+    ;;     bcs
+    ;;     bcs)
+    ;;    ;; :multithreaded t
+    ;;    )
+    ;;   (cl-mpm/implicit::reduce-with-bcs
+    ;;    (cl-mpm/utils::sparse-to-mat e)
+    ;;    bcs
+    ;;    bcs-int
+    ;;    )
+    ;;   :multithreaded t)
+    ;;  )
+    ))
