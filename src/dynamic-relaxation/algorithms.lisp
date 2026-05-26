@@ -601,6 +601,7 @@
                           (min-adaptive-steps -1)
                           (adaption-constant 2)
                           (conv-criteria 1d-3)
+                          (explicit-conv-criteria nil)
                           (substeps 50)
                           (enable-damage t)
                           (enable-plastic t)
@@ -614,6 +615,8 @@
   (let ((damping-0 (cl-mpm/setup::estimate-critical-damping sim)))
     (when steps
       (setf total-time (* dt steps)))
+    (unless explicit-conv-criteria
+      (setf explicit-conv-criteria conv-criteria))
     (uiop:ensure-all-directories-exist (list output-dir))
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
     (cl-mpm/output::save-simulation-parameters (merge-pathnames output-dir "settings.json")
@@ -769,7 +772,7 @@
                                        :output-dir output-dir
                                        :plotter plotter
                                        :dt-scale explicit-dt-scale
-                                       :criteria (* conv-criteria 1d0)
+                                       :criteria explicit-conv-criteria
                                        :damping-0 damping-0
                                        :damping explicit-damping-factor
                                        :target-time (* 0.1d0 dt-loadstep)

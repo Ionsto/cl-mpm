@@ -219,37 +219,37 @@
          position
          2
          #'check-cell)
-        ;; (unless closest-elem
-        ;;   (let ((mutex (sb-thread:make-mutex)))
-        ;;     (cl-mpm::iterate-over-cells
-        ;;      mesh
-        ;;      (lambda (cell)
-        ;;        (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
-        ;;                         (index cl-mpm/mesh::cell-index)
-        ;;                         (centroid cl-mpm/mesh::cell-centroid)
-        ;;                         (active cl-mpm/mesh::cell-active)
-        ;;                         (volume cl-mpm/mesh::cell-volume)
-        ;;                         (agg cl-mpm/mesh::cell-agg))
-        ;;            cell
-        ;;          (when (and
-        ;;                 (cl-mpm/mesh::cell-active cell)
-        ;;                 (not (cl-mpm/mesh::cell-partial cell))
-        ;;                 (not (cl-mpm/mesh::cell-agg cell))
-        ;;                 (not (eq cell exclude))
-        ;;                 (funcall filter cell))
-        ;;            (let ((dist-tr (cl-mpm/fastmaths::diff-norm
-        ;;                            pos
-        ;;                            centroid)))
-        ;;              ;;Double checked lock
-        ;;              (when (or
-        ;;                     (not closest-elem)
-        ;;                     (> dist dist-tr))
-        ;;                (sb-thread:with-mutex (mutex)
-        ;;                  (when (or
-        ;;                         (not closest-elem)
-        ;;                         (> dist dist-tr))
-        ;;                    (setf dist dist-tr
-        ;;                          closest-elem cell)))))))))))
+        (unless closest-elem
+          (let ((mutex (sb-thread:make-mutex)))
+            (cl-mpm::iterate-over-cells
+             mesh
+             (lambda (cell)
+               (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                                (index cl-mpm/mesh::cell-index)
+                                (centroid cl-mpm/mesh::cell-centroid)
+                                (active cl-mpm/mesh::cell-active)
+                                (volume cl-mpm/mesh::cell-volume)
+                                (agg cl-mpm/mesh::cell-agg))
+                   cell
+                 (when (and
+                        (cl-mpm/mesh::cell-active cell)
+                        (not (cl-mpm/mesh::cell-partial cell))
+                        (not (cl-mpm/mesh::cell-agg cell))
+                        (not (eq cell exclude))
+                        (funcall filter cell))
+                   (let ((dist-tr (cl-mpm/fastmaths::diff-norm
+                                   pos
+                                   centroid)))
+                     ;;Double checked lock
+                     (when (or
+                            (not closest-elem)
+                            (> dist dist-tr))
+                       (sb-thread:with-mutex (mutex)
+                         (when (or
+                                (not closest-elem)
+                                (> dist dist-tr))
+                           (setf dist dist-tr
+                                 closest-elem cell)))))))))))
         ))
     closest-elem))
 
