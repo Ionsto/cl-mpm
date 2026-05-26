@@ -293,8 +293,7 @@
     (cl-mpm::p2g-force-fs sim)
     (cl-mpm::apply-force-bcs sim dt-loadstep)
     (when ghost-factor
-      (cl-mpm/ghost::apply-ghost-cached sim)
-      (cl-mpm::apply-bcs mesh bcs dt))
+      (cl-mpm/ghost::apply-ghost-cached sim))
     (when (= (mod solve-count mass-update-iter) 0)
       (update-node-fictious-mass sim))
     ;;Update our nodes after force mapping
@@ -394,7 +393,6 @@
        (when (cl-mpm/mesh:node-active node)
          (cl-mpm::calculate-forces-midpoint node 0d0 0d0 mass-scale))))
     (cl-mpm::compute-reaction-force sim)
-    ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm::sim-active-bcs sim) dt)
     ;;For each aggregated element set solve mass matrix and velocity
     (when enable-aggregate
       (let* ()
@@ -524,9 +522,6 @@
         ;; map forces onto nodes
         (cl-mpm::p2g-force sim)
         (cl-mpm::apply-force-bcs sim dt-loadstep)
-        ;; (when bcs-force-list
-        ;;   (loop for bcs-f in bcs-force-list
-        ;;         do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep)))
 
         (cl-mpm::update-node-forces sim)
         (cl-mpm::reset-node-displacement sim)

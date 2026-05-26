@@ -777,9 +777,16 @@
 (defun resolve-bc-nodes (sim mesh bcs)
   (loop for bc across bcs
         do (progn
-             (setf (cl-mpm/bc::bc-node bc)
-                   (cl-mpm/mesh::get-node mesh (cl-mpm/bc:bc-index bc)))
-             (cl-mpm/bc::apply-bc bc (cl-mpm/bc::bc-node bc) mesh 0d0))))
+             (setf
+              (cl-mpm/bc::bc-node bc)
+              (cl-mpm/mesh::get-node
+               mesh
+               (cl-mpm/bc:bc-index bc)))
+             ;; (cl-mpm/bc::apply-bc
+             ;;  bc
+             ;;  (cl-mpm/bc::bc-node bc)
+             ;;  mesh 0d0)
+             )))
 
 (defmethod %setup-bcs ((sim cl-mpm:mpm-sim)
                        left

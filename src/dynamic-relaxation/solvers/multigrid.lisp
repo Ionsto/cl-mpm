@@ -216,12 +216,20 @@
                    (mesh cl-mpm::sim-mesh)
                    )
       sim
-      (setf (cl-mpm:sim-mesh sim) (aref mesh-list 0))))
+    (setf (cl-mpm:sim-mesh sim) (aref mesh-list 0))
+    ;; (build-active-bcs sim)
+    ;; (setf (cl-mpm::sim-bcs sim) (aref (cl-mpm::sim-bcs-list sim) 0))
+    ;; (cl-mpm/setup::resolve-bc-nodes sim (cl-mpm::sim-mesh sim) (cl-mpm::sim-bcs sim))
+    ;; (setf (cl-mpm::sim-active-bcs sim) (aref (cl-mpm::sim-bcs-list sim) 0))
+    ))
 (defun set-mesh (sim index)
   (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
                    (mesh cl-mpm::sim-mesh))
       sim
-    (setf (cl-mpm:sim-mesh sim) (aref mesh-list index))))
+    (setf (cl-mpm:sim-mesh sim) (aref mesh-list index))
+    ;; (setf (cl-mpm::sim-active-bcs sim) (aref (cl-mpm::sim-bcs-list sim) index))
+    )
+  )
 
 
 (defclass cell-octree (cl-mpm/mesh::cell)
@@ -328,6 +336,35 @@
                                   (cl-mpm/bc:apply-bc bc node mesh dt)
                                   (error "BC attempted to get a nil node ~A ~A" bc index)))))))))))))
 
+(defun build-active-bcs (sim)
+  (with-accessors ((bcs-list cl-mpm::sim-bcs-list)
+                   (refinement cl-mpm::sim-multigrid-refinement))
+      sim
+    (let ((bc-count 0))
+      (loop for bcs across bcs-list
+            do (incf bc-count (length bcs)))
+      (let ((new-bcs-array (make-array bc-count)))
+        (let ((i 0))
+          (loop for bcs across bcs-list
+                do (loop for n across bcs
+                         do (progn
+                              (setf (aref new-bcs-array i) n)
+                              (incf i)))))
+        (setf (cl-mpm::sim-bcs sim)
+              new-bcs-array)
+        (setf (cl-mpm::sim-active-bcs sim)
+              new-bcs-array)))))
+
+
+(defun resolve-all-bcs (sim)
+  (loop for mesh across (cl-mpm::sim-mesh-list sim)
+        for bcs across (cl-mpm::sim-bcs-list sim)
+        do
+           (progn
+             (cl-mpm/setup::resolve-bc-nodes sim
+                                             mesh
+                                             bcs))))
+
 
 (defmethod cl-mpm/setup::%setup-bcs ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree)
                                      left
@@ -336,7 +373,8 @@
                                      bottom
                                      front
                                      back)
-  (with-accessors ((bcs-list cl-mpm::sim-bcs-list )
+  (set-mesh-default sim)
+  (with-accessors ((bcs-list cl-mpm::sim-bcs-list)
                    (refinement cl-mpm::sim-multigrid-refinement)
                    (mesh-list cl-mpm::sim-mesh-list))
       sim
@@ -349,15 +387,30 @@
                  (set-mesh sim i)
                  (setf (aref bcs-list i)
                        (cl-mpm/bc::make-outside-bc-varfix
-                        mesh
+                        (cl-mpm::sim-mesh sim)
                         left right top bottom front back))
                  ;;Avoid triggering the setf bcs active rebuild
-                 (setf
-                  (cl-mpm::sim-bcs sim)
-                  (aref bcs-list i))
-                 (cl-mpm/setup::resolve-bc-nodes sim mesh (aref bcs-list i))
-                 (incf bc-count (length (aref bcs-list i))))))
+                 (cl-mpm/setup::resolve-bc-nodes sim
+                                                 (cl-mpm::sim-mesh sim)
+                                                 (aref bcs-list i))
+                 (incf bc-count (length (aref bcs-list i)))))
+      (let ((new-bcs-array (make-array bc-count)))
+        (let ((i 0))
+          (loop for bcs across bcs-list
+                do (loop for n across bcs
+                         do (progn
+                              (setf (aref new-bcs-array i) n)
+                              (incf i)))))
+        (setf (cl-mpm::sim-bcs sim)
+              new-bcs-array)
+        (setf (cl-mpm::sim-active-bcs sim)
+              new-bcs-array)))
+
     (set-mesh-default sim)
+    ;; (setf
+    ;;  (cl-mpm::sim-bcs sim)
+    ;;  (aref bcs-list 0))
+
     ;; (setf
     ;;  (cl-mpm::sim-bcs sim)
     ;;  (aref bcs-list 0))
@@ -375,45 +428,53 @@
         (setf (cl-mpm::sim-mesh-list sim) (make-array mesh-count)
               (cl-mpm::sim-bcs-list sim) (make-array mesh-count))
         (dotimes (refine (+ (cl-mpm::sim-multigrid-refinement sim) 1))
-          (let* ((m (cl-mpm::make-mesh size (/ resolution (expt 2 (+ refine 0))) nil))
-                 )
+          (let* ((m (cl-mpm::make-mesh size (/ resolution (expt 2 (+ refine 0))) nil)))
+            (setf (cl-mpm::sim-mesh sim) m)
             (setf (aref mesh-list refine) m)
             (setf (aref bcs-list refine) (cl-mpm/bc:make-outside-bc m))
-            (cl-mpm/setup::resolve-bc-nodes sim m (aref bcs-list refine))
+            ;; (setf (cl-mpm:sim-bcs sim) (aref bcs-list refine))
+            (cl-mpm/setup::resolve-bc-nodes
+             sim
+             (cl-mpm::sim-mesh sim)
+             (aref bcs-list refine))
             ))
+        ;; (cl-mpm::apply-essential-bcs sim)
 
-          (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
-                           (bcs-list cl-mpm::sim-bcs-list))
-              sim
-            (let ((nc 0))
-              (dotimes (i (1+ refinement))
-                (let ((mesh (aref mesh-list i)))
-                  (incf nc (length (cl-mpm/mesh::mesh-active-nodes mesh)))
-                  (cl-mpm::iterate-over-cells
-                   mesh
-                   (lambda (c)
-                     (change-class c 'cell-octree)
-                     (setf (cell-mesh-index c) i)))
-                  (cl-mpm::iterate-over-nodes
-                   mesh
-                   (lambda (n)
-                     (change-class n 'node-octree)
-                     (setf (node-mesh-index n) i)))))
+        (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
+                         (bcs-list cl-mpm::sim-bcs-list))
+            sim
+          (let ((nc 0))
+            (dotimes (i (1+ refinement))
+              (let ((mesh (aref mesh-list i)))
+                (incf nc (length (cl-mpm/mesh::mesh-active-nodes mesh)))
+                (cl-mpm::iterate-over-cells
+                 mesh
+                 (lambda (c)
+                   (change-class c 'cell-octree)
+                   (setf (cell-mesh-index c) i)))
+                (cl-mpm::iterate-over-nodes
+                 mesh
+                 (lambda (n)
+                   (change-class n 'node-octree)
+                   (setf (node-mesh-index n) i)))))
 
+            (set-mesh-default sim)
+
+            (let ((new-node-array (make-array nc)))
+              (let ((i 0))
+                (loop for mesh across mesh-list
+                      do (loop for n across (cl-mpm/mesh::mesh-active-nodes mesh)
+                               do (progn
+                                    (setf (aref new-node-array i) n)
+                                    (incf i)))))
               (set-mesh-default sim)
+              (setf (cl-mpm/mesh::mesh-active-nodes (cl-mpm:sim-mesh sim))
+                    new-node-array))))
 
-              (let ((new-node-array (make-array nc)))
-                (let ((i 0))
-                  (loop for mesh across mesh-list
-                        do (loop for n across (cl-mpm/mesh::mesh-active-nodes mesh)
-                                 do (progn
-                                      (setf (aref new-node-array i) n)
-                                      (incf i)))))
-                (set-mesh-default sim)
-                (setf (cl-mpm/mesh::mesh-active-nodes (cl-mpm:sim-mesh sim))
-                      new-node-array))))
-
-          sim))))
+        ;; (set-mesh-default sim)
+        sim)))
+  ;; (call-next-method)
+  )
 
 
 
@@ -480,6 +541,28 @@
                 mesh
                 mp
                 (lambda (&rest args))))))))
+    ;; (iterate-over-meshes
+    ;;  sim
+    ;;  (lambda (mesh mesh-index)
+    ;;    (cl-mpm::iterate-over-cells
+    ;;     mesh
+    ;;     (lambda (cell)
+    ;;       (when (= (cell-octree-refine cell) 1)
+    ;;         (let ((any-active-cells nil))
+    ;;           (with-accessors ((partial cl-mpm/mesh::cell-partial)
+    ;;                            (nodes cl-mpm/mesh::cell-nodes)
+    ;;                            (agg cl-mpm/mesh::cell-agg)
+    ;;                            (neighbours cl-mpm/mesh::cell-cartesian-neighbours)
+    ;;                            (active cl-mpm/mesh::cell-active))
+    ;;               cell
+    ;;             (loop for n in neighbours
+    ;;                   do
+    ;;                      (when (and (cl-mpm/mesh::cell-active n)
+    ;;                                 (= (cell-octree-refine n) 0)
+    ;;                                 (= (cell-octree-refine n) -1))
+    ;;                        (setf any-active-cells t))))
+    ;;           (unless any-active-cells
+    ;;             (setf (cell-octree-refine cell) 2))))))))
     (set-mesh-default sim)))
 
 (defun intra-mesh-agg (sim mesh)
@@ -922,6 +1005,18 @@
     (when agg
       (cl-mpm/aggregate::update-aggregate-elements sim))))
 
+
+(defun build-aggregate-bcs (sim)
+  (when (cl-mpm/aggregate::sim-enable-aggregate sim)
+    (let ((nd (cl-mpm/mesh::mesh-nd (cl-mpm:sim-mesh sim))))
+      (setf (cl-mpm/aggregate::sim-global-bcs sim) (make-array nd :element-type t))
+      (setf (cl-mpm/aggregate::sim-global-bcs-int sim) (make-array nd :element-type t))
+      (cl-mpm/aggregate::iterate-over-dimensions
+       nd
+       (lambda (d)
+         (setf (aref (cl-mpm/aggregate::sim-global-bcs sim) d) (cl-mpm/aggregate::assemble-global-bcs sim d))
+         (setf (aref (cl-mpm/aggregate::sim-global-bcs-int sim) d) (cl-mpm/aggregate::assemble-internal-bcs sim d)))))))
+
 (defmethod cl-mpm/aggregate::locate-aggregate-nodes ((sim mpm-sim-octree))
   (set-mesh-default sim)
   (with-accessors ((mps cl-mpm:sim-mps)
@@ -1045,6 +1140,9 @@
     (set-mesh-default sim)
     ))
 
+(defun resolve-mesh-coupling (sim)
+  )
+
 (defun set-mesh-refinement (sim filter &key (derefine nil))
   (declare (function filter))
   (set-mesh-default sim)
@@ -1066,9 +1164,7 @@
                       (loop for cn in (cl-mpm/mesh::cell-neighbours c)
                             do (when (and (= (cell-octree-refine cn) 1))
                                  (when spaced-coupling
-                                   (setf (cell-coupled-from-above c) t))
-                                 )))))
-
+                                   (setf (cell-coupled-from-above c) t)))))))
                  (when (< mesh-index refinement)
                    ;;When a mesh needs to refine, we set it to 2
                    (cl-mpm::iterate-over-cells
@@ -1269,8 +1365,7 @@
       (loop for mp across mps-to-split
             for direction in split-direction
             do (loop for new-mp in (cl-mpm::split-mp mp (resolve-h sim mp) direction)
-                     do (cl-mpm::sim-add-mp sim new-mp)))))
-  )
+                     do (cl-mpm::sim-add-mp sim new-mp))))))
 
 
 
@@ -1304,14 +1399,8 @@
   (set-mesh-default sim))
 
 (defmethod cl-mpm/dynamic-relaxation::pre-step :after ((sim mpm-sim-octree))
-  (build-active-node-set sim))
-
-;; (defmethod cl-mpm/dynamic-relaxation::pre-step :before ((sim mpm-sim-octree-quasi-static))
-;;   (set-mesh-refinement sim (sim-octree-refinement-criteria sim))
-;;   (cl-mpm/dynamic-relaxation::setup-mp-iteration-cache sim)
-;;   (split-until-stable sim)
-;;   (set-mesh-default sim)
-;;   )
+  (build-active-node-set sim)
+  )
 
 (defmethod cl-mpm/dynamic-relaxation::map-stiffness ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree-quasi-static))
   (with-accessors ((mesh cl-mpm:sim-mesh)
@@ -1357,7 +1446,9 @@
                   (sb-thread::with-mutex ((cl-mpm/mesh::node-lock node))
                     (incf node-mass
                           (the double-float
-                               (* 0.25d0 mp-factor))))))))))))))
+                               (* 0.25d0 mp-factor)))))))))))))
+  (set-mesh-default sim)
+  )
 
 ;; (defmethod cl-mpm/setup::%estimate-elastic-dt ((sim mpm-sim-octree))
 ;;   (* (call-next-method) (expt 2 (- (cl-mpm::sim-multigrid-refinement sim)))))
@@ -1571,16 +1662,6 @@
     (set-mesh-default sim)
     (call-next-method)
     (set-mesh-default sim)))
-
-;; (defmethod pre-step ((sim mpm-sim-dr-multigrid))
-;;   (with-accessors ((mesh cl-mpm:sim-mesh)
-;;                    (mps cl-mpm:sim-mps)
-;;                    (delocal-counter cl-mpm/damage::sim-damage-delocal-counter-max))
-;;       sim
-;;     (call-next-method)
-;;     (setf delocal-counter -1)
-;;     (progn
-;;       (cl-mpm/damage::update-delocalisation-list (first (last (cl-mpm::sim-mesh-list sim))) mps))))
 
 (defmethod cl-mpm::calculate-min-dt-mps ((sim mpm-sim-octree))
   "Estimate minimum p-wave modulus"

@@ -635,10 +635,8 @@
     ;(setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
     (defparameter *total-iter* 0)
     (let ((quasi-static-solver (class-of sim))
-          (vel-algo :BLEND)
           (load-steps conv-load-steps)
-          (i 0)
-          (grav (cl-mpm:sim-gravity sim)))
+          (i 0))
 
       (reset-mp-velocity sim)
       (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
