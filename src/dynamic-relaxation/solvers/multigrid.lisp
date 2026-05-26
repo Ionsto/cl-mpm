@@ -1301,8 +1301,8 @@
   (set-mesh-refinement sim (sim-octree-refinement-criteria sim))
   (cl-mpm/dynamic-relaxation::setup-mp-iteration-cache sim)
   (split-until-stable sim)
-  (set-mesh-default sim)
-  )
+  (set-mesh-default sim))
+
 (defmethod cl-mpm/dynamic-relaxation::pre-step :after ((sim mpm-sim-octree))
   (build-active-node-set sim))
 
@@ -1729,3 +1729,6 @@
 ;;                      )))))))
 ;;       (values (cl-mpm/utils::build-sparse-matrix v r c ndof ndofC)
 ;;               (cl-mpm/utils::build-sparse-matrix v c r ndofC ndof)))))
+
+(defclass mpm-sim-octree-implicit-dynamic (mpm-sim-implict-dynamic mpm-sim-octree-damage-quasi-static)
+  ())

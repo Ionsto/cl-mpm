@@ -755,7 +755,6 @@
            (sma (cl-mpm/aggregate::sim-global-sparse-ma sim))
            (bcs-int (aref (sim-global-bcs-int sim) d))
            (bcs (aref (sim-global-bcs sim) d))
-           ;; (gbcs (assemble-global-bcs sim d))
            (work-vec (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows e) 1))
            (work-vec-agg (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows et) 1)))
       (cl-mpm/linear-solver::solve-conjugant-gradients

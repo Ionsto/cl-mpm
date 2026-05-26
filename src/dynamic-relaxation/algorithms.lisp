@@ -591,6 +591,7 @@
                           (damping-factor 1d0)
                           (explicit-dt-scale 0.9d0)
                           (explicit-damping-factor 1d-3)
+                          (explicit-mass-scaling t)
                           (elastic-dt-margin 1000)
                           (elastic-dt nil)
                           (dt 1d0)
@@ -775,6 +776,7 @@
                                        :damping explicit-damping-factor
                                        :target-time (* 0.1d0 dt-loadstep)
                                        :step-time (* dt-loadstep adaption-constant)
+                                       :enable-mass-scaling explicit-mass-scaling
                                        :enable-damage enable-damage
                                        :enable-plastic enable-plastic)
                        (change-class sim quasi-static-solver)

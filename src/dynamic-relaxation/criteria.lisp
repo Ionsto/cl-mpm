@@ -622,7 +622,6 @@
                         (interior cl-mpm/mesh::node-interior)
                         (f-ext cl-mpm/mesh::node-external-force)
                         (f-int cl-mpm/mesh::node-internal-force)
-                        (f-damp cl-mpm/mesh::node-damping-force)
                         (f-ghost cl-mpm/mesh::node-ghost-force)
                         (node-oobf cl-mpm/mesh::node-oobf))
            node

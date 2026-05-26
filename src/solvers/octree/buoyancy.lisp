@@ -80,18 +80,33 @@
                             (partial cl-mpm/mesh::cell-partial)
                             (boundary cl-mpm/mesh::cell-boundary)
                             (pos cl-mpm/mesh::cell-centroid)
-                            )
+                            (nodes cl-mpm/mesh::cell-nodes))
                cell
-             (let ((any-boundary nil))
-               (loop for n across (cl-mpm/mesh::cell-nodes cell)
-                     do (when (and (cl-mpm/mesh:node-active n)
-                                   (funcall clip-function (cl-mpm/fastmaths::fast-.+
-                                                           (cl-mpm/mesh::node-position n)
-                                                           (cl-mpm/mesh::node-displacment n))))
-                          (setf any-boundary t)
-                          (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
-                            (setf (cl-mpm/mesh::node-boundary-node n) t))))
-               (setf boundary any-boundary))
+             (let ((vest 0d0))
+               (loop for n across nodes
+                     do (when t;(cl-mpm/mesh:node-active n)
+                          (incf vest
+                                (* 0.25d0 (/
+                                           (cl-mpm/mesh::node-volume n)
+                                           (cl-mpm/mesh::node-volume-true n))))))
+               (when (< vest 0.9d0)
+                 (setf boundary t)
+                 (loop for n across nodes
+                       do
+                          (when (cl-mpm/mesh:node-active n)
+                            (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+                              (setf (cl-mpm/mesh::node-boundary-node n) t))))))
+
+             ;; (let ((any-boundary nil))
+             ;;   (loop for n across nodes
+             ;;         do (when (and (cl-mpm/mesh:node-active n)
+             ;;                       (funcall clip-function (cl-mpm/fastmaths::fast-.+
+             ;;                                               (cl-mpm/mesh::node-position n)
+             ;;                                               (cl-mpm/mesh::node-displacment n))))
+             ;;              (setf any-boundary t)
+             ;;              (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+             ;;                (setf (cl-mpm/mesh::node-boundary-node n) t))))
+             ;;   (setf boundary any-boundary))
              ;; (when (and
              ;;        active
              ;;        partial

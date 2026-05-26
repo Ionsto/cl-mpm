@@ -71,7 +71,9 @@
   (:documentation "DR implicit quasi-static wrapper class"))
 
 (defclass mpm-sim-implict-dynamic (mpm-sim-dr-dynamic)
-  ()
+  ((sub-stepping
+    :initform nil
+    :accessor sim-sub-stepping))
   (:documentation "DR implicit-dynamic wrapper class - acts just like an explicit solver"))
 
 (defclass mpm-sim-dr-usf (mpm-sim-dr)
