@@ -1143,10 +1143,10 @@
 (defun resolve-mesh-coupling (sim)
   )
 
-(defun set-mesh-refinement (sim filter &key (derefine nil))
+(defun set-mesh-refinement (sim filter &key (derefine nil) (project-displacement nil))
   (declare (function filter))
   (set-mesh-default sim)
-  (let ((mesh-updated t)
+  (let ((mesh-updated nil)
         (spaced-coupling nil))
     (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
                      (active-refinement sim-octree-active-refinement)
@@ -1186,10 +1186,28 @@
                                     coupling-nearby)
                             (setf to-refine nil))
 
-                          ;; (unless derefine
-                          ;;   (when (= current-refine 2)
-                          ;;     (setf to-refine t)))
+                          (unless derefine
+                            (when (= current-refine 2)
+                              (setf to-refine t)))
 
+                          (when (and to-refine
+                                     (not (= current-refine 2)))
+                            (iterate-over-sub-nodes
+                             sim
+                             mesh-index
+                             c
+                             (lambda (n)
+                               (cl-mpm/fastmaths::fast-zero (cl-mpm/mesh::node-displacment n))
+                               (cl-mpm::iterate-over-cell-shape-local
+                                mesh
+                                c
+                                (cl-mpm/mesh::node-position n)
+                                (lambda (nw w grads)
+                                  (cl-mpm/fastmaths:fast-fmacc
+                                   (cl-mpm/mesh::node-displacment n)
+                                   (cl-mpm/mesh::node-displacment nw)
+                                   w)))))
+                            )
                           (when to-refine
                             (setf active-refinement
                                   (max active-refinement
@@ -1813,3 +1831,15 @@
 
 (defclass mpm-sim-octree-implicit-dynamic (mpm-sim-implict-dynamic mpm-sim-octree-damage-quasi-static)
   ())
+
+(defmethod cl-mpm/dynamic-relaxation::convergence-check ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static))
+  (let ((refinement-check
+          (cl-mpm/dynamic-relaxation::set-mesh-refinement
+           sim
+           (cl-mpm/dynamic-relaxation::sim-octree-refinement-criteria sim)
+           :derefine nil
+           :project-displacement t)))
+    (when refinement-check
+      (cl-mpm/dynamic-relaxation::setup-mp-iteration-cache sim)
+      (format t "Refining mesh inside convergence loop ~%"))
+    refinement-check))
