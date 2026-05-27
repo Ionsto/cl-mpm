@@ -195,17 +195,17 @@
      (lambda (mp)
        (let ((split-dir nil))
          (let ((td (cl-mpm/particle::mp-true-domain mp)))
-           (multiple-value-bind (l v) (cl-mpm/utils:eig
+           (multiple-value-bind (l v) (magicl:eig
                                        ;; td
-                                       (cl-mpm/utils::slice-matrix-nd td nd)
-                                                        )
-             (let* ((v (cl-mpm/utils::pad-matrix-nd v nd))
+                                       (cl-mpm/utils::slice-matrix-nd td nd))
+             (let* ((v (magicl:.realpart v))
+                    (v (cl-mpm/utils::pad-matrix-nd v nd))
                     (abs-l (mapcar #'abs l))
                     (max-l (reduce #'max abs-l))
                     (min-l (reduce #'min (remove 0d0 abs-l))))
                (when (> max-l crit)
                  (let* ((pos (position max-l abs-l))
-                        (vec (magicl::vector->column-matrix (magicl:column v pos))))
+                        (vec (cl-mpm/utils::matrix-column v pos)))
                    (setf split-dir (cl-mpm/fastmaths:norm
                                     (cl-mpm/utils:vector-from-list (list (varef vec 0) (varef vec 1) (varef vec 2))))))))))
          split-dir)))))
@@ -235,8 +235,8 @@
 
 (defun split-mps (sim)
   "Split mps that match the split-criteria"
-  ;; (split-mps-eigenvalue sim)
   (split-mps-cartesian sim)
+  ;; (split-mps-eigenvalue sim)
   )
 
 (defun split-mps-criteria (sim criteria)

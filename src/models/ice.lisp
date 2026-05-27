@@ -862,9 +862,9 @@
           (setf G (* G (- 1d0 (expt damage-s exponent))))
           (setf p-mod
                 (max
-                 (* 1d-9 P-0)
+                 (* 1d-12 P-0)
                  ;; p-mod
-                 (* (max 1d-9 (expt (/ (+ K (* 4/3 G)) P-0) 1)) p-mod)
+                 (* (max 1d-12 (expt (/ (+ K (* 4/3 G)) P-0) 1)) p-mod)
                  ;; (max (* p-mod p-deg)
                  ;;      (+ K (* 4/3 G)))
                  ))

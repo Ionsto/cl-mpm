@@ -509,7 +509,7 @@
            (energy e-crit)
            (oobf oobf-crit)
            (work 0d0)
-           (intertial-passed nil)
+           (intertial-passed t)
            (dt-0 (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
            (substeps (max 1 (round target-time (cl-mpm:sim-dt sim)))))
       (cl-mpm:sim-format sim t "Substeps ~D~%" substeps)

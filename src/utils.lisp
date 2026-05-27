@@ -973,6 +973,61 @@
   (let ((thread-index (get-worker-index)))
     (aref (object-pool-pool pool) thread-index)))
 
+
+
+;; (pprint
+;;  (sb-walker::walk-form
+;;   `(progn (let ((a (grab-new)))))
+;;   nil
+;;   (lambda (subform context env)
+;;     (pprint subform)
+;;     (case subform
+;;       ('(grab-new) '(no-grabbing))
+;;       (t subform)))))
+
+(defmacro with-arb-pool (&body func)
+  (let ((pool-sym (gensym))
+        (pool-count 0))
+    (let ((new-func
+            (sb-walker::walk-form
+                     (first func)
+                     nil
+                     (lambda (subform context env)
+                       ;; (pprint subform)
+                       (typecase subform
+                         (list
+                          (pprint subform)
+                          (cond
+                            ((string= (first subform) 'GRAB-NEW);(equal (first subform) 'GRAB-NEW)
+                             (incf pool-count)
+                             (format t "Found grab new~%")
+                             `(aref (cl-mpm/utils::object-pool-grab ,pool-sym) ,(- pool-count 1)))
+                            (t subform)))
+                         (t subform))))))
+      (pprint new-func)
+      `(let ((,pool-sym
+               (cl-mpm/utils::make-object-pool
+                :constructor (lambda ()
+                               (make-array ,pool-count
+                                           :initial-contents
+                                           (loop repeat ,pool-count
+                                                 collect (cl-mpm/utils::arb-vector 0)))))))
+         ,new-func
+         ))))
+
+;; (with-arb-pool
+;;   (defun test-poola ()
+;;     (let ((a (grab-new))
+;;           (b (grab-new)))
+;;       (setf a (cl-mpm/utils::resize-vector a 6))
+;;       (setf b (cl-mpm/utils::resize-vector b 6))
+;;       (setf (cl-mpm/utils::varef a 0) 1d0)
+;;       (setf (cl-mpm/utils::varef b 1) 2d0)
+;;       (pprint (cl-mpm/fastmaths::fast-.+ a b))
+;;       a
+;;       )
+;;     ))
+
 (defstruct sparse-matrix
   "Sparse self-adjoint matrix"
   values
@@ -1425,6 +1480,7 @@
         (setf *workers-nesting* nil)))
   (values))
 
+
 (defmacro bpdotimes ((i length) &body func)
   ;; `(lparallel:pdotimes (,i ,length)
   ;;   ,@func
@@ -1446,9 +1502,10 @@
 
 
 (defun resize-vector (mat size)
-  (when (= (magicl:nrows mat) size)
-    mat
-    (let ((new-mat (make-array size :element-type 'double-float :initial-element 0d0)))
-      (setf (magicl::matrix/double-float-storage mat) new-mat
-            (magicl::matrix/double-float-nrows mat) size)
-      mat)))
+  (if (= (magicl::matrix/double-float-nrows mat) size)
+      (cl-mpm/fastmaths::fast-zero mat)
+      (let ((new-mat (make-array size :element-type 'double-float :initial-element 0d0)))
+        (setf (magicl::matrix/double-float-storage mat) new-mat
+              (magicl::matrix/double-float-nrows mat) size)
+        mat
+        )))

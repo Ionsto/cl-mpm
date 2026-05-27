@@ -290,10 +290,11 @@
 (defclass mpm-sim-octree-damage-usf (cl-mpm/damage::mpm-sim-agg-damage mpm-sim-octree-usf mpm-sim-octree-damage)
   ())
 
-(defclass mpm-sim-octree-quasi-static (cl-mpm/dynamic-relaxation::mpm-sim-dr-ul mpm-sim-octree)
+(defclass mpm-sim-octree-quasi-static (cl-mpm/dynamic-relaxation::mpm-sim-quasi-static mpm-sim-octree)
   ())
 
-(defclass mpm-sim-octree-damage-quasi-static (cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul mpm-sim-octree-quasi-static  mpm-sim-octree-damage)
+(defclass mpm-sim-octree-damage-quasi-static (cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+                                              mpm-sim-octree-quasi-static  mpm-sim-octree-damage)
   ())
 
 
@@ -648,7 +649,9 @@
                                 :filter (lambda (c)
                                           (and
                                            ;; (not (cell-coupling c))
-                                           (= (cell-octree-refine c) 0)
+                                           (or
+                                            (= (cell-octree-refine c) 0)
+                                            (= (cell-octree-refine c) 1))
                                            ;; (not (= (cell-octree-refine c) 2))
                                            ))
                                 )))
@@ -1155,80 +1158,82 @@
       (setf active-refinement 0)
       (loop for mesh-index from 0 to refinement
             do
-               (let* ((mesh (aref mesh-list mesh-index)))
-                 ;; (set-mesh sim mesh-index)
-                 (cl-mpm::iterate-over-cells
-                  mesh
-                  (lambda (c)
-                    (when (and (cl-mpm/mesh::cell-active c))
-                      (loop for cn in (cl-mpm/mesh::cell-neighbours c)
-                            do (when (and (= (cell-octree-refine cn) 1))
-                                 (when spaced-coupling
-                                   (setf (cell-coupled-from-above c) t)))))))
-                 (when (< mesh-index refinement)
-                   ;;When a mesh needs to refine, we set it to 2
-                   (cl-mpm::iterate-over-cells
-                    mesh
-                    (lambda (c)
-                      (let ((coupling-nearby nil))
-                        (loop for cn in (cl-mpm/mesh::cell-neighbours c)
-                              do
-                                 (when (and
-                                        (cl-mpm/mesh::cell-active cn)
-                                        (cell-coupled-from-above cn))
-                                   (setf coupling-nearby t)))
-                        (let ((current-refine (cell-octree-refine c))
-                              (to-refine (funcall filter sim mesh c)))
+               (progn
+                 ;; (setup-mp-iteration-cache sim)
+                 (let* ((mesh (aref mesh-list mesh-index)))
+                   ;; (cl-mpm::iterate-over-cells
+                   ;;  mesh
+                   ;;  (lambda (c)
+                   ;;    (when (and (cl-mpm/mesh::cell-active c))
+                   ;;      (loop for cn in (cl-mpm/mesh::cell-neighbours c)
+                   ;;            do (when (and (= (cell-octree-refine cn) 1))
+                   ;;                 (when spaced-coupling
+                   ;;                   (setf (cell-coupled-from-above c) t)))))))
+                   (when (< mesh-index refinement)
+                     ;;When a mesh needs to refine, we set it to 2
+                     (cl-mpm::iterate-over-cells
+                      mesh
+                      (lambda (c)
+                        (when t;(cl-mpm/mesh::cell-active c)
+                          (let ((coupling-nearby nil))
+                            (loop for cn in (cl-mpm/mesh::cell-neighbours c)
+                                  do
+                                     (when (and
+                                            (cl-mpm/mesh::cell-active cn)
+                                            (cell-coupled-from-above cn))
+                                       (setf coupling-nearby t)))
+                            (let ((current-refine (cell-octree-refine c))
+                                  (to-refine (funcall filter sim mesh c)))
 
-                          (when (or (= (cell-octree-refine c) -1)
-                                    (= (cell-octree-refine c) 1)
-                                    (cell-coupled-from-above c)
-                                    coupling-nearby)
-                            (setf to-refine nil))
+                              (when (or (= (cell-octree-refine c) -1)
+                                        (= (cell-octree-refine c) 1)
+                                        (cell-coupled-from-above c)
+                                        coupling-nearby)
+                                (setf to-refine nil))
 
-                          (unless derefine
-                            (when (= current-refine 2)
-                              (setf to-refine t)))
+                              (unless derefine
+                                (when (= current-refine 2)
+                                  (setf to-refine t)))
 
-                          (when (and to-refine
-                                     (not (= current-refine 2)))
-                            (iterate-over-sub-nodes
-                             sim
-                             mesh-index
-                             c
-                             (lambda (n)
-                               (cl-mpm/fastmaths::fast-zero (cl-mpm/mesh::node-displacment n))
-                               (cl-mpm::iterate-over-cell-shape-local
-                                mesh
-                                c
-                                (cl-mpm/mesh::node-position n)
-                                (lambda (nw w grads)
-                                  (cl-mpm/fastmaths:fast-fmacc
-                                   (cl-mpm/mesh::node-displacment n)
-                                   (cl-mpm/mesh::node-displacment nw)
-                                   w)))))
-                            )
-                          (when to-refine
-                            (setf active-refinement
-                                  (max active-refinement
-                                       refinement
-                                       (1+ mesh-index)))
-                            (setf (cell-octree-refine c) 2))
+                              (when (and to-refine
+                                         (not (= current-refine 2)))
+                                (iterate-over-sub-nodes
+                                 sim
+                                 mesh-index
+                                 c
+                                 (lambda (n)
+                                   (cl-mpm/fastmaths::fast-zero (cl-mpm/mesh::node-displacment n))
+                                   (cl-mpm::iterate-over-cell-shape-local
+                                    mesh
+                                    c
+                                    (cl-mpm/mesh::node-position n)
+                                    (lambda (nw w grads)
+                                      (cl-mpm/fastmaths:fast-fmacc
+                                       (cl-mpm/mesh::node-displacment n)
+                                       (cl-mpm/mesh::node-displacment nw)
+                                       w)))))
+                                )
+                              (when to-refine
+                                (setf active-refinement
+                                      (max active-refinement
+                                           refinement
+                                           (1+ mesh-index)))
+                                (setf (cell-octree-refine c) 2))
 
-                          (unless to-refine
-                            (setf (cell-octree-refine c) 0))
+                              (unless to-refine
+                                (setf (cell-octree-refine c) 0))
 
 
-                          (when (not (= current-refine (cell-octree-refine c)))
-                            (setf mesh-updated t))))))
+                              (when (not (= current-refine (cell-octree-refine c)))
+                                (setf mesh-updated t)))))))
 
-                   ;;Next we flood-fill transition cells that are next to 2's to 1's
-                   (cl-mpm::iterate-over-cells
-                    mesh
-                    (lambda (c)
-                      (let ((touching-refine nil)
-                            (touching-derefine nil))
-                        (when (and t;(cl-mpm/mesh::cell-active c)
+                     ;;Next we flood-fill transition cells that are next to 2's to 1's
+                     (cl-mpm::iterate-over-cells
+                      mesh
+                      (lambda (c)
+                        (let ((touching-refine nil)
+                              (touching-derefine nil))
+                          (when (and t;(cl-mpm/mesh::cell-active c)
                                    (= (cell-octree-refine c) 0))
                           (loop for cn in (cl-mpm/mesh::cell-neighbours c)
                                 do
@@ -1263,7 +1268,7 @@
                                 (setf (cell-coupled-from-above c) t))
                               )
                              (2 (setf (cell-octree-refine c) 0)))))))))
-                 (set-mesh-default sim))))
+                 (set-mesh-default sim)))))
     ;; (setf (cl-mpm/mesh::mesh-active-nodes mesh) (build-active-node-set sim))
     ;(build-active-node-set sim)
     (build-full-node-set sim)
@@ -1405,8 +1410,8 @@
         (loop while (not (= mp-count mp-count-prev))
               do (progn
                    (cl-mpm::split-mps sim)
-                   (setf mp-count-prev mp-count
-                         mp-count (length (cl-mpm:sim-mps sim)))))
+                   (setf mp-count-prev mp-count)
+                   (setf mp-count (length (cl-mpm:sim-mps sim)))))
         (unless (= mp-count mp-count-0)
           (cl-mpm/dynamic-relaxation::setup-mp-iteration-cache sim))))))
 
@@ -1613,7 +1618,6 @@
               (save-parameter-nodes "mass-inv" (if (> (cl-mpm/mesh:node-mass node) 0d0)
                                                    (/ 1d0 (cl-mpm/mesh:node-mass node))
                                                    0d0))
-
               (save-parameter-nodes "vel_norm" (cl-mpm/fastmaths::mag (cl-mpm/mesh:node-velocity node)))
               (save-parameter-nodes "vel_x" (magicl:tref (cl-mpm/mesh:node-velocity node) 0 0))
               (save-parameter-nodes "vel_y" (magicl:tref (cl-mpm/mesh:node-velocity node) 1 0))
@@ -1738,10 +1742,10 @@
   (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) sim)
   (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) sim)
   ;; (break)
-  ;; (dotimes (i (1+ (cl-mpm::sim-multigrid-refinement sim)))
-  ;;   (setf (cl-mpm::sim-mesh sim) (aref (cl-mpm::sim-mesh-list sim) i))
-  ;;   (cl-mpm/output::save-vtk-mesh-nodes (merge-pathnames output-dir (format nil "sim_nodes_~D_~5,'0d.vtk" i step)) (aref (cl-mpm::sim-mesh-list sim) i))
-  ;;   (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~D_~5,'0d.vtk" i step)) sim))
+  (dotimes (i (1+ (cl-mpm::sim-multigrid-refinement sim)))
+    (setf (cl-mpm::sim-mesh sim) (aref (cl-mpm::sim-mesh-list sim) i))
+    (cl-mpm/output::save-vtk-mesh-nodes (merge-pathnames output-dir (format nil "sim_nodes_~D_~5,'0d.vtk" i step)) (aref (cl-mpm::sim-mesh-list sim) i))
+    (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~D_~5,'0d.vtk" i step)) sim))
   (setf (cl-mpm::sim-mesh sim) (aref (cl-mpm::sim-mesh-list sim) 0))
   (set-mesh-default sim)
   )

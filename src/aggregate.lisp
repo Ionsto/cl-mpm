@@ -748,40 +748,47 @@
                            (or magicl::matrix/double-float null))
                           magicl::matrix/double-float)
                 linear-solve-with-bcs))
-(defun linear-solve-with-bcs (sim ma v d &optional (target-vi nil))
-  (let ((target-vi (if target-vi
-                       (cl-mpm/fastmaths::fast-zero target-vi)
-                       (cl-mpm/utils::arb-matrix (cl-mpm/utils:nrows v) 1))))
-    (let* ((et (cl-mpm/aggregate::sim-global-sparse-et sim))
-           (e (cl-mpm/aggregate::sim-global-sparse-e sim))
-           (sma (cl-mpm/aggregate::sim-global-sparse-ma sim))
-           (bcs-int (aref (sim-global-bcs-int sim) d))
-           (bcs (aref (sim-global-bcs sim) d))
-           (work-vec (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows e) 1))
-           (work-vec-agg (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows et) 1)))
-      (cl-mpm/linear-solver::solve-conjugant-gradients
-       (lambda (x)
-         (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
-          e
-          x
-          bcs
-          bcs-int
-          work-vec)
-         (cl-mpm/fastmaths::fast-.*
-          sma
-          work-vec
-          work-vec)
-         (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
-          et
-          work-vec
-          bcs-int
-          bcs
-          work-vec-agg)
-         work-vec-agg)
-       v
-       :tol 1d-15
-       :max-iters 10000
-       :mask bcs-int))))
+
+(cl-mpm/utils::with-arb-pool
+  (defun linear-solve-with-bcs (sim ma v d &optional (target-vi nil))
+    (let ((target-vi (if target-vi
+                         (cl-mpm/fastmaths::fast-zero target-vi)
+                         (cl-mpm/utils::arb-matrix (cl-mpm/utils:nrows v) 1))))
+      (let* ((et (cl-mpm/aggregate::sim-global-sparse-et sim))
+             (e (cl-mpm/aggregate::sim-global-sparse-e sim))
+             (sma (cl-mpm/aggregate::sim-global-sparse-ma sim))
+             (bcs-int (aref (sim-global-bcs-int sim) d))
+             (bcs (aref (sim-global-bcs sim) d))
+             (work-vec (grab-new))
+             (work-vec-agg (grab-new))
+             ;; (work-vec (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows e) 1))
+             ;; (work-vec-agg (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows et) 1))
+             )
+        (cl-mpm/utils::resize-vector work-vec (cl-mpm/utils::sparse-matrix-nrows e))
+        (cl-mpm/utils::resize-vector work-vec-agg (cl-mpm/utils::sparse-matrix-nrows et))
+        (cl-mpm/linear-solver::solve-conjugant-gradients
+         (lambda (x)
+           (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
+            e
+            x
+            bcs
+            bcs-int
+            work-vec)
+           (cl-mpm/fastmaths::fast-.*
+            sma
+            work-vec
+            work-vec)
+           (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
+            et
+            work-vec
+            bcs-int
+            bcs
+            work-vec-agg)
+           work-vec-agg)
+         v
+         :tol 1d-15
+         :max-iters 10000
+         :mask bcs-int)))))
 
 (defun @-with-bcs (ma v bcs &optional (target-vi nil))
   (let ((target-vi (if target-vi

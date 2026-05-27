@@ -160,7 +160,7 @@
                     (* (/ 1d0 (expt dt-true 1))
                        (sim-true-damping sim)
                        (cl-mpm/mesh::node-true-mass node))
-                    (* (/ 2d0 (expt dt-true 2))
+                    (* (/ 1d0 (expt dt-true 2))
                        ;; mass-scale
                        (cl-mpm/mesh::node-true-mass node)))))))))
     (cl-mpm/aggregate::update-mass-matrix sim)
@@ -283,66 +283,61 @@
     (setf (sim-dt-loadstep sim) (* 1d0 dt))
     ;; (change-class sim 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic)
     (setf (cl-mpm/dynamic-relaxation::sim-true-damping sim) true-damping)
-    (let ((conv-crit 1d-3)
-          (residual-normaliser nil)
-          (substeps 10))
-      (generalised-staggered-solve
-       sim
-       :crit conv-crit
-       :substeps substeps
-       :sub-conv-steps 200
-       :dt-scale 0.9d0;dt-scale
-       ;; :convergance-criteria
-       ;; (lambda (sim f o)
-       ;;   (let ((c ;; (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)
-       ;;            (cl-mpm/dynamic-relaxation::vel-norm-aggregated sim)))
-       ;;     (if residual-normaliser
-       ;;         (setf c (/ c residual-normaliser))
-       ;;         (when (> c 0d0)
-       ;;           (setf residual-normaliser c
-       ;;                 c 1d0)))
-       ;;     (format t "Conv crit: ~E - norm ~E~%" c residual-normaliser)
-       ;;     (< c conv-crit)))
-       :post-iter-step (lambda (i e o)
-                         (format t "Dynamic substep ~D~%" i)
+    (labels ((try-step ()
+               (handler-case
+                   (let (;; (conv-crit 1d-3)
+                         (conv-crit crit)
+                         (residual-normaliser nil)
+                         (substeps 50))
+                     (generalised-staggered-solve
+                      sim
+                      :crit conv-crit
+                      :substeps substeps
+                      :sub-conv-steps 50
+                      :dt-scale 0.95d0
+                      :damping (sqrt 2d0)
+                      ;; :convergance-criteria
+                      ;; (lambda (sim f o)
+                      ;;   (let ((c ;; (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)
+                      ;;            (cl-mpm/dynamic-relaxation::vel-norm-aggregated sim)))
+                      ;;     (if residual-normaliser
+                      ;;         (setf c (/ c residual-normaliser))
+                      ;;         (when (> c 0d0)
+                      ;;           (setf residual-normaliser c
+                      ;;                 c 1d0)))
+                      ;;     (format t "Conv crit: ~E - norm ~E~%" c residual-normaliser)
+                      ;;     (< c conv-crit)))
+                      :post-iter-step (lambda (i e o)
+                                        (format t "Dynamic substep ~D~%" i)
 
-                         ;; (when (uiop:directory-exists-p "./output/")
-                         ;;   (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "rsim_step_~5,'0d.vtk" i)) sim)
-                         ;;   (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "rsim_step_nodes_~5,'0d.vtk" i)) sim)
-                         ;;   (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e))
-                         ;; (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e)
-                         (incf *total-iter* substeps)))
-      ;; (;generalised-staggered-solve
-      ;;  converge-quasi-static
-      ;;  sim
-      ;;  ;; :enable-damage damage-enabled
-      ;;  ;; :damping 1d0
-      ;;  :energy-crit 1d0;crit
-      ;;  :oobf-crit crit
-      ;;  :substeps substeps
-      ;;  :damping-factor (sqrt 2d0)
-      ;;  :conv-steps 200
-      ;;  :dt-scale 0.25d0;dt-scale
-      ;;  :convergance-criteria
-      ;;  (lambda (sim f o)
-      ;;    (let ((c ;; (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)
-      ;;             (cl-mpm/dynamic-relaxation::vel-norm-aggregated sim)))
-      ;;      (if residual-normaliser
-      ;;          (setf c (/ c residual-normaliser))
-      ;;          (when (> c 0d0)
-      ;;            (setf residual-normaliser c
-      ;;                  c 1d0)))
-      ;;      (format t "Conv crit: ~E - norm ~E~%" c residual-normaliser)
-      ;;      (< c conv-crit)))
-      ;;  :post-iter-step (lambda (i e o)
-      ;;                    (format t "Dynamic substep ~D~%" i)
-      ;;                    ;; (when (uiop:directory-exists-p "./output/")
-      ;;                    ;;   (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "rsim_step_~5,'0d.vtk" i)) sim)
-      ;;                    ;;   (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "rsim_step_nodes_~5,'0d.vtk" i)) sim)
-      ;;                    ;;   (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e))
-      ;;                    ;; (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e)
-      ;;                    (incf *total-iter* substeps)))
-      )
+                                        ;; (when (uiop:directory-exists-p "./output/")
+                                        ;;   (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "rsim_step_~5,'0d.vtk" i)) sim)
+                                        ;;   (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "rsim_step_nodes_~5,'0d.vtk" i)) sim)
+                                        ;;   (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e)
+                                        ;;   )
+                                        ;; (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e)
+                                        (incf *total-iter* substeps)))
+                     t)
+                 (cl-mpm/errors:error-simulation (c)
+                   (princ c)
+                   (cl-mpm::reset-loadstep sim)
+                   nil))))
+      (let ((conv nil)
+            (dt-step (- dt 1d-15)))
+        (loop while (> dt-step 0d0)
+              do
+                 (let ((max-dt-refines 4))
+                  (loop for i from 0 to max-dt-refines
+                        while (not conv)
+                        do (progn
+                             (setf conv (try-step))
+                             (unless conv
+                               (format t "Implicit dynamic dt refine~%")
+                               (setf (sim-dt-loadstep sim) (/ (sim-dt-loadstep sim)
+                                                              2d0))))
+                           finally (when (= i max-dt-refines)
+                                     (error "Auto-stepping implicit dynamic scheme failed")))
+                   (decf dt-step (sim-dt-loadstep sim))))))
     (incf *total-step*)
     (setf (cl-mpm::sim-dt-scale sim) dt-scale)
     ;; (change-class sim 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic)
