@@ -553,9 +553,11 @@
   (let* ((nodes
            (let ((res (make-array (expt 2 (cl-mpm/mesh::mesh-nd mesh)))))
              (let ((i 0))
-               (array-operations/utilities:nested-loop (x y z) '(2 2 2)
-                 (setf (aref res i)(get-node mesh (mapcar #'+ index (list x y z))))
-                 (incf i)))
+               (dotimes (x 2)
+                 (dotimes (y 2)
+                   (dotimes (z 2)
+                     (setf (aref res i) (get-node mesh (mapcar #'+ index (list x y z))))
+                     (incf i)))))
              res))
          (volume (expt h (mesh-nd mesh)))
          ;; (centroid (cell-calculate-centroid nodes))
@@ -564,13 +566,12 @@
                     (magicl:scale! (cl-mpm/utils:vector-from-list (list h h h)) 0.5d0))))
     (loop for n across nodes
           do (incf (node-volume-true n) (/ volume (length nodes))))
-    (let ((c (make-instance 'cell
-                            :index index
-                            :nodes nodes
-                            :centroid centroid
-                            :volume volume
-                            :h h
-                            ))))))
+    (make-instance 'cell
+                   :index index
+                   :nodes nodes
+                   :centroid centroid
+                   :volume volume
+                   :h h)))
 
 (defun make-cell-1d (mesh index h)
   ;;Get local nodes
