@@ -229,6 +229,9 @@
    (boundary-scalar
     :accessor node-boundary-scalar
     :initform 0d0)
+   (boundary-vec
+    :accessor node-boundary-vec
+    :initform (cl-mpm/utils:vector-zeros))
    (pressure
     :accessor node-pressure
     :initform 0d0)

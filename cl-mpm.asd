@@ -393,7 +393,7 @@
   :serial t
   :components ((:file "examples/virtual_stress/buoyancy-virtual-stress")))
 
-(defsystem "cl-mpm/examples/float-virtual-stress"
+(defsystem "cl-mpm/examples/virtual-stress/float"
   :depends-on ("cl-mpm/example")
   :serial t
   :components ((:file "examples/virtual_stress/float-virtual-stress")))
@@ -915,3 +915,9 @@
   ;; :serial t
   :components ((:file "src/solvers/octree/buoyancy"))
   )
+
+
+(defsystem "cl-mpm/examples/dr/collapse-mass-matrix"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/dr/collapse-mass-matrix")))

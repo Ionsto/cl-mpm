@@ -975,16 +975,6 @@
 
 
 
-;; (pprint
-;;  (sb-walker::walk-form
-;;   `(progn (let ((a (grab-new)))))
-;;   nil
-;;   (lambda (subform context env)
-;;     (pprint subform)
-;;     (case subform
-;;       ('(grab-new) '(no-grabbing))
-;;       (t subform)))))
-
 (defmacro with-arb-pool (&body func)
   (let ((pool-sym (gensym))
         (pool-count 0))
@@ -993,18 +983,14 @@
                      (first func)
                      nil
                      (lambda (subform context env)
-                       ;; (pprint subform)
                        (typecase subform
                          (list
-                          (pprint subform)
                           (cond
                             ((string= (first subform) 'GRAB-NEW);(equal (first subform) 'GRAB-NEW)
                              (incf pool-count)
-                             (format t "Found grab new~%")
                              `(aref (cl-mpm/utils::object-pool-grab ,pool-sym) ,(- pool-count 1)))
                             (t subform)))
                          (t subform))))))
-      (pprint new-func)
       `(let ((,pool-sym
                (cl-mpm/utils::make-object-pool
                 :constructor (lambda ()
@@ -1350,27 +1336,27 @@
 (defun get-parts ()
   (the fixnum (* (the fixnum +thread-parts-scale+) *worker-count*)))
 
-(defparameter *workers* nil)
-(defparameter *worker-count* 0)
+(defvar *workers* nil)
+(defvar *worker-count* 0)
 (declaim (fixnum *worker-count*))
-(defparameter *workers-array* nil)
-(defparameter *work-queue* (sb-concurrency:make-queue))
-(defparameter *workers-run* (sb-thread:make-semaphore))
-(defparameter *workers-finish* (sb-thread:make-semaphore))
-(defparameter *workers-kill* nil)
-(defparameter *workers-func* (lambda (i len)))
+(defvar *workers-array* nil)
+(defvar *work-queue* (sb-concurrency:make-queue))
+(defvar *workers-run* (sb-thread:make-semaphore))
+(defvar *workers-finish* (sb-thread:make-semaphore))
+(defvar *workers-kill* nil)
+(defvar *workers-func* (lambda (i len)))
 (declaim (function *workers-func*))
-(defparameter *workers-chunk* 1)
-(defparameter *workers-chunk-count* 0)
-(defparameter *workers-array-length* 0)
-(defparameter *workers-nesting* nil)
-(defparameter *workers-nest-depth* 0)
-(defparameter *workers-pool-age* 0)
-(defparameter *worker-index* nil)
-(defparameter *worker-error-lock* (sb-thread:make-mutex))
-(defparameter *worker-error-list* nil)
+(defvar *workers-chunk* 1)
+(defvar *workers-chunk-count* 0)
+(defvar *workers-array-length* 0)
+(defvar *workers-nesting* nil)
+(defvar *workers-nest-depth* 0)
+(defvar *workers-pool-age* 0)
+(defvar *worker-index* nil)
+(defvar *worker-error-lock* (sb-thread:make-mutex))
+(defvar *worker-error-list* nil)
 (declaim (fixnum *workers-chunk* *workers-chunk-count* *workers-array-length* *workers-pool-age*))
-(defparameter *workers-counter* (make-array 1 :element-type '(unsigned-byte 64)))
+(defvar *workers-counter* (make-array 1 :element-type '(unsigned-byte 64)))
 (declaim ((simple-array (unsigned-byte 64) 1) *workers-counter*))
 (progn
   ;; (kill-workers)
@@ -1503,7 +1489,7 @@
 
 (defun resize-vector (mat size)
   (if (= (magicl::matrix/double-float-nrows mat) size)
-      (cl-mpm/fastmaths::fast-zero mat)
+      mat
       (let ((new-mat (make-array size :element-type 'double-float :initial-element 0d0)))
         (setf (magicl::matrix/double-float-storage mat) new-mat
               (magicl::matrix/double-float-nrows mat) size)

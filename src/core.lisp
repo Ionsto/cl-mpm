@@ -287,39 +287,14 @@
        (/ (* dt 2d0) (+ 2d0 damp-dt)))))
   (values))
 
+
+
 (declaim (inline calculate-forces-midpoint)
          (ftype (function (cl-mpm/mesh::node double-float double-float double-float) (vaules)) calculate-forces-midpoint))
 (defun calculate-forces-midpoint (node damping dt mass-scale)
   (declare (cl-mpm/mesh::node node)
            (double-float damping dt mass-scale))
   "Update forces and nodal velocities with viscous damping"
-  ;; (with-slots ((mass cl-mpm/mesh::mass)
-  ;;              (acc cl-mpm/mesh::acceleration)
-  ;;              (force cl-mpm/mesh::force)
-  ;;              (force-int cl-mpm/mesh::internal-force)
-  ;;              (force-ext cl-mpm/mesh::external-force)
-  ;;              (force-damp cl-mpm/mesh::damping-force)
-  ;;              (force-ghost cl-mpm/mesh::ghost-force)
-  ;;              (residual cl-mpm/mesh::residual)
-  ;;              (residual-prev cl-mpm/mesh::residual-prev))
-  ;;     node
-  ;;   (declare (double-float mass)
-  ;;            (magicl::matrix/double-float
-  ;;             acc force force-int force-ext force-damp force-ghost
-  ;;             residual
-  ;;             residual-prev)
-  ;;            )
-  ;;   (progn
-  ;;     (cl-mpm/fastmaths::fast-zero-vector acc)
-  ;;     ;;Set acc to f/m
-  ;;     (cl-mpm/fastmaths::fast-.+-vector force-int force force)
-  ;;     (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
-  ;;     (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
-  ;;     (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
-  ;;     (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
-  ;;     (cl-mpm/utils::vector-copy-into residual residual-prev)
-  ;;     (cl-mpm/utils::vector-copy-into force residual)
-  ;;     ))
   (with-accessors ((mass node-mass)
                    (vel node-velocity)
                    (force node-force)

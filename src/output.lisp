@@ -481,6 +481,7 @@
             ;; (save-parameter-nodes "disp_y" (magicl:tref (cl-mpm/mesh::node-displacment node) 1 0))
             ;; (save-parameter-nodes "disp_z" (magicl:tref (cl-mpm/mesh::node-displacment node) 2 0))
 
+
             (save-vector-nodes "force" (cl-mpm/mesh:node-force node))
             (save-vector-nodes "force-ext" (cl-mpm/mesh::node-external-force node))
             (save-vector-nodes "force-int" (cl-mpm/mesh::node-internal-force node))
@@ -511,6 +512,7 @@
             (save-parameter-nodes "buoyancy_node" (if
                                                    (cl-mpm/mesh::node-boundary-node node) 1 0))
             (save-parameter-nodes "buoyancy-scalar" (cl-mpm/mesh::node-boundary-scalar node))
+            (save-vector-nodes "boundary-vec" (cl-mpm/mesh::node-boundary-vec node))
             (save-parameter-nodes "pressure" (cl-mpm/mesh::node-pressure node))
             (save-parameter-nodes "local-list-size" (length (cl-mpm/mesh::node-local-list node)))
             (save-parameter-nodes "energy"

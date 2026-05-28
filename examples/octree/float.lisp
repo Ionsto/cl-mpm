@@ -22,15 +22,15 @@
        :colour-func (lambda (mp) (cl-mpm/utils:varef (cl-mpm/particle::mp-stress mp) 1))))))
 
 (defun setup (&key (refine 1) (mps 3) (multigrid-refine 0))
-  (let* ((L 10d0)
+  (let* ((L 2d0)
          (d 1d0)
-         (domain-width 30d0)
-         (h (/ 1d0 refine))
+         (domain-width 5d0)
+         (h (/ 0.125d0 refine))
          (offset l)
-         (height 10d0)
-         (domain-height (* 3 L))
+         (height 1d0)
+         (domain-height (* 2 L))
          (density 1000d0)
-         (E 1d9)
+         (E 1d6)
          (domain-size (list domain-width domain-height))
          (element-count (mapcar (lambda (x) (round x h)) domain-size))
          (block-size (list height height)))
@@ -39,20 +39,21 @@
                  h
                  element-count
                  ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
-                 :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-octree-quasi-static
-                 ;:sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-octree-usf
+                 ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-octree-quasi-static
+                 :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-octree-usf
                  ;; :sim-type 'cl-mpm/aggregate::mpm-sim-agg-usf
                  :args-list (list :enable-aggregate t
                                   :enable-fbar nil
                                   :enable-split nil
                                   :mp-removal-size nil
-                                  :intra-mesh-agg t
+                                  :intra-mesh-agg nil
                                   :refinement multigrid-refine
                                   )))
+    (defparameter *block-size* height)
     (cl-mpm:add-mps
      *sim*
      (cl-mpm/setup:make-block-mps
-      (list 0 (+ 1d0 offset))
+      (list 0 (+ 0.05d0 offset))
       block-size
       (mapcar (lambda (e) (* (/ e h) mps)) block-size)
       density
@@ -66,7 +67,7 @@
      *sim*
      :left '(0 nil nil))
 
-    (let ((datum (+ offset (* 0.5d0 height)))
+    (let ((datum L)
           (water-density (* density 2d0))
           (pressure-condition t))
       (defparameter *datum* datum)
@@ -120,30 +121,51 @@
   )
 (defun run-time (&key (output-dir "./output/"))
   (let ((step 0))
+    (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree-usf)
     (setf (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND)
-    (cl-mpm/dynamic-relaxation::run-time
-     *sim*
-     :output-dir output-dir
-     :plotter (lambda (sim)
-                (plot-domain)
-                (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
-                (incf step))
-     :total-time 100d0
-     :damping 0.1d0
-     :dt 0.1d0
-     :initial-quasi-static nil
-     :dt-scale 0.5d0)))
+
+    (vgplot:close-all-plots)
+    (let ((time (list))
+          (top-height (list)))
+      (cl-mpm/dynamic-relaxation::run-time
+       *sim*
+       :output-dir output-dir
+       :plotter
+       (lambda (sim)
+         ;; (plot-domain)
+         ;; (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
+         (format t "Top level ~E~%" (/
+                                     (- (compute-top-level *sim*) (+ *datum* (* 0.5d0 *block-size*)))
+                                     *block-size*))
+         (push (cl-mpm::sim-time *sim*) time)
+         (push (compute-top-level *sim*) top-height)
+         (vgplot:plot time top-height)
+         (incf step))
+       :total-time 1000d0
+       :damping 1d-2
+       :dt 0.1d0
+       :initial-quasi-static nil
+       :dt-scale 0.9d0))))
+
+(defun compute-top-level (sim)
+  (cl-mpm::reduce-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (cl-mpm/utils:varef
+      (cl-mpm/fastmaths:fast-.+
+       (cl-mpm/particle::mp-position mp)
+       (cl-mpm/particle::mp-domain-size mp))
+      1))
+   #'max))
 
 (defun test ()
   (cl-mpm/utils:set-workers 8)
-  (setup :mps 4 :refine 1 :multigrid-refine 0)
+  (setup :mps 4 :refine 1 :multigrid-refine 1)
   (setf
    (cl-mpm/dynamic-relaxation::sim-octree-refinement-criteria *sim*)
    (lambda (sim mesh c)
-     ;; nil
-     (and
-      (> (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 0) 4d0))
-     ))
-  (run)
-  ;; (run-time)
+     (declare (ignore mesh sim))
+     (> (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 0) 0.5d0)))
+  ;; (run)
+  (run-time)
   )

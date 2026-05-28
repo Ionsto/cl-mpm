@@ -139,7 +139,7 @@
 (defun iterate-over-cell-patch-2d (mesh position ring-size func)
   (declare (function func))
 
-  (let ((index (cl-mpm/mesh::position-to-index mesh position)))
+  (let ((index (cl-mpm/mesh::position-to-index-cell mesh position)))
     (destructuring-bind (ix iy iz) index
       (declare (fixnum ix iy)
                (ignore iz))
@@ -208,11 +208,11 @@
                           (> dist dist-tr))
                      (setf dist dist-tr
                            closest-elem cell)))))))
-      ;; (iterate-over-cell-patch
-      ;;  sim
-      ;;  node
-      ;;  1
-      ;;  #'check-cell)
+      (iterate-over-cell-patch
+       mesh
+       position
+       1
+       #'check-cell)
       (unless closest-elem
         (iterate-over-cell-patch
          mesh
@@ -365,7 +365,9 @@
                  (progn
                    (setf (cl-mpm/mesh::node-agg-interior-cell node) closest-elem)
                    (setf (cl-mpm/mesh::cell-interior closest-elem) t))
-                 (error "No closest elem?")))))))
+                 (format t "No closest elem?~%")
+                 ;; (error "No closest elem?")
+                 ))))))
 
     (cl-mpm::iterate-over-cells
      mesh
@@ -500,6 +502,16 @@
         (lambda (n)
           (setf (varef (funcall ,accessor n) ,dim)
                 (varef proj-val (cl-mpm/mesh::node-agg-fdc n))))))))
+
+(defmacro project-global-scalar (sim vector accessor)
+  `(progn
+     (let* ((active-nodes (sim-agg-nodes-fd ,sim))
+            (proj-val ,vector))
+       (cl-mpm::iterate-over-nodes-array
+        active-nodes
+        (lambda (n)
+          (setf (,accessor n) (varef proj-val (cl-mpm/mesh::node-agg-fd n))))))))
+
 ;;New version
 (defun assemble-e (sim)
   (let* ((agg-nodes (sim-agg-nodes-fdc sim))
@@ -1133,3 +1145,4 @@
       (if (< inner-factor most-positive-double-float)
           (* (sqrt mass-scale) (sqrt inner-factor) h)
           (cl-mpm:sim-dt sim)))))
+

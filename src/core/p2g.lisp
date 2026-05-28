@@ -109,14 +109,16 @@
              (incf node-damage (* mp-damage mp-volume svp))
              (incf node-svp-sum svp)
              (cl-mpm/fastmaths::fast-.- mp-position node-pos dist-vec)
-             (cl-mpm/fastmaths::fast-fmacc node-vel
-                                           (cl-mpm/fastmaths::fast-@-matrix-vector
-                                            mp-vel-grad
-                                            dist-vec)
-                                           (* -1d0 mp-mass svp))
-             (cl-mpm/fastmaths::fast-fmacc node-vel
-                                           mp-vel
-                                           (* mp-mass svp))))))))
+             (cl-mpm/fastmaths::fast-fmacc
+              node-vel
+              (cl-mpm/fastmaths::fast-@-matrix-vector
+               mp-vel-grad
+               dist-vec)
+              (* -1d0 mp-mass svp))
+             (cl-mpm/fastmaths::fast-fmacc
+              node-vel
+              mp-vel
+              (* mp-mass svp))))))))
   (values))
 
 

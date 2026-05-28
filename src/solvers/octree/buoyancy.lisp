@@ -58,6 +58,215 @@
               (loop for neighbour in neighbours
                     do (check-cell neighbour)))))))
      )))
+(defmethod apply-force-cells-3d ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree) func-stress func-div clip-func)
+  "Update force on nodes, with virtual stress field from cells"
+  (with-accessors ()
+      sim
+    (declare (function func-stress func-div))
+    (cl-mpm/dynamic-relaxation::iterate-over-meshes
+     sim
+     (lambda (mesh mesh-index)
+       (cl-mpm::iterate-over-cells
+        mesh
+        (lambda (cell)
+          ;;Iterate over a cells nodes
+          (with-accessors (;(pos cl-mpm/mesh::cell-centroid)
+                           ;; (trial-pos cl-mpm/mesh::cell-trial-centroid)
+                           ;; (pos cl-mpm/mesh::cell-trial-centroid)
+                           (cell-active cl-mpm/mesh::cell-active)
+                           (cell-partial cl-mpm/mesh::cell-partial)
+                           (cell-buoyancy cl-mpm/mesh::cell-buoyancy)
+                           (cell-pressure cl-mpm/mesh::cell-pressure)
+                           (df cl-mpm/mesh::cell-deformation-gradient)
+                           (disp cl-mpm/mesh::cell-displacement))
+              cell
+            (let* ((trial-pos (get-cell-position cell)))
+              (cl-mpm::cell-iterate-over-neighbours
+               mesh
+               cell
+               (lambda (p volume node svp grads)
+                 (with-accessors ((node-pos cl-mpm/mesh::node-position)
+                                  (node-lock  cl-mpm/mesh:node-lock)
+                                  (node-active cl-mpm/mesh:node-active)
+                                  (node-boundary cl-mpm/mesh::node-boundary-node)
+                                  (node-volume cl-mpm/mesh::node-volume)
+                                  (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar))
+                     node
+                   (declare (double-float volume svp))
+                   (let (;; (grads (cl-mpm::gradient-push-forwards grads df))
+                         (volume (* volume (cl-mpm/fastmaths::det-3x3 df)))
+                         )
+                     (when (and node-active node-boundary (funcall clip-func node-pos))
+                       (sb-thread:with-mutex (node-lock)
+                         ;; (cl-mpm/fastmaths::fast-.+
+                         ;;  (cl-mpm/fastmaths::fast-scale!
+                         ;;   (cl-mpm/utils::vector-from-list
+                         ;;    (list (cl-mpm/utils::gradients-dx grads)
+                         ;;          (cl-mpm/utils::gradients-dy grads)
+                         ;;          (cl-mpm/utils::gradients-dz grads)))
+                         ;;   (* 1d0 volume))
+                         ;;  (cl-mpm/mesh::node-boundary-vec node)
+                         ;;  (cl-mpm/mesh::node-boundary-vec node))
+                         ;; (incf node-boundary-scalar (* -1d0 volume svp (the double-float (calculate-val-cell cell #'melt-rate))))
+                         ))))))))))))))
+(defmethod apply-buoyancy :after ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree) func-stress func-div clip-function datum)
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (let ((vol
+            (cl-mpm/aggregate::assemble-global-scalar
+             sim
+             #'cl-mpm/mesh::node-volume)))
+      ;; (cl-mpm:iterate-over-nodes
+      ;;  mesh
+      ;;  (lambda (node)
+      ;;    (when t;(> (cl-mpm/mesh::node-volume node) 0d0)
+      ;;      (setf (cl-mpm/mesh::node-boundary-scalar node)
+      ;;            (max 0d0 (cl-mpm/fastmaths:mag (cl-mpm/mesh::node-boundary-vec node)))))))
+      (let ((proj-vol
+              (cl-mpm/aggregate::extend-vec-nobcs
+               sim
+               (cl-mpm/aggregate::aggregate-vec-nobcs
+                sim
+                vol 0) 0))
+            (nd (cl-mpm/mesh:mesh-nd mesh)))
+        ;; (cl-mpm/dynamic-relaxation::iterate-bottom-up-mesh
+        ;;  sim
+        ;;  (lambda (mesh mesh-index)
+        ;;    (cl-mpm::iterate-over-cells
+        ;;     mesh
+        ;;     (lambda (cell)
+        ;;       (when (and (= (cell-octree-refine cell) 1))
+        ;;         (iterate-over-sub-nodes
+        ;;          sim
+        ;;          mesh-index
+        ;;          cell
+        ;;          (lambda (n)
+        ;;            (cl-mpm::iterate-over-cell-shape-local
+        ;;             mesh
+        ;;             cell
+        ;;             (cl-mpm/mesh::node-position n)
+        ;;             (lambda (nw w grads)
+        ;;               (declare (ignore grads))
+        ;;               (dotimes (d nd)
+        ;;                 (incf
+        ;;                  (cl-mpm/utils:varef (cl-mpm/mesh::node-boundary-vec nw) d)
+        ;;                  (*
+        ;;                   w
+        ;;                   (cl-mpm/utils:varef (cl-mpm/mesh::node-boundary-vec n) d)))))))))))))
+        ;; (cl-mpm::iterate-over-nodes
+        ;;  mesh
+        ;;  (lambda (n)
+        ;;    (when (> (cl-mpm/mesh::node-volume n) 0d0)
+        ;;      (cl-mpm/fastmaths:fast-scale! (cl-mpm/mesh::node-boundary-vec n) (* 1d0 (cl-mpm/mesh::node-volume n))))))
+        ;; (loop for d from 0 below (cl-mpm/mesh:mesh-nd mesh)
+        ;;       do
+        ;;          (progn
+        ;;            (cl-mpm/dynamic-relaxation::aggregate-vector-up-grid
+        ;;             sim
+        ;;             #'cl-mpm/mesh::node-boundary-vec
+        ;;             d)
+        ;;            (cl-mpm/dynamic-relaxation::project-vector-down-grid
+        ;;             sim
+        ;;             #'cl-mpm/mesh::node-boundary-vec
+        ;;             d)
+        ;;            ))
+        ;; (cl-mpm::iterate-over-nodes
+        ;;  mesh
+        ;;  (lambda (n)
+        ;;    (when (> (cl-mpm/mesh::node-volume n) 0d0)
+        ;;      (cl-mpm/fastmaths:fast-scale! (cl-mpm/mesh::node-boundary-vec n) (/ 1d0 (cl-mpm/mesh::node-volume n))))))
+        (cl-mpm/aggregate::iterate-over-dimensions
+         (cl-mpm/mesh::mesh-nd mesh)
+         (lambda (d)
+           (cl-mpm/aggregate::project-global-vec
+            sim
+            (cl-mpm/aggregate::extend-vec-nobcs
+             sim
+             (cl-mpm/aggregate::aggregate-vec-nobcs
+              sim
+              (cl-mpm/aggregate::assemble-global-vec
+               sim
+               #'cl-mpm/mesh::node-boundary-vec
+               d)
+              d)
+             d)
+            #'cl-mpm/mesh::node-boundary-vec
+            d)))
+        ;; (cl-mpm/aggregate::iterate-over-dimensions
+        ;;  (cl-mpm/mesh::mesh-nd mesh)
+        ;;  (lambda (d)
+        ;;    (cl-mpm/aggregate::project-global-vec
+        ;;     sim
+        ;;     (cl-mpm/fastmaths:fast-./
+        ;;      (cl-mpm/aggregate::extend-vec
+        ;;       sim
+        ;;       (cl-mpm/aggregate::aggregate-vec
+        ;;        sim
+        ;;        (cl-mpm/fastmaths::fast-.*
+        ;;         vol
+        ;;         (cl-mpm/aggregate::assemble-global-vec
+        ;;          sim
+        ;;          #'cl-mpm/mesh::node-boundary-vec
+        ;;          d))
+        ;;        d)
+        ;;       d)
+        ;;      proj-vol
+        ;;      )
+        ;;     #'cl-mpm/mesh::node-boundary-vec
+        ;;     d)))
+        ;; (format t "Reprojection ~%")
+        ;; (pprint vol)
+        ;; (pprint proj-vol)
+        ;; (let ((sim *sim*))
+        ;;   (cl-mpm/aggregate::project-global-scalar
+        ;;    sim
+        ;;    (cl-mpm/aggregate::extend-vec-nobcs
+        ;;     sim
+        ;;     (cl-mpm/aggregate::aggregate-vec-nobcs
+        ;;      sim
+        ;;      (cl-mpm/aggregate::assemble-global-scalar
+        ;;       sim
+        ;;       #'cl-mpm/mesh::node-volume) 0) 0)
+        ;;    cl-mpm/mesh::node-volume))
+        ;; (cl-mpm/aggregate::project-global-scalar
+        ;;  sim
+        ;;   (cl-mpm/aggregate::extend-vec-nobcs
+        ;;    sim
+        ;;    (cl-mpm/aggregate::aggregate-vec-nobcs
+        ;;     sim
+        ;;     (cl-mpm/aggregate::assemble-global-scalar
+        ;;      sim
+        ;;      #'cl-mpm/mesh::node-boundary-scalar) 0) 0)
+        ;;  cl-mpm/mesh::node-boundary-scalar)
+        ;; (cl-mpm/aggregate::project-global-scalar
+        ;;  sim
+        ;;  (cl-mpm/fastmaths::fast-./
+        ;;   (cl-mpm/aggregate::extend-vec-nobcs
+        ;;    sim
+        ;;    (cl-mpm/aggregate::aggregate-vec-nobcs
+        ;;     sim
+        ;;     (cl-mpm/fastmaths::fast-.*
+        ;;      vol
+        ;;      (cl-mpm/aggregate::assemble-global-scalar
+        ;;       sim
+        ;;       #'cl-mpm/mesh::node-boundary-scalar)) 0) 0)
+        ;;   proj-vol)
+        ;;  cl-mpm/mesh::node-boundary-scalar)
+        )
+      (cl-mpm:iterate-over-nodes
+       mesh
+       (lambda (node)
+         (when t
+                                        ;(> (cl-mpm/mesh::node-volume node) 0d0)
+           (setf (cl-mpm/mesh::node-boundary-scalar node)
+                 ;; (max 0d0 (abs (cl-mpm/mesh::node-boundary-scalar node)))
+                 (max 0d0 (cl-mpm/fastmaths:mag (cl-mpm/mesh::node-boundary-vec node)))
+                 ;; (* (cl-mpm/mesh::node-volume node)
+                 ;;    (max 0d0 (cl-mpm/fastmaths:mag (cl-mpm/mesh::node-boundary-vec node)))
+                 ;;    (max 0d0 (abs (cl-mpm/mesh::node-boundary-scalar node))))
+                 )
+           )))))
+  )
 
 (defmethod locate-mps-cells ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree) clip-function)
   "mark boundary nodes based on neighbour mp inclusion"

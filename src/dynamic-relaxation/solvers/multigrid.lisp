@@ -210,6 +210,139 @@
 ;;                (cl-mpm/setup::resolve-bc-nodes sim mesh (aref (cl-mpm::sim-bcs-list sim) i))
 ;;                )))
 ;;   )
+(defun iterate-top-down-mesh (sim func)
+  (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
+                    (active-refinement sim-octree-active-refinement)
+                    (refinement cl-mpm::sim-multigrid-refinement))
+       sim
+     (when (> refinement 0)
+       (loop for mesh-index from 0 below refinement
+             do (let* ((mesh (aref mesh-list mesh-index)))
+                  (funcall func mesh mesh-index))))))
+(defun iterate-bottom-up-mesh (sim func)
+  (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
+                   (active-refinement sim-octree-active-refinement)
+                   (refinement cl-mpm::sim-multigrid-refinement))
+      sim
+    (when (> refinement 0)
+      (loop for mesh-index from (- refinement 1) downto 0
+            do (let* ((mesh (aref mesh-list mesh-index)))
+                 (funcall func mesh mesh-index))))))
+
+(defmacro project-vector-down-grid (sim accessor d)
+  `(with-accessors ((mesh-list cl-mpm::sim-mesh-list)
+                    (active-refinement sim-octree-active-refinement)
+                    (refinement cl-mpm::sim-multigrid-refinement))
+       ,sim
+     (when (> refinement 0)
+       (loop for mesh-index from 0 below refinement
+             do (let* ((mesh (aref mesh-list mesh-index)))
+                  (cl-mpm::iterate-over-cells
+                   mesh
+                   (lambda (cell)
+                     (when (and (= (cell-octree-refine cell) 1))
+                       (iterate-over-sub-nodes
+                        ,sim
+                        mesh-index
+                        cell
+                        (lambda (n)
+                          (setf (cl-mpm/utils:varef (funcall ,accessor n) ,d) 0d0)
+                          (cl-mpm::iterate-over-cell-shape-local
+                           mesh
+                           cell
+                           (cl-mpm/mesh::node-position n)
+                           (lambda (nw w grads)
+                             (declare (ignore grads))
+                             (incf (cl-mpm/utils:varef (funcall ,accessor n) ,d)
+                                   (*
+                                    w
+                                    (cl-mpm/utils:varef (funcall ,accessor nw) ,d)))))))))))))))
+
+(defmacro aggregate-vector-up-grid (sim accessor d)
+  `(with-accessors ((mesh-list cl-mpm::sim-mesh-list)
+                    (active-refinement sim-octree-active-refinement)
+                    (refinement cl-mpm::sim-multigrid-refinement))
+       ,sim
+     (when (> refinement 0)
+       (loop for mesh-index from (- refinement 1) downto 0
+             do (let* ((mesh (aref mesh-list mesh-index)))
+                  (cl-mpm::iterate-over-cells
+                   mesh
+                   (lambda (cell)
+                     (when (and (= (cell-octree-refine cell) 1))
+                       (iterate-over-sub-nodes
+                        ,sim
+                        mesh-index
+                        cell
+                        (lambda (n)
+                          (cl-mpm::iterate-over-cell-shape-local
+                           mesh
+                           cell
+                           (cl-mpm/mesh::node-position n)
+                           (lambda (nw w grads)
+                             (declare (ignore grads))
+                             (incf
+                              (cl-mpm/utils:varef (funcall ,accessor nw) ,d)
+                              (*
+                               w (cl-mpm/utils:varef (funcall ,accessor n) ,d)))))))))))))))
+
+(defmacro project-scalar-down-grid (sim accessor)
+  `(with-accessors ((mesh-list cl-mpm::sim-mesh-list)
+                    (active-refinement sim-octree-active-refinement)
+                    (refinement cl-mpm::sim-multigrid-refinement))
+       ,sim
+     (when (> refinement 0)
+       (loop for mesh-index from 0 below refinement
+             do (let* ((mesh (aref mesh-list mesh-index)))
+                  (when (< mesh-index refinement)
+                    (cl-mpm::iterate-over-cells
+                     mesh
+                     (lambda (cell)
+                       (when (and (cl-mpm/mesh::cell-active cell)
+                                  (= (cell-octree-refine cell) 2))
+                         (iterate-over-sub-nodes
+                          ,sim
+                          mesh-index
+                          cell
+                          (lambda (n)
+                            (setf (,accessor n) 0d0)
+                            (cl-mpm::iterate-over-cell-shape-local
+                             mesh
+                             cell
+                             (cl-mpm/mesh::node-position n)
+                             (lambda (nw w grads)
+                               (incf (,accessor n)
+                                     (*
+                                      w (,accessor nw))))))))))))))))
+
+(defmacro aggregate-scalar-up-grid (sim accessor)
+  `(with-accessors ((mesh-list cl-mpm::sim-mesh-list)
+                    (active-refinement sim-octree-active-refinement)
+                    (refinement cl-mpm::sim-multigrid-refinement))
+       ,sim
+     (when (> refinement 0)
+       (loop for mesh-index from (- refinement 1) downto 0
+             do (let* ((mesh (aref mesh-list mesh-index)))
+                  (when (< mesh-index refinement)
+                    (cl-mpm::iterate-over-cells
+                     mesh
+                     (lambda (cell)
+                       (when (and (cl-mpm/mesh::cell-active cell)
+                                  (= (cell-octree-refine cell) 2))
+                         (iterate-over-sub-nodes
+                          ,sim
+                          mesh-index
+                          cell
+                          (lambda (n)
+                            (cl-mpm::iterate-over-cell-shape-local
+                             mesh
+                             cell
+                             (cl-mpm/mesh::node-position n)
+                             (lambda (nw w grads)
+                               (incf (,accessor nw)
+                                     (*
+                                      w (,accessor n))))))))))))))))
+
 
 (defun set-mesh-default (sim)
   (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
@@ -1631,6 +1764,7 @@
               (save-parameter-nodes "bc_y" (if (cl-mpm/mesh::node-bcs node) (varef (cl-mpm/mesh::node-bcs node) 1) 0))
               (save-parameter-nodes "bc_z" (if (cl-mpm/mesh::node-bcs node) (varef (cl-mpm/mesh::node-bcs node) 2) 0))
 
+              (save-vector-nodes "boundary-vec" (cl-mpm/mesh::node-boundary-vec node))
               (save-vector-nodes "force" (cl-mpm/mesh:node-force node))
               (save-vector-nodes "force-ext" (cl-mpm/mesh::node-external-force node))
               (save-vector-nodes "force-int" (cl-mpm/mesh::node-internal-force node))
@@ -1741,12 +1875,13 @@
   (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" step)) sim)
   (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) sim)
   (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) sim)
+  (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) sim )
   ;; (break)
   (dotimes (i (1+ (cl-mpm::sim-multigrid-refinement sim)))
     (setf (cl-mpm::sim-mesh sim) (aref (cl-mpm::sim-mesh-list sim) i))
     (cl-mpm/output::save-vtk-mesh-nodes (merge-pathnames output-dir (format nil "sim_nodes_~D_~5,'0d.vtk" i step)) (aref (cl-mpm::sim-mesh-list sim) i))
     (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~D_~5,'0d.vtk" i step)) sim))
-  (setf (cl-mpm::sim-mesh sim) (aref (cl-mpm::sim-mesh-list sim) 0))
+  ;; (setf (cl-mpm::sim-mesh sim) (aref (cl-mpm::sim-mesh-list sim) 0))
   (set-mesh-default sim)
   )
 
