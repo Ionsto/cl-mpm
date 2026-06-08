@@ -16,8 +16,8 @@
    #:save-vtk-penalties
    #:bc-penalty-friction))
 ;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
-;; (declaim #.cl-mpm/settings:*optimise-setting*)
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim #.cl-mpm/settings:*optimise-setting*)
 (in-package :cl-mpm/penalty)
 
 (defparameter *friction-epsilon-scale* 1d0)
@@ -806,8 +806,7 @@
        (lambda (mp)
          (let ()
            (when t;(early-sweep-intersection bc mp)
-             (
-              cl-mpm::iterate-over-midpoints
+             (cl-mpm::iterate-over-midpoints
               ;; cl-mpm::iterate-over-corners
               mesh
               mp
@@ -1116,7 +1115,7 @@
       ;; (format t "Contacts ~D~%" (length contacts))
       (when (> (length contacts) 0)
         ;; (format t "Contacts ~D~%" (length (bc-penalty-contact-points bc)))
-        (lparallel:pdotimes (i (length contacts))
+        (cl-mpm/utils::bpdotimes (i (length contacts))
           (let ((contact (aref contacts i)))
             (iterate-over-neighbours-point-linear
              mesh
@@ -1197,9 +1196,7 @@
    (sim-mps sim)
    (lambda (mp)
      (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-penalty-frictional-force mp))
-     ;; (setf (cl-mpm/particle::mp-penalty-contact mp) nil)
-     (setf (cl-mpm/particle::mp-penalty-stiffness mp) (* 0.99d0 (cl-mpm/particle::mp-penalty-stiffness mp)))
-     )))
+     (setf (cl-mpm/particle::mp-penalty-stiffness mp) (* 0.99d0 (cl-mpm/particle::mp-penalty-stiffness mp))))))
 
 ;; (defun finalise-penalty (sim)
 ;;   (cl-mpm:iterate-over-mps
@@ -1267,7 +1264,7 @@
                   :position (cl-mpm/utils:vector-copy trial-point)
                   :contact-area contact-area
                   :stiffness (*
-                              4d0
+                              1d0
                               epsilon
                               contact-area)
                   :mesh mesh)
@@ -1380,7 +1377,7 @@
                      (mesh cl-mpm:sim-mesh))
         sim
       (let ((contacts (bc-penalty-disp-contacts bc)))
-        (lparallel:pdotimes (i (length contacts))
+        (cl-mpm/utils::bpdotimes (i (length contacts))
           (flet ((get-contact-point (mp)
                    (cl-mpm/fastmaths:fast-.+
                     (cl-mpm/particle::mp-position mp)

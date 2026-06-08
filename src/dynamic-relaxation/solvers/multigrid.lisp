@@ -550,6 +550,24 @@
     ;;  (aref bcs-list 0))
     ))
 
+(defmethod update-instance-for-different-class :after ((prev cl-mpm::mpm-sim)
+                                                        (current mpm-sim-octree)
+                                                        &rest initargs
+                                                        ;; &key (refinement 0)
+                                                          )
+  ;; (setf (cl-mpm::sim-multigrid-refinement current) refinement)
+  (cl-mpm/setup::%post-make-simple-sim
+   current
+   (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh prev))
+   (subseq
+    (cl-mpm/mesh::mesh-count (cl-mpm:sim-mesh prev))
+    0
+    (cl-mpm/mesh::mesh-nd (cl-mpm:sim-mesh prev))
+    )
+    initargs)
+  (apply #'cl-mpm/setup:setup-bcs
+         current
+         (cl-mpm/mesh::mesh-boundary-bcs (cl-mpm:sim-mesh prev))))
 
 
 (defmethod cl-mpm/setup::%post-make-simple-sim ((sim mpm-sim-octree) resolution element-count args-list)
@@ -646,7 +664,7 @@
                             ;;       (incf resolved-mesh)))
                             (let ((max-index -1)
                                   (min-index 3))
-                              (cl-mpm::iterate-over-midpoints
+                              (cl-mpm::iterate-over-corners
                                mesh
                                mp
                                (lambda (corner)
@@ -710,12 +728,25 @@
      mesh-nodes
      (lambda (n)
        (setf (cl-mpm/mesh::node-agg-building-flag n) nil
-             (node-transition-zone n) nil)))
+             (node-transition-zone n) nil)
+       ;; (when  (and (cl-mpm/mesh::node-active n)
+       ;;             (< (/ (cl-mpm/mesh::node-volume n)
+       ;;                   (cl-mpm/mesh::node-volume-true n))
+       ;;                0.1d0))
+       ;;   (setf (cl-mpm/mesh::node-agg n) t))
+       ))
     (cl-mpm::iterate-over-cells
      mesh
      (lambda (c)
        (setf (cl-mpm/mesh::cell-agg c) nil
-             (cl-mpm/mesh::cell-interior c) nil)))
+             (cl-mpm/mesh::cell-interior c) nil)
+       ;; (loop for n across (cl-mpm/mesh::cell-nodes c)
+       ;;       do (when (and (cl-mpm/mesh::node-active n)
+       ;;                     (< (/ (cl-mpm/mesh::node-volume n)
+       ;;                           (cl-mpm/mesh::node-volume-true n))
+       ;;                        0.1d0))
+       ;;            (setf (cl-mpm/mesh::cell-partial c) t)))
+       ))
 
     ;;First set all outside cells as aggregate
     (cl-mpm::iterate-over-cells
@@ -762,6 +793,16 @@
                       (setf
                        (cl-mpm/mesh::node-agg n) t
                        (node-transition-zone n) t)))))))
+
+    (cl-mpm::iterate-over-cells
+     mesh
+     (lambda (c)
+       (loop for n across (cl-mpm/mesh::cell-nodes c)
+             do (when (and (cl-mpm/mesh::node-active n)
+                           (< (/ (cl-mpm/mesh::node-volume n)
+                                 (cl-mpm/mesh::node-volume-true n))
+                              0.1d0))
+                  (setf (cl-mpm/mesh::cell-partial c) t)))))
 
     ;;For each aggregate node, locate the closest support cell
     (cl-mpm::iterate-over-nodes-array
@@ -1357,7 +1398,10 @@
                                 (setf (cell-octree-refine c) 0))
 
 
-                              (when (not (= current-refine (cell-octree-refine c)))
+                              (when (and
+                                     (= (cell-octree-refine c) 2)
+                                     (not (= current-refine (cell-octree-refine c))))
+                                ;; (format t "~D - ~D~%" current-refine (cell-octree-refine c))
                                 (setf mesh-updated t)))))))
 
                      ;;Next we flood-fill transition cells that are next to 2's to 1's
@@ -1543,6 +1587,8 @@
         (loop while (not (= mp-count mp-count-prev))
               do (progn
                    (cl-mpm::split-mps sim)
+                   ;; (cl-mpm::split-mps sim)
+                   ;; (cl-mpm/dynamic-relaxation::setup-mp-iteration-cache sim)
                    (setf mp-count-prev mp-count)
                    (setf mp-count (length (cl-mpm:sim-mps sim)))))
         (unless (= mp-count mp-count-0)
@@ -1876,7 +1922,6 @@
   (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) sim)
   (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) sim)
   (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) sim )
-  ;; (break)
   (dotimes (i (1+ (cl-mpm::sim-multigrid-refinement sim)))
     (setf (cl-mpm::sim-mesh sim) (aref (cl-mpm::sim-mesh-list sim) i))
     (cl-mpm/output::save-vtk-mesh-nodes (merge-pathnames output-dir (format nil "sim_nodes_~D_~5,'0d.vtk" i step)) (aref (cl-mpm::sim-mesh-list sim) i))
@@ -1971,7 +2016,7 @@
 (defclass mpm-sim-octree-implicit-dynamic (mpm-sim-implict-dynamic mpm-sim-octree-damage-quasi-static)
   ())
 
-(defmethod cl-mpm/dynamic-relaxation::convergence-check ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static))
+(defmethod cl-mpm/dynamic-relaxation::convergence-check ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree))
   (let ((refinement-check
           (cl-mpm/dynamic-relaxation::set-mesh-refinement
            sim

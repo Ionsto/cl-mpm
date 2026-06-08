@@ -1,9 +1,9 @@
 (in-package :cl-mpm)
 ;;All the various ways of iterating over the mesh
 ;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
-;; (declaim #.cl-mpm/settings:*optimise-setting*)
+(declaim #.cl-mpm/settings:*optimise-setting*)
 ;; (declaim #.cl-mpm/settings::*optimise-speed*)
-(declaim #.cl-mpm/settings::*optimise-debug*)
+;; (declaim #.cl-mpm/settings::*optimise-debug*)
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (eval-when

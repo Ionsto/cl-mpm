@@ -92,7 +92,8 @@
 
 (defun drucker-prager-criterion (stress angle)
   (let ((p (cl-mpm/utils::trace-voigt stress))
-        (j2 (cl-mpm/constitutive::voigt-j2
+        (j2
+          (cl-mpm/constitutive::voigt-j2
              (cl-mpm/utils::deviatoric-voigt stress))))
     (* (/ 3d0 (+ 3 (tan angle)))
        (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p)))))

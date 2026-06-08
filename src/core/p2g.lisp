@@ -328,8 +328,7 @@
         (iterate-over-mps
          mps
          (lambda (mp)
-           (p2g-force-mp-fs-2d mesh mp gravity)
-           ))
+           (p2g-force-mp-fs-2d mesh mp gravity)))
         (iterate-over-mps
          mps
          (lambda (mp)

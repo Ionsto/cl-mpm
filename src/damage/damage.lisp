@@ -354,7 +354,8 @@
         nil)))
 
 (declaim (notinline update-delocalisation-list))
-(defun update-delocalisation-list (mesh mps)
+(defgeneric update-delocalisation-list (mesh mps))
+(defmethod update-delocalisation-list (mesh mps)
   (with-accessors ((nodes cl-mpm/mesh:mesh-nodes)
                    (h cl-mpm/mesh:mesh-resolution))
         mesh
@@ -675,26 +676,52 @@ Calls the function with the mesh mp and node"
 (defun compute-effective-length-stress (stress init-stress direction length)
   (let ((effect 0d0)
         (fts (expt init-stress 2))
-        (direction (cl-mpm/fastmaths::norm direction)))
+        (direction (cl-mpm/fastmaths::norm direction))
+        )
     (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils::voight-to-matrix stress))
       (loop for val in l
             for i from 0
             do (when (> (abs val) init-stress)
                  (setf effect (+ effect
                                  (/ (*
-                                     (expt val 2)
+                                     (expt (max 0d0 val) 2)
                                      (abs
                                       (expt
                                        (cl-mpm/fastmaths::dot
                                         (cl-mpm/utils::matrix-column v i)
+                                        ;; (cl-mpm/utils::matrix-row v i)
                                         direction)
                                        1)))
                                     fts))))))
     (/ length (sqrt (max 1d0 effect)))))
+(defun compute-effective-length-stress-precomputed (mp init-stress direction length)
+  (let ((effect 0d0)
+        (fts (expt init-stress 2))
+        (direction (cl-mpm/fastmaths::norm direction))
+        (l (cl-mpm/particle::mp-stress-eigenvalues mp))
+        (v (cl-mpm/particle::mp-stress-eigenvectors mp)))
+    ;; (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils::voight-to-matrix stress)))
+    (loop for val in l
+          for i from 0
+          do (when (> (abs val) init-stress)
+               (setf effect (+ effect
+                               (/ (*
+                                   (expt (max 0d0 val) 2)
+                                   ;; (expt val 2)
+                                   (abs
+                                    (expt
+                                     (cl-mpm/fastmaths::dot
+                                      (cl-mpm/utils::matrix-column v i)
+                                      ;; (cl-mpm/utils::matrix-row v i)
+                                      direction)
+                                     1)))
+                                  fts)))))
+    (/ length (sqrt (max 1d0 effect)))))
 
 (defun calculate-delocalised-damage-stress (mesh mp length)
   (let ((damage-inc 0d0)
-        (mass-total 0d0))
+        (mass-total 0d0)
+        )
     (declare (double-float damage-inc mass-total))
     (iterate-over-neighour-mps
      mesh mp length
@@ -705,21 +732,31 @@ Calls the function with the mesh mp and node"
                         (p cl-mpm/particle:mp-position))
            mp-other
          (when t;(< (the double-float d) 1d0)
-           (let (
+           (let* (
                  ;;Nodally averaged local funcj
                  ;; (weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll))))
                  ;; (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
                  ;;
+                 (diff
+                   (cl-mpm/fastmaths:fast-.-
+                    (cl-mpm/particle::mp-position mp-other)
+                    (cl-mpm/particle::mp-position mp)))
                  (weight
                    (weight-func-mps mesh mp mp-other
-                                    (compute-effective-length-stress
-                                     (cl-mpm/particle::mp-undamaged-stress mp-other)
-                                     (cl-mpm/particle::mp-initiation-stress mp-other)
-                                     (cl-mpm/fastmaths:fast-.-
-                                      (cl-mpm/particle::mp-position mp-other)
-                                      (cl-mpm/particle::mp-position mp)
-                                      )
-                                     (cl-mpm/particle::mp-local-length mp-other)))
+                                    (sqrt
+                                     (*
+                                      (compute-effective-length-stress-precomputed
+                                       mp
+                                       ;; (cl-mpm/particle::mp-undamaged-stress mp)
+                                       (cl-mpm/particle::mp-initiation-stress mp)
+                                       diff
+                                       (cl-mpm/particle::mp-local-length mp))
+                                      (compute-effective-length-stress-precomputed
+                                       mp-other
+                                       ;; (cl-mpm/particle::mp-undamaged-stress mp-other)
+                                       (cl-mpm/particle::mp-initiation-stress mp-other)
+                                       diff
+                                       (cl-mpm/particle::mp-local-length mp-other)))))
                    ;; (weight-func-mps mesh mp mp-other length)
                    ;; (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))
                    ;; (weight-func-mps mesh mp mp-other ll)
@@ -862,6 +899,13 @@ Calls the function with the mesh mp and node"
   (with-accessors ((mps cl-mpm::sim-mps)
                    (mesh cl-mpm:sim-mesh))
       sim
+    (cl-mpm:iterate-over-mps
+     mps
+     (lambda (mp)
+       (when (typep mp 'cl-mpm/particle:particle-damage)
+         (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils::voight-to-matrix (cl-mpm/particle::mp-undamaged-stress mp)))
+           (setf (cl-mpm/particle::mp-stress-eigenvalues mp) l)
+           (setf (cl-mpm/particle::mp-stress-eigenvectors mp) v)))))
     ;; Calculate the delocalised damage for each damage particle
     (cl-mpm:iterate-over-mps
      mps

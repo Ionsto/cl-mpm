@@ -77,8 +77,16 @@
              nu
              phi
              psi
-             coheasion
-             )
+             coheasion)
+            ;; (cl-mpm/ext::constitutive-vm
+            ;;  stress-undamaged
+            ;;  strain
+            ;;  de
+            ;;  E
+            ;;  nu
+            ;;  coheasion
+            ;;  ;; (cl-mpm/particle::mp-tangent-stiffness mp)
+            ;;  )
           ;; (ecase model
           ;;   (:MC
           ;;    (cl-mpm/ext::constitutive-mohr-coulomb

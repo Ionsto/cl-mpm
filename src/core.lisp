@@ -548,9 +548,10 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       sim
     (cl-mpm::apply-bcs mesh bcs-force dt)
     (loop for bcs in bcs-list
-          do (cl-mpm/utils::bpdotimes (i (length bcs))
-               (let ((bc (aref bcs i)))
-                 (cl-mpm/bc::apply-sim-bc sim bc dt))))))
+          do ;; (cl-mpm/utils::bpdotimes (i (length bcs)))
+             (loop for bc across bcs
+                   do (let ()
+                        (cl-mpm/bc::apply-sim-bc sim bc dt))))))
 
 (defun apply-bcs (mesh bcs dt)
   "Apply all normal bcs onto the mesh"
@@ -719,6 +720,15 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
    (lambda (node)
      (when (cl-mpm/mesh:node-active node)
        (cl-mpm/mesh::reset-node-velocity node)))))
+
+(defun reset-grid-acceleration (mesh)
+  "Reset all velocity map on grid for MUSL"
+  (declare (cl-mpm/mesh::mesh mesh))
+  (iterate-over-nodes
+   mesh
+   (lambda (node)
+     (when (cl-mpm/mesh:node-active node)
+       (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-acceleration node))))))
 
 (defun zero-grid-velocity (mesh)
   "Reset all velocity map on grid for MUSL"
@@ -1186,10 +1196,7 @@ This modifies the dt of the simulation in the process
     (ecase nd
       (1 x)
       (2 (max x y))
-      (3 (max x y z))))
-  ;; (multiple-value-bind (l v) (cl-mpm/utils:eig df-inv)
-  ;;   (reduce #'max (mapcar (lambda (x) (expt x 2)) l)))
-  )
+      (3 (max x y z)))))
 
 (defun gradient-push-forwards-cached (grads df-inv)
   ;; Correct

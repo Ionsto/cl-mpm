@@ -15,7 +15,8 @@
    #:solve-conjugant-gradients))
 
 ;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim #.cl-mpm/settings:*optimise-setting*)
 (in-package :cl-mpm/linear-solver)
 
 (defun estimate-max-eigenvector (a-operator b-size &key (tol 1d-9)(max-iters 10000))

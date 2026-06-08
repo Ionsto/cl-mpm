@@ -872,20 +872,20 @@
       ;;  func-div
       ;;  (lambda (pos) (funcall clip-function pos datum)))
 
-      ;; (cl-mpm:iterate-over-nodes
-      ;;  mesh
-      ;;  (lambda (node)
-      ;;    (when t;(> (cl-mpm/mesh::node-volume node) 0d0)
-      ;;      (setf (cl-mpm/mesh::node-boundary-scalar node)
-      ;;            ;; (max 0d0 (cl-mpm/fastmaths:mag (cl-mpm/mesh::node-boundary-vec node)))
-      ;;            (max 0d0 (- (cl-mpm/mesh::node-boundary-scalar node)))
-      ;;            ;; (/
-      ;;            ;;  ;; (cl-mpm/mesh::node-boundary-scalar node)
-      ;;            ;;  (max 0d0 (cl-mpm/fastmaths:mag (cl-mpm/mesh::node-boundary-vec node)))
-      ;;            ;;  1d0
-      ;;            ;;  ;; (cl-mpm/mesh::node-volume node)
-      ;;            ;;  )
-      ;;            ))))
+      (cl-mpm:iterate-over-nodes
+       mesh
+       (lambda (node)
+         (when t;(> (cl-mpm/mesh::node-volume node) 0d0)
+           (setf (cl-mpm/mesh::node-boundary-scalar node)
+                 (max 0d0 (cl-mpm/fastmaths:mag (cl-mpm/mesh::node-boundary-vec node)))
+                 ;; (max 0d0 (- (cl-mpm/mesh::node-boundary-scalar node)))
+                 ;; (/
+                 ;;  ;; (cl-mpm/mesh::node-boundary-scalar node)
+                 ;;  (max 0d0 (cl-mpm/fastmaths:mag (cl-mpm/mesh::node-boundary-vec node)))
+                 ;;  1d0
+                 ;;  ;; (cl-mpm/mesh::node-volume node)
+                 ;;  )
+                 ))))
       
       )))
 

@@ -901,40 +901,40 @@
   (values)
   ))
 
-(defmethod update-damage ((mp cl-mpm/particle::particle-chalk) dt)
-    (with-accessors ((stress cl-mpm/particle:mp-stress)
-                     (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
-                     (damage cl-mpm/particle:mp-damage)
-                     (damage-inc cl-mpm/particle::mp-damage-increment)
-                     (ybar cl-mpm/particle::mp-damage-ybar)
-                     (init-stress cl-mpm/particle::mp-initiation-stress)
-                     (damage-rate cl-mpm/particle::mp-damage-rate)
-                     (critical-damage cl-mpm/particle::mp-critical-damage)
-                     (pressure cl-mpm/particle::mp-pressure)
-                     (def cl-mpm/particle::mp-deformation-gradient)
-                     ) mp
-      (declare (double-float damage damage-inc critical-damage))
-        (progn
-          ;;Damage increment holds the delocalised driving factor
-          (when (< damage 1d0)
-            (setf damage-inc (* dt
-                                ;; (/ 1d0 (- 1d0 damage))
-                                (damage-rate-profile-chalk damage-inc damage damage-rate init-stress))))
-          (when (>= damage 1d0)
-            ;; (setf damage-inc 0d0)
-            (setf ybar 0d0))
-          (incf (cl-mpm/particle::mp-time-averaged-damage-inc mp) damage-inc)
-          (incf (cl-mpm/particle::mp-time-averaged-ybar mp) ybar)
-          (incf (cl-mpm/particle::mp-time-averaged-counter mp))
-          ;;Transform to log damage
-          (incf damage damage-inc)
-          ;;Transform to linear damage
-          (setf damage (max 0d0 (min 1d0 damage)))
-          (when (> damage critical-damage)
-            (setf damage 1d0)
-            (setf damage-inc 0d0)))
-  (values)
-  ))
+;; (defmethod update-damage ((mp cl-mpm/particle::particle-chalk) dt)
+;;     (with-accessors ((stress cl-mpm/particle:mp-stress)
+;;                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
+;;                      (damage cl-mpm/particle:mp-damage)
+;;                      (damage-inc cl-mpm/particle::mp-damage-increment)
+;;                      (ybar cl-mpm/particle::mp-damage-ybar)
+;;                      (init-stress cl-mpm/particle::mp-initiation-stress)
+;;                      (damage-rate cl-mpm/particle::mp-damage-rate)
+;;                      (critical-damage cl-mpm/particle::mp-critical-damage)
+;;                      (pressure cl-mpm/particle::mp-pressure)
+;;                      (def cl-mpm/particle::mp-deformation-gradient)
+;;                      ) mp
+;;       (declare (double-float damage damage-inc critical-damage))
+;;         (progn
+;;           ;;Damage increment holds the delocalised driving factor
+;;           (when (< damage 1d0)
+;;             (setf damage-inc (* dt
+;;                                 ;; (/ 1d0 (- 1d0 damage))
+;;                                 (damage-rate-profile-chalk damage-inc damage damage-rate init-stress))))
+;;           (when (>= damage 1d0)
+;;             ;; (setf damage-inc 0d0)
+;;             (setf ybar 0d0))
+;;           (incf (cl-mpm/particle::mp-time-averaged-damage-inc mp) damage-inc)
+;;           (incf (cl-mpm/particle::mp-time-averaged-ybar mp) ybar)
+;;           (incf (cl-mpm/particle::mp-time-averaged-counter mp))
+;;           ;;Transform to log damage
+;;           (incf damage damage-inc)
+;;           ;;Transform to linear damage
+;;           (setf damage (max 0d0 (min 1d0 damage)))
+;;           (when (> damage critical-damage)
+;;             (setf damage 1d0)
+;;             (setf damage-inc 0d0)))
+;;   (values)
+;;   ))
 
 (defmethod damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk) dt)
   (let ((damage-increment 0d0))

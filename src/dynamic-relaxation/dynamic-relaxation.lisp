@@ -384,6 +384,7 @@
   (cl-mpm:iterate-over-mps
    (cl-mpm:sim-mps sim)
    (lambda (mp)
+     (cl-mpm/fastmaths::fast-zero (cl-mpm/particle::mp-velocity-gradient mp))
      (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp)))))
 
 

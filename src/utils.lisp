@@ -937,6 +937,7 @@
   (let ((thread-index (get-worker-index)))
     (progn
       (when (>= (lparallel:kernel-worker-count) (length (object-pool-pool pool)))
+        (pprint "Rebuilt pool")
         (rebuild-object-pool pool))
       (aref (object-pool-pool pool) thread-index))))
 
@@ -1329,6 +1330,19 @@
 ;;   )
 
 
+(defstruct worker-pool
+  (workers nil)
+  (workers-queue nil)
+  (workers-run (sb-thread:make-semaphore))
+  (workers-finish (sb-thread:make-semaphore))
+  (workers-kill nil)
+  (workers-func (lambda (i len)))
+  (workers-chunk-count 0)
+  (workers-array-length 0)
+  (workers-nesting nil)
+  (workers-pool-age 0)
+
+  )
 
 
 
@@ -1340,7 +1354,6 @@
 (defvar *worker-count* 0)
 (declaim (fixnum *worker-count*))
 (defvar *workers-array* nil)
-(defvar *work-queue* (sb-concurrency:make-queue))
 (defvar *workers-run* (sb-thread:make-semaphore))
 (defvar *workers-finish* (sb-thread:make-semaphore))
 (defvar *workers-kill* nil)
@@ -1438,6 +1451,7 @@
     (error "no workers"))
   (if *workers-nesting*
       (progn
+        ;; (break)
         (loop for j fixnum from 0 below total-length
               do (funcall func j)))
       (progn

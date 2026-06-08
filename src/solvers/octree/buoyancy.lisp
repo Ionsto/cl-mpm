@@ -175,23 +175,23 @@
         ;;  (lambda (n)
         ;;    (when (> (cl-mpm/mesh::node-volume n) 0d0)
         ;;      (cl-mpm/fastmaths:fast-scale! (cl-mpm/mesh::node-boundary-vec n) (/ 1d0 (cl-mpm/mesh::node-volume n))))))
-        (cl-mpm/aggregate::iterate-over-dimensions
-         (cl-mpm/mesh::mesh-nd mesh)
-         (lambda (d)
-           (cl-mpm/aggregate::project-global-vec
-            sim
-            (cl-mpm/aggregate::extend-vec-nobcs
-             sim
-             (cl-mpm/aggregate::aggregate-vec-nobcs
-              sim
-              (cl-mpm/aggregate::assemble-global-vec
-               sim
-               #'cl-mpm/mesh::node-boundary-vec
-               d)
-              d)
-             d)
-            #'cl-mpm/mesh::node-boundary-vec
-            d)))
+        ;; (cl-mpm/aggregate::iterate-over-dimensions
+        ;;  (cl-mpm/mesh::mesh-nd mesh)
+        ;;  (lambda (d)
+        ;;    (cl-mpm/aggregate::project-global-vec
+        ;;     sim
+        ;;     (cl-mpm/aggregate::extend-vec-nobcs
+        ;;      sim
+        ;;      (cl-mpm/aggregate::aggregate-vec-nobcs
+        ;;       sim
+        ;;       (cl-mpm/aggregate::assemble-global-vec
+        ;;        sim
+        ;;        #'cl-mpm/mesh::node-boundary-vec
+        ;;        d)
+        ;;       d)
+        ;;      d)
+        ;;     #'cl-mpm/mesh::node-boundary-vec
+        ;;     d)))
         ;; (cl-mpm/aggregate::iterate-over-dimensions
         ;;  (cl-mpm/mesh::mesh-nd mesh)
         ;;  (lambda (d)

@@ -351,9 +351,11 @@
 (defun update-domain-polar-2d (mesh mp dt)
   "Use a corner tracking scheme to update domain lengths"
   (with-accessors ((dF cl-mpm/particle::mp-deformation-gradient-increment)
+                   ;; (dF cl-mpm/particle::mp-deformation-gradient-strain-increment)
                    (domain cl-mpm/particle::mp-domain-size)
                    (true-domain cl-mpm/particle::mp-true-domain)
                    (volume-0 cl-mpm/particle::mp-volume-0)
+                   (volume-n cl-mpm/particle::mp-volume-n)
                    (volume cl-mpm/particle::mp-volume))
       mp
     (let ()
@@ -362,7 +364,7 @@
                (R (magicl:@ u vt))
                (U (magicl:@ (magicl:transpose vt) s vt)))
           (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R))))))
-    (if nil
+    (if t
         (setf
          (varef domain 0)
          (varef

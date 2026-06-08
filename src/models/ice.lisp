@@ -256,7 +256,7 @@
               ;;                                  psi
               ;;                                  coheasion)
             ;; (cl-mpm/fastmaths:fast-.+ eps-e pressure-strain eps-e)
-            (setf sig (cl-mpm/constitutive::linear-elastic-mat eps-e de sig))
+            ;; (setf sig (cl-mpm/constitutive::linear-elastic-mat eps-e de sig))
             (setf
              stress-u sig
              strain eps-e
@@ -264,10 +264,9 @@
              p-wave (* 1.0d0 pmod))
             ;; (when (> f 0d0)
             ;;   (format t "P-wave adjusted ~E - ~E~%" pmod p-wave))
-            (let (;; (inc (expt (* 1/3 (max 0d0
-                  ;;                        (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
-                  ;;                           (cl-mpm/utils::trace-voigt strain)))) 1))
-                  )
+            (let ((inc (expt (* 1/3 (max 0d0
+                                         (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
+                                            (cl-mpm/utils::trace-voigt strain)))) 1)))
               (setf ps-vm (+ ps-vm-1 inc))
               (setf ps-vm-inc inc))
             ;; (cl-mpm/fastmaths:fast-.+ plastic-strain
@@ -777,26 +776,25 @@
         (setf (cl-mpm/particle::mp-damage-prev-trial mp) (cl-mpm/particle::mp-damage mp))
         (let ((k0 init-stress)
               (ps-y (sqrt (* E (expt ps-vm 2)))))
-          (when (or t)
-            (setf k
-                  (max
+          (setf k
+                (max
+                 k-n
+                 (+
+                  ;; (if pd-inc ps-y 0d0)
+                  (cl-mpm/damage::auto-refine-substepper
                    k-n
-                   (+
-                    ;; (if pd-inc ps-y 0d0)
-                    (cl-mpm/damage::auto-refine-substepper
-                     k-n
-                     ybar-prev
-                     ybar
-                     dt
-                     (lambda (k y0 y1 s-dt)
-                       (cl-mpm/damage::huen-integration k
-                                                        y0
-                                                        y1
-                                                        k0
-                                                        tau
-                                                        tau-exp
-                                                        s-dt))))
-                   ))))
+                   ybar-prev
+                   ybar
+                   dt
+                   (lambda (k y0 y1 s-dt)
+                     (cl-mpm/damage::huen-integration k
+                                                      y0
+                                                      y1
+                                                      k0
+                                                      tau
+                                                      tau-exp
+                                                      s-dt))))
+                 )))
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))
 
@@ -884,11 +882,12 @@
       ;; (cl-mpm/damage::apply-tensile-strain-degredation mp)
       ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
       ;; (cl-mpm/damage::apply-vol-degredation mp)
-      (apply-vol-pressure-degredation mp dt (* -0d0
+      (apply-vol-pressure-degredation mp dt (* -1d0
                                                ;; (/ 1d0 (magicl:det def))
                                                (/ p 1)
                                                (expt damage 1)
                                                ))
+      ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
       ;; (let ((pd  (* -1d0
       ;;               (/ p 3)
       ;;               (expt damage 1))))

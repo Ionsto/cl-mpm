@@ -838,7 +838,7 @@
                                      ;; (cl-mpm::apply-essential-bcs sim)
                                      ;; (cl-mpm::apply-bcs mesh bcs dt)
                                      (let ((df
-                                             (- 
+                                             (-
                                               (-
                                                (varef (cl-mpm/mesh::node-force nodei) id)
                                                (varef fn id)))))
@@ -868,9 +868,7 @@
              k-rows
              k-cols
              (the fixnum (* nd (length (sim-nodes-fd sim))))
-             (the fixnum (* nd (length (sim-nodes-fd sim))))))
-      ))
-  )
+             (the fixnum (* nd (length (sim-nodes-fd sim)))))))))
 
 (defun assemble-stiffness-sparse (sim)
   (with-accessors ((mesh cl-mpm::sim-mesh)
@@ -905,9 +903,7 @@
                   (let ((g-a (assemble-g-3d
                               (cl-mpm::gradient-push-forwards-cached
                                grads
-                               df-inv)))
-                        ;; (gpa (cl-mpm/fastmaths::fast-@-arbt-arb g-a stiffness))
-                        )
+                               df-inv))))
                     (cl-mpm::iterate-over-neighbours
                      mesh
                      mp
@@ -918,11 +914,7 @@
                                      (cl-mpm::gradient-push-forwards-cached
                                       grads-b
                                       df-inv))))
-                           (let (;; (stiff (magicl:@ (magicl:transpose g-a) stiffness g-b))
-                                 ;; (stiff (magicl:@ (magicl:transpose g-a) stiffness g-b))
-                                 (stiff (magicl:@ (magicl:transpose g-a) stiffness g-b))
-                                 ;; (stiff (cl-mpm/fastmaths::fast-@-arb-arb stiffness g-b))
-                                 )
+                           (let ((stiff (magicl:@ (magicl:transpose g-a) stiffness g-b)))
                              (sb-thread:with-mutex ((sim-global-k-lock sim))
                                (dotimes (i nd)
                                  (declare (fixnum i))
@@ -930,44 +922,22 @@
                                    (declare (fixnum j))
                                    (let* ((na (the fixnum (* nd (cl-mpm/mesh::node-stiffness-fd node))))
                                           (nb (the fixnum (* nd (cl-mpm/mesh::node-stiffness-fd node-b))))
-                                         (gi (+ na i))
-                                         (gj (+ nb j))
-                                         (stiff-entry
-                                           (the double-float
-                                                (* (the double-float mp-volume)
-                                                   (the double-float (cl-mpm/utils:mtref stiff i j)))))
-                                         )
-                                     (when t;(> (abs stiff-entry) 1d-20)
+                                          (gi (+ na i))
+                                          (gj (+ nb j))
+                                          (stiff-entry
+                                            (the double-float
+                                                 (* (the double-float mp-volume)
+                                                    (the double-float (cl-mpm/utils:mtref stiff i j))))))
+                                     (when t
                                        (vector-push-extend stiff-entry (sim-global-k-values sim))
                                        (vector-push-extend gi (sim-global-k-rows sim))
-                                       (vector-push-extend gj (sim-global-k-cols sim))
-
-                                       ;; (when (>= gi gj)
-                                       ;;   (vector-push-extend stiff-entry (sim-global-k-values sim))
-                                       ;;   (vector-push-extend gj (sim-global-k-rows sim))
-                                       ;;   (vector-push-extend gi (sim-global-k-cols sim))
-
-                                       ;;   (vector-push-extend stiff-entry (sim-global-k-values sim))
-                                       ;;   (vector-push-extend gi (sim-global-k-rows sim))
-                                       ;;   (vector-push-extend gj (sim-global-k-cols sim)))
-                                       ;; (when (= gi gj)
-                                       ;;   (vector-push-extend stiff-entry (sim-global-k-values sim))
-                                       ;;   (vector-push-extend gi (sim-global-k-rows sim))
-                                       ;;   (vector-push-extend gj (sim-global-k-cols sim)))
-                                       ))))))))))))))))))
-
+                                       (vector-push-extend gj (sim-global-k-cols sim))))))))))))))))))))
       (setf global-k (cl-mpm/utils::build-sparse-matrix
                       (sim-global-k-values sim)
                       (sim-global-k-rows sim)
                       (sim-global-k-cols sim)
                       (the fixnum (* nd (length (sim-nodes-fd sim))))
-                      (the fixnum (* nd (length (sim-nodes-fd sim))))))
-      )))
-
-
-
-
-
+                      (the fixnum (* nd (length (sim-nodes-fd sim)))))))))
 
 (defun linear-solve-with-bcs (ma v bcs &optional (target-vi nil))
   (let ((target-vi (if target-vi
@@ -1318,7 +1288,7 @@
           :tol (sim-linear-solve-tol sim)
           :jacobi-precondition jacobi-pre
           ;;Really give it some welly
-          :max-iters 1000
+          :max-iters 10000
           ;; :mask int-bcs
           ))
         ;; (extend-vec

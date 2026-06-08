@@ -36,8 +36,7 @@
                damage)
              )
            )
-    (with-accessors
-          ((h cl-mpm/mesh::mesh-resolution))
+    (with-accessors ((h cl-mpm/mesh::mesh-resolution))
         mesh
       (let* ((pos-a (cl-mpm/particle:mp-position mp-a))
              (pos-b (cl-mpm/particle:mp-position mp-b))

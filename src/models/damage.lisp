@@ -284,8 +284,8 @@
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-elastic-damage) dt)
   ;; (cl-mpm/damage::apply-isotropic-degredation mp)
-  ;; (apply-isotropic-degredation mp)
-  (apply-vol-degredation mp)
+  (apply-isotropic-degredation mp)
+  ;; (apply-vol-degredation mp)
   )
 
 (defmethod constitutive-model ((mp particle-creep-damage) strain dt)

@@ -2,6 +2,49 @@
 
 (format t "Load octree-penalty package~%")
 
+(defmethod cl-mpm/bc::apply-sim-bc ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree) (bc bc-penalty-structure) dt)
+  (with-accessors ((epsilon bc-penalty-epsilon)
+                   (friction bc-penalty-friction)
+                   (damping bc-penalty-damping)
+                   (sub-bcs bc-penalty-structure-sub-bcs)
+                   (debug-mutex bc-penalty-load-lock)
+                   (debug-force bc-penalty-load)
+                   ;; (sim bc-penalty-sim)
+                   )
+      bc
+    (reset-load bc)
+    (with-accessors ((mps cl-mpm:sim-mps)
+                     (mesh-list cl-mpm::sim-mesh-list))
+        sim
+      (cl-mpm:iterate-over-mps
+       mps
+       (lambda (mp)
+         (let ((mesh (aref mesh-list (cl-mpm/particle::mp-mesh-index mp))))
+           (when t;(early-sweep-intersection bc mp)
+             (cl-mpm::iterate-over-midpoints
+              ;; cl-mpm::iterate-over-corners
+              mesh
+              mp
+              (lambda (corner-trial)
+                (let* ((disp (compute-corner-displacement mesh corner-trial))
+                       (corner (cl-mpm/fastmaths:fast-.+ corner-trial disp)))
+                  (cl-mpm/mesh::clamp-point-to-bounds mesh corner)
+                  (multiple-value-bind (in-contact pen closest-point) (resolve-closest-contact bc corner)
+                    ;; (cl-mpm/fastmaths:fast-.- (contact-point closest-point) disp-inc (contact-point closest-point))
+                    (when in-contact
+                      (setf (contact-trial-point closest-point) corner-trial
+                             (contact-disp closest-point) disp)
+                      (let ((load (apply-penalty-point
+                                   mesh
+                                   (contact-sub-bc closest-point)
+                                   mp
+                                   (contact-point closest-point)
+                                   (contact-trial-point closest-point)
+                                   (contact-disp closest-point)
+                                   dt)))
+                        (sb-thread:with-mutex (debug-mutex)
+                          (incf debug-force load)))))))))))))))
+
 (defmethod cl-mpm/bc::apply-sim-bc ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree) (bc cl-mpm/penalty::bc-penalty) dt)
   (with-accessors ((epsilon bc-penalty-epsilon)
                    (friction bc-penalty-friction)
@@ -17,8 +60,7 @@
     (reset-load bc)
     (setf mp-stiffness nil)
     (with-accessors ((mps cl-mpm:sim-mps)
-                     (mesh-list cl-mpm::sim-mesh-list)
-                     )
+                     (mesh-list cl-mpm::sim-mesh-list))
         sim
       (cl-mpm:iterate-over-mps
        mps

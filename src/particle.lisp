@@ -156,6 +156,12 @@
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initarg :stress
     :initform (cl-mpm/utils:voigt-zeros))
+   (stress-eigenvalues
+    :initform nil
+    :accessor mp-stress-eigenvalues)
+   (stress-eigenvectors
+    :initform nil
+    :accessor mp-stress-eigenvectors)
    (strain-n
     :accessor mp-strain-n
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -215,10 +221,15 @@
        :accessor mp-deformation-gradient-increment-inverse
        :type MAGICL:MATRIX/DOUBLE-FLOAT
        :initform (cl-mpm/utils:matrix-eye 1d0))
+
    (deformation-jacobian-strain
        :accessor mp-deformation-jacobian-strain
        :type double-float
        :initform 1d0)
+   (deformation-gradient-strain-increment
+       :accessor mp-deformation-gradient-strain-increment
+       :type MAGICL:MATRIX/DOUBLE-FLOAT
+       :initform (cl-mpm/utils:matrix-eye 1d0))
    (deformation-gradient-strain-increment-inverse
        :accessor mp-deformation-gradient-strain-increment-inverse
        :type MAGICL:MATRIX/DOUBLE-FLOAT

@@ -216,10 +216,23 @@
     :accessor sim-settings
     :initarg :settings
     :initform (list))
-   (output-functions
+   (output-list-scalar
     :type list
-    :accessor sim-output-functions
-    :initform nil))
+    :accessor sim-output-list-scalar
+    :initform nil)
+   (output-list-vector
+    :type list
+    :accessor sim-output-list-vector
+    :initform nil)
+   (output-list-voigt
+    :type list
+    :accessor sim-output-list-voigt
+    :initform nil)
+   (output-list-matrix
+    :type list
+    :accessor sim-output-list-matrix
+    :initform nil)
+   )
   (:default-initargs
    :vel-algo :BLEND)
   (:documentation "A self contained mpm simulation"))

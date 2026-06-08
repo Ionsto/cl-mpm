@@ -175,7 +175,9 @@
                    (list
                     (* 0.5d0 mass (cl-mpm/fastmaths::mag-squared vel))
                     (cl-mpm/fastmaths::mag-squared res)
-                    (cl-mpm/fastmaths::mag-squared f-ext)
+                    (+
+                     (cl-mpm/fastmaths::mag-squared f-ext)
+                     (cl-mpm/fastmaths::mag-squared f-rct))
                     ;; (+ (cl-mpm/fastmaths::mag-squared f-ext)
                     ;;    (cl-mpm/fastmaths::mag-squared f-rct)
                     ;;    )
@@ -189,6 +191,7 @@
          (lambda (d mut)
            (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))
                   (f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
+                  (f-rct (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-reaction-force d))
                   (ma (cl-mpm/aggregate::sim-global-ma sim))
                   (mv (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-mass))
                   (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d))
@@ -198,10 +201,12 @@
                                ;; res
                                (cl-mpm/aggregate::aggregate-vec sim res d)
                                ))
-                   (doobf-denom (cl-mpm/fastmaths::mag-squared
-                                 ;; f-ext
-                                 (cl-mpm/aggregate::aggregate-vec sim f-ext d)
-                                 ))
+                   (doobf-denom
+                     (+
+                      (cl-mpm/fastmaths::mag-squared
+                       f-rct)
+                      (cl-mpm/fastmaths::mag-squared
+                       (cl-mpm/aggregate::aggregate-vec sim f-ext d))))
                    (dpower (cl-mpm/fastmaths:dot
                             disp f-ext))
                    (denergy (* 0.5d0 (cl-mpm/fastmaths::dot vi (cl-mpm/aggregate::@-mass-matrix-vec sim vi d)))))
@@ -517,8 +522,9 @@
         (lambda (node)
           (if (and (cl-mpm/mesh:node-active node)
                    (not (cl-mpm/mesh::node-agg node)))
-              (cl-mpm/fastmaths::mag-squared
-               (cl-mpm/mesh:node-velocity node))
+              (* (cl-mpm/mesh::node-mass node)
+                 (cl-mpm/fastmaths::mag-squared
+                  (cl-mpm/mesh:node-velocity node)))
               0d0))
         #'+))
 
@@ -526,9 +532,9 @@
         (cl-mpm/aggregate::iterate-over-dimensions-serial
          (cl-mpm/mesh::mesh-nd mesh)
          (lambda (d)
-           (let* ((ma (cl-mpm/aggregate::sim-global-ma sim))
-                  (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)))
-             (incf ke (* 0.5d0 (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0)))))))
+           (let* ((vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)))
+             (incf ke
+                   (* 0.5d0 (cl-mpm/fastmaths::dot vi (cl-mpm/aggregate::@-mass-matrix-vec sim vi d))))))))
       ke)))
 
 (defgeneric estimate-oobf (sim))
@@ -752,7 +758,7 @@
             stats-power p)
       (incf stats-work p))
     ;; (if (cl-mpm/aggregate::sim-enable-aggregate sim)
-    ;;    ;;Other 
+    ;;    ;;Other
     ;;    ;; (progn)
     ;;     ;; (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats sim)
     ;;     ;;   (setf stats-energy e

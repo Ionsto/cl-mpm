@@ -522,7 +522,7 @@
                  :index index
                  :func func))
 
-(defmethod apply-bc ((bc bc-closure) node mesh dt)
+(defmethod apply-sim-bc (sim (bc bc-closure) dt)
   "Arbitrary closure BC"
   (with-slots ((func func))
     bc

@@ -47,6 +47,7 @@
         (p2g-force sim)
         (apply-force-bcs sim dt)
         (update-node-forces sim)
+        (apply-essential-bcs sim)
         (reset-node-displacement sim)
         (update-nodes sim)
         (apply-essential-bcs sim)

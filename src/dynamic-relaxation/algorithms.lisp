@@ -66,7 +66,7 @@
   (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" step)) sim)
   (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) sim)
   (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) sim)
-  (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) sim ))
+  (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) sim))
 
 
 (defgeneric save-vtks-dr-step (sim output-dir step iter))
@@ -150,7 +150,7 @@
 
     (setf (cl-mpm:sim-enable-damage sim) nil)
     (let ((additional-conv nil))
-      (loop for i from 0 to 10
+      (loop for i from 0 to 100
             while (not additional-conv)
             do
                (progn
@@ -256,7 +256,8 @@
                                         (funcall post-iter-step iv (cl-mpm::sim-stats-energy sim) (cl-mpm::sim-stats-oobf sim))))
                                     (when t
                                       (dotimes (i 2)
-                                        (cl-mpm:update-sim sim))))
+                                        (cl-mpm:update-sim sim))
+                                      (cl-mpm::update-dynamic-stats sim)))
                                   ;; No damage evolution -> instantly satisfy dconv
                                   (setf dconv 0d0)))
                             ;; (setf additional-conv (convergence-check sim))
@@ -305,6 +306,7 @@
             (reset-mp-velocity sim)
             (set-mp-plastic-damage sim :enable-damage enable-damage :enable-plastic enable-plastic)
             (setf (cl-mpm:sim-enable-damage sim) nil)
+            ;; (setf (cl-mpm:sim-enable-damage sim) enable-damage)
             (let ((alt-conv-crit nil))
               (loop for ac from 0 to 10
                     while (not alt-conv-crit)
@@ -430,11 +432,12 @@
                                                  ;;                 )
 
                                                  (incf total-i))
-                                        (when t;damage-iter
-                             (dotimes (i 2)
-                               (cl-mpm:update-sim sim))
-                             (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim))
-                             (cl-mpm:sim-format sim t "fast trial ~E~%" fast-trial-conv))
+                                        (when t
+                                          (dotimes (i 2)
+                                            (cl-mpm:update-sim sim))
+                                          (cl-mpm::update-dynamic-stats sim)
+                                          (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim))
+                                          (cl-mpm:sim-format sim t "fast trial ~E~%" fast-trial-conv))
                            ))
 
                        (setf damage-prev damage)

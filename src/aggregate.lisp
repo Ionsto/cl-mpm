@@ -9,8 +9,8 @@
   (:export
    #:mpm-sim-agg-usf)
   )
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
-;; (declaim #.cl-mpm/settings:*optimise-setting*)
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
 (in-package :cl-mpm/aggregate)
 
@@ -50,17 +50,18 @@
      (aref (sim-global-bcs sim) d)
      )))
 
-(defun aggregate-vec (sim vec d)
+(defun aggregate-vec (sim vec d &optional (res nil))
   (if (sim-global-bcs sim)
       (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
        (cl-mpm/aggregate::sim-global-sparse-et sim)
        vec
        (aref (sim-global-bcs-int sim) d)
        (aref (sim-global-bcs sim) d)
-       )
+       res)
       (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
        (cl-mpm/aggregate::sim-global-sparse-et sim)
-       vec))
+       vec
+       res))
   ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
   ;;  (cl-mpm/aggregate::sim-global-sparse-et sim)
   ;;  vec)
@@ -208,11 +209,11 @@
                           (> dist dist-tr))
                      (setf dist dist-tr
                            closest-elem cell)))))))
-      (iterate-over-cell-patch
-       mesh
-       position
-       1
-       #'check-cell)
+      ;; (iterate-over-cell-patch
+      ;;  mesh
+      ;;  position
+      ;;  1
+      ;;  #'check-cell)
       (unless closest-elem
         (iterate-over-cell-patch
          mesh
@@ -424,7 +425,7 @@
      active-nodes
      (lambda (n)
        (setf (varef v (cl-mpm/mesh::node-agg-fd n)) (varef (funcall accessor n) dim))))
-    (values v)))
+    v))
 
 (defun assemble-internal-vec (sim accessor dim &optional (res nil))
   (declare (function accessor))
@@ -924,7 +925,6 @@
                 #'cl-mpm/mesh::node-acceleration d)))))))
 
     (cl-mpm::apply-essential-bcs sim)
-    ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     (iterate-over-nodes
      mesh
      (lambda (node)
@@ -937,6 +937,7 @@
              node
            (when t
              (cl-mpm::integrate-vel-euler vel acc mass mass-scale dt damping))))))
+    (cl-mpm::apply-essential-bcs sim)
     ;; (when enable-aggregate
     ;;   (project-velocity sim))
     ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)

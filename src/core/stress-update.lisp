@@ -258,6 +258,7 @@
                      (def    cl-mpm/particle:mp-deformation-gradient)
                      (def-0    cl-mpm/particle::mp-deformation-gradient-0)
                      (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+                     ;; (df-strain    cl-mpm/particle::mp-deformation-gradient-strain-increment)
                      (df-inc-inv    cl-mpm/particle::mp-deformation-gradient-increment-inverse)
                      (df-inc-strain-inv    cl-mpm/particle::mp-deformation-gradient-strain-increment-inverse)
                      ) mp
@@ -276,11 +277,7 @@
             (setf df-inc-inv (cl-mpm/fastmaths::fast-inv-3x3 df-inc df-inc-inv))
             (setf df-inc-strain-inv (cl-mpm/fastmaths::fast-inv-3x3 df-strain df-inc-strain-inv))
             (when (<= volume 0d0)
-              (error 'cl-mpm/errors:error-volume-negative))
-            )
-          )
-        )
-      )
+              (error 'cl-mpm/errors:error-volume-negative))))))
     (values)))
 
 

@@ -65,7 +65,7 @@
                    (nu cl-mpm/particle::mp-nu)
                    (de cl-mpm/particle::mp-elastic-matrix))
       mp
-    (when (> damage 0.0d0)
+    (when t;(> damage 0.0d0)
       (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils::voigt-to-matrix strain))
         (let* ()
           ;; (pprint l)
@@ -73,14 +73,15 @@
                 do (let* ((sii (nth i l)))
                      ;;Tensile damage -> unbounded
                      (when (> sii 0d0)
-                       (setf (nth i l) (* (nth i l)
-                                          (- 1d0 damage))))))
+                       (setf (nth i l)
+                             (* (nth i l) (- 1d0 damage))))))
           ;; (pprint strain)
-          (let ((strain+ (cl-mpm/utils:matrix-to-voigt
-                          (magicl:@
-                           v
-                           (magicl:from-diag l :type 'double-float)
-                           (magicl:transpose v)))))
+          (let (;; (strain+ (cl-mpm/utils:matrix-to-voigt
+                ;;           (magicl:@
+                ;;            v
+                ;;            (magicl:from-diag l :type 'double-float)
+                ;;            (magicl:transpose v))))
+                )
             ;; (pprint strain+)
             (setf stress
                   (cl-mpm/constitutive::linear-elastic-mat
@@ -91,7 +92,7 @@
                      (magicl:transpose v)))
                    de
                    stress))
-            (cl-mpm/fastmaths:fast-scale! stress (* 1d0 (cl-mpm/fastmaths:det-3x3 def)))))))))
+            (cl-mpm/fastmaths:fast-scale! stress (/ 1d0 (cl-mpm/fastmaths:det-3x3 def)))))))))
 
 
 (defun apply-vol-degredation (mp)
@@ -216,8 +217,10 @@
                     (* (- 1d0 (expt damage-t exponent)) K)
                     (* (- 1d0 (expt damage-c exponent)) K)))
           (setf G (* G (- 1d0 (expt damage-s exponent))))
-          (setf p-mod (max (* P-0 1d-9) (* p-mod (/ (+ K (* 4/3 G))
-                                                    P-0)))))))))
+          (setf p-mod (max (* P-0 1d-9)
+                           (* p-mod
+                              (/ (+ K (* 4/3 G))
+                                 P-0)))))))))
 
 (defun apply-tcs-strain-degredation (mp)
   (with-accessors ((damage        cl-mpm/particle::mp-damage)

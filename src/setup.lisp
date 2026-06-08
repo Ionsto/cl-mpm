@@ -15,8 +15,8 @@
    #:estimate-critical-damping
   ))
 
-;; (declaim #.cl-mpm/settings:*optimise-setting*)
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim #.cl-mpm/settings:*optimise-setting*)
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (in-package :cl-mpm/setup)
 
@@ -50,7 +50,7 @@
   (let ((nd (length element-count)))
     (let* ((nD nd)
            (size (mapcar (lambda (x) (* x res)) element-count))
-           (sim (cl-mpm:make-mpm-sim size res 1d-3 (funcall shape-maker nD res) :sim-type sim-type)))
+           (sim (cl-mpm:make-mpm-sim size res 1d-3 nil :sim-type sim-type)))
       (progn
         (setf (cl-mpm:sim-mps sim) #())
         (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:sim-mesh sim)))
@@ -547,36 +547,32 @@
      2d0
      (sqrt (* E (* (expt h nd) density))))))
 
-(defun estimate-critical-damping-mp (sim E density)
-  (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
-        (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))))
+(defun estimate-critical-damping-mp (mp)
+  (let* ((E (cl-mpm/particle::mp-e mp))
+         (mass (cl-mpm/particle:mp-mass mp))
+         (volume (cl-mpm/particle:mp-volume mp))
+         (density (/ mass volume)))
     (*
      (/ pi 2)
-     (sqrt (/ E (* (expt h nd)
-                   density))))))
+     (sqrt (/ E density))
+     ;; (sqrt (/ E (* density)))
+     )))
 
 (defgeneric estimate-critical-damping (sim))
 (defmethod estimate-critical-damping ((sim cl-mpm:mpm-sim))
   (with-accessors ((mps cl-mpm:sim-mps))
       sim
-    (if (> (length mps) 0)
-        (loop for mp across mps
-              maximize
-              (estimate-critical-damping-mp
-               sim
-               (cl-mpm/particle::mp-e mp)
-               (/ (cl-mpm/particle:mp-mass mp)
-                  (cl-mpm/particle:mp-volume mp))))
-        ;; (/
-        ;;  (loop for mp across mps
-        ;;        sum
-        ;;        (estimate-critical-damping-mp
-        ;;         sim
-        ;;         (cl-mpm/particle::mp-e mp)
-        ;;         (/ (cl-mpm/particle:mp-mass mp)
-        ;;            (cl-mpm/particle:mp-volume mp))))
-        ;;  (length mps))
-        sb-ext:double-float-positive-infinity)))
+    (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
+          (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))))
+      (if (> (length mps) 0)
+          (* ;; (/ 1d0 (sqrt (expt h nd)))
+             ;; (loop for mp across mps
+             ;;       maximize
+             ;;       (estimate-critical-damping-mp mp))
+             (/ (loop for mp across mps sum (estimate-critical-damping-mp mp))
+                (length mps)))
+          sb-ext:double-float-positive-infinity)))
+  )
 
 
 (defun stress-inverse-2d (stress de)
