@@ -772,7 +772,7 @@
 
 
 
-(defsystem "cl-mpm/examples/billet"
+(defsystem "cl-mpm/examples/penalty/billet"
   :depends-on ("cl-mpm/example")
   :serial t
   :components ((:file "examples/penalty/billet")))
@@ -896,6 +896,11 @@
   :depends-on ("cl-mpm/example")
   :serial t
   :components ((:file "examples/octree/float")))
+
+(defsystem "cl-mpm/examples/octree/slope-stability"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/octree/slope-stability")))
 
 
 #+asdf-system-connections

@@ -95,7 +95,7 @@
               (plot-domain))
    :load-steps 10
    :kinetic-damping nil
-   :damping 1d0;(sqrt 2d0)
+   :damping (sqrt 2d0)
    :substeps 10
    :criteria 1d-6
    :save-vtk-dr t
@@ -104,8 +104,9 @@
   )
 
 (defun test ()
-  (let ((mu 0.9d0))
-    (dolist (r (list 8))
+  (cl-mpm/utils::set-workers 16)
+  (let ((mu 0d0))
+    (dolist (r (list 1))
       (dolist (mps (list 2))
         (setup :mps mps :refine r :mu mu
                :eps-scale 1d2)
