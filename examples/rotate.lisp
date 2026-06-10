@@ -21,7 +21,8 @@
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
-  (cl-mpm::update-domain-polar-2d mesh mp dt)
+  ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
+  (cl-mpm::update-domain-max-corner-2d mesh mp dt)
   ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-midpoint mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)
@@ -34,8 +35,8 @@
          (domain-size (cl-mpm/particle::mp-true-domain mp))
          )
     (multiple-value-bind (l v) (cl-mpm/utils:eig domain-size)
-      (let ((p1 (cl-mpm/fastmaths:fast-.+ pos (cl-mpm/fastmaths:fast-scale-vector (magicl:column v 1) (* 0.5d0 (abs (nth 1 l))))))
-            (p2 (cl-mpm/fastmaths:fast-.+ pos (cl-mpm/fastmaths:fast-scale-vector (magicl:column v 2) (* 0.5d0 (abs (nth 2 l))))))
+      (let ((p1 (cl-mpm/fastmaths:fast-.+ pos (cl-mpm/fastmaths:fast-scale-vector (cl-mpm/utils::matrix-column v 1) (* 0.5d0 (abs (nth 1 l))))))
+            (p2 (cl-mpm/fastmaths:fast-.+ pos (cl-mpm/fastmaths:fast-scale-vector (cl-mpm/utils::matrix-column v 2) (* 0.5d0 (abs (nth 2 l))))))
             )
         ;; (pprint domain-size)
         ;; (pprint l)
@@ -78,12 +79,14 @@
   (setf *run-sim* nil))
 
 (declaim (notinline setup-test-column))
-(defun setup-test-column (size block-size &optional (e-scale 1) (mp-scale 1))
-  (let* ((sim (cl-mpm/setup::make-block
+(defun setup-test-column (size block-size &optional (e-scale 1)
+                                            (mps-x 1)
+                                            (mps-y 1)
+                                            )
+  (let* ((sim (cl-mpm/setup::make-simple-sim
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
                :sim-type 'cl-mpm::mpm-sim-usf
-               ;; 'cl-mpm/damage::mpm-sim-damage
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -94,27 +97,31 @@
     (declare (double-float h density))
     (progn
       (let ()
-        (setf (cl-mpm:sim-mps sim)
-              (cl-mpm/setup::make-mps-from-list
-               (cl-mpm/setup::make-block-mps-list
-                (mapcar (lambda (x y) (- (* x 0.5)
-                                       (* y 0.5)
-                                       )) size block-size)
-                ;; (mapcar (lambda (x) 0d0) size)
-                block-size
-                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
-                density
-                'cl-mpm/particle::particle-elastic
-                :E 1d6
-                :nu 0.3d0
-                :gravity 0.0d0
-                :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
-                ))))
+        (cl-mpm:add-mps
+         sim
+         (cl-mpm/setup::make-block-mps
+          (mapcar (lambda (x y) (- (* x 0.5)
+                                   (* y 0.5)
+                                   )) size block-size)
+          block-size
+          (mapcar (lambda (e m) (* e e-scale m)) block-size
+                  (list mp-x
+                        mp-y)
+                  )
+          density
+          'cl-mpm/particle::particle-elastic
+          :E 1d6
+          :nu 0.3d0
+          ;; :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
+          )))
+      (setf (cl-mpm:sim-gravity *sim*) 0d0)
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 0d0)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
-      (setf (cl-mpm::sim-mp-damage-removal-instant sim) t)
+      (setf (cl-mpm::sim-mp-removal-size sim) nil)
+      ;; (setf (cl-mpm::sim-mp-removal-size sim) nil)
+      ;; (setf (cl-mpm::sim-mp-damage-removal-instant sim) t)
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
@@ -243,6 +250,8 @@
                                             (e-scale 1)
                                             (mp-scale 1)
                                             (offset (list 0d0 0d0))
+                                            (mps-x 2)
+                                            (mps-y 2)
                                             )
   (let* ((sim (cl-mpm/setup::make-block
                (/ 1d0 e-scale)
@@ -264,7 +273,10 @@
                (cl-mpm/setup::make-block-mps-list
                 offset
                 block-size
-                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+                (mapcar (lambda (e m) (* e e-scale m)) block-size
+                        (list mps-x
+                              mps-y)
+                        )
                 density
                 'cl-mpm/particle::particle-elastic
                 :E 1d6
@@ -363,17 +375,21 @@
                          (list (* dx (cl-mpm/utils:varef pos 1))
                                0d0
                                0d0))))))
-(defun setup-rotate (&key (refine 2) (mps 2))
-  (let* ((mps-per-dim mps)
-        (block-size 5)
-        (domain-size (list 20 20))
-        (center-point (list 10 10))
-        (offset (mapcar (lambda (x) (- x (* 0.5d0 (float block-size)))) center-point)))
+(defun setup-rotate (&key (refine 2)
+                       (mps-x 2)
+                       (mps-y 2)
+                       )
+  (let* (
+         (block-size 5)
+         (domain-size (list 20 20))
+         (center-point (list 10 10))
+         (offset (mapcar (lambda (x) (- x (* 0.5d0 (float block-size)))) center-point)))
     (defparameter *sim* (setup-test-simple
                          domain-size
                          (list block-size block-size)
                          :e-scale refine
-                         :mp-scale mps-per-dim
+                         :mps-x mps-x
+                         :mps-y mps-y
                          :offset offset
                          ))
     (let ((h-x (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
@@ -402,9 +418,6 @@
                         (cl-mpm/utils:varef vel 1)
                         0d0)))))))))
 
-(defun setup-rotation ()
-
-  )
 
 ;; (defun setup-simple-shear (sim)
 ;;   (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))
@@ -453,12 +466,15 @@
   (defparameter *t* 0)
   (defparameter *sim-step* 0))
 
-
+(defun test ()
+  (cl-mpm/utils:set-workers 8)
+  (setup-rotate :mps-x 4 :mps-y 2)
+  ;; (setup-rotate)
+  (run))
 
 (defun run ()
-  (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
-                          *sim*)
-
+  (ensure-directories-exist "./output/")
+  (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk") *sim*)
   (defparameter *data-step* (list))
   (defparameter *data-volume* (list))
   (defparameter *data-domain-volume* (list))
@@ -468,23 +484,18 @@
          (substeps (floor target-time dt))
          (dt-scale 1d0)
          )
-    ;; (cl-mpm::update-sim *sim*)
-    ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
-    ;;                 (format t "CFL dt estimate: ~f~%" dt-e)
-    ;;                 (format t "CFL step count estimate: ~D~%" substeps-e)
-    ;;                 (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
     (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                    (progn
                      (format t "Step ~d ~%" steps)
-                     (multiple-value-bind (rv lv tv) (calculate-raster-area *sim* :sub-res 100)
-                       ;; (format t "Area ratio ~A" (/ rv lv))
-                       (push tv *data-volume*)
-                       (push lv *data-domain-volume*)
-                       (push rv *data-raster-volume*)
-                       (push *sim-step* *data-step*))
+                     ;; (multiple-value-bind (rv lv tv) (calculate-raster-area *sim* :sub-res 100)
+                     ;;   ;; (format t "Area ratio ~A" (/ rv lv))
+                     ;;   (push tv *data-volume*)
+                     ;;   (push lv *data-domain-volume*)
+                     ;;   (push rv *data-raster-volume*)
+                     ;;   (push *sim-step* *data-step*))
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      (time
