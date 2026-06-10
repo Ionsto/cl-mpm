@@ -249,32 +249,37 @@
 
 (defparameter *run-sim* nil)
 (defun run-conv ()
+  (cl-mpm/utils:set-workers 16)
   (setf *run-sim* t)
   (defparameter *data-refine* (list))
   (defparameter *data-error* (list))
-  (loop for i in '(1 2 3 4 5)
+  (loop for i in '(
+                   2
+                   ; 1 2
+                   ;; 3 4 5 6
+                   )
         while *run-sim*
         do
            (let* ((refine i)
-                  (mps 2))
+                  (mps 4))
              (let* ()
                (setup
                   :refine i
-                  :mp-scale mps
+                  :mps mps
                   :sym t)
-               (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil)
-               (cl-mpm/setup::set-mass-filter *sim* 1d3 :proportion 1d-9)
+               (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t)
+               (cl-mpm/setup::set-mass-filter *sim* 1d3 :proportion 1d-15)
                (format t "Running sim size ~a ~a ~%" refine mps)
                (cl-mpm/dynamic-relaxation::run-load-control
                 *sim*
                 :output-dir (merge-pathnames (format nil "./output-~A_~D/" i mps))
                 :load-steps 10
                 :substeps (* 20 refine)
-                :plotter #'plot
-                :damping (sqrt 2)
-                :save-vtk-dr t
+                :plotter (lambda (s));#'plot
+                :damping (sqrt 2d0)
+                :save-vtk-dr nil
                 :save-vtk-loadstep t
-                :dt-scale 1d0
+                :dt-scale 0.9d0
                 :criteria 1d-9
                 :loading-function #'loading-function)
                ;; (plot-sigma-yy)
@@ -282,7 +287,7 @@
                ;; (push h *data-refine*)
                )
              ;; (vgplot:loglog (mapcar (lambda (x) (/ 1d0 x)) *data-refine*) *data-error*)
-             (save-csv (merge-pathnames (format nil "./analysis_scripts/virtual_stress/thick-cylinder/data/data-~A_~D.csv" i mps)))
+             (save-csv (merge-pathnames (format nil "./examples/virtual_stress/thick-cylinder/data/data-~A_~D.csv" i mps)))
              )))
 
 ;; (defun run-)

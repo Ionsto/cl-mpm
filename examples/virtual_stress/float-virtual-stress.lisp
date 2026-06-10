@@ -1,9 +1,9 @@
-(defpackage :cl-mpm/examples/float-virtual-stress
+(defpackage :cl-mpm/examples/virtual-stress/float
   (:use :cl
    :cl-mpm/example
    :cl-mpm/utils)
   )
-(in-package :cl-mpm/examples/float-virtual-stress)
+(in-package :cl-mpm/examples/virtual-stress/float)
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
   (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
@@ -34,15 +34,15 @@
        :colour-func (lambda (mp) (cl-mpm/utils:varef (cl-mpm/particle::mp-stress mp) 1))))))
 
 (defun setup (&key (refine 1) (mps 3))
-  (let* ((L 10d0)
+  (let* ((L 1d0)
          (d 1d0)
-         (domain-width 30d0)
-         (h (/ 1d0 refine))
+         (domain-width 5d0)
+         (h (/ 0.25d0 refine))
          (offset l)
-         (height 10d0)
+         (height 1d0)
          (domain-height (* 3 L))
          (density 1000d0)
-         (E 1d6)
+         (E 1d7)
          (domain-size (list domain-width domain-height))
          (element-count (mapcar (lambda (x) (round x h)) domain-size))
          (block-size (list height height)))
@@ -73,7 +73,7 @@
      :left '(0 nil nil))
 
     (let ((datum (+ offset (* 1 height)))
-          (water-density (* density 1.5d0))
+          (water-density (* density 2d0))
           (pressure-condition t))
       (defparameter *datum* datum)
       (defparameter *water-bc*
@@ -99,6 +99,9 @@
     (setf *run-sim* t))
   (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*))))
 
+(defun get-height ()
+  )
+
 (defun run ()
   (let* ((lstps 1))
     (cl-mpm/dynamic-relaxation::run-load-control
@@ -106,7 +109,7 @@
      :output-dir (format nil "./output/")
      :plotter (lambda (sim) (plot-domain))
      :load-steps lstps
-     :damping (sqrt 2)
+     :damping (sqrt 2d0)
      :substeps 100
      :criteria 1d-9
      :save-vtk-dr t
@@ -114,6 +117,22 @@
      :dt-scale 1d0
      )))
 
+(defun run-explicit ()
+  (change-class *sim* 'cl-mpm/aggregate::mpm-sim-agg-usf)
+  (setf (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND)
+  (cl-mpm/dynamic-relaxation::run-time
+   *sim*
+   :output-dir (format nil "./output/")
+   :plotter (lambda (sim) (plot-domain))
+   :damping 1d-2
+   :dt-scale 0.9d0
+   :dt 0.1d0
+   :total-time 100d0
+   :initial-quasi-static nil
+   ))
+
 (defun test ()
-  (setup :mps 2 :refine 1)
-  (run))
+  (cl-mpm/utils::set-workers 8)
+  (setup :mps 3 :refine 2)
+  (run-explicit)
+  )

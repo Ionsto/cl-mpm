@@ -53,11 +53,11 @@
                  mesh-resolution
                  element-count
                  ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multi grid
-                 ;; :sim-type 'cl-mpm/aggregate::mpm-sim-agg-usf
-                 :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
+                 :sim-type 'cl-mpm/aggregate::mpm-sim-agg-usf
+                 ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
                  :args-list (list :enable-aggregate t
                                   ;; :ghost-factor (* E 1d-4)
-                                  :vel-algo :FLIP)))
+                                  :vel-algo :TFLIP)))
     (setf mesh-resolution (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
     (cl-mpm:add-mps
      *sim*
@@ -86,8 +86,7 @@
          datum
          water-density
          (lambda (pos datum) t)
-         :visc-damping 1d0)
-        )
+         :visc-damping 2d0))
       (cl-mpm:add-bcs-force-list
        *sim*
        *water*)
@@ -141,11 +140,11 @@
   (cl-mpm/dynamic-relaxation::run-time
    *sim*
    :output-dir output-dir
-   :total-time 5d0
+   :total-time 6d0
    :dt 0.1d0
-   :dt-scale 5d0;0.25d0
+   :dt-scale 0.25d0;0.25d0
    :initial-quasi-static nil
-   :damping 1d-6
+   :damping 0d-6
    :post-conv-step (lambda (sim)
                      (output-disp-header output-dir))
    :post-iter-step (lambda (sim)
@@ -158,7 +157,7 @@
 
 (defun test ()
   (let ((r 2)
-        (mps 4))
+        (mps 3))
     (setup :refine r :mps mps)
     (run :output-dir (format nil "./output-~D-~D/" r mps))))
 
@@ -167,3 +166,14 @@
     (let ((mps 3))
       (setup :refine r :mps mps)
       (run :output-dir (format nil "./output-~D-~D/" r mps)))))
+
+
+;; (cl-mpm/aggregate::project-global-scalar
+;;  *sim*
+;;  (cl-mpm/aggregate::extend-vec-nobcs
+;;   *sim*
+;;   (cl-mpm/aggregate::aggregate-vec-nobcs
+;;    *sim*
+;;    (cl-mpm/aggregate::assemble-global-scalar *sim* #'cl-mpm/mesh::node-boundary-scalar)
+;;    0) 0)
+;;  cl-mpm/mesh::node-boundary-scalar)
