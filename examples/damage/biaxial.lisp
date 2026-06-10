@@ -100,10 +100,10 @@
       ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
       :args-list
       (list
-       ;; :enable-aggregate t
-       ;; :ghost-factor nil
-       :enable-aggregate nil
-       :ghost-factor (* (cl-mpm/utils::calculate-p-wave-modulus E nu) 1d-6)
+       :enable-aggregate t
+       :ghost-factor nil
+       ;; :enable-aggregate nil
+       ;; :ghost-factor (* (cl-mpm/utils::calculate-p-wave-modulus E nu) 1d-6)
        :mass-update-count 1
        :enable-split nil
        :max-split-depth 8
@@ -241,11 +241,11 @@
      :left '(0 nil nil)
      :right '(0 nil nil)
      :bottom '(nil 0 nil))
-    (cl-mpm::add-bcs
-     *sim*
-     (cl-mpm/bc::make-bc-fixed
-      (list (round offset h) 0 0)
-      '(0 0 nil)))
+    ;; (cl-mpm::add-bcs
+    ;;  *sim*
+    ;;  (cl-mpm/bc::make-bc-fixed
+    ;;   (list (round offset h) 0 0)
+    ;;   '(0 0 nil)))
 
     (let* ((friction 0d0)
            (normal (cl-mpm/utils:vector-from-list '(0d0 -1d0 0d0)))
@@ -361,34 +361,38 @@
       :true-stagger nil
       :save-vtk-dr t
       :save-vtk-loadstep t
-      :dt-scale 1d0))))
+      :dt-scale 0.5d0))))
 
 (defun test ()
-  (dolist (refine (list 1))
+  (cl-mpm/utils::set-workers 8)
+  (dolist (refine (list 2))
     (setup :mps 3
            :refine refine
            :enable-fbar t
-           :angle 16d0
-           :angle-r 10d0
+           :angle 40d0
+           :angle-r 5d0
            :gf 40d0
            :kt 1d0
-           :model :DP
+           :model :MC
            :local-length 2d-2
            :oversize-factor (- 1d0 1d-2))
 
-    (cl-mpm::iterate-over-mps
-     (cl-mpm::sim-mps *sim*)
-     (lambda (mp)
-       (cl-mpm/fastmaths:fast-.+ (cl-mpm/particle::mp-position mp)
-                                 (cl-mpm/utils::vector-from-list (list 1d-6 0d0 0d0))
-                                 (cl-mpm/particle::mp-position mp)
-                                 ))
-     )
-    ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+    ;; (cl-mpm::iterate-over-mps
+    ;;  (cl-mpm::sim-mps *sim*)
+    ;;  (lambda (mp)
+    ;;    (cl-mpm/fastmaths:fast-.+ (cl-mpm/particle::mp-position mp)
+    ;;                              (cl-mpm/utils::vector-from-list (list 1d-6 0d0 0d0))
+    ;;                              (cl-mpm/particle::mp-position mp)
+    ;;                              )))
+    ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
+    (setf (cl-mpm/damage::sim-enable-stress-based-length *sim*) t)
     ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
-    (run :output-dir (format nil "./output-ghost-~D/" refine)
+
+    (run :output-dir (format nil "./output-~D/" refine)
+         :lstps 20
          :enable-plastic nil
          :enable-damage t
+         :total-disp -10d-3
          :refine refine)))
 
 
@@ -661,12 +665,18 @@
 
 
 
-
-
-(pprint
- (cl-mpm/implicit::tensor-2nd-partial-deriv
-  (cl-mpm/utils:matrix-from-list
-   (list 1d0 0d0 0d0
-         0d0 2d0 0d0
-         0d0 0d0 3d0)
-   ) #'log (lambda (x) (/ 1d0 x))))
+(defun plot-nonlocal-inter ()
+  (let* ((find-pos (cl-mpm/utils:vector-from-list (list 0.1368d0 0.0931d0 0d0)))
+         (mp (cl-mpm/setup::find-mp *sim* find-pos))
+         )
+    (multiple-value-bind (pos weights) (cl-mpm/damage::get-nonlocal-interactions-stress-based *sim* mp)
+      (let ((x (loop for p in pos collect (cl-mpm/utils:varef p 0)))
+            (y (loop for p in pos collect (cl-mpm/utils:varef p 1))))
+        (loop for p in pos
+              do (format t "~A ~A~%" (cl-mpm/utils:varef p 0) (cl-mpm/utils:varef p 1)))
+        ;; (vgplot:format-plot t "set xrange [~f:~f]" -20d0 20d0)
+        ;; (vgplot:format-plot t "set yrange [~f:~f]" -20d0 20d0)
+        (vgplot:3d-plot x y weights ";;with points lc palette")
+        (vgplot:xlabel "x")
+        (vgplot:ylabel "y")
+        ))))

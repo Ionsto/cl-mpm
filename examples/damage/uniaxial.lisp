@@ -27,31 +27,31 @@
    )
   ;; (plot-domain sim)
   )
-(defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-elastic-damage) dt)
-  (with-accessors ((y cl-mpm/particle::mp-damage-y-local)
-                   (strain cl-mpm/particle::mp-strain)
-                   (init-stress cl-mpm/particle::mp-initiation-stress)
-                   (ybar cl-mpm/particle::mp-damage-ybar)
-                   (de cl-mpm/particle::mp-elastic-matrix)
-                   (def cl-mpm/particle::mp-deformation-gradient)
-                   (E cl-mpm/particle::mp-e)
-                   (nu cl-mpm/particle::mp-nu)
-                   (k cl-mpm/particle::mp-compression-ratio))
-      mp
-    (declare (double-float E nu))
-    (progn
-      (let* ((angle 60d0)
-             (stress (cl-mpm/fastmaths:fast-scale!
-                      (cl-mpm/constitutive:linear-elastic-mat strain de)
-                      1d0
-                      ;; (/ 1d0 (magicl:det def))
-                      )))
-        (setf y
-              (cl-mpm/damage::tensile-energy-norm strain E de)
-              ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
-              ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
-              ;; (cl-mpm/damage::criterion-modified-vm strain k E nu)
-              )))))
+;; (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-elastic-damage) dt)
+;;   (with-accessors ((y cl-mpm/particle::mp-damage-y-local)
+;;                    (strain cl-mpm/particle::mp-strain)
+;;                    (init-stress cl-mpm/particle::mp-initiation-stress)
+;;                    (ybar cl-mpm/particle::mp-damage-ybar)
+;;                    (de cl-mpm/particle::mp-elastic-matrix)
+;;                    (def cl-mpm/particle::mp-deformation-gradient)
+;;                    (E cl-mpm/particle::mp-e)
+;;                    (nu cl-mpm/particle::mp-nu)
+;;                    (k cl-mpm/particle::mp-compression-ratio))
+;;       mp
+;;     (declare (double-float E nu))
+;;     (progn
+;;       (let* ((angle 60d0)
+;;              (stress (cl-mpm/fastmaths:fast-scale!
+;;                       (cl-mpm/constitutive:linear-elastic-mat strain de)
+;;                       1d0
+;;                       ;; (/ 1d0 (magicl:det def))
+;;                       )))
+;;         (setf y
+;;               (cl-mpm/damage::tensile-energy-norm strain E de)
+;;               ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
+;;               ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
+;;               ;; (cl-mpm/damage::criterion-modified-vm strain k E nu)
+;;               )))))
 
 (declaim (notinline setup))
 (defun setup (&key (refine 1) (mps 2)
@@ -79,7 +79,7 @@
                  element-count
                  :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
                  :args-list (list :enable-aggregate t
-                                  :enable-fbar t
+                                  :enable-fbar nil
                                   ;; :ghost-factor (* E 1d-3)
                                   )))
     (defparameter *h* h)
@@ -97,8 +97,9 @@
       :initiation-stress init-stress
       :local-length length-scale
       :ductility ductility
+      :residual-strength (- 1d0 1d-9)
       ;:residual-strength 1d0
-      :residual-strength (- 1d0 1d-1)
+      ;; :residual-strength 1d0;(- 1d0 1d-12)
       ))
     (cl-mpm::iterate-over-mps
      (cl-mpm:sim-mps *sim*)
@@ -200,8 +201,8 @@
             *displacement*
             (get-load))))
 
-(defun run (&key (output-dir (format nil "./output/")))
-  (let ((lstps 10)
+(defun ru(key (output-dir (format nil "./output/")))
+  (let ((lstps 50)
         (total-disp 5d-3))
   (defparameter *displacement* 0d0)
     (defparameter *data-displacement* '(0d0))
@@ -231,15 +232,15 @@
        (output-disp-data output-dir))
      :load-steps lstps
      :enable-damage t
-     :enable-plastic t
-     :damping 1d0;(sqrt 2)
-     :substeps 10
+     :enable-plastic nil
+     :damping (sqrt 2d0)
+     :substeps 100
      :criteria 1d-3
      :max-adaptive-steps 10
-     :save-vtk-dr nil
+     :save-vtk-dr t
      :save-vtk-loadstep t
-     :max-damage-inc 0.5d0
-     :dt-scale 1d0)))
+     :max-damage-inc 1.1d0
+     :dt-scale 0.9d0)))
 
 
 (defun list-interp (p points)
@@ -310,9 +311,10 @@
      :dt-scale 1d0)))
 
 (defun test ()
+  (cl-mpm/utils:set-workers 8)
   (let* ((output-dir (format nil "./output-3/")))
     (setup :refine 3 :mps 3 :gf 150d0)
-    ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
+    (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
     ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
     (run :output-dir output-dir)
     ))
@@ -326,17 +328,21 @@
     ))
 
 (defun test-ll ()
-  (let* ((refine 4)
+  (let* ((refine 3)
          (mps 3))
-    (setup :refine refine :mps mps)
+    (setup :refine refine :mps mps :gf 150d0)
     (run :output-dir "./output-standard/")
     (setup :refine refine :mps mps)
     (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
     (run :output-dir "./output-ll/")
 
-    (setup :refine refine :mps mps :gf-scale 1d0)
+    (setup :refine refine :mps mps :gf 150d0)
     (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
     (run :output-dir "./output-ekl/")
+
+    (setup :refine refine :mps mps :gf 150d0)
+    (setf (cl-mpm/damage::sim-enable-stress-based-length *sim*) t)
+    (run :output-dir "./output-sb/")
     ))
 
 (defun test-refine ()
