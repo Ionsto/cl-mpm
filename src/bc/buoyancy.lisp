@@ -157,19 +157,66 @@
           ;;  ;; (cl-mpm/particle::mp-displacement-increment mp)
           ;;  )
           ))
-    ;; (let* ((lp (/ (varef (cl-mpm/particle::mp-domain-size mp) 1) 2))
-    ;;        (half-domain (cl-mpm/utils:vector-from-list (list 0d0 lp 0d0))))
-    ;;   (cl-mpm/fastmaths::fast-scale!
-    ;;    (cl-mpm/fastmaths::fast-.+
-    ;;     (funcall func (cl-mpm/fastmaths:fast-.+ pos half-domain))
-    ;;     (funcall func (cl-mpm/fastmaths:fast-.- pos half-domain)))
-    ;;    0.5d0))
     (let* ((lp (/ (varef (cl-mpm/particle::mp-domain-size mp) 1) 2))
-           (dist (max 0d0 (- datum (- (varef pos 1) lp))))
-           (factor (min 1d0 (abs (/ dist (* 2 lp))))))
-      (cl-mpm/fastmaths::fast-scale! (funcall func pos) factor))
+           (half-domain (cl-mpm/utils:vector-from-list (list 0d0 lp 0d0))))
+      (cl-mpm/fastmaths::fast-scale!
+       (cl-mpm/fastmaths::fast-.+
+        (funcall func (cl-mpm/fastmaths:fast-.+ pos half-domain))
+        (funcall func (cl-mpm/fastmaths:fast-.- pos half-domain)))
+       0.5d0))
+    
+    ;; (let* ((lp (/ (varef (cl-mpm/particle::mp-domain-size mp) 1) 2))
+    ;;        (dist (max 0d0 (- datum (- (varef pos 1) lp))))
+    ;;        (factor (min 1d0 (abs (/ dist (* 2 lp))))))
+    ;;   (cl-mpm/fastmaths::fast-scale! (funcall func pos) factor))
     )
   )
+
+(defun compute-corner-displaced (mesh corner)
+  (let ((corner-disp (cl-mpm/utils::vector-zeros)))
+    (cl-mpm::iterate-over-neighbours-point-linear
+     mesh
+     corner
+     (lambda (mesh node svp grads)
+       (with-accessors ((node-disp cl-mpm/mesh::node-displacment)
+                        (node-active  cl-mpm/mesh:node-active))
+           node
+         (when node-active
+           (cl-mpm/fastmaths:fast-fmacc corner-disp node-disp svp)))))
+    (cl-mpm/fastmaths::fast-.+ corner corner-disp corner-disp)
+    corner-disp))
+
+(defun calculate-val-stress-mp-gimp (mesh mp func)
+  (let ((val (cl-mpm/utils::voigt-zeros))
+        (count 0))
+    (cl-mpm::iterate-over-corners
+     mesh
+     mp
+     (lambda (c)
+       (let ((pos
+               ;; c
+               (compute-corner-displaced mesh c)
+               ))
+         (cl-mpm/fastmaths::fast-.+ val (funcall func pos) val)
+         (incf count))))
+    (cl-mpm/fastmaths::fast-scale! val (/ 1d0 count))
+    val))
+
+(defun calculate-val-force-mp-gimp (mesh mp func)
+  (let ((val (cl-mpm/utils::vector-zeros))
+        (count 0))
+    (cl-mpm::iterate-over-corners
+     mesh
+     mp
+     (lambda (c)
+       (let ((pos
+               ;; c
+               (compute-corner-displaced mesh c)
+                  ))
+         (cl-mpm/fastmaths::fast-.+ val (funcall func pos) val)
+         (incf count))))
+    (cl-mpm/fastmaths::fast-scale! val (/ 1d0 count))
+    val))
 
 (declaim (ftype (function (cl-mpm/mesh::cell function) (values)) calculate-val-cell))
 (defun calculate-val-cell (cell func)
@@ -859,13 +906,22 @@
        (lambda (mp)
          (compute-mp-displacement mesh mp)))
 
+      ;; (pprint (calculate-val-stress-mp-gimp mesh (aref (cl-mpm:sim-mps sim) 0) func-stress))
+      ;; (pprint (calculate-val-force-mp-gimp mesh (aref (cl-mpm:sim-mps sim) 0) func-div))
+      ;; (break)
       (apply-force-mps-3d
        mesh
        mps
-       (lambda (mp) (calculate-val-mp-datum-propotional mp func-stress datum))
-       (lambda (mp) (calculate-val-mp-datum-propotional mp func-div datum))
+       ;; (lambda (mp) (calculate-val-mp mp func-stress))
+       ;; (lambda (mp) (calculate-val-mp mp func-div))
+       ;; (lambda (mp) (calculate-val-mp-datum-propotional mp func-stress datum))
+       ;; (lambda (mp) (calculate-val-mp-datum-propotional mp func-div datum))
+       (lambda (mp) (calculate-val-stress-mp-gimp mesh mp func-stress))
+       (lambda (mp) (calculate-val-force-mp-gimp mesh mp func-div))
        (lambda (pos) (funcall clip-function pos datum))
-       (lambda (mp) (calculate-scalar-val-mp-datum-proportional mp #'melt-rate datum)))
+       ;; (lambda (mp) (calculate-val-mp-gimp mesh mp #'melt-rate))
+       (lambda (mp) (calculate-scalar-val-mp-datum-proportional mp #'melt-rate datum))
+       )
       ;; (apply-force-cells-3d
       ;;  sim
       ;;  func-stress

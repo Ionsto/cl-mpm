@@ -604,9 +604,15 @@
                       :position (cl-mpm/utils:vector-copy trial-point)
                       :contact-area contact-area
                       :stiffness (*
-                                  1d0
+                                  0.5d0
+                                  ;; epsilon
+                                  ;; (sqrt (+
+                                  ;;        (expt epsilon 2)
+                                  ;;        (expt (* friction epsilon) 2)
+                                  ;;        ))
                                   epsilon
-                                  (+ 1d0 friction)
+                                  ;; (+ 1d0 (expt friction 2))
+                                  (+ 1d0 (expt friction 1))
                                   contact-area)
                       :density (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))
                       :mesh mesh)

@@ -60,36 +60,49 @@
           )
       (let ((domain-scaler (make-scaling-matrix split-vec 0.5d0)))
         (setf new-domain (magicl:@ domain-scaler true-domain))
-        (setf pos-offset (magicl:@
-                          true-domain
-                          (cl-mpm/fastmaths::fast-scale-vector vec-scaler 0.5d0)))
-        (setf new-size-0 (magicl:@ domain-scaler lens-0))
-        (setf new-size (magicl:@ domain-scaler lens))
-        (list
-         (copy-particle mp
-                        :mass (/ mass 2)
-                        :volume (/ volume 2)
-                        :volume-0 (/ volume-0 2)
-                        :size (cl-mpm/utils::vector-copy new-size)
-                        :size-0 (cl-mpm/utils::vector-copy new-size-0)
-                        :position (cl-mpm/fastmaths::fast-.+-vector pos pos-offset)
-                        :nc (make-array 8 :fill-pointer 0 :element-type 'cl-mpm/particle::node-cache
-                                          :initial-element (cl-mpm/particle::make-empty-node-cache))
-                        :split-depth new-split-depth
-                        :true-domain (cl-mpm/utils:matrix-copy new-domain)
-                        )
-         (copy-particle mp
-                        :mass (/ mass 2)
-                        :volume (/ volume 2)
-                        :volume-0 (/ volume-0 2)
-                        :size (cl-mpm/utils::vector-copy new-size)
-                        :size-0 (cl-mpm/utils::vector-copy new-size-0)
-                        :position (magicl:.- pos pos-offset)
-                        :nc (make-array 8 :fill-pointer 0 :element-type 'cl-mpm/particle::node-cache
-                                          :initial-element (cl-mpm/particle::make-empty-node-cache))
-                        :split-depth new-split-depth
-                        :true-domain (cl-mpm/utils:matrix-copy new-domain)
-                        ))))))
+        (setf pos-offset
+              (cl-mpm/fastmaths:fast-scale-vector
+               split-vec
+               (* 0.25d0
+                  (cl-mpm/fastmaths:dot
+                   split-vec
+                   (magicl:@
+                    true-domain
+                    split-vec)))))
+        (setf new-size-0 (cl-mpm/utils::diagonal (magicl:@ domain-scaler (cl-mpm/utils::matrix-from-diag-vec lens-0))))
+        (setf new-size (cl-mpm/utils::diagonal (magicl:@ domain-scaler (cl-mpm/utils::matrix-from-diag-vec lens))))
+        (dotimes (i 3)
+          (let ((vec (cl-mpm/utils:vector-zeros)))
+            (setf (varef vec i) 1d0)
+            (setf (varef new-size i)
+                  (cl-mpm/fastmaths::dot vec (magicl:@ new-domain vec)))))
+        ;; (setf new-size (magicl:@ domain-scaler lens))
+        (let ((mps (list
+                    (copy-particle mp
+                                   :mass (/ mass 2)
+                                   :volume (/ volume 2)
+                                   :volume-0 (/ volume-0 2)
+                                   :size (cl-mpm/utils::vector-copy new-size)
+                                   :size-0 (cl-mpm/utils::vector-copy new-size-0)
+                                   :position (cl-mpm/fastmaths::fast-.+-vector pos pos-offset)
+                                   :nc (make-array 8 :fill-pointer 0 :element-type 'cl-mpm/particle::node-cache
+                                                     :initial-element (cl-mpm/particle::make-empty-node-cache))
+                                   :split-depth new-split-depth
+                                   :true-domain (cl-mpm/utils:matrix-copy new-domain)
+                                   )
+                    (copy-particle mp
+                                   :mass (/ mass 2)
+                                   :volume (/ volume 2)
+                                   :volume-0 (/ volume-0 2)
+                                   :size (cl-mpm/utils::vector-copy new-size)
+                                   :size-0 (cl-mpm/utils::vector-copy new-size-0)
+                                   :position (magicl:.- pos pos-offset)
+                                   :nc (make-array 8 :fill-pointer 0 :element-type 'cl-mpm/particle::node-cache
+                                                     :initial-element (cl-mpm/particle::make-empty-node-cache))
+                                   :split-depth new-split-depth
+                                   :true-domain (cl-mpm/utils:matrix-copy new-domain)
+                                   ))))
+          mps)))))
 
 ;; (defmacro split-linear (dir direction dimension)
 ;;   "Helper macro for single splitting along cartesian directions "
@@ -142,18 +155,31 @@
 ;;      ,(macroexpand-1 '(split-linear direction :z 2))
 ;;      (t nil)
 ;;      ))
-(defun split-criteria-variable (mp h factor)
+(defun split-criteria-variable (mp h factor nd)
   "Some numerical splitting estimates"
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
                    (lens cl-mpm/particle::mp-domain-size)
                    (lens-0 cl-mpm/particle::mp-domain-size-0))
       mp
     (when t
-      (let ((h-factor (* factor h)))
+      (let ((h-factor (* factor h))
+            (af 0.5d0)
+            (lx (varef lens 0))
+            (ly (varef lens 1))
+            (lz (varef lens 2))
+            ;; (max-l (reduce #'max (cl-mpm/utils:fast-storage (cl-mpm/utils::slice-vector-nd lens nd))))
+            ;; (min-l (reduce #'min (cl-mpm/utils:fast-storage (cl-mpm/utils::slice-vector-nd lens nd))))
+            )
+        ;; (or (> (* 0.5d0 max-l) min-l))
         (cond
           ((< h-factor (varef lens 0)) :x)
           ((< h-factor (varef lens 1)) :y)
           ((< h-factor (varef lens 2)) :z)
+          ((and (= nd 2) (> (* af lx) ly)) :x)
+          ((and (= nd 2) (> (* af ly) lx)) :y)
+          ((and (= nd 3) (> (* af lx) (min ly lz))) :x)
+          ((and (= nd 3) (> (* af ly) (min lx lz))) :y)
+          ((and (= nd 3) (> (* af lz) (min ly lx))) :z)
           (t nil))))))
 (defun split-mp (mp h direction)
   "Function to split an mp across a direction
@@ -203,7 +229,8 @@
                     (abs-l (mapcar #'abs l))
                     (max-l (reduce #'max abs-l))
                     (min-l (reduce #'min (remove 0d0 abs-l))))
-               (when (> max-l crit)
+               (when (or (> max-l crit)
+                         (> (* 0.5d0 max-l) min-l))
                  (let* ((pos (position max-l abs-l))
                         (vec (cl-mpm/utils::matrix-column v pos)))
                    (setf split-dir (cl-mpm/fastmaths:norm
@@ -221,12 +248,14 @@
       sim
     (declare (fixnum max-split-depth))
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
+           (nd (cl-mpm/mesh::mesh-nd mesh))
            (mps-to-split (remove-if-not (lambda (mp)
                                           (and
                                            (< (cl-mpm/particle::mp-split-depth mp) max-split-depth)
-                                           (split-criteria-variable mp h split-factor))) mps))
-           (split-direction (map 'list (lambda (mp) (split-criteria-variable mp h split-factor)) mps-to-split)))
-      (remove-mps-func sim (lambda (mp) (split-criteria-variable mp h split-factor)))
+                                           (or
+                                            (split-criteria-variable mp h split-factor nd)))) mps))
+           (split-direction (map 'list (lambda (mp) (split-criteria-variable mp h split-factor nd)) mps-to-split)))
+      (remove-mps-func sim (lambda (mp) (split-criteria-variable mp h split-factor nd)))
       (loop for mp across mps-to-split
             for direction in split-direction
             do (loop for new-mp in (split-mp mp h direction)
@@ -236,8 +265,8 @@
 (defun split-mps (sim)
   "Split mps that match the split-criteria"
   (dotimes (d (cl-mpm/mesh::mesh-nd (sim-mesh sim)))
-    ;; (split-mps-cartesian sim)
-    (split-mps-eigenvalue sim)
+    (split-mps-cartesian sim)
+    ;; (split-mps-eigenvalue sim)
     ))
 
 (defun split-mps-criteria (sim criteria)

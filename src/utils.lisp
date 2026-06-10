@@ -450,6 +450,14 @@
     (matrix-from-list (list i1 0d0 0d0
                             0d0 i2 0d0
                             0d0 0d0 i3))))
+(defun matrix-from-diag-vec (vec)
+  "Take a 3 element list and form a diagonal matrix"
+  (let ((i1 (varef vec 0))
+        (i2 (varef vec 1))
+        (i3 (varef vec 2)))
+    (matrix-from-list (list i1 0d0 0d0
+                            0d0 i2 0d0
+                            0d0 0d0 i3))))
 
 (defun diagonal (mat)
   (let* ((nrows (magicl:nrows mat))
@@ -886,6 +894,12 @@
     (1 (arb-matrix-from-list (list (mtref mat 0 0)) 1 1))
     (2 (slice-matrix-2d mat))
     (3 mat)))
+
+(defun slice-vector-nd (vec nd)
+  (ecase nd
+    (1 (arb-matrix-from-list (list (varef vec 0)) 1 1))
+    (2 (arb-matrix-from-list (list (varef vec 0) (varef vec 1)) 2 1))
+    (3 (arb-matrix-from-list (list (varef vec 0) (varef vec 1) (varef vec 2)) 3 1))))
 
 (defun pad-matrix-nd (mat nd)
   (ecase nd
