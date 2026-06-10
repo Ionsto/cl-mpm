@@ -25,7 +25,7 @@ from multiprocessing import Pool
 
 
 
-top_dir = "./data/"
+top_dir = "../../../"
 output_regex = re.compile("output-*")
 output_list = list(filter(output_regex.match,os.listdir(top_dir)))
 output_list.sort()
@@ -43,55 +43,39 @@ fig = plt.figure()
 
 print(output_list)
 # names = ["K constant","K updated","P elastic","P elastoplastic"]
-names = output_list
-lss = ["-","-.",":","--","-","-","-","-"]
-# lss = ["-","-","-","-"]
-for n,out,ls in zip(names,output_list,lss):
+names = ['output-K-0', 'output-K-UPDATED', 'output-P-ELASTIC', 'output-P-PLASTIC-SCALAR', 'output-P-PLASTIC-TANGENT']
+for n,out in zip(names,output_list):
     output_dir = "{}./{}/".format(top_dir,out)
     df = pd.read_csv(output_dir+"conv.csv")
     c = None
+    data_steps = []
+    data_rates = []
     for name,group in df.groupby("step"):
         iters = group["iter"].values
+        iters = iters - iters[0]
         oobf = group["oobf"].values
-        if c == None:
-            l = plt.plot(iters,oobf,ls=ls,label=n)
-            c = l[0].get_color()
-        else:
-            plt.plot(iters,oobf,ls=ls,c=c)
-    print(out)
-    print(df["iter"].values[-1])
+        data_steps.append(name)
+        res = np.log10(oobf)
+        # l = plt.plot(iters,res)
+        m,b = np.polyfit(iters, res, 1)
+        data_rates.append(m)
+        # if c == None:
+        #     l = plt.plot(iters,oobf,label=n)
+        #     c = l[0].get_color()
+        # else:
+        #     plt.plot(iters,oobf,c=c)
+    data_rates = np.array(data_rates)
+    plt.plot(data_steps,-data_rates,label=n)
+    # print(df["iters"].values[-1])
 
-ax = plt.gca()
-x_1 = 11100
-x_0 = 16820
-y = 6e-10
-ax.annotate('', xy=(x_0, y), xycoords='data',
-xytext=(x_1,y), textcoords='data',
-arrowprops=dict(arrowstyle="<->",
-connectionstyle="bar", ec="k", shrinkA=5, shrinkB=5))
-x_text = x_1 + 0.30 * (x_0 - x_1)
-y_text = 5e-12
-ax.annotate('lstp=10', xy=(x_text, y_text), xycoords='data')
-
-
-x_1 = 9270
-x_0 = 13740
-y = 6e-10
-ax.annotate('', xy=(x_0, y), xycoords='data',
-xytext=(x_1,y), textcoords='data',
-arrowprops=dict(arrowstyle="<->",
-connectionstyle="bar", ec="k", shrinkA=5, shrinkB=5))
-x_text = x_1 + 0.01 * (x_0 - x_1)
-y_text = 8e-12
-ax.annotate('lstp=9', xy=(x_text, y_text), xycoords='data')
-
+# thresh_scale = 1e-9
 # plt.axhline(thresh_scale,c="green",ls="--")
 # ax.set_ylim(bottom=0,top=thresh_scale_damage*2)
-plt.xlabel("Iterations")
-plt.ylabel("Convergence criteria")
+plt.xlabel("Load step")
+plt.ylabel("Average convergence rate")
 plt.yscale("log")
 #plt.legend(["Aggregated","Non-aggregated"])
 plt.legend()
 plt.tight_layout()
-plt.savefig("conv_comp.pdf")
+plt.savefig("rate_comp.pdf")
 plt.show()
