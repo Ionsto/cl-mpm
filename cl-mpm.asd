@@ -699,6 +699,11 @@
                )
   :components ((:file "examples/ice/ice-buoyancy")))
 
+;;; SOLVERS
+
+
+;;; MODELS
+
 (defsystem "cl-mpm/models/chalk"
   :depends-on ("cl-mpm/particle"
                ;; "cl-mpm/models/plastic"
@@ -926,3 +931,9 @@
   :depends-on ("cl-mpm/example")
   :serial t
   :components ((:file "examples/dr/collapse-mass-matrix")))
+
+
+(defsystem "cl-mpm/examples/dr/quasi-time"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/dr/quasi-time")))

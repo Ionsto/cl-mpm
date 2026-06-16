@@ -26,8 +26,7 @@
                    (def cl-mpm/particle::mp-deformation-gradient)
                    (model cl-mpm/particle::mp-friction-model)
                    (pd-inc cl-mpm/particle::mp-plastic-damage-evolution)
-                   (ps-vm cl-mpm/particle::mp-strain-plastic-vm)
-                   )
+                   (ps-vm cl-mpm/particle::mp-strain-plastic-vm))
       mp
     (let ((stress
             undamaged-stress
@@ -56,7 +55,7 @@
     (cl-mpm/plotter:simple-plot
      *sim*
      :plot :deformed
-     :trial t
+     :trial nil
      :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp)))))
 
 (defun get-load ()
@@ -96,7 +95,9 @@
       h
       element-count
       :sim-type
-       'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+       ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+       'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static
+       ;; 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static
       ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
       :args-list
       (list
@@ -104,12 +105,12 @@
        :ghost-factor nil
        ;; :enable-aggregate nil
        ;; :ghost-factor (* (cl-mpm/utils::calculate-p-wave-modulus E nu) 1d-6)
-       :mass-update-count 1
+       ;; :mass-update-count 1
        :enable-split nil
        :max-split-depth 8
        :split-factor (* 1d0 (sqrt 2) (/ 1d0 mps))
        :enable-fbar enable-fbar
-       ;; :refinement multigrid-refines
+       :refinement 2;multigrid-refines
        )))
 
     (setf h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
@@ -185,13 +186,14 @@
        ))
     (let ((angle 45d0)
           (scale 4d0))
-      ;; (cl-mpm/setup::refine-sdf
-      ;;  *sim*
-      ;;  (cl-mpm/setup::circle-sdf
-      ;;   (list (* width 1.5d0) (* height 0.5d0) 0d0)
-      ;;   4d-3)
-      ;;  :refine 1
-      ;;  )
+      (cl-mpm/setup::refine-sdf
+       *sim*
+       (cl-mpm/setup::ellipse-sdf
+        (list (* width 1.5d0) (* height 0.5d0) 0d0)
+        (* 2d-3 scale)
+        (* 2d-3 scale)
+        :transform-matrix (cl-mpm/utils::rotation-matrix angle))
+       :refine 2)
       (cl-mpm/setup::apply-sdf
        *sim*
         (cl-mpm/setup::ellipse-sdf
@@ -207,7 +209,7 @@
          ;; (setf (cl-mpm/particle::mp-damage mp) sdf)
          (when (<= sdf 0d0)
            ;; (pprint sdf)
-           (cl-mpm/damage::set-mp-damage mp 0.99d0)
+           (cl-mpm/damage::set-mp-damage mp 0.90d0)
            ;; (cl-mpm/damage::set-mp-damage mp (/ (abs sdf)))
            )
          )
@@ -250,26 +252,31 @@
     (let* ((friction 0d0)
            (normal (cl-mpm/utils:vector-from-list '(0d0 -1d0 0d0)))
            (epsilon (* (cl-mpm/particle::calculate-p-wave-modulus E nu) epsilon-scale)))
-      ;; (defparameter *penalty*
-      ;;   (cl-mpm/penalty::make-bc-penalty-distance-point
-      ;;    *sim*
-      ;;    normal
-      ;;    (cl-mpm/utils:vector-from-list (list (+ offset (* 0.5 width)) height 0d0))
-      ;;    width
-      ;;    epsilon
-      ;;    0d0
-      ;;    0d0
-      ;;    ;; :clip-function (lambda (p) (cl-mpm/penalty::clip-radial
-      ;;    ;;                             p
-      ;;    ;;                             normal
-      ;;    ;;                             (cl-mpm/utils:vector-from-list (list offset height 0d0))
-      ;;    ;;                             penalty-width)
-      ;;    ))
       (defparameter *penalty*
-        (cl-mpm/penalty::make-bc-penalty-displacment
+        (cl-mpm/penalty::make-bc-penalty-distance-point
          *sim*
-         (cl-mpm/fastmaths:fast-scale! normal -1d0)
-         epsilon))
+         normal
+         (cl-mpm/utils:vector-from-list (list (+ offset (* 0.5 width)) height 0d0))
+         width
+         epsilon
+         0d0
+         0d0
+         ;; :clip-function (lambda (p) (cl-mpm/penalty::clip-radial
+         ;;                             p
+         ;;                             normal
+         ;;                             (cl-mpm/utils:vector-from-list (list offset height 0d0))
+         ;;                             penalty-width)
+         ))
+      ;; (defparameter *penalty*
+      ;;   ;; (cl-mpm/penalty::make-bc-penalty-displacment
+      ;;   ;;  *sim*
+      ;;   ;;  (cl-mpm/fastmaths:fast-scale! normal -1d0)
+      ;;   ;;  epsilon)
+      ;;   ;; (cl-mpm/penalty::make-bc-penalty-displacment
+      ;;   ;;  *sim*
+      ;;   ;;  (cl-mpm/fastmaths:fast-scale! normal -1d0)
+      ;;   ;;  epsilon)
+      ;;   )
       )
     (cl-mpm:add-bcs-force-list
      *sim*
@@ -363,19 +370,53 @@
       :save-vtk-loadstep t
       :dt-scale 0.5d0))))
 
+(defun damage-refinement-criteria (sim mesh c)
+  (let ((damage 0d0)
+        (damage-ybar 0d0))
+    (cl-mpm/damage::iterate-over-point-neighbour-mps
+     (aref (cl-mpm::sim-mesh-list sim) 0)
+     (cl-mpm/mesh::cell-centroid c)
+     ;; (* 2 *length-scale*)
+     (cl-mpm/mesh::cell-h c)
+     (lambda (mesh mp dist)
+       (declare (ignore mesh dist))
+       (with-accessors ((d-ybar cl-mpm/particle::mp-damage-ybar)
+                        (d cl-mpm/particle::mp-damage)
+                        (initiation-stress cl-mpm/particle::mp-initiation-stress))
+           mp
+         (declare (double-float damage-ybar initiation-stress damage))
+         (setf damage-ybar (max (* ;; (- 1d0 damage)
+                                   (/ d-ybar initiation-stress)) damage-ybar))
+         (setf damage (max d damage))
+         )))
+    (case (cl-mpm/dynamic-relaxation::cell-mesh-index c)
+      (0  (or (> damage-ybar 2d0)
+                                        (> damage 0.20d0)
+           ;; (and
+           ;;  (> (varef (cl-mpm/mesh::cell-centroid c) 1) 0.06d0)
+           ;;  (< (varef (cl-mpm/mesh::cell-centroid c) 1) 0.12d0))
+           ))
+      (1  (> damage 0.5d0))
+      (2  (> damage 0.9d0))
+      ;; (2  (> damage 0.85d0))
+      ;; (3  (> damage 0.95d0))
+      (t nil))
+    ))
+
 (defun test ()
   (cl-mpm/utils::set-workers 8)
-  (dolist (refine (list 2))
-    (setup :mps 3
+  (dolist (refine (list 1))
+    (setup :mps 4
            :refine refine
            :enable-fbar t
-           :angle 40d0
-           :angle-r 5d0
+           :angle 30d0
+           :angle-r 0d0
            :gf 40d0
            :kt 1d0
            :model :MC
-           :local-length 2d-2
+           :local-length 0.5d-2
            :oversize-factor (- 1d0 1d-2))
+
 
     ;; (cl-mpm::iterate-over-mps
     ;;  (cl-mpm::sim-mps *sim*)
@@ -384,16 +425,29 @@
     ;;                              (cl-mpm/utils::vector-from-list (list 1d-6 0d0 0d0))
     ;;                              (cl-mpm/particle::mp-position mp)
     ;;                              )))
-    ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
-    (setf (cl-mpm/damage::sim-enable-stress-based-length *sim*) t)
+    (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+    ;; (setf (cl-mpm/damage::sim-enable-stress-based-length *sim*) t)
     ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
 
+    ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static :refinement 0)
+    (setf (cl-mpm/dynamic-relaxation::sim-intra-mesh-aggregation *sim*) t)
+    (setf (cl-mpm/dynamic-relaxation::sim-octree-refinement-criteria *sim*)
+          (lambda (sim mesh c)
+            ;; (or
+             (damage-refinement-criteria sim mesh c)
+            ;; )
+            ;; nil
+            ))
+
+    (setf (cl-mpm::sim-gravity *sim*) 0d0)
     (run :output-dir (format nil "./output-~D/" refine)
          :lstps 20
          :enable-plastic nil
          :enable-damage t
          :total-disp -10d-3
-         :refine refine)))
+         :refine refine)
+    )
+  )
 
 
 ;; (defun test-plastic ()

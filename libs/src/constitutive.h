@@ -511,7 +511,7 @@ namespace constitutive{
       for(int i = 0;i < max_iter;++i){
         Eigen::Matrix<double,7,7> A = Eigen::Matrix<double,7,7>::Zero();
         A.topLeftCorner(6,6) = Eigen::Matrix<double,6,6>::Identity() + ((ddf * de)*dgam);
-        A.topRightCorner(6,1) = df;//%.transpose();
+        A.topRightCorner(6,1) = df;
         A.bottomLeftCorner(1,6) = (df.transpose() * de);
         Eigen::Matrix<double,7,1> dx = A.partialPivLu().solve(b) * -1;
         epse(Eigen::seq(0,5)) += dx(Eigen::seq(0,5));
@@ -533,10 +533,15 @@ namespace constitutive{
       Eigen::Matrix<double,6,6> dep = A.inverse().topLeftCorner(6,6);
 
       double pmod = pmod_0*1e-6;
+      for(int i = 0;i < 2;++i){
+        Eigen::Matrix<double,6,1> n = Eigen::Matrix<double,6,1>::Zero();
+        n(i) = 1.0;
+        pmod = std::max(pmod,(n.transpose() * dep * n)(0,0));
+      }
       // Eigen::Matrix<double,6,1> n = Eigen::Matrix<double,6,1>::Zero();
       // n(0) = 1.0;
       // pmod = std::max(pmod,(n.transpose() * dep * n)(0,0));
-      pmod = K;
+      // pmod = K;
       double inc = std::sqrt(3* utils::voigt_j2(utils::voigt_deviatoric(epse-elastic_strain)));
       return TangentReturn(utils::swizzle_coombs_voigt(epse),dep,f,inc,true,pmod);
     }

@@ -16,10 +16,10 @@
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
-  (cl-mpm::update-domain-polar mesh mp dt)
+  ;; (cl-mpm::update-domain-polar mesh mp dt)
   ;; (cl-mpm::update-domain-max-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-midpoint mesh mp dt)
-  ;; (cl-mpm::update-domain-stretch mesh mp dt)
+  (cl-mpm::update-domain-stretch mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)
   )
 
@@ -134,7 +134,7 @@
           *penalty-controller*)
          )))))
 (defun run (&key (output-dir (format nil "./output/")))
-  (let* ((lstps 20)
+  (let* ((lstps 10)
          (total-disp -5d0)
          (step 0))
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
@@ -147,11 +147,12 @@
          (format stream "step,load~%")))
      :output-dir output-dir
      :plotter (lambda (sim) (plot-domain))
-     :loading-function (lambda (i)
-                         (setf *disp* (* i total-disp))
-                         (cl-mpm/penalty::bc-set-displacement
-                          *penalty*
-                          (cl-mpm/utils:vector-from-list (list 0d0 (* i total-disp) 0d0))))
+     :loading-function
+     (lambda (i)
+       (setf *disp* (* i total-disp))
+       (cl-mpm/penalty::bc-set-displacement
+        *penalty*
+        (cl-mpm/utils:vector-from-list (list 0d0 (* i total-disp) 0d0))))
      :post-conv-step
      (lambda (sim)
        (plot-domain)
@@ -172,7 +173,7 @@
 
 (defun test ()
   (cl-mpm/utils:set-workers 8)
-  (setup :mps 3 :refine 1)
+  (setup :mps 6 :refine 1)
   (run)
   ;; (dolist (r (list 1 2 3))
   ;;   (dolist (mps (list 2 4))
@@ -256,24 +257,24 @@
 ;;   ;;     ))
 ;;   )
 
-(let ((dF (cl-mpm/utils::matrix-from-list (list 1d0 0d0 0d0
-                                                0d0 2d0 0d0
-                                                0d0 0d0 1d0
-                                                ))))
-  (multiple-value-bind (u s vt) (magicl:svd dF)
-    (let* (;; (vt (magicl:transpose vt))
-           (R (magicl:@ u vt))
-           (U (magicl:@ (magicl:transpose vt) s vt))
-           )
-      ;; (pprint R)
-      ;; (pprint U)
-      (let ((test (cl-mpm/utils::matrix-from-list (list 1d0 0d0 0d0
-                                                        0d0 1d0 0d0
-                                                        0d0 0d0 1d0))))
-        (pprint (magicl:@ dF test (magicl:transpose dF)))
-        (pprint (magicl:@ R U test (magicl:transpose R)))
-        ;; (pprint (magicl:@ R U test))
-        )
-      ;; (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R)))
-      ;; (setf true-domain (magicl:@ R true-domain (magicl:transpose R) U))
-      )))
+;; (let ((dF (cl-mpm/utils::matrix-from-list (list 1d0 0d0 0d0
+;;                                                 0d0 2d0 0d0
+;;                                                 0d0 0d0 1d0
+;;                                                 ))))
+;;   (multiple-value-bind (u s vt) (magicl:svd dF)
+;;     (let* (;; (vt (magicl:transpose vt))
+;;            (R (magicl:@ u vt))
+;;            (U (magicl:@ (magicl:transpose vt) s vt))
+;;            )
+;;       ;; (pprint R)
+;;       ;; (pprint U)
+;;       (let ((test (cl-mpm/utils::matrix-from-list (list 1d0 0d0 0d0
+;;                                                         0d0 1d0 0d0
+;;                                                         0d0 0d0 1d0))))
+;;         (pprint (magicl:@ dF test (magicl:transpose dF)))
+;;         (pprint (magicl:@ R U test (magicl:transpose R)))
+;;         ;; (pprint (magicl:@ R U test))
+;;         )
+;;       ;; (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R)))
+;;       ;; (setf true-domain (magicl:@ R true-domain (magicl:transpose R) U))
+;;       )))

@@ -57,8 +57,7 @@
 (defun setup (&key (refine 1) (mps 2)
                 (epsilon-scale 1d2)
                 (gf 100d0)
-                (gf-scale 1d0)
-                )
+                (gf-scale 1d0))
   (let* ((h (/ 1d0 refine))
          (L 10d0)
          (domain-size (list (* L 2)))
@@ -68,7 +67,7 @@
          (E 1d9)
          (init-stress 1d5)
          (length-scale 1d0)
-         (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
+         (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 (* gf-scale gf) length-scale init-stress E))
          ;; (ductility 50d0)
          )
     (when (<= ductility 1d0)
@@ -201,8 +200,8 @@
             *displacement*
             (get-load))))
 
-(defun ru(key (output-dir (format nil "./output/")))
-  (let ((lstps 50)
+(defun run (&key (output-dir (format nil "./output/")))
+  (let ((lstps 40)
         (total-disp 5d-3))
   (defparameter *displacement* 0d0)
     (defparameter *data-displacement* '(0d0))
@@ -234,13 +233,14 @@
      :enable-damage t
      :enable-plastic nil
      :damping (sqrt 2d0)
-     :substeps 100
-     :criteria 1d-3
-     :max-adaptive-steps 10
+     :substeps 50
+     :criteria 1d-6
+     :max-adaptive-steps 0
      :save-vtk-dr t
      :save-vtk-loadstep t
      :max-damage-inc 1.1d0
-     :dt-scale 0.9d0)))
+     :true-stagger nil
+     :dt-scale 0.4d0)))
 
 
 (defun list-interp (p points)
@@ -301,23 +301,24 @@
      :load-steps lstps
      :enable-damage t
      :enable-plastic nil
-     :damping 1d0;(sqrt 2)
-     :substeps 10
+     :damping (sqrt 2)
+     :substeps 50
      :criteria 1d-6
-     :max-adaptive-steps 10
+     :max-adaptive-steps 0
      :save-vtk-dr nil
      :save-vtk-loadstep t
      :max-damage-inc 1.1d0
-     :dt-scale 1d0)))
+     :dt-scale 0.9d0)))
 
 (defun test ()
   (cl-mpm/utils:set-workers 8)
   (let* ((output-dir (format nil "./output-3/")))
-    (setup :refine 3 :mps 3 :gf 150d0)
-    (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
+    (setup :refine 4 :mps 3 :gf 150d0)
+    (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
     ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
     (run :output-dir output-dir)
     ))
+
 
 (defun test-ekl ()
   (let* ((output-dir (format nil "./output-ekl/")))
@@ -328,21 +329,34 @@
     ))
 
 (defun test-ll ()
-  (let* ((refine 3)
+  (cl-mpm/utils::set-workers 8)
+  (let* ((refine 5)
+         (gf 200d0)
          (mps 3))
-    (setup :refine refine :mps mps :gf 150d0)
-    (run :output-dir "./output-standard/")
-    (setup :refine refine :mps mps)
+    ;; (setup :refine refine :mps mps :gf gf)
+    ;; (run :output-dir "./output-standard/")
+    ;; (get-all-interactions :output-dir "./output-standard/")
+
+    (setup :refine refine :mps mps :gf gf)
     (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
     (run :output-dir "./output-ll/")
+    (get-all-interactions :output-dir "./output-ll/")
 
-    (setup :refine refine :mps mps :gf 150d0)
-    (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
-    (run :output-dir "./output-ekl/")
+    ;; (setup :refine refine :mps mps :gf (* 4d0 gf))
+    ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
+    ;; (ignore-errors
+    ;;  (run :output-dir "./output-ekl/"))
+    ;; (cl-mpm::reset-loadstep *sim*)
+    ;; (cl-mpm:update-sim *sim*)
+    ;; (get-all-interactions :output-dir "./output-ekl/")
 
-    (setup :refine refine :mps mps :gf 150d0)
-    (setf (cl-mpm/damage::sim-enable-stress-based-length *sim*) t)
-    (run :output-dir "./output-sb/")
+    ;; (setup :refine refine :mps mps :gf (* 4d0 gf))
+    ;; (setf (cl-mpm/damage::sim-enable-stress-based-length *sim*) t)
+    ;; (ignore-errors
+    ;;  (run :output-dir "./output-sb/"))
+    ;; (cl-mpm::reset-loadstep *sim*)
+    ;; (cl-mpm:update-sim *sim*)
+    ;; (get-all-interactions :output-dir "./output-sb/")
     ))
 
 (defun test-refine ()
@@ -392,3 +406,129 @@
       (run-mcr :output-dir (format nil "./output-~A/" particle)
                )
       )))
+(defun plot-nonlocal-inter ()
+  (let* ((find-pos (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))
+         (mp (cl-mpm/setup::find-mp *sim* find-pos)))
+    (multiple-value-bind (pos weights) (cl-mpm/damage::get-nonlocal-interactions *sim* mp)
+      (let ((x (loop for p in pos collect (cl-mpm/utils:varef p 0)))
+            (y (loop for p in pos collect (cl-mpm/utils:varef p 1))))
+        (loop for p in pos
+              do (format t "~A ~A~%" (cl-mpm/utils:varef p 0) (cl-mpm/utils:varef p 1)))
+        (vgplot:format-plot t "set xrange [~f:~f]" -20d0 20d0)
+        (vgplot:format-plot t "set yrange [~f:~f]" -20d0 20d0)
+        (vgplot:3d-plot x y weights ";;with points lc palette")
+        (vgplot:xlabel "x")
+        (vgplot:ylabel "y")
+        ))))
+
+(defun get-all-interactions (&key (output-dir "./output/"))
+  (cl-mpm::iterate-over-mps-serial
+   (cl-mpm:sim-mps *sim*)
+   (lambda (mp)
+     (multiple-value-bind (pos weights) (cl-mpm/damage::get-nonlocal-interactions *sim* mp)
+       (let ((x (loop for p in pos collect (cl-mpm/utils:varef p 0)))
+             (y (loop for p in pos collect (cl-mpm/utils:varef p 1))))
+         (with-open-file (stream (merge-pathnames (format nil "interaction_~D.csv" (cl-mpm/particle::mp-unique-index mp)) output-dir) :direction :output :if-exists :supersede)
+           (format stream "x,w~%")
+           (loop for ix in x
+                 for w in weights
+                 do (format stream "~F,~F~%"
+                            (+ ix (cl-mpm/utils:varef
+                                   (cl-mpm/particle::mp-position mp)
+                                   0))
+                            w)))
+         ;; (loop for p in pos
+         ;;       do (format t "~A ~A~%" (cl-mpm/utils:varef p 0) (cl-mpm/utils:varef p 1)))
+         ;; (vgplot:format-plot t "set xrange [~f:~f]" -20d0 20d0)
+         ;; (vgplot:format-plot t "set yrange [~f:~f]" -20d0 20d0)
+         ;; (vgplot:3d-plot x y weights ";;with points lc palette")
+         ;; (vgplot:xlabel "x")
+         ;; (vgplot:ylabel "y")
+         ))
+     )
+   )
+  )
+
+(defun plot-nonlocal-inter ()
+  (loop for px from 0d0 to 0d0
+        do
+           (let* ((find-pos (cl-mpm/utils:vector-from-list (list px 0d0 0d0)))
+                  (mp (cl-mpm/setup::find-mp *sim* find-pos)))
+             (multiple-value-bind (pos weights) (cl-mpm/damage::get-nonlocal-interactions-ekl *sim* mp)
+               (let ((x (loop for p in pos collect (cl-mpm/utils:varef p 0)))
+                     (y (loop for p in pos collect (cl-mpm/utils:varef p 1)))
+                     )
+                 (loop for p in pos
+                       for w in weights
+                       do (format t "~A ~A ~A~%" (cl-mpm/utils:varef p 0) (cl-mpm/utils:varef p 1) w))
+                 (vgplot:format-plot t "set xrange [~f:~f]" -1d0 1d0)
+                 ;; (vgplot:format-plot t "set yrange [~f:~f]" -20d0 20d0)
+                 (vgplot:plot x weights ";;with points")
+                 ;; (vgplot:3d-plot x y weights ";;with points lc palette")
+                 (vgplot:xlabel "x")
+                 (vgplot:ylabel "y")
+                 )))
+           (sleep 1)
+        ))
+
+(defun run-adaptive (&key (output-dir (format nil "./output/"))
+                       (lstps 40)
+                       (adaptive-steps 10)
+                       (max-damage 1.1d0)
+                       )
+  (let ((total-disp 5d-3))
+  (defparameter *displacement* 0d0)
+    (defparameter *data-displacement* '(0d0))
+    (defparameter *data-load* '(0d0))
+    (vgplot:close-all-plots)
+    (cl-mpm/dynamic-relaxation::run-adaptive-load-control
+     *sim*
+     :output-dir output-dir
+     :plotter
+     (lambda (sim)
+       (plot *sim*)
+       (format t "Load ~E ~%" (cl-mpm/penalty::resolve-load *penalty*)))
+     :loading-function
+     (lambda (percent)
+       (setf *displacement* (* total-disp percent))
+       (cl-mpm/penalty::bc-set-displacement
+        *penalty*
+        (cl-mpm/utils:vector-from-list (list *displacement* 0d0 0d0))))
+     :pre-step
+     (lambda ()
+       (output-disp-header output-dir)
+       (output-disp-data output-dir))
+     :post-conv-step
+     (lambda (sim)
+       (push (get-load) *data-load*)
+       (push *displacement* *data-displacement*)
+       (output-disp-data output-dir))
+     :load-steps lstps
+     :enable-damage t
+     :enable-plastic nil
+     :damping (sqrt 2d0)
+     :substeps 50
+     :criteria 1d-6
+     :max-adaptive-steps adaptive-steps
+     :save-vtk-dr t
+     :save-vtk-loadstep t
+     :max-damage-inc max-damage
+     :true-stagger nil
+     :dt-scale 0.9d0)))
+
+(defun test-adaptive ()
+  (cl-mpm/utils:set-workers 8)
+  (dolist (lstps (list 8 80))
+    (setup :refine 4 :mps 3 :gf 150d0)
+    (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+    (run-adaptive :output-dir (format nil "./output-~D/" lstps)
+                  :lstps lstps)
+    )
+  (dolist (max-damage (list 0.1d0 0.5d0 0.9d0))
+    (let ((lstps 8))
+      (setup :refine 4 :mps 3 :gf 150d0)
+      (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+      (run-adaptive :output-dir (format nil "./output-adaptive-~F/" max-damage)
+                    :lstps lstps
+                    :adaptive-steps 10
+                    :max-damage max-damage))))
