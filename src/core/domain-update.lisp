@@ -350,8 +350,8 @@
     ))
 (defun update-domain-polar-2d (mesh mp dt)
   "Use a corner tracking scheme to update domain lengths"
-  (with-accessors (;(dF cl-mpm/particle::mp-deformation-gradient-increment)
-                   (dF cl-mpm/particle::mp-deformation-gradient-strain-increment)
+  (with-accessors ((dF cl-mpm/particle::mp-deformation-gradient-increment)
+                   ;; (dF cl-mpm/particle::mp-deformation-gradient-strain-increment)
                    (domain cl-mpm/particle::mp-domain-size)
                    (true-domain cl-mpm/particle::mp-true-domain)
                    (volume-0 cl-mpm/particle::mp-volume-0)
@@ -370,13 +370,11 @@
           (cl-mpm/fastmaths::fast-@-matrix-vector
            true-domain
            (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))) 0)
-
          (varef domain 1)
          (cl-mpm/utils:varef
           (cl-mpm/fastmaths::fast-@-matrix-vector
            true-domain
            (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))) 1))
-
         (setf
          (varef domain 0)
          (cl-mpm/fastmaths:mag
@@ -441,7 +439,7 @@
            mesh mp
            (lambda (corner normal)
              (let ((disp (cl-mpm/utils:vector-zeros)))
-               (iterate-over-neighbours-point-linear-simd
+               (iterate-over-neighbours-point-linear
                 mesh corner
                 (lambda (mesh node svp grads)
                   (declare (double-float dt svp))

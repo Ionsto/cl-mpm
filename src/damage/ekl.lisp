@@ -41,9 +41,8 @@
       (let* ((pos-a (cl-mpm/particle:mp-position mp-a))
              (pos-b (cl-mpm/particle:mp-position mp-b))
              (diff (cl-mpm/utils:vector-zeros))
-             (epsilon 1d-8)
-             (final-distance 0d0)
-             )
+             (epsilon 1d-15)
+             (final-distance 0d0))
         (declare (double-float h final-distance epsilon))
         (cl-mpm/fastmaths:fast-.- pos-b pos-a diff)
         (let* ((length (sqrt (diff-squared mp-a mp-b))))
@@ -57,7 +56,7 @@
                    ;;Start at point a and step through to b
                    (step-point (cl-mpm/utils::vector-copy pos-a))
                    ;;Resolution of our midpoint integration
-                   (step-size (/ h 2d0))
+                   (step-size (/ h 6d0))
                    )
               (cl-mpm/fastmaths:fast-scale! step-norm (/ 1d0 length))
               (multiple-value-bind (steps remainder) (floor length step-size)
@@ -152,3 +151,5 @@
 
 (defun calculate-debug-ekl (mesh mp length)
   )
+
+

@@ -354,11 +354,12 @@
                                                            max-def
                                                            )
                                            (setf inertia true-intertia)
-                                           (when (> true-intertia 1d-4)
-                                             (cl-mpm:sim-format sim t "Inertia criteria exceeded~%")
-                                             (error (make-instance 'error-inertia-criteria
-                                                                   :text "True inertia exceeded"
-                                                                   :inertia-norm true-intertia)))))
+                                           (when (sim-inertia-criteria sim)
+                                               (when (> true-intertia (sim-inertia-criteria sim))
+                                                 (cl-mpm:sim-format sim t "Inertia criteria exceeded~%")
+                                                 (error (make-instance 'error-inertia-criteria
+                                                                       :text "True inertia exceeded"
+                                                                       :inertia-norm true-intertia))))))
                                        (unless true-stagger
                                          (let ((damage-inc (damage-increment-criteria sim)))
                                            (cl-mpm:sim-format sim t "Damage ~E - prev damage ~E - inc ~E~%" damage damage-prev damage-inc)
@@ -485,13 +486,13 @@
                          (max-steps 1000)
                          (damping 1d-4)
                          (damping-0 nil)
-                         (enable-mass-scaling t)
                          (enable-damage t)
                          (criteria 1d-3)
-                         (enable-plastic t))
+                         (enable-plastic t)
+                         (enable-mass-scaling t)
+                         (mass-scaler 1d1))
 
-  (let ((state :dynamic)
-        (mass-scaler 1d1))
+  (let ((state :dynamic))
     (setf (cl-mpm:sim-mass-scale sim) 1d0)
     (when enable-mass-scaling
         (setf
@@ -1095,6 +1096,7 @@
                          (save-vtk-conv t)
                          (save-vtk-dr t)
                          (damping 1d0)
+                         (max-damage-inc 0.5d0)
                          (elastic-solver 'mpm-sim-dr-ul)
                          (conv-criteria 1d-3))
   (let ((result t))
@@ -1189,7 +1191,7 @@
                                                      :save-vtk-dr save-vtk-dr
                                                      :conv-criteria conv-criteria
                                                      :conv-criteria-damage conv-criteria
-                                                     :max-damage-inc 0.5d0
+                                                     :max-damage-inc max-damage-inc
                                                      :enable-plastic enable-plastic)
                                   (setf quasi-conv conv
                                         stagger-iters inc-steps)
@@ -1440,7 +1442,12 @@
                    (save-vtk-loadstep t)
                    (damping 1d0)
                    (initial-quasi-static t)
+                   (initial-lstps 1)
                    (elastic-solver 'mpm-sim-dr-ul)
+                   (adaptive-mass-enabled nil)
+                   (adaptive-mass-scale 1d0)
+                   (adaptive-crit 1d-3)
+                   (adaptive-hist 1d0)
                    (conv-criteria 1d-3))
   (let ((result t))
     (uiop:ensure-all-directories-exist (list output-dir))
@@ -1475,23 +1482,24 @@
         (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
         (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
         ;; find initial quasi-static formation
-        (cl-mpm/dynamic-relaxation:converge-quasi-static
-         sim
-         :energy-crit conv-criteria
-         :oobf-crit conv-criteria
-         :dt-scale 1d0
-         :conv-steps 10000
-         :substeps substeps
-         :damping-factor 1d0;damping
-         :post-iter-step
-         (lambda (i e o)
-           (save-conv-step sim output-dir *total-iter* 0 0d0 o e)
-           (incf *total-iter* substeps)
-           (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_conv_~5,'0d.vtk" i)) sim)
-           (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_conv_nodes__~5,'0d.vtk" i)) sim)
-           (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_conv_cells__~5,'0d.vtk" i)) sim)
-           (funcall plotter sim)))
-        (cl-mpm::finalise-loadstep sim)
+        (dotimes (i initial-lstps)
+          (cl-mpm/dynamic-relaxation:converge-quasi-static
+           sim
+           :energy-crit conv-criteria
+           :oobf-crit conv-criteria
+           :dt-scale 0.9d0
+           :conv-steps 10000
+           :substeps substeps
+           :damping-factor (sqrt 2d0)
+           :post-iter-step
+           (lambda (i e o)
+             (save-conv-step sim output-dir *total-iter* 0 0d0 o e)
+             (incf *total-iter* substeps)
+             (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_conv_~5,'0d.vtk" i)) sim)
+             (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_conv_nodes__~5,'0d.vtk" i)) sim)
+             (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_conv_cells__~5,'0d.vtk" i)) sim)
+             (funcall plotter sim)))
+          (cl-mpm::finalise-loadstep sim))
         (cl-mpm::reset-grid (cl-mpm:sim-mesh sim))
         (setf (cl-mpm::sim-time sim) 0d0)
         (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
@@ -1516,29 +1524,67 @@
     (let* ((sim-time 0d0))
       (let ((total-iter 0)
             (dt-accumulator 0d0))
-        (time (loop for steps from 0 to (round total-time dt)
-                    while (and (cl-mpm::sim-run-sim sim)
-                               (< sim-time total-time))
-                    do
-                       (let ()
-                         (cl-mpm:sim-format sim t "Step ~d ~%" steps)
-                         (cl-mpm/dynamic-relaxation::save-vtks sim output-dir steps)
-                         (save-timestep sim output-dir total-iter :DYNAMIC)
-                         (incf dt-accumulator dt)
-                         (cl-mpm:sim-format sim t "Estimated substeps ~d ~%" (round dt (cl-mpm::sim-dt sim)))
-                         (time
-                          (loop while (> dt-accumulator 0d0)
-                                do
-                                   (progn
-                                     (cl-mpm::update-sim sim)
-                                     (incf total-iter)
-                                     (decf dt-accumulator (cl-mpm::sim-dt sim))
-                                     (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim))))))
-                         (funcall post-iter-step sim)
-                         (funcall plotter sim)
-                         (when save-vtk-loadstep
-                           (save-vtks sim output-dir steps))
-                         (swank.live:update-swank))))))
+        (let ((state :accelerate)
+              (oobf 0d0)
+              (energy 0d0)
+              (work 0d0)
+              (hist adaptive-hist)
+              )
+          (when adaptive-mass-enabled
+            (setf (cl-mpm:sim-mass-scale sim) adaptive-mass-scale))
+          (time (loop for steps from 0 to (round total-time dt)
+                      while (and (cl-mpm::sim-run-sim sim)
+                                 (< sim-time total-time))
+                      do
+                         (let ((substeps 0))
+                           (cl-mpm:sim-format sim t "Step ~d ~%" steps)
+                           (cl-mpm/dynamic-relaxation::save-vtks sim output-dir steps)
+                           (save-timestep sim output-dir total-iter :DYNAMIC)
+                           (incf dt-accumulator dt)
+                           (cl-mpm:sim-format sim t "Estimated substeps ~d ~%" (round dt (cl-mpm::sim-dt sim)))
+                           (time
+                            (loop while (> dt-accumulator 0d0)
+                                  do
+                                     (progn
+                                       (cl-mpm::update-sim sim)
+
+                                       (when adaptive-mass-enabled 
+                                         (incf oobf (estimate-static-oobf sim))
+                                         (incf energy (cl-mpm::sim-stats-energy sim))
+                                         (incf work (estimate-strain-energy sim))
+                                         (incf substeps)
+                                         )
+
+                                       (incf total-iter)
+                                       (decf dt-accumulator (cl-mpm::sim-dt sim))
+                                       (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim))))))
+                           (funcall post-iter-step sim)
+                           (funcall plotter sim)
+                           (when save-vtk-loadstep
+                             (save-vtks sim output-dir steps))
+                           (when adaptive-mass-enabled 
+                             (setf oobf (/ oobf substeps)
+                                   energy (/ energy work))
+                             (format t "~A - OOBF ~E - energy ~E~%" state oobf energy)
+                             (case state
+                               (:accelerate
+                                (when (or (> energy (* hist adaptive-crit))
+                                          (> oobf (* hist adaptive-crit)))
+                                  (format t "Switched to dynamic timestep~%")
+                                  (setf
+                                   state :dynamic
+                                   (cl-mpm:sim-mass-scale sim) 1d0
+                                   (cl-mpm:sim-dt sim) (/ (cl-mpm:sim-dt sim) (sqrt adaptive-mass-scale)))))
+                               (:dynamic
+                                (when (and (< energy (/ adaptive-crit hist))
+                                           (< oobf (/ adaptive-crit hist)))
+                                  (format t "Switched to accelerate timestep~%")
+                                  (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
+                                  (setf
+                                   state :accelerate
+                                   (cl-mpm:sim-mass-scale sim) adaptive-mass-scale
+                                   (cl-mpm:sim-dt sim) (* (cl-mpm:sim-dt sim) (sqrt adaptive-mass-scale)))))))
+                           (swank.live:update-swank)))))))
     result))
 
 (defun run-load-control-timed (sim

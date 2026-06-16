@@ -168,8 +168,7 @@
    ((delay-time
      :accessor mp-delay-time
      :initform 1d0
-     :initarg :delay-time
-     )
+     :initarg :delay-time)
     (delay-exponent
      :accessor mp-delay-exponent
      :initform 1d0
@@ -502,6 +501,7 @@
 
 
 (defmethod cl-mpm/damage::update-damage ((mp cl-mpm/particle::particle-elastic-damage-delayed) dt)
+  ;; (break)
   (when (cl-mpm/particle::mp-enable-damage mp)
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
@@ -538,6 +538,7 @@
                    tau
                    tau-exp
                    dt))))
+        ;; (break)
         (let ((new-damage
                 (max
                  damage-n

@@ -244,7 +244,7 @@
          (when (typep mp 'cl-mpm/particle:particle-damage)
            (damage-model-calculate-y mp dt))))
 
-      (g2p-damage sim)
+      ;; (g2p-damage sim)
       (if non-local-damage
           (progn
             (when (sim-enable-length-localisation sim)
@@ -870,6 +870,7 @@ Calls the function with the mesh mp and node"
      mps
      (lambda (mp)
        (when (typep mp 'cl-mpm/particle:particle-damage)
+         ;; (find-mp-local-length mesh mp)
          (find-intergral-local-length mesh mp)
          )))))
 
@@ -903,9 +904,13 @@ Calls the function with the mesh mp and node"
      mps
      (lambda (mp)
        (when (typep mp 'cl-mpm/particle:particle-damage)
-         (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils::voight-to-matrix (cl-mpm/particle::mp-undamaged-stress mp)))
-           (setf (cl-mpm/particle::mp-stress-eigenvalues mp) l)
-           (setf (cl-mpm/particle::mp-stress-eigenvectors mp) v)))))
+         (let (;; (stress (cl-mpm/particle::mp-undamaged-stress mp))
+               (stress (cl-mpm/constitutive::linear-elastic-mat
+                        (cl-mpm/particle::mp-strain-n mp)
+                        (cl-mpm/particle::mp-elastic-matrix mp))))
+           (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils::voight-to-matrix stress))
+             (setf (cl-mpm/particle::mp-stress-eigenvalues mp) l)
+             (setf (cl-mpm/particle::mp-stress-eigenvectors mp) v))))))
     ;; Calculate the delocalised damage for each damage particle
     (cl-mpm:iterate-over-mps
      mps
@@ -1308,31 +1313,42 @@ Calls the function with the mesh mp and node"
 
 
 
-
 (defun get-nonlocal-interactions (sim mp)
+  (cond
+    ((cl-mpm/damage::sim-enable-ekl sim)
+     (get-nonlocal-interactions-ekl sim mp))
+    ((cl-mpm/damage::sim-enable-stress-based-length sim)
+     (get-nonlocal-interactions-stress-based sim mp))
+    (t
+     (when (cl-mpm/damage::sim-enable-length-localisation sim)
+       (update-localisation-lengths sim))
+     (get-nonlocal-interactions-standard sim mp))))
+
+(defun get-nonlocal-interactions-standard (sim mp)
   (g2p-damage sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)
-                   (mps cl-mpm:sim-mps)) sim
+                   (mps cl-mpm:sim-mps))
+      sim
     (let ((data-positions (list))
           (data-weights (list))
           (damage-inc 0d0)
           (mass-total 0d0)
-          (length (* 1d0 (cl-mpm/particle::mp-local-length mp))))
+          (length (* 1d0 (cl-mpm/particle::mp-true-local-length mp))))
       (declare (double-float damage-inc mass-total))
       (iterate-over-neighour-mps
        mesh mp length
        (lambda (mesh mp mp-other dist)
          (with-accessors ((d cl-mpm/particle::mp-damage)
                           (m cl-mpm/particle:mp-volume)
-                          (ll cl-mpm/particle::mp-local-length)
+                          (ll cl-mpm/particle::mp-true-local-length)
                           (p cl-mpm/particle:mp-position))
              mp-other
-           (when t;(< (the double-float d) 1d0)
+           (when t
              (push (cl-mpm/fastmaths::fast-.-
                     (cl-mpm/particle::mp-position mp-other)
                     (cl-mpm/particle::mp-position mp)
                     ) data-positions)
-             (let ((weight (weight-func-mps-damaged mesh mp mp-other length)))
+             (let* ((weight (weight-func-mps mesh mp mp-other (sqrt (* length ll)))))
                (declare (double-float weight m d mass-total damage-inc))
                (incf mass-total (* weight m))
                (incf damage-inc
@@ -1341,6 +1357,35 @@ Calls the function with the mesh mp and node"
                (push (* weight m) data-weights))))))
       (when (> mass-total 0d0)
         (setf damage-inc (/ damage-inc mass-total))
+        (setf data-weights (mapcar (lambda (w) (/ w mass-total)) data-weights)))
+      (values data-positions data-weights))))
+
+(defun get-nonlocal-interactions-ekl (sim mp)
+  (g2p-damage sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm:sim-mps)) sim
+    (let ((data-positions (list))
+          (data-weights (list))
+          (mass-total 0d0)
+          (length (* 1d0 (cl-mpm/particle::mp-local-length mp))))
+      (declare (double-float mass-total))
+      (iterate-over-neighour-mps
+       mesh mp length
+       (lambda (mesh mp mp-other dist)
+         (with-accessors ((d cl-mpm/particle::mp-damage)
+                          (m cl-mpm/particle:mp-volume)
+                          (ll cl-mpm/particle::mp-local-length)
+                          (p cl-mpm/particle:mp-position))
+             mp-other
+           (push (cl-mpm/fastmaths::fast-.-
+                  (cl-mpm/particle::mp-position mp-other)
+                  (cl-mpm/particle::mp-position mp)
+                  ) data-positions)
+           (let ((weight (weight-func-mps-damaged mesh mp mp-other length)))
+             (declare (double-float weight m d mass-total))
+             (incf mass-total (* weight m))
+             (push (* weight m) data-weights)))))
+      (when (> mass-total 0d0)
         (setf data-weights (mapcar (lambda (w) (/ w mass-total)) data-weights)))
       (values data-positions data-weights))))
 
@@ -1386,3 +1431,5 @@ Calls the function with the mesh mp and node"
         (setf damage-inc (/ damage-inc mass-total))
         (setf data-weights (mapcar (lambda (w) (/ w mass-total)) data-weights)))
       (values data-positions data-weights))))
+
+

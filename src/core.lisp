@@ -1194,7 +1194,7 @@ This modifies the dt of the simulation in the process
                         (the double-float (* dz (cl-mpm/utils::mtref-3x3 df-inv 2 2)))))
                 2))))
     (ecase nd
-      (1 x)
+      (1 (* 2d0 x))
       (2 (max x y))
       (3 (max x y z)))))
 

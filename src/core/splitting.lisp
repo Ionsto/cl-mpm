@@ -230,7 +230,8 @@
                     (max-l (reduce #'max abs-l))
                     (min-l (reduce #'min (remove 0d0 abs-l))))
                (when (or (> max-l crit)
-                         (> (* 0.5d0 max-l) min-l))
+                         (> (* 0.5d0 max-l) min-l)
+                         )
                  (let* ((pos (position max-l abs-l))
                         (vec (cl-mpm/utils::matrix-column v pos)))
                    (setf split-dir (cl-mpm/fastmaths:norm
@@ -265,8 +266,8 @@
 (defun split-mps (sim)
   "Split mps that match the split-criteria"
   (dotimes (d (cl-mpm/mesh::mesh-nd (sim-mesh sim)))
-    (split-mps-cartesian sim)
-    ;; (split-mps-eigenvalue sim)
+    ;; (split-mps-cartesian sim)
+    (split-mps-eigenvalue sim)
     ))
 
 (defun split-mps-criteria (sim criteria)

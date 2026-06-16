@@ -14,6 +14,7 @@
    #:make-bc-penalty
    #:make-bc-penalty-distance-point
    #:save-vtk-penalties
+   #:save-json-penalties
    #:bc-penalty-friction))
 ;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
@@ -853,6 +854,42 @@
                  (t ))))
     bc-save-list
     ))
+
+(defun save-json-penalties (filename sim)
+  (with-accessors ((bcs cl-mpm:sim-bcs-force-list))
+      sim
+    (let ((bc-save-list (list)))
+      (loop for bc-list in bcs
+            do
+               (loop for bc across bc-list
+                     do
+                        (typecase bc
+                          (cl-mpm/penalty::bc-penalty-distance
+                           (push bc bc-save-list)
+                           )
+                          (cl-mpm/penalty::bc-penalty-structure
+                           (setf bc-save-list (append bc-save-list (get-all-bcs bc))))
+                          (t ))))
+      (let ((json-object (list)))
+        (loop for bc in bc-save-list
+              do
+                 (with-accessors ((center cl-mpm/penalty::bc-penalty-distance-center-point )
+                                  (normal cl-mpm/penalty::bc-penalty-normal)
+                                  (radius cl-mpm/penalty::bc-penalty-distance-radius))
+                     bc
+                   (push (list :position (list (cl-mpm/utils:varef center 0)
+                                               (cl-mpm/utils:varef center 1)
+                                               (cl-mpm/utils:varef center 2))
+                               :normal (list (cl-mpm/utils:varef normal 0)
+                                             (cl-mpm/utils:varef normal 1)
+                                             (cl-mpm/utils:varef normal 2))
+                               :radius radius) json-object))
+              )
+        (str:to-file
+         filename
+         (jonathan:to-json
+          json-object
+          ))))))
 
 (defun save-vtk-penalties (filename sim)
   (with-accessors ((bcs cl-mpm:sim-bcs-force-list))

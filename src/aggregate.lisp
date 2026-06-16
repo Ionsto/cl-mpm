@@ -504,6 +504,16 @@
           (setf (varef (funcall ,accessor n) ,dim)
                 (varef proj-val (cl-mpm/mesh::node-agg-fdc n))))))))
 
+(defmacro project-int-scalar (sim vector accessor)
+  `(progn
+     (let* ((int-nodes (sim-agg-nodes-fdc ,sim))
+            (proj-val ,vector))
+       (cl-mpm::iterate-over-nodes-array
+        int-nodes
+        (lambda (n)
+          (setf (,accessor n)
+                (varef proj-val (cl-mpm/mesh::node-agg-fdc n))))))))
+
 (defmacro project-global-scalar (sim vector accessor)
   `(progn
      (let* ((active-nodes (sim-agg-nodes-fd ,sim))
@@ -918,7 +928,7 @@
                     (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d)
                     d)))
              (let* ((acc (linear-solve-with-bcs sim ma fa d)))
-               (cl-mpm/fastmaths::fast-scale! acc (/ 1d0 (sqrt mass-scale)))
+               (cl-mpm/fastmaths::fast-scale! acc (/ 1d0 mass-scale))
                (project-global-vec
                 sim
                 (extend-vec sim acc d)

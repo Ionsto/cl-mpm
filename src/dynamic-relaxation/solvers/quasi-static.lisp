@@ -92,7 +92,10 @@
          (let* ((mp-volume (cl-mpm/particle::mp-volume mp))
                 (mp-pmod (cl-mpm/particle::estimate-stiffness mp))
                 (ul (estimate-ul-enhancement mp nd))
-                (mp-factor (* mp-pmod mp-volume ul mass-scale
+                (mp-factor (* mp-pmod
+                              mp-volume
+                              ul
+                              mass-scale
                               (/ 1d0 (* h h)))))
            (declare (type double-float mp-factor mp-pmod ul mp-volume))
            (cl-mpm::iterate-over-neighbours

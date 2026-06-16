@@ -402,6 +402,11 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
          (ftype (function (cl-mpm/mesh::mesh magicl:matrix/double-float function) (values))
                 iterate-over-neighbours-point-linear))
 
+(defgeneric iterate-over-neighbours-point (sim position func)
+  (:documentation "A more general iteration construct that simply asks the sim to provide the nearby nodes, irrespective of mesh"))
+(defmethod iterate-over-neighbours-point ((sim cl-mpm::mpm-sim) position func)
+  (iterate-over-neighbours-point-linear (cl-mpm:sim-mesh sim) position func))
+
 (defun iterate-over-neighbours-point-linear (mesh position func)
   "Iterate over neighbours of an arbitrary point - using FEM linear basis"
   (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)

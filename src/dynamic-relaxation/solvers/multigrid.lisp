@@ -430,6 +430,14 @@
                                               mpm-sim-octree-quasi-static  mpm-sim-octree-damage)
   ())
 
+(defmethod initialize-instance :after ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree) &key)
+  (setf
+   (cl-mpm::sim-output-list-scalar sim)
+   (append
+    (cl-mpm::sim-output-list-scalar sim)
+    (list
+     (list "mesh-index" #'cl-mpm/particle::mp-mesh-index))))
+  )
 
 (defun iterate-over-meshes (sim func)
   (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
@@ -629,6 +637,32 @@
   )
 
 
+(defmethod cl-mpm::iterate-over-neighbours-point ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree) pos func)
+  (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
+                   (refinement cl-mpm::sim-multigrid-refinement))
+      sim
+    (let* ((resolved-mesh 0)
+           (mesh (aref mesh-list resolved-mesh)))
+      (loop for i from 0 to refinement
+            do
+               (let ()
+                 (setf mesh (aref mesh-list resolved-mesh))
+                 (labels ((get-cell-at-pos (pos)
+                            (let ((p pos))
+                              (cl-mpm/mesh::get-cell
+                               mesh
+                               (cl-mpm/mesh::position-to-index-cell
+                                mesh
+                                p
+                                )))))
+                   (let ((max-index (cell-octree-refine (get-cell-at-pos pos))))
+                     (if (or
+                          (> max-index 1))
+                         (progn
+                           (incf resolved-mesh))
+                         (loop-finish))))))
+      (cl-mpm::iterate-over-neighbours-point-linear mesh pos func))))
+
 
 (defun setup-mp-iteration-cache (sim)
   (set-mesh-default sim)
@@ -638,7 +672,7 @@
       (cl-mpm::iterate-over-mps
        (cl-mpm:sim-mps sim)
        (lambda (mp)
-         (when (> refinement 0)
+         (if (> refinement 0)
            (let ((resolved-mesh 0)
                  (running t))
              (let ((mesh (aref mesh-list resolved-mesh)))
@@ -692,7 +726,10 @@
                (cl-mpm::iterate-over-neighbours
                 mesh
                 mp
-                (lambda (&rest args))))))))
+                (lambda (&rest args)))))
+           (progn
+             (setf (cl-mpm/particle::mp-index mp) 0)
+             (setf (cl-mpm/particle::mp-mesh-index mp) 0)))))
     ;; (iterate-over-meshes
     ;;  sim
     ;;  (lambda (mesh mesh-index)
@@ -1549,19 +1586,24 @@
                    (split-factor cl-mpm::sim-split-factor))
       sim
     (declare (fixnum max-split-depth))
-    (let* ((mps-to-split (remove-if-not (lambda (mp)
+    (let* ((nd (cl-mpm/mesh::mesh-nd mesh))
+           (mps-to-split (remove-if-not (lambda (mp)
                                           (and
                                            (< (cl-mpm/particle::mp-split-depth mp) max-split-depth)
                                            (cl-mpm::split-criteria-variable
                                             mp
                                             (resolve-h sim mp)
-                                            split-factor))) mps))
+                                            split-factor
+                                            nd))) mps))
            (split-direction (map 'list (lambda (mp) (cl-mpm::split-criteria-variable
                                                      mp
                                                      (resolve-h sim mp)
-                                                     split-factor)) mps-to-split))
+                                                     split-factor
+                                                     nd
+                                                     )) mps-to-split))
            )
-      (cl-mpm::remove-mps-func sim (lambda (mp) (cl-mpm::split-criteria-variable mp (resolve-h sim mp) split-factor)))
+      (cl-mpm::remove-mps-func sim (lambda (mp) (cl-mpm::split-criteria-variable mp (resolve-h sim mp) split-factor
+                                                                                 nd)))
       (loop for mp across mps-to-split
             for direction in split-direction
             do (loop for new-mp in (cl-mpm::split-mp mp (resolve-h sim mp) direction)

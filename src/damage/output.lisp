@@ -14,7 +14,15 @@
        (list "damage-inc" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-damage-increment mp))))
        (list "damage" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-damage mp))))
        (list "damage-ybar" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-damage-ybar mp))))
+       (list "damage-ybar-scaled"
+             (lambda (mp)
+               (damage-val mp
+                           (*
+                            (- 1d0 (cl-mpm/particle::mp-damage mp))
+                            (cl-mpm/particle::mp-damage-ybar mp)))))
        (list "damage-y" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-damage-y-local mp))))
+       (list "damage-k" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-history-stress mp))))
+       (list "damage-length" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-true-local-length mp))))
        ;; (list )"damage" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-damage mp)))
        )))
     ))

@@ -41,6 +41,10 @@
    (ke-prev
     :initform 0d0
     :accessor sim-ke-prev)
+   (inertia-critera
+    :initform nil
+    :initarg :inertia-criteria
+    :accessor sim-inertia-criteria)
    )
   (:default-initargs
    :vel-algo :QUASI-STATIC)
