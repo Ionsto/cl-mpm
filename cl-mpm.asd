@@ -289,9 +289,11 @@
                (:file "src/solvers/musl")))
 (defsystem "cl-mpm/mpi"
   :depends-on ("cl-mpm"
-               "lfarm-client"
-               "lfarm-server"
-               "lfarm-admin"
+               ;; "lfarm-client"
+               ;; "lfarm-server"
+               ;; "lfarm-admin"
+               "flexi-streams"
+               "cl-store"
                "cl-mpm/fastmaths"
                "cl-mpm/utils"
                "alexandria"
@@ -308,8 +310,8 @@
                "cl-mpm/setup"
                "cl-mpi"
                "cl-mpi-extensions"
+               "cl-mpm/aggregate"
                "trivial-with-current-source-form")
-
   :description ""
   :components ((:module "src"
                 :components
@@ -322,9 +324,11 @@
                    (:file "sync")
                    (:file "mpi")
                    (:file "damage")
-                   ))))
-               ;; (:file "src/mpi")
-               ))
+                   (:file "solver")
+                   (:file "output")
+                   (:file "agg")
+                   ))))))
+
 (defsystem "cl-mpm/buoyancy"
   :depends-on ("cl-mpm"
                "cl-mpm/bc"
@@ -504,19 +508,8 @@
   :components ((:file "examples/shear")))
 
 
-(defsystem "cl-mpm/examples/creep"
-  :depends-on ("cl-mpm"
-               "cl-mpm/setup"
-               "cl-mpm/particle"
-               "cl-mpm/output"
-               "cl-mpm/buoyancy"
-               "cl-mpm/plotter"
-               "cl-mpm/damage"
-               "cl-mpm/eigenerosion"
-               "vgplot"
-               "lisp-stat"
-               "swank.live"
-               "cl-mpm/magicl")
+(defsystem "cl-mpm/examples/damage/creep"
+  :depends-on ("cl-mpm/example")
   :serial t
   :components ((:file "examples/damage/creep")))
 
@@ -937,3 +930,9 @@
   :depends-on ("cl-mpm/example")
   :serial t
   :components ((:file "examples/dr/quasi-time")))
+
+
+;; #+asdf-system-connections
+;; (defsystem-connection "cl-mpm/mpi-agg"
+;;   :requires ("cl-mpm/dynamic-relaxation" "cl-mpm/penalty")
+;;   :components ((:file "src/solvers/octree/penalty")))
