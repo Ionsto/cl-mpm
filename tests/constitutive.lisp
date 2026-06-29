@@ -133,12 +133,7 @@
                                                               -1.2005d0
                                                               0d0
                                                               0d0
-                                                              0d0
-
-                                                              )
-                                                             )))
-  )
-
+                                                              0d0)))))
 (deftest test-von-mises ()
   ;;Not a good test
   (is (vm-test (list 1d0 0d0 0d0 0d0 0d0 0d0) (list 1d0 0d0 0d0 0d0 0d0 0d0)))
@@ -551,5 +546,6 @@
                   (format t "Params E:~A Nu:~A Phi:~A Psi:~A C:~A~%" E nu phi psi c)))))))
     (format t "Test fail rate: ~F%~%" (* 100d0 (/ test-fail tests)))
     (format t "Test pass: ~D/~D~%" test-pass tests)
-    (format t "Test fail: ~D/~D~%" test-fail tests))
-  )
+    (format t "Test fail: ~D/~D~%" test-fail tests)))
+
+
