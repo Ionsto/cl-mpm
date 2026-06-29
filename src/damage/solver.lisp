@@ -47,7 +47,7 @@
                       (cl-mpm::reset-node-displacement sim)
                       (cl-mpm::update-nodes sim)
                       (cl-mpm::apply-essential-bcs sim)
-                      (cl-mpm/ghost::apply-half-step-ghost sim)
+                      ;; (cl-mpm/ghost::apply-half-step-ghost sim)
 
                       (cl-mpm::update-dynamic-stats sim)
                       (cl-mpm::g2p mesh mps dt damping vel-algo)

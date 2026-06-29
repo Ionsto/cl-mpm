@@ -106,7 +106,7 @@
       ;; (format t "Contacts ~D~%" (length contacts))
       (when (> (length contacts) 0)
         ;; (format t "Contacts ~D~%" (length (bc-penalty-contact-points bc)))
-        (lparallel:pdotimes (i (length contacts))
+        (cl-mpm/utils::bpdotimes (i (length contacts))
           (let* ((contact (aref contacts i))
                  (mesh (dr-contact-point-mesh contact))
                  (nd (cl-mpm/mesh::mesh-nd mesh))

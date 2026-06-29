@@ -293,36 +293,44 @@
         (cl-mpm/utils::object-pool-ensure-size work-pool)
         (setf
          num
-         (cl-mpm::reduce-over-nodes
-          mesh
-          (lambda (node)
-            (if (and (cl-mpm/mesh:node-active node)
-                     (not (cl-mpm/mesh::node-agg node)))
-                (cl-mpm/fastmaths:dot
-                 (cl-mpm/mesh:node-velocity node)
-                 (cl-mpm/fastmaths:fast-.-
-                  (cl-mpm/mesh::node-residual-prev node)
-                  (cl-mpm/mesh::node-residual node)
-                  (cl-mpm/utils::object-pool-grab-unsafe work-pool)
-                  ))
-                0d0))
-          #'+))
+         (float
+          (cl-mpm::reduce-over-nodes
+           mesh
+           (lambda (node)
+             (if (and (cl-mpm/mesh:node-active node)
+                      (not (cl-mpm/mesh::node-agg node)))
+                 (cl-mpm/fastmaths:dot
+                  (cl-mpm/mesh:node-velocity node)
+                  (cl-mpm/fastmaths:fast-.-
+                   (cl-mpm/mesh::node-residual-prev node)
+                   (cl-mpm/mesh::node-residual node)
+                   (cl-mpm/utils::object-pool-grab-unsafe work-pool)
+                   ))
+                 0d0))
+           #'+)
+          0d0))
         (setf
          denom
          (* dt
             (the double-float
-                 (cl-mpm::reduce-over-nodes
-                  mesh
-                  (lambda (node)
-                    (the double-float
-                         (if (and (cl-mpm/mesh:node-active node)
-                                  (not (cl-mpm/mesh::node-agg node)))
-                             (*
-                              (the double-float (cl-mpm/mesh:node-mass node))
-                              (the double-float (cl-mpm/fastmaths::mag-squared
-                                                 (cl-mpm/mesh::node-velocity node))))
-                             0d0)))
-                  #'+))))
+                 (float
+                  (cl-mpm::reduce-over-nodes
+                   mesh
+                   (lambda (node)
+                     (the double-float
+                          (if (and (cl-mpm/mesh:node-active node)
+                                   (not (cl-mpm/mesh::node-agg node)))
+                              (progn
+                                (when (not (typep (cl-mpm/mesh:node-mass node) 'double-float))
+                                  (break))
+                                (*
+                                 (the double-float (cl-mpm/mesh:node-mass node))
+                                 (the double-float (cl-mpm/fastmaths::mag-squared
+                                                    (cl-mpm/mesh::node-velocity node)))))
+                              0d0)))
+                   #'+)
+                  0d0
+                  ))))
 
         (when (cl-mpm/aggregate::sim-enable-aggregate sim)
           (cl-mpm/aggregate::iterate-over-dimensions-with-mutex

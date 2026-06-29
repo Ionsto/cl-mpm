@@ -25,7 +25,7 @@
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 (in-package :cl-mpm/mpi)
 
-(defclass mpm-sim-mpi (cl-mpm::mpm-sim-usf)
+(defclass mpm-sim-mpi (cl-mpm::mpm-sim)
   ((neighbour-node-list)
    (neighbour-ranks
     :initform '())
@@ -65,10 +65,24 @@
     :initform (make-array 0 :element-type t :adjustable t :fill-pointer 0)))
   (:documentation "Damage sim with only stress update on mpi"))
 
+;; (defclass mpm-sim-mpi (cl-mpm::mpm-sim-usf)
+;;   ()
+;;   (:documentation "Damage sim with only stress update on mpi"))
+
 (defclass mpm-sim-mpi-nodes-damage (mpm-sim-mpi-nodes cl-mpm/damage::mpm-sim-damage)
   ())
-(defclass mpm-sim-usl-mpi-nodes-damage (mpm-sim-mpi-nodes-damage)
+
+(defclass mpm-sim-mpi-usf (cl-mpm/aggregate::mpm-sim-agg-usf mpm-sim-mpi-nodes)
   ())
+
+(defclass mpm-sim-mpi-damage-usf (cl-mpm/damage::mpm-sim-agg-damage mpm-sim-mpi-nodes-damage)
+  ())
+
+(defclass mpm-sim-mpi-nodes (mpm-sim-mpi)
+  ((halo-node-list
+    :accessor mpm-sim-mpi-halo-node-list
+    :initform (loop for i from 0 to 2
+                    collect (loop for i from 0 to 1 collect (make-array 0 :element-type t))))))
 
 (defclass mpm-sim-mpi-nodes (mpm-sim-mpi)
   ((halo-node-list

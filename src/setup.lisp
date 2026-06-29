@@ -784,6 +784,21 @@
              ;;  mesh 0d0)
              )))
 
+(defmethod %setup-bcs :before ((sim cl-mpm:mpm-sim)
+                               left
+                               right
+                               top
+                               bottom
+                               front
+                               back)
+  (setf (cl-mpm/mesh::mesh-boundary-bcs (cl-mpm:sim-mesh sim))
+        (list :left left
+              :right right
+              :top top
+              :bottom bottom
+              :front front
+              :back back)))
+
 (defmethod %setup-bcs ((sim cl-mpm:mpm-sim)
                        left
                        right
@@ -793,13 +808,6 @@
                        back)
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
-    (setf (cl-mpm/mesh::mesh-boundary-bcs mesh)
-          (list :left left
-                :right right
-                :top top
-                :bottom bottom
-                :front front
-                :back back))
     (let ((bcs
             (cl-mpm/bc::make-outside-bc-varfix
              (cl-mpm:sim-mesh sim)

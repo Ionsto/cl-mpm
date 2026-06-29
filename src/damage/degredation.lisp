@@ -1,4 +1,5 @@
 (in-package :cl-mpm/damage)
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
 (defun apply-isotropic-degredation (mp)
   (with-accessors ((damage        cl-mpm/particle::mp-damage)
@@ -18,7 +19,7 @@
       (cl-mpm/fastmaths:fast-scale! stress (/ (- 1d0 damage) (cl-mpm/fastmaths::det-3x3 def)))
       (setf (cl-mpm/particle::mp-p-modulus-0 mp)
             (*
-             (- 1d0 damage)
+             (max 1d-9 (- 1d0 damage))
              (cl-mpm/particle::compute-p-modulus mp))))))
 
 (defun apply-tensile-stress-degredation (mp)
@@ -115,10 +116,59 @@
                (cl-mpm/constitutive::voight-eye p)
                (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage))
                stress))
-        (let ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
-              (G (* (- 1d0 damage) (/ e (* 2 (+ 1d0 nu))))))
-          (setf p-mod (+ K (* G (/ 4 3)))))
+        (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
+               (G (/ e (* 2 (+ 1d0 nu))))
+               (P-0 (+ K (* G (/ 4 3))))
+               (P (+ K (* (- 1d0 damage) G (/ 4 3))))
+               )
+          ;; (setf p-mod (* P-0 (max 1d-9 (/ P P-0))))
+          )
         ))))
+(defun apply-vol-tensile-degredation (mp)
+  (with-accessors ((damage        cl-mpm/particle::mp-damage)
+                   (stress        cl-mpm/particle::mp-stress)
+                   (enable-damage cl-mpm/particle::mp-enable-damage)
+                   (p-mod cl-mpm/particle::mp-p-modulus-0)
+                   (e cl-mpm/particle::mp-e)
+                   (nu cl-mpm/particle::mp-nu)
+                   )
+      mp
+    (declare (double-float damage))
+    (when (and
+           ;; enable-damage
+           (> damage 0.0d0))
+      (let* (
+             (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+             (pind p)
+             ;; (pind p)
+             (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+        (setf p
+              (if (> pind 0d0)
+                  (* (- 1d0 damage) p)
+                  p))
+        (setf stress
+              (cl-mpm/fastmaths:fast-.+
+               (cl-mpm/constitutive::voight-eye p)
+               (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage))
+               stress))
+        (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
+               (G (/ e (* 2 (+ 1d0 nu))))
+               (P-0 (+ K (* 4/3 G))))
+          (setf K
+                (if (> pind 0d0)
+                    (* (- 1d0 damage) K)
+                    (* (- 1d0 0d0) K)))
+          (setf G (* G (- 1d0 damage)))
+
+          (when (> (cl-mpm/particle::mp-yield-func mp) 0d0)
+            ;; (setf G 0d0)
+            (setf K (* K (cos (cl-mpm/particle::mp-phi mp))))
+            (setf G (* G (sin (cl-mpm/particle::mp-phi mp))))
+            )
+          (setf p-mod (max (* P-0 1d-9) (+ K (* 4/3 G))))
+          )
+        )
+      )))
 
 (defun apply-eigen-degredation (mp)
   

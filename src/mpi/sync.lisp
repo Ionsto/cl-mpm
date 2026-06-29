@@ -1,5 +1,42 @@
 (in-package :cl-mpm/mpi)
 
+
+(defun check-exception ()
+  (static-vectors:with-static-vector (source 1 :element-type 'double-float :initial-element 0d0)
+    (static-vectors:with-static-vector (dest 1 :element-type 'double-float :initial-element 0d0)
+      (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-max+)
+      (when (= (aref dest 0) 1d0)
+        (format t "MPI error propogated~%")
+        (let ((cl-mpi-extensions::*standard-encode-function* #'cl-store-encoder)
+              (cl-mpi-extensions::*standard-decode-function* #'cl-store-decoder))
+          (let ((er (cl-mpi-extensions:mpi-recv-anything
+                     (round (aref dest 0)))))
+            (error er)))))))
+
+(defun throw-mpi-error (error)
+  (format t "Throwing error over MPI~%")
+  (format t "~A~%" error)
+  (static-vectors:with-static-vector (source 1 :element-type 'double-float :initial-element (float (cl-mpi:mpi-comm-rank) 0d0))
+    (static-vectors:with-static-vector (dest 1 :element-type 'double-float :initial-element 0d0)
+      (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-max+)
+      (format t "All threads reached checkpoint~%")
+      (let ((cl-mpi-extensions::*standard-encode-function* #'cl-store-encoder)
+            (cl-mpi-extensions::*standard-decode-function* #'cl-store-decoder))
+        (cl-mpi-extensions:mpi-broadcast-anything
+         (cl-mpi:mpi-comm-rank)
+         :object error)))))
+
+
+(defmacro with-mpi-errors (&body body)
+  `(handler-case
+       (progn
+         ,@body
+         (check-exception))
+     (error (e)
+       (format t "Throwing err~%")
+       (throw-mpi-error e))))
+
+
 (defun exchange-node-like (sim
                            serialise
                            deserialise

@@ -18,6 +18,7 @@
   (:default-initargs
    :vel-algo :QUASI-STATIC)
   (:documentation "DR psudo-linear step with update stress last update"))
+
 (defclass mpm-sim-damage-quasi-static-mpi (mpm-sim-quasi-static-mpi cl-mpm/mpi::mpm-sim-mpi-nodes-damage)
   ()
   (:default-initargs
@@ -28,15 +29,16 @@
   (cl-mpm/mpi::mpi-sync-mass sim))
 
 
-(defmethod save-vtks ((sim mpm-sim-dr-mpi) output-dir step)
+(defmethod save-vtks ((sim cl-mpm/mpi::mpm-sim-mpi) output-dir step)
   (let ((rank (cl-mpi:mpi-comm-rank)))
     (when (= rank 0)
       (format t "Save vtks ~D~%" step))
     (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" rank step)) sim)
     (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" rank step)) sim)
+    (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d_~5,'0d.vtk" rank step)) sim)
     (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d_~5,'0d.vtk" rank step)) sim )))
 
-(defmethod save-vtks-dr-step ((sim mpm-sim-dr-mpi) output-dir step iter)
+(defmethod save-vtks-dr-step ((sim cl-mpm/mpi::mpm-sim-mpi) output-dir step iter)
   (let ((rank (cl-mpi:mpi-comm-rank)))
     (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" rank step iter)) sim)
     (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" rank step iter)) sim)
@@ -122,21 +124,20 @@
                     (not (cl-mpm/mpi::node-in-computational-domain sim n)))
            (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-displacment n))
            (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-velocity n))))))
+    (cl-mpm::apply-essential-bcs sim)
 
     (cl-mpm/mpi::mpi-sync-displacement sim)
 
-    (cl-mpm::update-stress mesh mps dt-loadstep fbar)
+    (cl-mpm/mpi::with-mpi-errors
+        (cl-mpm::update-stress mesh mps dt-loadstep fbar))
     (cl-mpm::p2g-force-fs sim)
-    (cl-mpm::apply-bcs mesh bcs-force dt)
-
-    (loop for bcs-f in bcs-force-list
-          do (cl-mpm::apply-bcs mesh bcs-f dt))
+    (cl-mpm::apply-force-bcs sim dt-loadstep)
     (cl-mpm/mpi::mpi-sync-force sim)
     (update-node-fictious-mass sim)
     (cl-mpm/mpi::mpi-sync-mass sim)
     ;;Update our nodes after force mapping
     (cl-mpm::update-node-forces sim)
-    (cl-mpm::apply-bcs mesh bcs dt)
+    (cl-mpm::apply-essential-bcs sim)
     ;; (cl-mpm::update-dynamic-stats sim)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)))
 

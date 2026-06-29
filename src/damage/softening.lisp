@@ -1,4 +1,5 @@
 (in-package :cl-mpm/damage)
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
 (declaim (ftype (function (double-float double-float double-float double-float )
                           double-float) damage-response-exponential))

@@ -1205,9 +1205,8 @@
                                (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar))
                   node
                 (declare (double-float volume svp))
-                (let (;; (grads (cl-mpm::gradient-push-forwards grads df))
-                      ;; (volume (* volume (cl-mpm/fastmaths::det-3x3 df)))
-                      )
+                (let ((grads (cl-mpm::gradient-push-forwards grads df))
+                      (volume (* volume (cl-mpm/fastmaths::det-3x3 df))))
                   (cl-mpm/fastmaths:fast-zero f-stress)
                   (cl-mpm/forces::det-stress-force-unrolled cell-stress grads (- volume) f-stress)
                   (cl-mpm/fastmaths:fast-scale-vector
@@ -1219,6 +1218,9 @@
                              (funcall clip-func node-pos)
                              )
                     ;;Lock node
+                    ;; (pprint f-stress)
+                    ;; (pprint f-div)
+                    ;; (break)
                     (sb-thread:with-mutex (node-lock)
                       ;; (cl-mpm/fastmaths:fast-.- node-force-ext f-stress node-force-ext)
                       ;; (cl-mpm/fastmaths:fast-.- node-force-ext f-div    node-force-ext)

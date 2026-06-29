@@ -638,7 +638,10 @@
                    )
       mp
     (when enable-damage
-      (cl-mpm/damage::apply-tcs-degredation mp))))
+      ;; (cl-mpm/damage::apply-isotropic-degredation mp)
+      ;; (cl-mpm/damage::apply-vol-tensile-degredation mp)
+      (cl-mpm/damage::apply-tcs-degredation mp)
+      )))
 
 (defun delay-damage-update (k-0 y-0 y-1))
 
@@ -704,13 +707,14 @@
                     ybar
                     dt
                     (lambda (k y0 y1 s-dt)
-                      (cl-mpm/damage::huen-integration k
-                                                       y0
-                                                       y1
-                                                       k0
-                                                       tau
-                                                       tau-exp
-                                                       s-dt)))
+                      (cl-mpm/damage::huen-integration
+                       k
+                       y0
+                       y1
+                       k0
+                       tau
+                       tau-exp
+                       s-dt)))
                    ))))
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))

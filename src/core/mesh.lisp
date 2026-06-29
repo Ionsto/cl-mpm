@@ -746,7 +746,7 @@
     cells))
 
 (defun make-mesh (size resolution shape-function)
-  "Create a 2D mesh and fill it with nodes"
+  "Create a mesh and fill it with nodes"
   (let ((nD (length size)))
     (ecase nd
       (1 (setf size (list (nth 0 size) 0 0)))

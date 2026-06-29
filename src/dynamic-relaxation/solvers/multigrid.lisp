@@ -436,8 +436,7 @@
    (append
     (cl-mpm::sim-output-list-scalar sim)
     (list
-     (list "mesh-index" #'cl-mpm/particle::mp-mesh-index))))
-  )
+     (list "mesh-index" #'cl-mpm/particle::mp-mesh-index)))))
 
 (defun iterate-over-meshes (sim func)
   (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
@@ -558,24 +557,54 @@
     ;;  (aref bcs-list 0))
     ))
 
-(defmethod update-instance-for-different-class :after ((prev cl-mpm::mpm-sim)
-                                                        (current mpm-sim-octree)
-                                                        &rest initargs
-                                                        ;; &key (refinement 0)
-                                                          )
+(defmethod update-instance-for-different-class ((prev cl-mpm::mpm-sim)
+                                                (current mpm-sim-octree)
+                                                &rest initargs
+                                                  ;; &key (refinement 0)
+                                                  )
   ;; (setf (cl-mpm::sim-multigrid-refinement current) refinement)
+  (call-next-method)
+  ;; (break)
+  (pprint "Rebuild meshes")
+  (cl-mpm:iterate-over-mps
+   (cl-mpm:sim-mps current)
+   (lambda (mp)
+     (setf (cl-mpm/particle::mp-damage-position mp) nil)))
   (cl-mpm/setup::%post-make-simple-sim
    current
    (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh prev))
    (subseq
     (cl-mpm/mesh::mesh-count (cl-mpm:sim-mesh prev))
     0
-    (cl-mpm/mesh::mesh-nd (cl-mpm:sim-mesh prev))
-    )
-    initargs)
+    (cl-mpm/mesh::mesh-nd (cl-mpm:sim-mesh prev)))
+   initargs)
   (apply #'cl-mpm/setup:setup-bcs
          current
          (cl-mpm/mesh::mesh-boundary-bcs (cl-mpm:sim-mesh prev))))
+
+(defmethod update-instance-for-different-class ((prev mpm-sim-octree)
+                                                (current mpm-sim-octree)
+                                                &rest initargs)
+  (pprint "We don't have do do anything")
+  (call-next-method)
+  (cl-mpm:iterate-over-mps
+   (cl-mpm:sim-mps current)
+   (lambda (mp)
+     (setf (cl-mpm/particle::mp-damage-position mp) nil)))
+  ;; (setf (cl-mpm::sim-multigrid-refinement current) refinement)
+  ;; (cl-mpm/setup::%post-make-simple-sim
+  ;;  current
+  ;;  (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh prev))
+  ;;  (subseq
+  ;;   (cl-mpm/mesh::mesh-count (cl-mpm:sim-mesh prev))
+  ;;   0
+  ;;   (cl-mpm/mesh::mesh-nd (cl-mpm:sim-mesh prev))
+  ;;   )
+  ;;  initargs)
+  ;; (apply #'cl-mpm/setup:setup-bcs
+  ;;        current
+  ;;        (cl-mpm/mesh::mesh-boundary-bcs (cl-mpm:sim-mesh prev)))
+  )
 
 
 (defmethod cl-mpm/setup::%post-make-simple-sim ((sim mpm-sim-octree) resolution element-count args-list)
@@ -1083,6 +1112,20 @@
                              (+ dy (* 2 y))
                              0))))
               (funcall func nb))))))))
+(defun iterate-over-sub-cells-3d (sim mesh-index cell func)
+  (with-accessors ((mesh-list cl-mpm::sim-mesh-list))
+      sim
+    (let ((mesh (aref mesh-list (1+ mesh-index))))
+      (destructuring-bind (x y z) (cl-mpm/mesh::cell-index cell)
+        (dotimes (dx 2)
+          (dotimes (dy 2)
+            (dotimes (dz 2)
+              (let ((nb (cl-mpm/mesh::get-cell
+                         mesh
+                         (list (+ dx (* 2 x))
+                               (+ dy (* 2 y))
+                               (+ dz (* 2 z))))))
+                (funcall func nb)))))))))
 
 (defun iterate-over-sub-cells (sim mesh-index cell func)
   (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
@@ -1093,7 +1136,7 @@
       (ecase (cl-mpm/mesh::mesh-nd mesh)
         (1 (iterate-over-sub-cells-1d sim mesh-index cell func))
         (2 (iterate-over-sub-cells-2d sim mesh-index cell func))
-        (3 (error "Not implemented"))))))
+        (3 (iterate-over-sub-cells-3d sim mesh-index cell func))))))
 
 (defun iterate-over-sub-nodes-1d (sim mesh-index cell func)
   (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
@@ -1613,7 +1656,8 @@
 
 (defmethod cl-mpm::update-sim :before ((sim mpm-sim-octree-usf))
   (set-mesh-default sim)
-  (set-mesh-refinement sim (sim-octree-refinement-criteria sim))
+  (set-mesh-refinement sim (sim-octree-refinement-criteria sim)
+                       :derefine t)
   (cl-mpm/dynamic-relaxation::setup-mp-iteration-cache sim)
   (split-until-stable sim)
   (set-mesh-default sim))
@@ -1791,99 +1835,49 @@
       (with-open-file (fs filename :direction :output :if-exists :supersede)
         (format fs "# vtk DataFile Version 2.0~%")
         (format fs "Lisp generated vtk file, SJVS~%")
-        (format fs "ASCII~%")
-        (format fs "DATASET UNSTRUCTURED_GRID~%")
+        (format fs "BINARY~%")
+        (format fs "DATASET UNSTRUCTURED_GRID~%"))
+      (with-open-file (fs filename :direction :output :if-exists :append)
+        (with-open-file (fs-bin filename :direction :output :if-exists :append :element-type '(unsigned-byte 8))
+          (let* ((node-count iter)
+                 ;; (nodes (remove-if-not 'cl-mpm/mesh:node-active
+                 ;;                       (make-array node-count :displaced-to full-nodes)))
+                 )
+            (when (= (length nodes) 0)
+              (setf nodes (make-array node-count :displaced-to nodes)))
+            (let ((node-count (array-total-size nodes)))
+              (format fs "POINTS ~d double~%" (array-total-size nodes))
+              (force-output fs)
+              (loop for i from 0 below (array-total-size nodes)
+                    do
+                       (let ((node (row-major-aref nodes i)))
+                         (when node
+                           (let ((pos (cl-mpm/fastmaths:fast-.+
+                                       (cl-mpm/mesh::node-position node)
+                                       (cl-mpm/mesh::node-displacment node))))
+                             (write-binary-float (cl-mpm/utils:varef pos 0) fs-bin)
+                             (write-binary-float (cl-mpm/utils:varef pos 1) fs-bin)
+                             (write-binary-float (cl-mpm/utils:varef pos 2) fs-bin)))))
+              (force-output fs-bin)
+              (format fs "~%")
+              (let ((id 1)
+                    (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))))
+                (declare (special id))
+                (format fs "POINT_DATA ~d~%" (array-total-size nodes))
 
-        (let* (;; (node-count (array-total-size full-nodes))
-               ;; (nodes (remove-if-not 'cl-mpm/mesh:node-active
-               ;;                       (make-array node-count :displaced-to full-nodes)))
-               )
-          ;; (when (= (length nodes) 0)
-          ;;   (setf nodes (make-array node-count :displaced-to full-nodes)))
-          (let ((node-count (array-total-size nodes)))
-            (format fs "POINTS ~d double~%" (array-total-size nodes))
-            (loop for i from 0 below (array-total-size nodes)
-                  do
-                     (let ((node (row-major-aref nodes i)))
-                       (when node
-                         ;; (incf node-count)
-                         (let ((pos (cl-mpm/fastmaths:fast-.+
-                                     (cl-mpm/mesh::node-position node)
-                                     (cl-mpm/mesh::node-displacment node))))
-                           (format fs "~E ~E ~E ~%"
-                                   (coerce (cl-mpm/utils::varef pos 0) 'single-float)
-                                   (coerce (cl-mpm/utils::varef pos 1) 'single-float)
-                                   (coerce (cl-mpm/utils::varef pos 2) 'single-float))))))
-            (format fs "~%")
-            (let ((id 1))
-              (declare (special id))
-              (format fs "POINT_DATA ~d~%" (array-total-size nodes))
-
-
-              (save-parameter-nodes "active" (if (cl-mpm/mesh::node-active node) 1 0))
-
-              (save-parameter-nodes "agg" (if (cl-mpm/mesh::node-agg node) 1 0))
-              (save-parameter-nodes "agg-int" (if (cl-mpm/mesh::node-interior node) 1 0))
-              (save-parameter-nodes "agg-ext" (if (and (cl-mpm/mesh::node-agg node) (not (cl-mpm/mesh::node-interior node))) 1 0))
-              (save-parameter-nodes "agg-element-x" (if (cl-mpm/mesh::node-agg-interior-cell node)
-                                                        (nth 0 (cl-mpm/mesh::cell-index (cl-mpm/mesh::node-agg-interior-cell node))) -1))
-              (save-parameter-nodes "agg-element-y" (if (cl-mpm/mesh::node-agg-interior-cell node)
-                                                        (nth 1 (cl-mpm/mesh::cell-index (cl-mpm/mesh::node-agg-interior-cell node))) -1))
-              (save-parameter-nodes "agg-element-mindex" (if (cl-mpm/mesh::node-agg-interior-cell node) (cl-mpm/dynamic-relaxation::cell-mesh-index (cl-mpm/mesh::node-agg-interior-cell node)) 0))
-
-
-              (save-parameter-nodes "mass" (cl-mpm/mesh:node-mass node))
-              (save-parameter-nodes "density" (if (> (cl-mpm/mesh::node-volume node) 0d0)
-                                                  (/ (cl-mpm/mesh:node-mass node) (cl-mpm/mesh::node-volume node))
-                                                  0d0))
-              (save-parameter-nodes "mass-inv" (if (> (cl-mpm/mesh:node-mass node) 0d0)
-                                                   (/ 1d0 (cl-mpm/mesh:node-mass node))
-                                                   0d0))
-              (save-parameter-nodes "vel_norm" (cl-mpm/fastmaths::mag (cl-mpm/mesh:node-velocity node)))
-              (save-parameter-nodes "vel_x" (magicl:tref (cl-mpm/mesh:node-velocity node) 0 0))
-              (save-parameter-nodes "vel_y" (magicl:tref (cl-mpm/mesh:node-velocity node) 1 0))
-              (save-parameter-nodes "vel_z" (magicl:tref (cl-mpm/mesh:node-velocity node) 2 0))
-
-              (save-parameter-nodes "disp_x" (magicl:tref (cl-mpm/mesh::node-displacment node) 0 0))
-              (save-parameter-nodes "disp_y" (magicl:tref (cl-mpm/mesh::node-displacment node) 1 0))
-              (save-parameter-nodes "disp_z" (magicl:tref (cl-mpm/mesh::node-displacment node) 2 0))
-
-              (save-parameter-nodes "bc_x" (if (cl-mpm/mesh::node-bcs node) (varef (cl-mpm/mesh::node-bcs node) 0) 0))
-              (save-parameter-nodes "bc_y" (if (cl-mpm/mesh::node-bcs node) (varef (cl-mpm/mesh::node-bcs node) 1) 0))
-              (save-parameter-nodes "bc_z" (if (cl-mpm/mesh::node-bcs node) (varef (cl-mpm/mesh::node-bcs node) 2) 0))
-
-              (save-vector-nodes "boundary-vec" (cl-mpm/mesh::node-boundary-vec node))
-              (save-vector-nodes "force" (cl-mpm/mesh:node-force node))
-              (save-vector-nodes "force-ext" (cl-mpm/mesh::node-external-force node))
-              (save-vector-nodes "force-int" (cl-mpm/mesh::node-internal-force node))
-              (save-vector-nodes "force-rct" (cl-mpm/mesh::node-reaction-force node))
-              (save-vector-nodes "force-buoyancy" (cl-mpm/mesh::node-buoyancy-force node))
-              (save-vector-nodes "force-ghost" (cl-mpm/mesh::node-ghost-force node))
-              (save-vector-nodes "force-damping" (cl-mpm/mesh::node-damping-force node))
-              (save-vector-nodes "acc" (cl-mpm/mesh:node-acceleration node))
-
-              (save-parameter-nodes "j-inc" (if (= (cl-mpm/mesh::node-jacobian-inc node) 0d0)
-                                                1d0
-                                                (cl-mpm/mesh::node-jacobian-inc node)
-                                                ))
-              (save-parameter-nodes "buoyancy_node" (if
-                                                     (cl-mpm/mesh::node-boundary-node node) 1 0))
-              (save-parameter-nodes "buoyancy-scalar" (cl-mpm/mesh::node-boundary-scalar node))
-              (save-parameter-nodes "pressure" (cl-mpm/mesh::node-pressure node))
-              (save-parameter-nodes "local-list-size" (length (cl-mpm/mesh::node-local-list node)))
-              (save-parameter-nodes "energy"
-                                    (*
-                                     (cl-mpm/mesh::node-mass node)
-                                     (cl-mpm/mesh::node-mass node)
-                                     (cl-mpm/fastmaths::mag-squared (cl-mpm/mesh::node-velocity node))))
-
-              (save-parameter-nodes "oobf" (cl-mpm/mesh::node-oobf node))
-              (save-parameter-nodes "volume" (cl-mpm/mesh::node-volume node))
-              (save-parameter-nodes "volume-true" (cl-mpm/mesh::node-volume-true node))
-              (save-parameter-nodes "damage"
-                                    (if (slot-exists-p node 'cl-mpm/mesh::damage)
-                                        (cl-mpm/mesh::node-damage node)
-                                        0d0)))))))))
+                (force-output fs)
+                (dolist (f (cl-mpm::sim-output-list-nodes sim))
+                  (destructuring-bind (type name accessor) f
+                    (case type
+                      (:BOOL
+                       (cl-mpm/output::save-parameter-nodes name (if (funcall accessor node) 1d0 0d0)))
+                      (:SCALAR
+                       (cl-mpm/output::save-parameter-nodes name (funcall accessor node)))
+                      (:VECTOR
+                       (cl-mpm/output::save-parameter-nodes (format nil "~A_x" name) (varef (funcall accessor node) 0))
+                       (cl-mpm/output::save-parameter-nodes (format nil "~A_y" name) (varef (funcall accessor node) 1))
+                       (when (= nd 3)
+                         (cl-mpm/output::save-parameter-nodes (format nil "~A_z" name) (varef (funcall accessor node) 2)))))))))))))))
 
 (in-package :cl-mpm/dynamic-relaxation)
 
@@ -1966,7 +1960,7 @@
   (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) sim )
   (dotimes (i (1+ (cl-mpm::sim-multigrid-refinement sim)))
     (setf (cl-mpm::sim-mesh sim) (aref (cl-mpm::sim-mesh-list sim) i))
-    (cl-mpm/output::save-vtk-mesh-nodes (merge-pathnames output-dir (format nil "sim_nodes_~D_~5,'0d.vtk" i step)) (aref (cl-mpm::sim-mesh-list sim) i))
+    (cl-mpm/output::save-vtk-mesh-nodes (merge-pathnames output-dir (format nil "sim_nodes_~D_~5,'0d.vtk" i step)) (aref (cl-mpm::sim-mesh-list sim) i) sim)
     (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~D_~5,'0d.vtk" i step)) sim))
   ;; (setf (cl-mpm::sim-mesh sim) (aref (cl-mpm::sim-mesh-list sim) 0))
   (set-mesh-default sim)

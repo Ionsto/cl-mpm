@@ -30,6 +30,7 @@
    #:sim-bcs
    #:sim-bcs-force-list
    #:sim-dt
+   #:sim-time
    #:sim-damping-factor
    #:sim-mass-filter
    #:sim-mass-scale
@@ -231,6 +232,10 @@
    (output-list-matrix
     :type list
     :accessor sim-output-list-matrix
+    :initform nil)
+   (output-list-nodes
+    :type list
+    :accessor sim-output-list-nodes
     :initform nil)
    )
   (:default-initargs

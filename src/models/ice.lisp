@@ -793,8 +793,7 @@
                                                       k0
                                                       tau
                                                       tau-exp
-                                                      s-dt))))
-                 )))
+                                                      s-dt)))))))
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))
 

@@ -244,26 +244,31 @@
                         (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
                           (- (apply #'max l) (cl-mpm/particle::mp-pressure mp))) 'single-float)
                        (coerce (if (slot-exists-p mp 'cl-mpm/particle::damage)
-                            (cl-mpm/particle:mp-damage mp)
-                            0d0) 'single-float)
+                                   (cl-mpm/particle:mp-damage mp)
+                                   0d0) 'single-float)
                        (coerce (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0) 'single-float)
                        (coerce (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0) 'single-float)
                        ))
       )))
 
-(defun format-scalar-node (stream name id nodes accessor)
-  (format stream "SCALARS ~a FLOAT ~d~%" name 1)
+(defun format-scalar-node (stream stream-bin name id nodes accessor)
+  (force-output stream-bin)
+  (format stream "SCALARS ~a double ~d~%" name 1)
   (format stream "LOOKUP_TABLE default~%")
+  (force-output stream)
   (loop for i from 0 below (array-total-size nodes)
         do
            (let ((node (row-major-aref nodes i)))
              (when node
-               (format stream "~E ~%" (coerce (min 1d30 (funcall accessor node)) 'single-float)))))
+               (write-binary-float (coerce (funcall accessor node) 'double-float) stream-bin)
+               ;; (format stream "~E ~%" (coerce (min 1d30 (funcall accessor node)) 'single-float))
+               )))
+  (force-output stream-bin)
   (format stream "~%"))
 
 (defmacro save-parameter-nodes (name accessor)
   `(progn
-     (format-scalar-node fs ,name id nodes (lambda (node) ,accessor))
+     (format-scalar-node fs fs-bin ,name id nodes (lambda (node) ,accessor))
      (incf id)))
 
 (defun format-vector-node (stream name id nodes accessor)
@@ -285,134 +290,129 @@
      (format-vector-node fs ,name id nodes (lambda (node) ,accessor))
      (incf id)))
 
-(defgeneric save-vtk-mesh-nodes (filename mesh))
-(defmethod save-vtk-mesh-nodes (filename mesh)
+(defgeneric save-vtk-mesh-nodes (filename mesh sim))
+(defmethod save-vtk-mesh-nodes (filename mesh sim)
   (with-accessors ((full-nodes cl-mpm/mesh::mesh-nodes))
       mesh
     (with-open-file (fs filename :direction :output :if-exists :supersede)
       (format fs "# vtk DataFile Version 2.0~%")
       (format fs "Lisp generated vtk file, SJVS~%")
-      (format fs "ASCII~%")
-      (format fs "DATASET UNSTRUCTURED_GRID~%")
+      (format fs "BINARY~%")
+      (format fs "DATASET UNSTRUCTURED_GRID~%"))
+    (with-open-file (fs filename :direction :output :if-exists :append)
+      (with-open-file (fs-bin filename :direction :output :if-exists :append :element-type '(unsigned-byte 8))
+        (let* ((node-count (array-total-size full-nodes))
+               (nodes (remove-if-not 'cl-mpm/mesh:node-active
+                                     (make-array node-count :displaced-to full-nodes))))
+          (when (= (length nodes) 0)
+            (setf nodes (make-array node-count :displaced-to full-nodes)))
+          (let ((node-count (array-total-size nodes)))
+            (format fs "POINTS ~d double~%" (array-total-size nodes))
+            (force-output fs)
+            (loop for i from 0 below (array-total-size nodes)
+                  do
+                     (let ((node (row-major-aref nodes i)))
+                       (when node
+                         (let ((pos (cl-mpm/fastmaths:fast-.+
+                                     (cl-mpm/mesh::node-position node)
+                                     (cl-mpm/mesh::node-displacment node))))
+                           (write-binary-float (cl-mpm/utils:varef pos 0) fs-bin)
+                           (write-binary-float (cl-mpm/utils:varef pos 1) fs-bin)
+                           (write-binary-float (cl-mpm/utils:varef pos 2) fs-bin)))))
+            (force-output fs-bin)
+            (format fs "~%")
+            (let ((id 1)
+                  (nd (cl-mpm/mesh:mesh-nd mesh)))
+              (declare (special id))
+              (format fs "POINT_DATA ~d~%" (array-total-size nodes))
 
-      (let* ((node-count (array-total-size full-nodes))
-             (nodes (remove-if-not 'cl-mpm/mesh:node-active
-                                   (make-array node-count :displaced-to full-nodes)))
-             )
-        (when (= (length nodes) 0)
-          (setf nodes (make-array node-count :displaced-to full-nodes)))
-        (let ((node-count (array-total-size nodes)))
-          (format fs "POINTS ~d double~%" (array-total-size nodes))
-          (loop for i from 0 below (array-total-size nodes)
-                do
-                   (let ((node (row-major-aref nodes i)))
-                     (when node
-                       ;; (incf node-count)
-                       (let ((pos (cl-mpm/fastmaths:fast-.+
-                                   (cl-mpm/mesh::node-position node)
-                                   (cl-mpm/mesh::node-displacment node))))
-                         (format fs "~E ~E ~E ~%"
-                                 (coerce (cl-mpm/utils::varef pos 0) 'single-float)
-                                 (coerce (cl-mpm/utils::varef pos 1) 'single-float)
-                                 (coerce (cl-mpm/utils::varef pos 2) 'single-float))))))
-          (format fs "~%")
-          (let ((id 1))
-            (declare (special id))
-            (format fs "POINT_DATA ~d~%" (array-total-size nodes))
+              (force-output fs)
+              (dolist (f (cl-mpm::sim-output-list-nodes sim))
+                (destructuring-bind (type name accessor) f
+                  (case type
+                    (:BOOL
+                     (cl-mpm/output::save-parameter-nodes name (if (funcall accessor node) 1d0 0d0)))
+                    (:SCALAR
+                     (cl-mpm/output::save-parameter-nodes name (funcall accessor node)))
+                    (:VECTOR
+                     (cl-mpm/output::save-parameter-nodes (format nil "~A_x" name) (varef (funcall accessor node) 0))
+                     (cl-mpm/output::save-parameter-nodes (format nil "~A_y" name) (varef (funcall accessor node) 1))
+                     (when (= nd 3)
+                       (cl-mpm/output::save-parameter-nodes (format nil "~A_z" name) (varef (funcall accessor node) 2))))
+                    )))
 
+              #|
+              (save-parameter-nodes "active" (if (cl-mpm/mesh::node-active node) 1 0))
 
-            (save-parameter-nodes "active" (if (cl-mpm/mesh::node-active node) 1 0))
-
-            (save-parameter-nodes "agg" (if (cl-mpm/mesh::node-agg node) 1 0))
-            (save-parameter-nodes "agg-int" (if (cl-mpm/mesh::node-interior node) 1 0))
-            (save-parameter-nodes "agg-ext" (if (and (cl-mpm/mesh::node-agg node) (not (cl-mpm/mesh::node-interior node))) 1 0))
-            (save-parameter-nodes "agg-element-x" (if (cl-mpm/mesh::node-agg-interior-cell node)
-                                                      (nth 0 (cl-mpm/mesh::cell-index (cl-mpm/mesh::node-agg-interior-cell node))) -1))
-            (save-parameter-nodes "agg-element-y" (if (cl-mpm/mesh::node-agg-interior-cell node)
-                                                      (nth 1 (cl-mpm/mesh::cell-index (cl-mpm/mesh::node-agg-interior-cell node))) -1))
-            ;; (save-parameter-nodes "agg-element-mindex" (if (cl-mpm/mesh::node-agg-interior-cell node) (cl-mpm/dynamic-relaxation::cell-mesh-index (cl-mpm/mesh::node-agg-interior-cell node)) 0))
-
-
-            (save-parameter-nodes "mass" (cl-mpm/mesh:node-mass node))
-            (save-parameter-nodes "density" (if (> (cl-mpm/mesh::node-volume node) 0d0)
-                                                (/ (cl-mpm/mesh:node-mass node) (cl-mpm/mesh::node-volume node))
-                                                0d0))
-            (save-parameter-nodes "mass-inv" (if (> (cl-mpm/mesh:node-mass node) 0d0)
-                                                 (/ 1d0 (cl-mpm/mesh:node-mass node))
-                                                 0d0))
-
-            (save-parameter-nodes "vel_norm" (cl-mpm/fastmaths::mag (cl-mpm/mesh:node-velocity node)))
-            (save-parameter-nodes "vel_x" (magicl:tref (cl-mpm/mesh:node-velocity node) 0 0))
-            (save-parameter-nodes "vel_y" (magicl:tref (cl-mpm/mesh:node-velocity node) 1 0))
-            (save-parameter-nodes "vel_z" (magicl:tref (cl-mpm/mesh:node-velocity node) 2 0))
-
-            (save-parameter-nodes "disp_x" (magicl:tref (cl-mpm/mesh::node-displacment node) 0 0))
-            (save-parameter-nodes "disp_y" (magicl:tref (cl-mpm/mesh::node-displacment node) 1 0))
-            (save-parameter-nodes "disp_z" (magicl:tref (cl-mpm/mesh::node-displacment node) 2 0))
-
-            (save-parameter-nodes "bc_x" (if (cl-mpm/mesh::node-bcs node) (varef (cl-mpm/mesh::node-bcs node) 0) 0))
-            (save-parameter-nodes "bc_y" (if (cl-mpm/mesh::node-bcs node) (varef (cl-mpm/mesh::node-bcs node) 1) 0))
-            (save-parameter-nodes "bc_z" (if (cl-mpm/mesh::node-bcs node) (varef (cl-mpm/mesh::node-bcs node) 2) 0))
-
-            ;; (save-parameter-nodes "disp_x" (magicl:tref (cl-mpm/mesh::node-displacment node) 0 0))
-            ;; (save-parameter-nodes "disp_y" (magicl:tref (cl-mpm/mesh::node-displacment node) 1 0))
-            ;; (save-parameter-nodes "disp_z" (magicl:tref (cl-mpm/mesh::node-displacment node) 2 0))
+              (save-parameter-nodes "agg" (if (cl-mpm/mesh::node-agg node) 1 0))
+              (save-parameter-nodes "agg-int" (if (cl-mpm/mesh::node-interior node) 1 0))
+              (save-parameter-nodes "agg-ext" (if (and (cl-mpm/mesh::node-agg node) (not (cl-mpm/mesh::node-interior node))) 1 0))
+              (save-parameter-nodes "agg-element-x" (if (cl-mpm/mesh::node-agg-interior-cell node)
+              (nth 0 (cl-mpm/mesh::cell-index (cl-mpm/mesh::node-agg-interior-cell node))) -1))
+              (save-parameter-nodes "agg-element-y" (if (cl-mpm/mesh::node-agg-interior-cell node)
+              (nth 1 (cl-mpm/mesh::cell-index (cl-mpm/mesh::node-agg-interior-cell node))) -1))
 
 
-            (save-vector-nodes "force" (cl-mpm/mesh:node-force node))
-            (save-vector-nodes "force-ext" (cl-mpm/mesh::node-external-force node))
-            (save-vector-nodes "force-int" (cl-mpm/mesh::node-internal-force node))
-            (save-vector-nodes "force-rct" (cl-mpm/mesh::node-reaction-force node))
-            (save-vector-nodes "force-buoyancy" (cl-mpm/mesh::node-buoyancy-force node))
-            (save-vector-nodes "force-ghost" (cl-mpm/mesh::node-ghost-force node))
-            (save-vector-nodes "force-damping" (cl-mpm/mesh::node-damping-force node))
-            (save-vector-nodes "acc" (cl-mpm/mesh:node-acceleration node))
-            ;; (save-vector-nodes "force-rct" #'cl-mpm/mesh::node-force-)
+              (save-parameter-nodes "mass" (cl-mpm/mesh:node-mass node))
+              (save-parameter-nodes "density" (if (> (cl-mpm/mesh::node-volume node) 0d0)
+              (/ (cl-mpm/mesh:node-mass node) (cl-mpm/mesh::node-volume node))
+              0d0))
+              (save-parameter-nodes "mass-inv" (if (> (cl-mpm/mesh:node-mass node) 0d0)
+              (/ 1d0 (cl-mpm/mesh:node-mass node))
+              0d0))
 
-            ;; (save-parameter-nodes "force_x" (magicl:tref (cl-mpm/mesh:node-force node) 0 0))
-            ;; (save-parameter-nodes "force_y" (magicl:tref (cl-mpm/mesh:node-force node) 1 0))
-            ;; (save-parameter-nodes "force_z" (magicl:tref (cl-mpm/mesh:node-force node) 2 0))
-            ;; (save-parameter-nodes "force_buoy_x" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 0 0))
-            ;; (save-parameter-nodes "force_buoy_y" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 1 0))
-            ;; (save-parameter-nodes "force_buoy_z" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 2 0))
+              (save-parameter-nodes "vel_norm" (cl-mpm/fastmaths::mag (cl-mpm/mesh:node-velocity node)))
+              (save-parameter-nodes "vel_x" (magicl:tref (cl-mpm/mesh:node-velocity node) 0 0))
+              (save-parameter-nodes "vel_y" (magicl:tref (cl-mpm/mesh:node-velocity node) 1 0))
+              (save-parameter-nodes "vel_z" (magicl:tref (cl-mpm/mesh:node-velocity node) 2 0))
 
-            ;; (save-parameter-nodes "force_damp_x" (magicl:tref (cl-mpm/mesh::node-damping-force node) 0 0))
-            ;; (save-parameter-nodes "force_damp_y" (magicl:tref (cl-mpm/mesh::node-damping-force node) 1 0))
-            ;; (save-parameter-nodes "force_damp_z" (magicl:tref (cl-mpm/mesh::node-damping-force node) 2 0))
+              (save-parameter-nodes "disp_x" (magicl:tref (cl-mpm/mesh::node-displacment node) 0 0))
+              (save-parameter-nodes "disp_y" (magicl:tref (cl-mpm/mesh::node-displacment node) 1 0))
+              (save-parameter-nodes "disp_z" (magicl:tref (cl-mpm/mesh::node-displacment node) 2 0))
 
-            ;; (save-parameter-nodes "force_ghost_x" (varef (cl-mpm/mesh::node-ghost-force node) 0))
-            ;; (save-parameter-nodes "force_ghost_y" (varef (cl-mpm/mesh::node-ghost-force node) 1))
-            (save-parameter-nodes "j-inc" (if (= (cl-mpm/mesh::node-jacobian-inc node) 0d0)
-                                              1d0
-                                              (cl-mpm/mesh::node-jacobian-inc node)
-                                              ))
-            (save-parameter-nodes "buoyancy_node" (if
-                                                   (cl-mpm/mesh::node-boundary-node node) 1 0))
-            (save-parameter-nodes "buoyancy-scalar" (cl-mpm/mesh::node-boundary-scalar node))
-            (save-vector-nodes "boundary-vec" (cl-mpm/mesh::node-boundary-vec node))
-            (save-parameter-nodes "pressure" (cl-mpm/mesh::node-pressure node))
-            (save-parameter-nodes "local-list-size" (length (cl-mpm/mesh::node-local-list node)))
-            (save-parameter-nodes "energy"
-                                  (*
-                                   ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                                   (cl-mpm/mesh::node-mass node)
-                                   (cl-mpm/mesh::node-mass node)
-                                   (cl-mpm/fastmaths::mag-squared (cl-mpm/mesh::node-velocity node))))
+              (save-parameter-nodes "bc_x" (if (cl-mpm/mesh::node-bcs node) (varef (cl-mpm/mesh::node-bcs node) 0) 0))
+              (save-parameter-nodes "bc_y" (if (cl-mpm/mesh::node-bcs node) (varef (cl-mpm/mesh::node-bcs node) 1) 0))
+              (save-parameter-nodes "bc_z" (if (cl-mpm/mesh::node-bcs node) (varef (cl-mpm/mesh::node-bcs node) 2) 0))
 
-            (save-parameter-nodes "oobf" (cl-mpm/mesh::node-oobf node))
-            (save-parameter-nodes "volume" (cl-mpm/mesh::node-volume node))
-            (save-parameter-nodes "volume-true" (cl-mpm/mesh::node-volume-true node))
-            ;; (save-parameter-nodes "lift" (- (magicl:tref (cl-mpm/mesh:node-force node) 1 0)
-            ;;                                 (cl-mpm/mesh::node-pressure node)))
-            (save-parameter-nodes "damage"
-                                  (if (slot-exists-p node 'cl-mpm/mesh::damage)
-                                      (cl-mpm/mesh::node-damage node)
-                                      0d0))
-            ))))))
+
+              (save-vector-nodes "force" (cl-mpm/mesh:node-force node))
+              (save-vector-nodes "force-ext" (cl-mpm/mesh::node-external-force node))
+              (save-vector-nodes "force-int" (cl-mpm/mesh::node-internal-force node))
+              (save-vector-nodes "force-rct" (cl-mpm/mesh::node-reaction-force node))
+              (save-vector-nodes "force-buoyancy" (cl-mpm/mesh::node-buoyancy-force node))
+              (save-vector-nodes "force-ghost" (cl-mpm/mesh::node-ghost-force node))
+              (save-vector-nodes "force-damping" (cl-mpm/mesh::node-damping-force node))
+              (save-vector-nodes "acc" (cl-mpm/mesh:node-acceleration node))
+
+              (save-parameter-nodes "j-inc" (if (= (cl-mpm/mesh::node-jacobian-inc node) 0d0)
+              1d0
+              (cl-mpm/mesh::node-jacobian-inc node)
+              ))
+              (save-parameter-nodes "buoyancy_node" (if
+              (cl-mpm/mesh::node-boundary-node node) 1 0))
+              (save-parameter-nodes "buoyancy-scalar" (cl-mpm/mesh::node-boundary-scalar node))
+              (save-vector-nodes "boundary-vec" (cl-mpm/mesh::node-boundary-vec node))
+              (save-parameter-nodes "pressure" (cl-mpm/mesh::node-pressure node))
+              (save-parameter-nodes "local-list-size" (length (cl-mpm/mesh::node-local-list node)))
+              (save-parameter-nodes "energy"
+              (*
+              (cl-mpm/mesh::node-mass node)
+              (cl-mpm/mesh::node-mass node)
+              (cl-mpm/fastmaths::mag-squared (cl-mpm/mesh::node-velocity node))))
+
+              (save-parameter-nodes "oobf" (cl-mpm/mesh::node-oobf node))
+              (save-parameter-nodes "volume" (cl-mpm/mesh::node-volume node))
+              (save-parameter-nodes "volume-true" (cl-mpm/mesh::node-volume-true node))
+              (save-parameter-nodes "damage"
+              (if (slot-exists-p node 'cl-mpm/mesh::damage)
+              (cl-mpm/mesh::node-damage node)
+              0d0))
+              |#
+              )))))))
 
 (defgeneric save-vtk-nodes (filename sim))
 (defmethod save-vtk-nodes (filename sim)
-  (save-vtk-mesh-nodes filename (cl-mpm:sim-mesh sim)))
+  (save-vtk-mesh-nodes filename (cl-mpm:sim-mesh sim) sim))
 
 
 (defgeneric save-vtk (filename sim)
@@ -478,7 +478,26 @@
    (append
     (cl-mpm::sim-output-list-matrix sim)
     (list
-     (list "size" (lambda (mp) (cl-mpm/particle::mp-true-domain mp)))))))
+     (list "size" (lambda (mp) (cl-mpm/particle::mp-true-domain mp))))))
+  (setf
+   (cl-mpm::sim-output-list-nodes sim)
+   (append
+    (cl-mpm::sim-output-list-nodes sim)
+    (list
+     (list :BOOL "active" #'cl-mpm/mesh::node-active)
+     (list :BOOL "agg" #'cl-mpm/mesh::node-agg)
+     (list :BOOL "agg-int" #'cl-mpm/mesh::node-interior)
+     (list :BOOL "agg-ext" (lambda (n) (and
+                                        (cl-mpm/mesh::node-agg n)
+                                        (not (cl-mpm/mesh::node-interior n)))))
+     (list :BOOL "boundary" #'cl-mpm/mesh::node-boundary-node)
+     (list :SCALAR "boundary-scalar" #'cl-mpm/mesh::node-boundary-scalar)
+     (list :SCALAR "mass" #'cl-mpm/mesh::node-mass)
+     (list :VECTOR "vel" #'cl-mpm/mesh::node-velocity)
+     (list :VECTOR "disp" #'cl-mpm/mesh::node-displacment)
+     (list :VECTOR "force" #'cl-mpm/mesh::node-force)
+     (list :VECTOR "force-int" #'cl-mpm/mesh::node-internal-force)
+     (list :VECTOR "force-ext" #'cl-mpm/mesh::node-external-force)))))
 
 
 (defmethod save-vtk (filename (sim cl-mpm::mpm-sim))
@@ -517,7 +536,8 @@
             (cl-mpm/output::save-parameter (format nil "~A_x"(first f)) (varef (funcall (second f) mp) 0))
             (cl-mpm/output::save-parameter (format nil "~A_y"(first f)) (varef (funcall (second f) mp) 1))
             (when (= nd 3)
-              (cl-mpm/output::save-parameter (format nil "~A_z"(first f)) (varef (funcall (second f) mp) 2))))
+              (cl-mpm/output::save-parameter (format nil "~A_z"(first f)) (varef (funcall (second f) mp) 2)))
+            )
           (dolist (f (cl-mpm::sim-output-list-voigt sim))
             (cl-mpm/output::save-parameter (format nil "~A_xx" (first f)) (varef (funcall (second f) mp) 0))
             (cl-mpm/output::save-parameter (format nil "~A_yy" (first f)) (varef (funcall (second f) mp) 1))

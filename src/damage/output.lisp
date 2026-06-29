@@ -5,7 +5,12 @@
   (macrolet ((damage-val (mp &body body)
                `(if (typep ,mp 'cl-mpm/particle::particle-damage)
                     ,@body
-                    0d0)))
+                    0d0))
+             (has-slot-val (mp slot &body body)
+               `(if (typep ,mp 'cl-mpm/particle::particle-damage)
+                    ,@body
+                    0d0))
+             )
     (setf
      (cl-mpm::sim-output-list-scalar sim)
      (append
@@ -22,6 +27,7 @@
                             (cl-mpm/particle::mp-damage-ybar mp)))))
        (list "damage-y" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-damage-y-local mp))))
        (list "damage-k" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-history-stress mp))))
+       (list "damage-length" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-true-local-length mp))))
        (list "damage-length" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-true-local-length mp))))
        ;; (list )"damage" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-damage mp)))
        )))

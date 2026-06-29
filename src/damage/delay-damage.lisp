@@ -246,6 +246,7 @@
 
 
 (defun deriv-partial (k y k0 tau n)
+  (declare (double-float k y k0 tau n))
   (/
    (* k0
       (expt
@@ -280,8 +281,7 @@
   (let ((kprev k)
         (yprev y-0)
         (ycurrent y-0)
-        (yinc (/ (- y-1 y-0) iters))
-        )
+        (yinc (/ (- y-1 y-0) iters)))
     (loop for i from 0 below iters
           do
              (incf ycurrent yinc)
@@ -295,10 +295,13 @@
     kprev))
 
 (defun auto-refine-substepper (k y-0 y-1 dt function)
+  (declare (double-float k y-0 y-1 dt)
+           (function function)
+           )
   (let* ((r 0)
          (kn0 (integrate-substep k y-0 y-1 dt (expt 2 r) function))
          (kn1 (integrate-substep k y-0 y-1 dt (expt 2 (1+ r)) function))
-         (tol 1d-9)
+         (tol 1d-3)
          (err tol)
          )
     (when (> (max kn0 kn1) 0d0)
@@ -309,9 +312,11 @@
              (>= err tol))
             do
                (progn
+                 ;; (format t "~D ~E ~E - ~E~%" i kn0 kn1 err)
                  (incf r 1)
                  (setf
-                  kn0 (integrate-substep k y-0 y-1 dt (expt 2 r) function)
+                  kn0 kn1
+                  ;; (integrate-substep k y-0 y-1 dt (expt 2 r) function)
                   kn1 (integrate-substep k y-0 y-1 dt (expt 2 (1+ r)) function))
                  (setf err (/ (abs (- kn0 kn1)) (max kn0 kn1))))))
     kn1))
@@ -329,35 +334,36 @@
                (-
                 (fkn k)
                 k)))
+      (format t "Hello")
       (let* ((kn k0)
              (kn1 (+ (fkn k0) 1d-3))
              (rn (f kn))
              (rn1 (f kn1)))
         (format t "kn ~E - kn1 ~E~%" kn kn1)
         (format t "rn ~E - rn1 ~E~%" rn rn1)
-        (loop for i from 0 to 100
-              while (and (> (abs (- rn rn1)) 1d-9)
-                         (> (abs (- kn kn1)) 0d0)
-                         (> (abs rn) 0d0)
-                         (> (abs rn1) 0d0)
-                         )
-              do
-                 (format t "iter ~D - error ~E~%" i (abs (- rn rn1)))
-                 (format t "kn ~E - kn1 ~E~%" kn kn1)
-                 (format t "rn ~E - kn1 ~E~%" rn rn1)
-                 (when (> (abs (- kn kn1)) 0d0)
-                   (let ((inc (*
-                               rn
-                               (/ (- rn rn1)
-                                  (- kn kn1)))))
-                     (setf kn1 kn
-                           rn1 rn)
-                     (setf
-                      kn (- kn inc))
-                     (setf
-                      rn (f kn))
-                     ;; (setf k (- kn inc))
-                     )))
+        ;; (loop for i from 0 to 100
+        ;;       while (and (> (abs (- rn rn1)) 1d-9)
+        ;;                  (> (abs (- kn kn1)) 0d0)
+        ;;                  (> (abs rn) 0d0)
+        ;;                  (> (abs rn1) 0d0)
+        ;;                  )
+        ;;       do
+        ;;          (format t "iter ~D - error ~E~%" i (abs (- rn rn1)))
+        ;;          (format t "kn ~E - kn1 ~E~%" kn kn1)
+        ;;          (format t "rn ~E - kn1 ~E~%" rn rn1)
+        ;;          (when (> (abs (- kn kn1)) 0d0)
+        ;;            (let ((inc (*
+        ;;                        rn
+        ;;                        (/ (- rn rn1)
+        ;;                           (- kn kn1)))))
+        ;;              (setf kn1 kn
+        ;;                    rn1 rn)
+        ;;              (setf
+        ;;               kn (- kn inc))
+        ;;              (setf
+        ;;               rn (f kn))
+        ;;              ;; (setf k (- kn inc))
+        ;;              )))
         (fkn kn)))))
 
 

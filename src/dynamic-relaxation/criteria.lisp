@@ -183,7 +183,11 @@
                     ;;    )
                     (cl-mpm/fastmaths:dot disp f-ext))))
                (list 0d0 0d0 0d0 0d0)))
-         (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
+         (lambda (&rest args)
+           (if args
+               (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) (first args) (second args))
+               (list 0d0 0d0 0d0 0d0))
+           ))
       (declare (double-float energy oobf-num oobf-denom power))
       (when sim-agg
         (cl-mpm/aggregate::iterate-over-dimensions-with-mutex

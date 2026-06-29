@@ -210,7 +210,7 @@
 
 
 (defgeneric split-mps-eigenvalue (sim))
-(defmethod split-mps-eigenvalue (sim)
+(defmethod split-mps-eigenvalue ((sim mpm-sim))
   (declare (optimize (speed 0) (debug 3) (safety 3)))
   (let* ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
@@ -230,7 +230,7 @@
                     (max-l (reduce #'max abs-l))
                     (min-l (reduce #'min (remove 0d0 abs-l))))
                (when (or (> max-l crit)
-                         (> (* 0.5d0 max-l) min-l)
+                         ;; (> (* 0.5d0 max-l) min-l)
                          )
                  (let* ((pos (position max-l abs-l))
                         (vec (cl-mpm/utils::matrix-column v pos)))
@@ -265,10 +265,17 @@
 
 (defun split-mps (sim)
   "Split mps that match the split-criteria"
-  (dotimes (d (cl-mpm/mesh::mesh-nd (sim-mesh sim)))
-    ;; (split-mps-cartesian sim)
-    (split-mps-eigenvalue sim)
-    ))
+  (let* ((mp-count (length (cl-mpm:sim-mps sim)))
+         (mp-count-prev 0)
+         (mp-count-0 mp-count))
+    (loop while (not (= mp-count mp-count-prev))
+          for i from 0 below 10
+          do (progn
+               ;; (split-mps-cartesian sim)
+               (split-mps-eigenvalue sim)
+
+               (setf mp-count-prev mp-count)
+               (setf mp-count (length (cl-mpm:sim-mps sim)))))))
 
 (defun split-mps-criteria (sim criteria)
   "Split mps that fail an arbritary criteria"
