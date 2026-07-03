@@ -268,6 +268,13 @@
   (let* ((mp-count (length (cl-mpm:sim-mps sim)))
          (mp-count-prev 0)
          (mp-count-0 mp-count))
+    ;; (loop while (not (= mp-count mp-count-prev))
+    ;;       for i from 0 below 10
+    ;;       do (progn
+    ;;            (split-mps-cartesian sim)
+    ;;            (setf mp-count-prev mp-count)
+    ;;            (setf mp-count (length (cl-mpm:sim-mps sim)))))
+
     (loop while (not (= mp-count mp-count-prev))
           for i from 0 below 10
           do (progn

@@ -34,6 +34,7 @@
       sim
   (with-accessors ((h cl-mpm/mesh::mesh-resolution))
       mesh
+    ;; (break)
     (when removal-factor
       (let ((h (* h removal-factor)))
         (remove-mps-func
@@ -923,7 +924,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         ((< h-factor (the double-float (varef lens 0))) :x)
         ((< h-factor (the double-float (varef lens 1))) :y)
         ((< h-factor (the double-float (varef lens 2))) :z)
-        ((and l-min l-max (< l-min (* l-max aspect))) :xy)
+        ;; ((and l-min l-max (< l-min (* l-max aspect))) :xy)
         ;; ((= (the double-float (varef lens 0)) 0d0) :x)
         ;; ((= (the double-float (varef lens 1)) 0d0) :y)
         ;; ((= (the double-float (varef lens 2)) 0d0) :z)

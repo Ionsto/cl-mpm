@@ -193,11 +193,13 @@
     ;;Train elastic strain - plus trail kirchoff stress
     (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
     ;;Viscoelastic corrector
+    (setf p-wave (cl-mpm/particle::compute-p-modulus mp))
     (when (and (cl-mpm/particle::mp-enable-viscosity mp)
                (> dt 0d0))
-      (cl-mpm/ext::constitutive-viscoelastic stress-u strain de e nu dt (cl-mpm/particle::mp-viscosity mp)))
+      (multiple-value-bind (eps pmod) (cl-mpm/ext::constitutive-viscoelastic stress-u strain de e nu dt (cl-mpm/particle::mp-viscosity mp))
+        ;; (pprint pmod)
+        (setf p-wave pmod)))
     (cl-mpm/utils:voigt-copy-into strain trial-elastic-strain)
-    (setf p-wave (cl-mpm/particle::compute-p-modulus mp))
     (when enable-plasticity
         (let* (;; (epstr (voigt-copy strain))
                (K (/ e (* 3 (- 1d0 (* 2 nu)))))
@@ -261,7 +263,10 @@
              stress-u sig
              strain eps-e
              yield-func f
-             p-wave (* 1.0d0 pmod))
+             ;; p-wave (* 1.0d0 pmod)
+             )
+            (when (> inc 0d0)
+              (setf p-wave (* 1.0d0 pmod)))
             ;; (when (> f 0d0)
             ;;   (format t "P-wave adjusted ~E - ~E~%" pmod p-wave))
             (let ((inc (expt (* 1/3 (max 0d0
@@ -781,6 +786,18 @@
                  k-n
                  (+
                   ;; (if pd-inc ps-y 0d0)
+                  ;; (cl-mpm/damage::secant-solver
+                  ;;  k-n
+                  ;;  ybar-prev
+                  ;;  ybar
+                  ;;  dt
+                  ;;  (lambda (kmid ymid)
+                  ;;    (cl-mpm/damage::deriv-partial
+                  ;;     kmid
+                  ;;     ymid
+                  ;;     k0
+                  ;;     tau
+                  ;;     tau-exp)))
                   (cl-mpm/damage::auto-refine-substepper
                    k-n
                    ybar-prev
@@ -793,7 +810,8 @@
                                                       k0
                                                       tau
                                                       tau-exp
-                                                      s-dt)))))))
+                                                      s-dt)))
+                  ))))
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))
 

@@ -129,7 +129,8 @@
         (E :double)
         (nu :double)
         (viscosity :double)
-        (dt :double))
+        (dt :double)
+        (pmod-ptr :pointer))
 
 
       (defcfun "CppVonMises" :bool
@@ -273,13 +274,15 @@
       (defun constitutive-viscoelastic (stress strain de E nu dt viscosity)
         "Mohr-coulomb, in-place update strain, return a new stress, yield function and ps inc"
         (declare (double-float E nu viscosity dt))
-        (magicl.cffi-types:with-array-pointers ((sp (cl-mpm/utils:fast-storage strain)))
-          (if (CppViscoelastic sp E nu viscosity dt)
-              (progn
-                (cl-mpm/constitutive::linear-elastic-mat strain de stress)
-                ;; (cl-mpm/fastmaths::fast-@-tensor-voigt de strain stress)
-                strain)
-              strain)))
+        (static-vectors:with-static-vector (p-mod-arr 1 :element-type 'double-float)
+          (magicl.cffi-types:with-array-pointers ((sp (cl-mpm/utils:fast-storage strain))
+                                                  (pp p-mod-arr))
+            (if (CppViscoelastic sp E nu viscosity dt pp)
+                (progn
+                  (cl-mpm/constitutive::linear-elastic-mat strain de stress)
+                  ;; (cl-mpm/fastmaths::fast-@-tensor-voigt de strain stress)
+                  (values strain (aref p-mod-arr 0)))
+                (values strain (aref p-mod-arr 0))))))
       (defun matrix-sqrt (mat)
         (let ((output (cl-mpm/utils:matrix-zeros)))
           (magicl.cffi-types:with-array-pointers ((sp (cl-mpm/utils:fast-storage mat))

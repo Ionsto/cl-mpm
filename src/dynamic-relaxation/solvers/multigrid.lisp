@@ -374,6 +374,9 @@
     ;; 1: transition
     ;; 2: refined
     )
+   (octree-refine-prev
+    :initform 0
+    :accessor cell-octree-refine-prev)
    (mesh-index
     :initform 0
     :accessor cell-mesh-index)
@@ -432,11 +435,11 @@
 
 (defmethod initialize-instance :after ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree) &key)
   (setf
-   (cl-mpm::sim-output-list-scalar sim)
+   (cl-mpm::sim-output-list sim)
    (append
-    (cl-mpm::sim-output-list-scalar sim)
+    (cl-mpm::sim-output-list sim)
     (list
-     (list "mesh-index" #'cl-mpm/particle::mp-mesh-index)))))
+     (list :SCALAR "mesh-index" #'cl-mpm/particle::mp-mesh-index)))))
 
 (defun iterate-over-meshes (sim func)
   (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
@@ -564,7 +567,6 @@
                                                   )
   ;; (setf (cl-mpm::sim-multigrid-refinement current) refinement)
   (call-next-method)
-  ;; (break)
   (pprint "Rebuild meshes")
   (cl-mpm:iterate-over-mps
    (cl-mpm:sim-mps current)
@@ -1409,6 +1411,14 @@
                      (active-refinement sim-octree-active-refinement)
                      (refinement cl-mpm::sim-multigrid-refinement))
         sim
+      (iterate-over-meshes
+       sim
+       (lambda (mesh mi)
+         (cl-mpm::iterate-over-cells
+          mesh
+          (lambda (c)
+            (setf (cell-octree-refine-prev c)
+                  (cell-octree-refine c))))))
       (setf active-refinement 0)
       (loop for mesh-index from 0 to refinement
             do
@@ -1478,11 +1488,7 @@
                                 (setf (cell-octree-refine c) 0))
 
 
-                              (when (and
-                                     (= (cell-octree-refine c) 2)
-                                     (not (= current-refine (cell-octree-refine c))))
-                                ;; (format t "~D - ~D~%" current-refine (cell-octree-refine c))
-                                (setf mesh-updated t)))))))
+                              )))))
 
                      ;;Next we flood-fill transition cells that are next to 2's to 1's
                      (cl-mpm::iterate-over-cells
@@ -1525,7 +1531,19 @@
                                 (setf (cell-coupled-from-above c) t))
                               )
                              (2 (setf (cell-octree-refine c) 0)))))))))
-                 (set-mesh-default sim)))))
+                   (set-mesh-default sim))))
+      (iterate-over-meshes
+       sim
+       (lambda (mesh mi)
+         (cl-mpm::iterate-over-cells
+          mesh
+          (lambda (c)
+            (when (and
+                   (= (cell-octree-refine c) 2)
+                   (not (= (cell-octree-refine-prev c)
+                           (cell-octree-refine c))))
+              (setf mesh-updated t)))))))
+
     ;; (setf (cl-mpm/mesh::mesh-active-nodes mesh) (build-active-node-set sim))
     ;(build-active-node-set sim)
     (build-full-node-set sim)
@@ -2060,6 +2078,31 @@
            :derefine nil
            :project-displacement t)))
     (when refinement-check
-      (cl-mpm/dynamic-relaxation::setup-mp-iteration-cache sim)
+      (with-accessors ((mesh cl-mpm:sim-mesh)
+                       (mps cl-mpm:sim-mps)
+                       (vel-algo cl-mpm::sim-velocity-algorithm)
+                       (mass-filter cl-mpm::sim-mass-filter)
+                       (ghost-factor cl-mpm::sim-ghost-factor))
+          sim
+        (cl-mpm/dynamic-relaxation::setup-mp-iteration-cache sim)
+        (split-until-stable sim)
+        (set-mesh-default sim)
+        (cl-mpm::p2g mesh mps vel-algo)
+        (setf (cl-mpm::sim-dt sim) 1d0)
+        (when (> mass-filter 0d0)
+          (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+        (cl-mpm::apply-essential-bcs sim)
+        (cl-mpm::filter-cells sim)
+        (cl-mpm::apply-essential-bcs sim)
+        (cl-mpm::iterate-over-nodes
+         mesh
+         (lambda (n)
+           (when (cl-mpm/mesh::node-active n)
+             (setf
+              (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n)))
+           (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-true-velocity n)))))
+      (cl-mpm::reset-nodes-force sim)
+      ;; (midpoint-starter sim)
+
       (format t "Refining mesh inside convergence loop ~%"))
-    refinement-check))
+    (not refinement-check)))

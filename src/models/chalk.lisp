@@ -701,20 +701,32 @@
             (setf k
                   (max
                    k-n
-                   (cl-mpm/damage::auto-refine-substepper
+                   (cl-mpm/damage::secant-solver
                     k-n
                     ybar-prev
                     ybar
                     dt
-                    (lambda (k y0 y1 s-dt)
-                      (cl-mpm/damage::huen-integration
-                       k
-                       y0
-                       y1
+                    (lambda (kmid ymid)
+                      (cl-mpm/damage::deriv-partial
+                       kmid
+                       ymid
                        k0
                        tau
-                       tau-exp
-                       s-dt)))
+                       tau-exp)))
+                   ;; (cl-mpm/damage::auto-refine-substepper
+                   ;;  k-n
+                   ;;  ybar-prev
+                   ;;  ybar
+                   ;;  dt
+                   ;;  (lambda (k y0 y1 s-dt)
+                   ;;    (cl-mpm/damage::huen-integration
+                   ;;     k
+                   ;;     y0
+                   ;;     y1
+                   ;;     k0
+                   ;;     tau
+                   ;;     tau-exp
+                   ;;     s-dt)))
                    ))))
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))

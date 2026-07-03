@@ -102,12 +102,10 @@
                    (enable-damage cl-mpm/particle::mp-enable-damage)
                    (p-mod cl-mpm/particle::mp-p-modulus-0)
                    (e cl-mpm/particle::mp-e)
-                   (nu cl-mpm/particle::mp-nu)
-                   )
+                   (nu cl-mpm/particle::mp-nu))
       mp
     (declare (double-float damage))
     (when (and
-           ;; enable-damage
            (> damage 0.0d0))
       (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
             (s (cl-mpm/constitutive::deviatoric-voigt stress)))
@@ -121,9 +119,7 @@
                (P-0 (+ K (* G (/ 4 3))))
                (P (+ K (* (- 1d0 damage) G (/ 4 3))))
                )
-          ;; (setf p-mod (* P-0 (max 1d-9 (/ P P-0))))
-          )
-        ))))
+          (setf p-mod (* P-0 (max 1d-9 (/ P P-0)))))))))
 (defun apply-vol-tensile-degredation (mp)
   (with-accessors ((damage        cl-mpm/particle::mp-damage)
                    (stress        cl-mpm/particle::mp-stress)

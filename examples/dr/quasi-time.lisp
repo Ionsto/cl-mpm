@@ -62,9 +62,9 @@
                  :args-list
                  (list
                   :enable-aggregate t
-                  :enable-fbar t
+                  :enable-fbar nil
                   :max-split-depth 6
-                  ;; :mp-removal-size t
+                  :mp-removal-size 1d0
                   :enable-damage t
                   :enable-length-localisation t
                   :split-factor (/ 1.1d0 mps)
@@ -103,7 +103,7 @@
           :ductility ductility
           :delay-time 5d1
           :delay-exponent 1d0
-          :residual-strength (- 1d0 1d-9)
+          :residual-strength (- 1d0 1d-2)
           ))
         (cl-mpm::domain-sort-mps sim)
         (let ((dsize (first size))
@@ -158,8 +158,8 @@
      :max-adaptive-steps adaptive-steps
      :min-adaptive-steps min-adaptive-steps
      :max-damage-inc max-damage
-     :substeps 20
-     :save-vtk-dr t
+     :substeps 5
+     :save-vtk-dr nil
      :save-vtk-loadstep t
      :dt-scale dt-scale)))
 
@@ -180,11 +180,11 @@
                        (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
                        (setf (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND)
                        (setf (cl-mpm::sim-mass-scale *sim*) mass-scale))
-     :conv-criteria 1d-6
+     :conv-criteria 1d-9
      :damping 0.01d0
      :dt dt
      :total-time 90d0
-     :save-vtk-dr t
+     :save-vtk-dr nil
      :save-vtk-loadstep t
      :dt-scale 0.5d0)))
 (defun run-adaptive-mass-explicit (&key (output-dir "./output/") (dt-scale 1d0)
@@ -264,16 +264,16 @@
         (mps 6)
         (dt 0.5d0))
     (cl-mpm::set-workers 8)
-    (setup :refine r :mps mps)
-    (run :output-dir "./output-qs/" :dt dt)
+    ;; (setup :refine r :mps mps)
+    ;; (run :output-dir "./output-qs/" :dt dt)
     (setup :refine r :mps mps)
     (run-explicit :output-dir "./output-ms-1/" :mass-scale 1d0)
-    (setup :refine r :mps mps)
-    (run-explicit :output-dir "./output-ms-10/" :mass-scale 10d0)
-    (setup :refine r :mps mps)
-    (run-explicit :output-dir "./output-ms-100/" :mass-scale 100d0)
-    (setup :refine r :mps mps)
-    (run-adaptive-mass-explicit :output-dir "./output-ms-adaptive/" :mass-scale 1d0)
+    ;; (setup :refine r :mps mps)
+    ;; (run-explicit :output-dir "./output-ms-10/" :mass-scale 10d0)
+    ;; (setup :refine r :mps mps)
+    ;; (run-explicit :output-dir "./output-ms-100/" :mass-scale 100d0)
+    ;; (setup :refine r :mps mps)
+    ;; (run-adaptive-mass-explicit :output-dir "./output-ms-adaptive/" :mass-scale 1d0)
     ))
 
 (defun test-adaptive ()
@@ -295,3 +295,50 @@
     ;;      :max-damage 0.1d0)
     )
   )
+
+
+(defun test-integration ()
+  (let ((k-n 1d0)
+        (k0 1d0)
+        (ybar-prev 1d0)
+        (ybar 2d0)
+        (dt 1d0)
+        (tau 2d0)
+        (tau-exp 2d0)
+        )
+    (time
+     (pprint
+      (cl-mpm/damage::secant-solver
+       k-n
+       ybar-prev
+       ybar
+       dt
+       (lambda (kmid ymid)
+         (cl-mpm/damage::deriv-partial
+          kmid
+          ymid
+          k0
+          tau
+          tau-exp
+          )
+         )
+       )))
+    (time
+     (pprint
+      (cl-mpm/damage::auto-refine-substepper
+       k-n
+       ybar-prev
+       ybar
+       dt
+       (lambda (k y0 y1 s-dt)
+         (cl-mpm/damage::huen-integration
+          k
+          y0
+          y1
+          k0
+          tau
+          tau-exp
+          s-dt))
+       :tol 1d-3
+       )))
+    ))

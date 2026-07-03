@@ -55,7 +55,6 @@
                 (refine 1)
                 (mps 3)
                 (enable-fbar t)
-                (multigrid-refines 0)
                 (angle 15d0)
                 (angle-r 0d0)
                 (rt 1d0)
@@ -66,8 +65,7 @@
                 (model :MC)
                 )
 
-  (let* ((refine (* refine (expt 2 (- multigrid-refines))))
-         (height 10d0)
+  (let* ((height 10d0)
          (width (* height 2))
          (h (/ 1d0 refine))
          (density 20d3)
@@ -86,16 +84,14 @@
       :sim-type
        ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
        'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
-       ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
        :args-list
        (list
-        :enable-aggregate nil
-        :ghost-factor (* E 1d-2)
+        :enable-aggregate t
+        :ghost-factor nil;(* E 1d-2)
         ;; :enable-aggregate t
         ;; :ghost-factor nil
-        :enable-split nil
+        :enable-split t
         :enable-fbar enable-fbar
-        ;; :refinement multigrid-refines
         )))
     (setf h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
     (let* ((c 40d3)
@@ -239,16 +235,18 @@
          friction
          0d0))
       (defparameter *penalty*
-        (cl-mpm/penalty::make-bc-penalty-structure
-         *sim*
-         epsilon
-         friction
-         0d0
-         (list
-          *penalty-left*
-          *penalty-down*
-          *penalty-right*
-          )))
+        *penalty-down*
+        ;; (cl-mpm/penalty::make-bc-penalty-structure
+        ;;  *sim*
+        ;;  epsilon
+        ;;  friction
+        ;;  0d0
+        ;;  (list
+        ;;   *penalty-left*
+        ;;   *penalty-down*
+        ;;   *penalty-right*
+        ;;   ))
+        )
       (setf (cl-mpm/penalty::bc-penalty-normal *penalty*) (cl-mpm/utils:vector-from-list '(0d0 -1d0 0d0)))
       ;; (let ((normal (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))))
       ;;   (defparameter *penalty*
@@ -309,8 +307,7 @@
            (cl-mpm::reduce-over-mps (cl-mpm:sim-mps *sim*)
                                           (lambda (mp)
                                             (cl-mpm/utils:get-vector (cl-mpm/particle::mp-displacement mp) :y))
-                                          #'min)
-                 )
+                                          #'min))
          (step 0))
     (defparameter *data-disp* (list))
     (defparameter *data-load* (list))
@@ -344,13 +341,13 @@
       :max-adaptive-steps 20
       :enable-plastic enable-plastic
       :enable-damage enable-damage
-      :damping 1d0;(sort 2d0)
+      :damping (sqrt 2d0)
       :max-damage-inc 1.1d0
-      :substeps 50
+      :substeps 20
       :criteria 1d-3
       :save-vtk-dr t
       :save-vtk-loadstep t
-      :dt-scale 1d0))))
+      :dt-scale 0.9d0))))
 ;; (defun run-gravity (&key (output-dir (format nil "./output/"))
 ;;               (csv-dir nil)
 ;;               (enable-plastic t)
@@ -405,20 +402,32 @@
 ;;       :dt-scale 1d0))))
 
 (defun test ()
+  (cl-mpm/utils:set-workers 8)
   (setup :mps 3
-         :refine 3
+         :refine 1
          :enable-fbar t
-         :multigrid-refines 0
          :gf 10000d0
-         :l-scale 4d0
-         :angle 16.7d0
-         :angle-r 10d0
+         :l-scale 2d0
+         ;; :angle 16.7d0
+         :angle 30d0
+         :angle-r 0d0
          :rt 1d0
-         :rc 0d0)
+         :rc 0d0
+         :model :MC
+         )
+  ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static :refinement 1)
+  ;; (setf (cl-mpm/dynamic-relaxation::sim-octree-refinement-criteria *sim*)
+  ;;       (lambda (sim mesh c)
+  ;;         (> (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 0)
+  ;;            8d0)))
   ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+  (setf (cl-mpm/damage::sim-enable-stress-based-length *sim*) t)
   ;; (setf (cl-mpm::sim-nonlocal-damage *sim*) t)
-  (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
-  (run)
+  ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
+  (run
+   :enable-plastic nil
+   :enable-damage t
+   )
   ;; (save-csv "./examples/fbar/rigid-footing/" (format nil "data_fbaradjust_~A.csv" t) *data-disp* *data-load*)
   ;; (dolist (fbar (list t nil))
   ;;   (save-csv "./examples/fbar/rigid-footing/" (format nil "data_fbar_~A.csv" fbar) *data-disp* *data-load*)

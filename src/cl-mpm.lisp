@@ -217,21 +217,9 @@
     :accessor sim-settings
     :initarg :settings
     :initform (list))
-   (output-list-scalar
+   (output-list
     :type list
-    :accessor sim-output-list-scalar
-    :initform nil)
-   (output-list-vector
-    :type list
-    :accessor sim-output-list-vector
-    :initform nil)
-   (output-list-voigt
-    :type list
-    :accessor sim-output-list-voigt
-    :initform nil)
-   (output-list-matrix
-    :type list
-    :accessor sim-output-list-matrix
+    :accessor sim-output-list
     :initform nil)
    (output-list-nodes
     :type list

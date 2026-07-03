@@ -249,15 +249,11 @@
 
 (defparameter *run-sim* nil)
 (defun run-conv ()
-  (cl-mpm/utils:set-workers 16)
+  (cl-mpm/utils:set-workers 8)
   (setf *run-sim* t)
   (defparameter *data-refine* (list))
   (defparameter *data-error* (list))
-  (loop for i in '(
-                   2
-                   ; 1 2
-                   ;; 3 4 5 6
-                   )
+  (loop for i in '(1)
         while *run-sim*
         do
            (let* ((refine i)
@@ -273,13 +269,13 @@
                (cl-mpm/dynamic-relaxation::run-load-control
                 *sim*
                 :output-dir (merge-pathnames (format nil "./output-~A_~D/" i mps))
-                :load-steps 10
+                :load-steps 1
                 :substeps (* 20 refine)
                 :plotter (lambda (s));#'plot
                 :damping (sqrt 2d0)
                 :save-vtk-dr nil
                 :save-vtk-loadstep t
-                :dt-scale 0.9d0
+                :dt-scale 1d0
                 :criteria 1d-9
                 :loading-function #'loading-function)
                ;; (plot-sigma-yy)

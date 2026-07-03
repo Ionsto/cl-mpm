@@ -312,6 +312,7 @@
                     while (not alt-conv-crit)
                     do
                        (progn
+                         
                          (loop for stagger-i from 0 to 100
                                while (or (>= dconv damage-crit)
                                          (>= (cl-mpm::sim-stats-oobf sim) oobf-crit))
@@ -453,8 +454,14 @@
                        ;;                         :text "Quasi-time inertia was too large"
                        ;;                         :ke-norm inertia
                        ;;                         :oobf-norm oobf-crit)))
+                       ;; (when (= (mod stagger-i 10) 0)
+                       ;;   (convergence-check sim)
+                       ;;   )
                        ))
-                         (setf alt-conv-crit (convergence-check sim)))))
+                         (setf alt-conv-crit (convergence-check sim))
+                         (unless alt-conv-crit
+                           (pprint "reset oobf")
+                           (setf (cl-mpm::sim-stats-oobf sim) oobf-crit)))))
             (when (or (> (cl-mpm::sim-stats-oobf sim) oobf-crit)
                       (> dconv damage-crit))
               (cl-mpm:sim-format sim t "Staggered solve didn't converge ~E ~E~%" dconv (cl-mpm::sim-stats-oobf sim))
@@ -637,7 +644,7 @@
     (save-timestep-preamble sim output-dir)
     (save-conv-preamble sim output-dir)
     (setf (cl-mpm::sim-dt sim) 0d0)
-    (cl-mpm::update-sim sim)
+    ;; (cl-mpm::update-sim sim)
     (format t "Estimated dt ~E~%" (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
     (format t "Computed dt ~E~%" (* dt-scale (cl-mpm::calculate-min-dt sim)))
     (setf (cl-mpm::sim-dt-scale sim) dt-scale)

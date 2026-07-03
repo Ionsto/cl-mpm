@@ -9,7 +9,7 @@
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+;; (setf *block-compile-default* t)
 ;(sb-int:set-floating-point-modes :traps '(:overflow :invalid :inexact :divide-by-zero :underflow))
 ;; (sb-int:set-floating-point-modes :traps '(:overflow :divide-by-zero :underflow))
 
@@ -462,13 +462,14 @@
     )))
 
 (defun test ()
+  (cl-mpm/utils:set-workers 8)
   (let ((agg t)
         (r 1))
     (setup :mps 4 :refine r :multigrid-refine 0)
     ;; (change-class *sim* 'cl-mpm/implicit::mpm-sim-implicit)
     (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul)
     (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-15)
-    (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
+    (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
           (cl-mpm::sim-ghost-factor *sim*) nil
           (cl-mpm::sim-enable-fbar *sim*) nil)
     ;; (if agg
@@ -505,18 +506,18 @@
     ;;   ;;   ;; (cl-mpm:update-sim *sim*)
     ;;   ;;   )
     ;;   )
-    (setf (cl-mpm::sim-gravity *sim*) -20d0)
+    (setf (cl-mpm::sim-gravity *sim*) -10d0)
     (time
      (cl-mpm/dynamic-relaxation::run-load-control
       *sim*
-      :output-dir (format nil "./output-agg-~a-~d/" agg r)
+      :output-dir (format nil "./output/")
       :plotter #'plot
       :load-steps 20
-      :damping 1d0;(sqrt 2)
+      :damping (sqrt 2d0)
       :substeps 50
       :criteria 1d-9
-      :save-vtk-dr nil
-      :save-vtk-loadstep nil
+      :save-vtk-dr t
+      :save-vtk-loadstep t
       :dt-scale 1d0))
     ))
 

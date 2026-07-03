@@ -530,14 +530,29 @@
                  (>= ybar-prev k0)
                  (>= ybar k0))
             (setf k
-                  (cl-mpm/damage::huen-integration
-                   k-n
-                   ybar-prev
-                   ybar
-                   k0
-                   tau
-                   tau-exp
-                   dt))))
+                  (cl-mpm/damage::auto-refine-substepper
+                    k-n
+                    ybar-prev
+                    ybar
+                    dt
+                    (lambda (k y0 y1 s-dt)
+                      (cl-mpm/damage::huen-integration
+                       k
+                       y0
+                       y1
+                       k0
+                       tau
+                       tau-exp
+                       s-dt)))
+                  ;; (cl-mpm/damage::huen-integration
+                  ;;  k-n
+                  ;;  ybar-prev
+                  ;;  ybar
+                  ;;  k0
+                  ;;  tau
+                  ;;  tau-exp
+                  ;;  dt)
+                  )))
         ;; (break)
         (let ((new-damage
                 (max

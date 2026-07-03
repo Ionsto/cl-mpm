@@ -96,11 +96,12 @@ extern "C" {
     return std::get<4>(result);
   }
 
-  bool CppViscoelastic(double * strain_ptr,double E, double nu,double viscosity, double dt)
+  bool CppViscoelastic(double * strain_ptr,double E, double nu,double viscosity, double dt,double & pmod)
   {
     Eigen::Map<Eigen::Matrix<double,6,1>> strain(strain_ptr);
-    Eigen::Matrix<double,6,1> strainE = Viscoelastic(strain,E,nu,viscosity,dt);
-    strain = strainE;
+    ViscoelasticReturn result = Viscoelastic(strain,E,nu,viscosity,dt);
+    strain = std::get<0>(result);
+    pmod = std::get<1>(result);
     return true;
   }
   bool MatrixSqrt(double * input_ptr,double * output_ptr){

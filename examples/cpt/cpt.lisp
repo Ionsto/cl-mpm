@@ -18,7 +18,8 @@
      :trial t
      :colour-func (lambda (mp) (cl-mpm/particle::mp-index mp))
      )
-    (let* ((disp *disp*)
+    (let* (;(disp *disp*)
+           (disp (cl-mpm/utils::varef (cl-mpm/penalty::bc-displacement *penalty*) 1))
            (x0 0d0)
            (y0 (+ disp *cpt-offset-y*))
            (x1 *cpt-width*)
@@ -250,6 +251,43 @@
 ;;     )
 ;;   (vgplot:figure)
 ;;   (vgplot:plot (reverse *data-disp*) (reverse *data-load*)))
+
+(defun test-real-time ()
+  (cl-mpm/utils:set-workers 8)
+  (setup :mps 3 :refine 1)
+  (let ((output-dir (format nil "./output/")))
+    (vgplot:close-all-plots)
+    (change-class *sim* 'cl-mpm/aggregate::mpm-sim-agg-usf)
+    (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t)
+    (setf (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND)
+    (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
+    (let ((step 0)
+          (disp-rate 1d0)
+          )
+      (defparameter *penalty-controller*
+        (cl-mpm/bc::make-bc-closure
+         nil
+         (lambda ()
+           (cl-mpm/penalty::bc-increment-center
+            *penalty*
+            (cl-mpm/utils:vector-from-list (list 0d0 (* disp-rate (cl-mpm:sim-dt *sim*)) 0d0))))))
+      (cl-mpm::add-bcs-force-list
+       *sim*
+       *penalty-controller*)
+      (cl-mpm/dynamic-relaxation::run-time
+       *sim*
+       :output-dir output-dir
+       :plotter (lambda (sim)
+                  (plot-domain)
+                  (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
+                  (incf step)
+                  
+                  )
+       :total-time 100d0
+       :damping 1d0
+       :dt 0.1d0
+       :initial-quasi-static nil
+       :dt-scale 0.5d0))))
 
 (defun test ()
   (setup :mps 3 :refine 1)

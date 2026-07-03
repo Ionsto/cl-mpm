@@ -8,6 +8,7 @@
 namespace constitutive{
   using namespace utils;
   using MohrCoulombReturn = std::tuple<Eigen::Matrix<double,6,1>,float,float,bool,float>;
+  using ViscoelasticReturn = std::tuple<Eigen::Matrix<double,6,1>,double>;
   using TangentReturn = std::tuple<Eigen::Matrix<double,6,1>,Eigen::Matrix<double,6,6>,float,float,bool,float>;
   inline
     Eigen::Matrix<double,6,6> AssembleDE(double E, double nu){
@@ -311,7 +312,7 @@ namespace constitutive{
 
 
   inline
-    Eigen::Matrix<double,6,1> Viscoelastic(Eigen::Matrix<double,6,1> elastic_strain,
+    ViscoelasticReturn Viscoelastic(Eigen::Matrix<double,6,1> elastic_strain,
                                           double E, double nu, double viscosity,double dt) {
       Eigen::Matrix<double,3,3> dev = Eigen::Matrix<double,3,3>::Identity() - Eigen::Matrix<double,3,3>::Constant(1.0/3.0);
       Eigen::Matrix<double,3,3> De3 =
@@ -338,6 +339,7 @@ namespace constitutive{
       Eigen::Matrix<double,3,1> beta;
 
       Eigen::Matrix<double,3,3> a = C * (C + (dev * (dt/viscosity))).inverse();
+      Eigen::Matrix<double,3,3> h = a.inverse();
       // //std::cout<<"De3\n"<<De3<<"\n";
       // std::cout<<a<<"\n";
       const double ftol = 1e-5;
@@ -356,8 +358,16 @@ namespace constitutive{
         std::cout<<"Viscoelastic didn't converge "<<f<<"\n";
         abort();
       }
+      double pmod_0 = (((1-nu)*E)/((1 + nu) * (1 - (2 * nu))));
+      double pmod = pmod_0*1e-6;
+      Eigen::Matrix<double,3,3> dep = (C + (dev * (dt/viscosity))).inverse();
+      for(int i = 0;i < 3;++i){
+        Eigen::Matrix<double,3,1> n = Eigen::Matrix<double,3,1>::Zero();
+        n(i) = 1.0;
+        pmod = std::max(pmod,(n.transpose() * dep * n)(0,0));
+      }
       elastic_strain = matrix_to_voigt(eigen_vectors * en.asDiagonal() * eigen_vectors.transpose());
-      return elastic_strain;
+      return ViscoelasticReturn(elastic_strain,pmod);
     }
 
 

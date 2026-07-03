@@ -338,9 +338,7 @@
                      (cl-mpm/output::save-parameter-nodes (format nil "~A_x" name) (varef (funcall accessor node) 0))
                      (cl-mpm/output::save-parameter-nodes (format nil "~A_y" name) (varef (funcall accessor node) 1))
                      (when (= nd 3)
-                       (cl-mpm/output::save-parameter-nodes (format nil "~A_z" name) (varef (funcall accessor node) 2))))
-                    )))
-
+                       (cl-mpm/output::save-parameter-nodes (format nil "~A_z" name) (varef (funcall accessor node) 2)))))))
               #|
               (save-parameter-nodes "active" (if (cl-mpm/mesh::node-active node) 1 0))
 
@@ -436,49 +434,31 @@
 
 (defmethod initialize-instance :after ((sim cl-mpm::mpm-sim) &key)
   (setf
-   (cl-mpm::sim-output-list-scalar sim)
+   (cl-mpm::sim-output-list sim)
    (append
-    (cl-mpm::sim-output-list-scalar sim)
+    (cl-mpm::sim-output-list sim)
     (list
-     (list "unique-id" #'cl-mpm/particle::mp-unique-index)
-     (list "mass" #'cl-mpm/particle::mp-mass)
-     (list "volume" #'cl-mpm/particle::mp-volume)
-     (list "index" #'cl-mpm/particle::mp-index)
-     (list "mpi-index" #'cl-mpm/particle::mp-mpi-index)
-     (list "split-depth" #'cl-mpm/particle::mp-split-depth)
-     (list "fric-contact" (lambda (mp) (if (cl-mpm/particle::mp-penalty-contact-step mp) 1 0)))
-     (list "fric-normal" #'cl-mpm/particle::mp-penalty-normal-force)
-     (list "p-wave-modulus" #'cl-mpm/particle::mp-p-modulus)
-     (list "yield-function" (lambda (mp) (if (slot-exists-p mp 'cl-mpm/particle::yield-func) (cl-mpm/particle::mp-yield-func mp) 0d0)))
-     (list "plastic-strain" (lambda (mp) (if (slot-exists-p mp 'cl-mpm/particle::strain-plastic-vm) (cl-mpm/particle::mp-strain-plastic-vm mp) 0d0)))
-     ;; (list "disp_x" (lambda (mp) (varef (cl-mpm/particle::mp-displacement mp) 0)))
-     ;; (list "disp_y" (lambda (mp) (varef (cl-mpm/particle::mp-displacement mp) 1)))
-     ;; (list "disp_z" (lambda (mp) (varef (cl-mpm/particle::mp-displacement mp) 2)))
+     (list :BOOL "fric-contact" #'cl-mpm/particle::mp-penalty-contact-step)
+     (list :SCALAR "i1" (lambda (mp) (cl-mpm/utils::trace-voigt (cl-mpm/particle:mp-stress mp))))
+     (list :SCALAR "unique-id" #'cl-mpm/particle::mp-unique-index)
+     (list :SCALAR "mass" #'cl-mpm/particle::mp-mass)
+     (list :SCALAR "volume" #'cl-mpm/particle::mp-volume)
+     (list :SCALAR "index" #'cl-mpm/particle::mp-index)
+     (list :SCALAR "mpi-index" #'cl-mpm/particle::mp-mpi-index)
+     (list :SCALAR "split-depth" #'cl-mpm/particle::mp-split-depth)
+     (list :SCALAR "fric-normal" #'cl-mpm/particle::mp-penalty-normal-force)
+     (list :SCALAR "p-wave-modulus" #'cl-mpm/particle::mp-p-modulus)
+     (list :SCALAR "yield-function" (lambda (mp) (if (slot-exists-p mp 'cl-mpm/particle::yield-func) (cl-mpm/particle::mp-yield-func mp) 0d0)))
+     (list :SCALAR "plastic-strain" (lambda (mp) (if (slot-exists-p mp 'cl-mpm/particle::strain-plastic-vm) (cl-mpm/particle::mp-strain-plastic-vm mp) 0d0)))
+     (list :VECTOR "vel" #'cl-mpm/particle::mp-velocity)
+     (list :VECTOR "acc" #'cl-mpm/particle::mp-acceleration)
+     (list :VECTOR "disp" #'cl-mpm/particle::mp-displacement)
+     (list :VECTOR "size" #'cl-mpm/particle::mp-domain-size)
+     (list :VECTOR "fric-force" #'cl-mpm/particle::mp-penalty-frictional-force)
+     (list :VOIGT "sig" #'cl-mpm/particle::mp-stress)
+     (list :VOIGT "eps" #'cl-mpm/particle::mp-strain)
+     (list :MATRIX "size" (lambda (mp) (cl-mpm/particle::mp-true-domain mp)))
      )))
-  (setf
-   (cl-mpm::sim-output-list-vector sim)
-   (append
-    (cl-mpm::sim-output-list-vector sim)
-    (list
-     (list "vel" #'cl-mpm/particle::mp-velocity)
-     (list "acc" #'cl-mpm/particle::mp-acceleration)
-     (list "disp" #'cl-mpm/particle::mp-displacement)
-     (list "size" #'cl-mpm/particle::mp-domain-size)
-     )))
-  (setf
-   (cl-mpm::sim-output-list-voigt sim)
-   (append
-    (cl-mpm::sim-output-list-voigt sim)
-    (list
-     (list "sig" #'cl-mpm/particle::mp-stress)
-     (list "eps" #'cl-mpm/particle::mp-strain)
-     )))
-  (setf
-   (cl-mpm::sim-output-list-matrix sim)
-   (append
-    (cl-mpm::sim-output-list-matrix sim)
-    (list
-     (list "size" (lambda (mp) (cl-mpm/particle::mp-true-domain mp))))))
   (setf
    (cl-mpm::sim-output-list-nodes sim)
    (append
@@ -497,7 +477,9 @@
      (list :VECTOR "disp" #'cl-mpm/mesh::node-displacment)
      (list :VECTOR "force" #'cl-mpm/mesh::node-force)
      (list :VECTOR "force-int" #'cl-mpm/mesh::node-internal-force)
-     (list :VECTOR "force-ext" #'cl-mpm/mesh::node-external-force)))))
+     (list :VECTOR "force-ext" #'cl-mpm/mesh::node-external-force)
+     (list :VECTOR "force-damping" #'cl-mpm/mesh::node-damping-force)
+     ))))
 
 
 (defmethod save-vtk (filename (sim cl-mpm::mpm-sim))
@@ -530,35 +512,31 @@
               (nd (cl-mpm/mesh:mesh-nd mesh)))
           (declare (special id))
           (format fs "POINT_DATA ~d~%" (length mps))
-          (dolist (f (cl-mpm::sim-output-list-scalar sim))
-            (cl-mpm/output::save-parameter (first f) (funcall (second f) mp)))
-          (dolist (f (cl-mpm::sim-output-list-vector sim))
-            (cl-mpm/output::save-parameter (format nil "~A_x"(first f)) (varef (funcall (second f) mp) 0))
-            (cl-mpm/output::save-parameter (format nil "~A_y"(first f)) (varef (funcall (second f) mp) 1))
-            (when (= nd 3)
-              (cl-mpm/output::save-parameter (format nil "~A_z"(first f)) (varef (funcall (second f) mp) 2)))
-            )
-          (dolist (f (cl-mpm::sim-output-list-voigt sim))
-            (cl-mpm/output::save-parameter (format nil "~A_xx" (first f)) (varef (funcall (second f) mp) 0))
-            (cl-mpm/output::save-parameter (format nil "~A_yy" (first f)) (varef (funcall (second f) mp) 1))
-            (cl-mpm/output::save-parameter (format nil "~A_xy" (first f)) (varef (funcall (second f) mp) 5))
-            (when (= nd 3)
-              (cl-mpm/output::save-parameter (format nil "~A_zz"(first f)) (varef (funcall (second f) mp) 2))
-              (cl-mpm/output::save-parameter (format nil "~A_yz"(first f)) (varef (funcall (second f) mp) 3))
-              (cl-mpm/output::save-parameter (format nil "~A_zx"(first f)) (varef (funcall (second f) mp) 4))
-              ))
-          (dolist (f (cl-mpm::sim-output-list-matrix sim))
-            (cl-mpm/output::save-parameter (format nil "~A_xx" (first f)) (mtref (funcall (second f) mp) 0 0))
-            (cl-mpm/output::save-parameter (format nil "~A_yy" (first f)) (mtref (funcall (second f) mp) 1 1))
-            (cl-mpm/output::save-parameter (format nil "~A_xy" (first f)) (mtref (funcall (second f) mp) 0 1))
-            (cl-mpm/output::save-parameter (format nil "~A_yx" (first f)) (mtref (funcall (second f) mp) 1 0))
-            ;; (when (= nd 3)
-            ;;   (cl-mpm/output::save-parameter (format nil "~A_zz"(first f)) (varef (funcall (second f) mp) 2))
-            ;;   (cl-mpm/output::save-parameter (format nil "~A_yz"(first f)) (varef (funcall (second f) mp) 3))
-            ;;   (cl-mpm/output::save-parameter (format nil "~A_zx"(first f)) (varef (funcall (second f) mp) 4))
-            ;;   )
-            )
-
+          (dolist (f (cl-mpm::sim-output-list sim))
+            (destructuring-bind (type name accessor) f
+              (case type
+                (:BOOL
+                 (cl-mpm/output::save-parameter name (if (funcall accessor mp) 1d0 0d0)))
+                (:SCALAR
+                 (cl-mpm/output::save-parameter name (funcall accessor mp)))
+                (:VECTOR
+                 (cl-mpm/output::save-parameter (format nil "~A_x" name) (varef (funcall accessor mp) 0))
+                 (cl-mpm/output::save-parameter (format nil "~A_y" name) (varef (funcall accessor mp) 1))
+                 (when (= nd 3)
+                   (cl-mpm/output::save-parameter (format nil "~A_z" name) (varef (funcall accessor mp) 2))))
+                (:VOIGT
+                 (cl-mpm/output::save-parameter (format nil "~A_xx" name) (varef (funcall accessor mp) 0))
+                 (cl-mpm/output::save-parameter (format nil "~A_yy" name) (varef (funcall accessor mp) 1))
+                 (when (= nd 3)
+                   (cl-mpm/output::save-parameter (format nil "~A_zz" name) (varef (funcall accessor mp) 2))
+                   (cl-mpm/output::save-parameter (format nil "~A_yz" name) (varef (funcall accessor mp) 3))
+                   (cl-mpm/output::save-parameter (format nil "~A_xz" name) (varef (funcall accessor mp) 4)))
+                 (cl-mpm/output::save-parameter (format nil "~A_xy" name) (varef (funcall accessor mp) 5)))
+                (:MATRIX
+                 (cl-mpm/output::save-parameter (format nil "~A_xx" name) (mtref (funcall accessor mp) 0 0))
+                 (cl-mpm/output::save-parameter (format nil "~A_yy" name) (mtref (funcall accessor mp) 1 1))
+                 (cl-mpm/output::save-parameter (format nil "~A_xy" name) (mtref (funcall accessor mp) 0 1))
+                 (cl-mpm/output::save-parameter (format nil "~A_yx" name) (mtref (funcall accessor mp) 1 0))))))
           ;; (save-parameter "unique-id" (cl-mpm/particle::mp-unique-index mp))
           ;; (save-parameter "mass" (cl-mpm/particle:mp-mass mp))
           ;; (save-parameter "density" (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)))

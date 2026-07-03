@@ -23,7 +23,7 @@
   (vgplot:plot
    (reverse *data-displacement*)
    (reverse *data-load*)
-   "MOM"
+   "MPM"
    )
   ;; (plot-domain sim)
   )

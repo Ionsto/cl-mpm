@@ -8,6 +8,9 @@
   (:import-from
    :magicl tref .+ .-)
   (:export
+   #:make-bc-pressure
+   #:make-bc-buoyancy
+   #:make-bc-buoyancy-clip
    ))
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -1349,7 +1352,7 @@
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
-      (locate-mps-cells sim clip-function)
+      ;; (locate-mps-cells sim clip-function)
       ;; (populate-cells-volume mesh clip-function)
       ;; (locate-mps-cells sim clip-function)
       ;; (populate-nodes-volume mesh clip-function)
@@ -1387,7 +1390,7 @@
            ;;Iterate over a cells nodes
            (cl-mpm::cell-iterate-over-neighbours
             mesh cell
-            (lambda (mesh cell pos volume node svp grads)
+            (lambda (pos volume node svp grads)
               (with-accessors ((node-force cl-mpm/mesh::node-force)
                                (node-pos cl-mpm/mesh::node-position)
                                (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)

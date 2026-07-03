@@ -12,26 +12,24 @@
                     0d0))
              )
     (setf
-     (cl-mpm::sim-output-list-scalar sim)
+     (cl-mpm::sim-output-list sim)
      (append
-      (cl-mpm::sim-output-list-scalar sim)
+      (cl-mpm::sim-output-list sim)
       (list
-       (list "damage-inc" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-damage-increment mp))))
-       (list "damage" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-damage mp))))
-       (list "damage-ybar" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-damage-ybar mp))))
-       (list "damage-ybar-scaled"
+       (list :SCALAR "damage-inc" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-damage-increment mp))))
+       (list :SCALAR "damage" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-damage mp))))
+       (list :SCALAR "damage-ybar" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-damage-ybar mp))))
+       (list :SCALAR "damage-ybar-scaled"
              (lambda (mp)
                (damage-val mp
                            (*
                             (- 1d0 (cl-mpm/particle::mp-damage mp))
                             (cl-mpm/particle::mp-damage-ybar mp)))))
-       (list "damage-y" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-damage-y-local mp))))
-       (list "damage-k" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-history-stress mp))))
-       (list "damage-length" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-true-local-length mp))))
-       (list "damage-length" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-true-local-length mp))))
-       ;; (list )"damage" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-damage mp)))
-       )))
-    ))
+       (list :SCALAR "damage-y" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-damage-y-local mp))))
+       (list :SCALAR "damage-k" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-history-stress mp))))
+       (list :SCALAR "damage-length" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-true-local-length mp))))
+       (list :SCALAR "damage-length" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-true-local-length mp))))
+       )))))
 
 ;; (defmethod cl-mpm/output::save-vtk (filename (sim cl-mpm/damage::mpm-sim-damage))
 ;;   (with-accessors ((mps cl-mpm:sim-mps)
