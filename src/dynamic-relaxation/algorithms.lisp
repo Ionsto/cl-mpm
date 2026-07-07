@@ -619,6 +619,7 @@
                           (conv-criteria 1d-3)
                           (explicit-conv-criteria nil)
                           (substeps 50)
+                          (sub-conv-steps 50)
                           (enable-damage t)
                           (enable-plastic t)
                           (save-vtk-dr t)
@@ -738,6 +739,7 @@
                                                      :output-dir output-dir
                                                      :dt-scale dt-scale
                                                      :substeps substeps
+                                                     :sub-conv-steps sub-conv-steps
                                                      :enable-damage enable-damage
                                                      :enable-plastic enable-plastic
                                                      :conv-criteria conv-criteria

@@ -66,7 +66,7 @@
                (* 0.25d0
                   (cl-mpm/fastmaths:dot
                    split-vec
-                   (magicl:@
+                   (cl-mpm/fastmaths::fast-@-arb-arb
                     true-domain
                     split-vec)))))
         (setf new-size-0 (cl-mpm/utils::diagonal (magicl:@ domain-scaler (cl-mpm/utils::matrix-from-diag-vec lens-0))))
@@ -278,8 +278,8 @@
     (loop while (not (= mp-count mp-count-prev))
           for i from 0 below 10
           do (progn
-               ;; (split-mps-cartesian sim)
-               (split-mps-eigenvalue sim)
+               (split-mps-cartesian sim)
+               ;; (split-mps-eigenvalue sim)
 
                (setf mp-count-prev mp-count)
                (setf mp-count (length (cl-mpm:sim-mps sim)))))))

@@ -310,11 +310,11 @@
                       :post-iter-step (lambda (i e o)
                                         (format t "Dynamic substep ~D~%" i)
 
-                                        ;; (when (uiop:directory-exists-p "./output/")
-                                        ;;   (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "rsim_step_~5,'0d.vtk" i)) sim)
-                                        ;;   (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "rsim_step_nodes_~5,'0d.vtk" i)) sim)
-                                        ;;   (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e)
-                                        ;;   )
+                                        (when (uiop:directory-exists-p "./output/")
+                                          (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "rsim_step_~5,'0d.vtk" i)) sim)
+                                          (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "rsim_step_nodes_~5,'0d.vtk" i)) sim)
+                                          (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e)
+                                          )
                                         ;; (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e)
                                         (incf *total-iter* substeps)))
                      t)
@@ -326,13 +326,13 @@
             (dt-step (- dt 1d-15)))
         (loop while (> dt-step 0d0)
               do
-                 (let ((max-dt-refines 4))
+                 (let ((max-dt-refines 8))
                   (loop for i from 0 to max-dt-refines
                         while (not conv)
                         do (progn
                              (setf conv (try-step))
                              (unless conv
-                               (format t "Implicit dynamic dt refine~%")
+                               (format t "Implicit dynamic refine ~D - dt step ~A~%" i (sim-dt-loadstep sim))
                                (setf (sim-dt-loadstep sim) (/ (sim-dt-loadstep sim)
                                                               2d0))))
                            finally (when (= i max-dt-refines)

@@ -144,11 +144,11 @@
      ))
   )
 
-(defparameter *angle* 30d0)
+(defparameter *angle* 40d0)
 (defparameter *angle-r* 5d0)
 (defparameter *angle-psi* 0d0)
 (defparameter *rt* (- 1d0 0d-15))
-(defparameter *rc* 1d0)
+(defparameter *rc* 0d0)
 (defparameter *rs* 1d0)
 (defparameter *enable-plastic-damage* nil)
 (defparameter *delay-time* 1d6)
@@ -207,7 +207,7 @@
                                                'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static
                                                :args-list
                                                (list
-                                                :enable-fbar nil
+                                                :enable-fbar t
                                                 :enable-aggregate t
                                                 :mass-update-count 1
                                                 :split-factor (* 1.2d0 (/ 1d0 mps))
@@ -232,6 +232,7 @@
       (format t "True Water height ~F~%" (- datum offset))
       (format t "Cliff height ~F~%" (- (+ offset ice-height) datum))
       (format t "Mesh size ~F~%" mesh-resolution)
+      (format t "Fine mesh size ~F~%" h-fine)
       (format t "Estimated oversize ~F~%" oversize)
       (format t "Estimated lc ~E~%" length-scale)
       (format t "Estimated ductility ~E~%" ductility)
@@ -403,8 +404,8 @@
         (when (> cutback 0d0)
           (cl-mpm/setup:remove-sdf
            *sim*
-           (cl-mpm/setup::rectangle-sdf (list (first block-size) (+ offset ice-height))
-                                        (list cutback cutout))))))
+           (cl-mpm/setup::rectangle-sdf (list (first block-size) (+ offset ice-height ice-height))
+                                        (list cutback (+ cutout ice-height)))))))
 
 
     (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-15)
@@ -532,7 +533,7 @@
      (aref (cl-mpm::sim-mesh-list sim) 0)
      (cl-mpm/mesh::cell-centroid c)
      ;; (* 2 *length-scale*)
-     (cl-mpm/mesh::cell-h c)
+     (* 0.5d0 (cl-mpm/mesh::cell-h c))
      (lambda (mesh mp dist)
        (declare (ignore mesh dist))
        (with-accessors ((d-ybar cl-mpm/particle::mp-damage-ybar)
@@ -545,12 +546,13 @@
          (setf damage (max d damage))
          )))
     (case (cl-mpm/dynamic-relaxation::cell-mesh-index c)
-      (0  (or ;; (> damage-ybar 1.2d0)
+      (0  (or (> damage-ybar 1d0)
               (> damage 0d0)))
       (1  (or (> damage 0.4d0)
+              (> damage-ybar 2d0)
               ;; (> damage-ybar 2d0)
               ))
-      ;; (2  (> damage 0.9d0))
+      (2  (> damage 0.9d0))
       ;; (2  (> damage 0.85d0))
       ;; (3  (> damage 0.95d0))
       (t nil))
@@ -564,30 +566,30 @@
 
 (defun calving-test ()
   (cl-mpm/utils::set-workers 12)
-  (let* ((mps 3)
+  (let* ((mps 4)
          (dt 1d3)
          (total-time 1d8)
-         (H 400d0)
-         (ice-aspect 2d0)
+         (H 600d0)
+         (ice-aspect 4d0)
          (density 918d0)
          (explicit-dt-scale 0.45d0)
-         (water-damping 0d1)
-         (floatation-ratio 0.6d0)
+         (water-damping 5d0)
+         (floatation-ratio 0.80d0)
          (output-dir "./output/"))
     (defparameter *length-scaler* 2d0)
     (setup
      :refine 0.25
      :multigrid-refines 2
-     :friction 0.9d0
+     :friction 0.5d0
      :bench-length (* 0d0 H)
-     :bench-extra-cut 10d0
+     :bench-extra-cut 00d0
      :ice-height H
      :mps mps
      :hydro-static nil
      :cryo-static t
      :melange nil
      :aspect ice-aspect
-     :slope 0.00d0
+     :slope 0d0
      :floatation-ratio floatation-ratio
      :use-penalty t
      :stick-base nil)
@@ -670,13 +672,14 @@
        :conv-load-steps 1
        ;; :min-adaptive-steps -4
        ;; :max-adaptive-steps 10
-       :min-adaptive-steps 0
+       :min-adaptive-steps -14
        :max-adaptive-steps 14
        :adaption-constant 2
        :max-damage-inc 1.1d0;0.95d0
        ;; :min-damage-inc 0.005d0
        :elastic-dt-margin 1d3
        :substeps 20
+       :sub-conv-steps 10
        :total-time total-time
        :save-vtk-loadstep t
        :save-vtk-dr t
@@ -693,14 +696,14 @@
                   (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
                   (incf step))
        ;; :explicit-conv-criteria 1d-2
-       :explicit-mass-scaling t
-       :explicit-damping-factor 1d-4
-       :explicit-dt-scale 0.5d0
-       :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-usf
-       ;; :explicit-mass-scaling nil
-       ;; :explicit-dt-scale 50d0
-       ;; :explicit-damping-factor 0d-3
-       ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-implicit-dynamic
+       ;; :explicit-mass-scaling t
+       ;; :explicit-damping-factor 1d-4
+       ;; :explicit-dt-scale 0.5d0
+       ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-usf
+       :explicit-mass-scaling nil
+       :explicit-dt-scale 1d0
+       :explicit-damping-factor 0d-3
+       :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-implicit-dynamic
        ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
        :post-conv-step
        (lambda (sim)

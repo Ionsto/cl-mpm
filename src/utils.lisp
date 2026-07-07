@@ -1427,6 +1427,7 @@
                                               (funcall *workers-func* iter)))
                                         (error (c)
                                           (sb-thread:with-mutex (*worker-error-lock*)
+                                            (setf *workers-nesting* nil)
                                             (format t "Thread threw error: ~a~%" c)
                                             (push c *worker-error-list*))))
                                       ;; (print "cleanup unexpected thread termination")

@@ -1459,8 +1459,11 @@
                                 (when (= current-refine 2)
                                   (setf to-refine t)))
 
-                              (when (and to-refine
-                                         (not (= current-refine 2)))
+
+                              (when (and
+                                     project-displacement
+                                     to-refine
+                                     (not (= current-refine 2)))
                                 (iterate-over-sub-nodes
                                  sim
                                  mesh-index
