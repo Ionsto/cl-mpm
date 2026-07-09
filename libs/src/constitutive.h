@@ -283,10 +283,11 @@ namespace constitutive{
         dep = Q.transpose() * dep * Q;
         // Eigen::Matrix<double,3,1> pinc = (epsE - epsEtr).reverse();
         Eigen::Matrix<double,3,1> pinc = (epsE - epsEtr);
-        const double psinc = std::sqrt(0.5 *
-                                      (std::pow(pinc[0] - pinc[1],2) +
-                                        std::pow(pinc[1] - pinc[2],2) +
-                                        std::pow(pinc[2] - pinc[0],2)));
+        const double psinc = std::sqrt((2.0/3.0) * pinc.squaredNorm());
+        // const double psinc = std::sqrt(0.5 *
+        //                               (std::pow(pinc[0] - pinc[1],2) +
+        //                                 std::pow(pinc[1] - pinc[2],2) +
+        //                                 std::pow(pinc[2] - pinc[0],2)));
         Eigen::Matrix<double,6,1> outstrain = swizzle_coombs_voigt(Q.partialPivLu().solve((Eigen::Matrix<double,6,1>()
                                                                               <<
                                                                               epsE[0],
@@ -488,7 +489,11 @@ namespace constitutive{
       //   pmod = std::max(pmod,(n.transpose() * dep * n)(0,0));
       // }
       pmod = K;
-      double inc = std::sqrt(3* utils::voigt_j2(utils::voigt_deviatoric(epse-elastic_strain)));
+
+
+      Eigen::Matrix<double,6,1> pinc = (epse - elastic_strain);
+      const double inc = std::sqrt((2/3) * pinc.squaredNorm());
+      // double inc = std::sqrt(3* utils::voigt_j2(utils::voigt_deviatoric(epse-elastic_strain)));
       return MohrCoulombReturn(utils::swizzle_coombs_voigt(epse),f,inc,true,pmod);
     }
     else{
@@ -552,7 +557,7 @@ namespace constitutive{
       // n(0) = 1.0;
       // pmod = std::max(pmod,(n.transpose() * dep * n)(0,0));
       // pmod = K;
-      double inc = std::sqrt(3* utils::voigt_j2(utils::voigt_deviatoric(epse-elastic_strain)));
+      double inc = std::sqrt(3 * utils::voigt_j2(utils::voigt_deviatoric(epse-elastic_strain)));
       return TangentReturn(utils::swizzle_coombs_voigt(epse),dep,f,inc,true,pmod);
     }
     else{

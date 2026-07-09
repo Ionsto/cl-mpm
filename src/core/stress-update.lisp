@@ -257,11 +257,14 @@
                      (trial-elastic-strain cl-mpm/particle::mp-trial-elastic-strain)
                      (def    cl-mpm/particle:mp-deformation-gradient)
                      (def-0    cl-mpm/particle::mp-deformation-gradient-0)
+                     (j-n cl-mpm/particle::mp-deformation-jacobian-strain-n)
+                     (j cl-mpm/particle::mp-deformation-jacobian-strain)
                      (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
                      (df-strain    cl-mpm/particle::mp-deformation-gradient-strain-increment)
                      (df-inc-inv    cl-mpm/particle::mp-deformation-gradient-increment-inverse)
                      (df-inc-strain-inv    cl-mpm/particle::mp-deformation-gradient-strain-increment-inverse)
-                     ) mp
+                     )
+        mp
       (declare (type double-float volume volume-n))
       (let (;(df-strain (cl-mpm/utils::object-pool-grab work-pool))
             ;;(df-strain (cl-mpm/utils:matrix-eye 1d0))
@@ -269,7 +272,9 @@
         ;; (declare (dynamic-extent df-strain))
         (multiple-value-bind (df df-strain) (calculate-df mesh mp fbar df-inc df-strain)
           (progn
-            (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-strain def-0 def))
+            (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def-0 def))
+            (setf j (* (cl-mpm/fastmaths::det-3x3 df-strain)
+                       j-n))
             (cl-mpm/utils:voigt-copy-into strain-n strain)
             (cl-mpm/ext:kirchoff-update strain df-strain)
             (cl-mpm/utils::copy-into strain trial-elastic-strain)
@@ -295,7 +300,8 @@
       (update-strain-kirchoff mesh mp dt fbar)
       (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
       (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-      (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
+      ;; (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
+      (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (cl-mpm/particle::mp-deformation-jacobian-strain mp)))
       )))
 
 (defun update-stress-kirchoff-dynamic-relaxation (mesh mp dt fbar)

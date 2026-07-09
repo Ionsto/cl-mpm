@@ -358,7 +358,7 @@
     (when enabled
       (let ((f-r t)
             (ps-inc-i 0d0))
-        (loop for i from 0 to 0;to 50
+        (loop for i from 0 to 4;to 50
               while (and f-r
                          ;; (if (= ps-inc-i 0d0)
                          ;;     t

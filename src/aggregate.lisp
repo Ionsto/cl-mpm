@@ -934,7 +934,7 @@
                 (extend-vec sim acc d)
                 #'cl-mpm/mesh::node-acceleration d)))))))
 
-    (cl-mpm::apply-essential-bcs sim)
+    ;; (cl-mpm::apply-essential-bcs sim)
     (iterate-over-nodes
      mesh
      (lambda (node)

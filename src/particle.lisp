@@ -222,6 +222,10 @@
        :type MAGICL:MATRIX/DOUBLE-FLOAT
        :initform (cl-mpm/utils:matrix-eye 1d0))
 
+   (deformation-jacobian-strain-n
+       :accessor mp-deformation-jacobian-strain-n
+       :type double-float
+       :initform 1d0)
    (deformation-jacobian-strain
        :accessor mp-deformation-jacobian-strain
        :type double-float
@@ -1046,6 +1050,8 @@
                    (def    cl-mpm/particle:mp-deformation-gradient)
                    (def-0 cl-mpm/particle::mp-deformation-gradient-0)
                    (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+                   (j-n cl-mpm/particle::mp-deformation-jacobian-strain-n)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (volume    cl-mpm/particle::mp-volume)
                    (volume-n    cl-mpm/particle::mp-volume-n)
                    (position    cl-mpm/particle::mp-position)
@@ -1059,6 +1065,7 @@
     (cl-mpm/utils:vector-copy-into position position-trial)
     (cl-mpm/utils:vector-copy-into fric-force-n fric-force)
     (setf volume volume-n)
+    (setf j j-n)
     ))
 
 (defgeneric new-loadstep-mp (mp)
@@ -1075,6 +1082,8 @@
                    (volume-n    cl-mpm/particle::mp-volume-n)
                    (position    cl-mpm/particle::mp-position)
                    (position-trial    cl-mpm/particle::mp-position-trial)
+                   (j-n cl-mpm/particle::mp-deformation-jacobian-strain-n)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (fric-force cl-mpm/particle::mp-penalty-frictional-force)
                    (p-wave cl-mpm/particle::mp-p-modulus)
                    (fric-force-n cl-mpm/particle::mp-penalty-frictional-force-prev))
@@ -1085,6 +1094,7 @@
     (cl-mpm/utils:vector-copy-into fric-force fric-force-n)
     (cl-mpm/utils:vector-copy-into position position-trial)
     (setf p-wave (estimate-stiffness mp))
+    (setf j-n j)
     (setf volume-n volume)))
 
 (defmethod new-loadstep-mp ((mp particle-damage))
