@@ -3,6 +3,25 @@
 ;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
+(defun apply-domain-to-true-domain-3d (mp)
+  (with-accessors ((domain cl-mpm/particle::mp-domain-size)
+                   (true-domain cl-mpm/particle::mp-true-domain))
+      mp
+    (setf (mtref true-domain 0 0) (varef domain 0)
+          (mtref true-domain 1 1) (varef domain 1)
+          (mtref true-domain 2 2) (varef domain 2))))
+
+(defun apply-domain-to-true-domain-2d (mp)
+  (with-accessors ((domain cl-mpm/particle::mp-domain-size)
+                   (true-domain cl-mpm/particle::mp-true-domain))
+      mp
+    (setf (mtref true-domain 0 0) (varef domain 0)
+          (mtref true-domain 1 1) (varef domain 1))))
+
+(defun apply-domain-to-true-domain (mesh mp)
+  (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
+      (apply-domain-to-true-domain-2d mp)
+      (apply-domain-to-true-domain-3d mp)))
 
 (defun scale-domain-size-2d (mp)
   (with-accessors ((def cl-mpm/particle::mp-deformation-gradient)
@@ -18,8 +37,8 @@
       (declare (double-float jf jl0 jl))
       (when (> jl 0d0)
         (let ((scaling (the double-float (expt (the double-float (/ (* jf jl0) jl)) (/ 1d0 2d0)))))
-          (setf (varef domain 0) (* (varef domain 0) scaling)
-                (varef domain 1) (* (varef domain 1) scaling)))))))
+          (setf (varef domain 0) (abs (* (varef domain 0) scaling))
+                (varef domain 1) (abs (* (varef domain 1) scaling))))))))
 
 (defun scale-domain-size-3d (mp)
   (with-accessors ((def cl-mpm/particle::mp-deformation-gradient)
@@ -36,9 +55,9 @@
       (declare (double-float jf jl0 jl))
       (when (> jl 0d0)
         (let ((scaling (expt (/ (* jf jl0) jl) (/ 1d0 3d0))))
-          (setf (varef domain 0) (* (varef domain 0) scaling)
-                (varef domain 1) (* (varef domain 1) scaling)
-                (varef domain 2) (* (varef domain 2) scaling))))))
+          (setf (varef domain 0) (abs (* (varef domain 0) scaling))
+                (varef domain 1) (abs (* (varef domain 1) scaling))
+                (varef domain 2) (abs (* (varef domain 2) scaling)))))))
   )
 (defun scale-domain-size (mesh mp)
   (if (= 2 (cl-mpm/mesh:mesh-nd mesh))
@@ -372,26 +391,30 @@
     (if t
         (setf
          (varef domain 0)
-         (varef
-          (cl-mpm/fastmaths::fast-@-matrix-vector
-           true-domain
-           (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))) 0)
+         (abs
+          (varef
+           (cl-mpm/fastmaths::fast-@-matrix-vector
+            true-domain
+            (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))) 0))
          (varef domain 1)
-         (cl-mpm/utils:varef
-          (cl-mpm/fastmaths::fast-@-matrix-vector
-           true-domain
-           (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))) 1))
+         (abs
+          (cl-mpm/utils:varef
+           (cl-mpm/fastmaths::fast-@-matrix-vector
+            true-domain
+            (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))) 1)))
         (setf
          (varef domain 0)
-         (cl-mpm/fastmaths:mag
-          (cl-mpm/fastmaths::fast-@-matrix-vector
-           true-domain
-           (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
+         (abs
+          (cl-mpm/fastmaths:mag
+           (cl-mpm/fastmaths::fast-@-matrix-vector
+            true-domain
+            (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))))
          (varef domain 1)
-         (cl-mpm/fastmaths:mag
-          (cl-mpm/fastmaths::fast-@-matrix-vector
-           true-domain
-           (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))))))))
+         (abs
+          (cl-mpm/fastmaths:mag
+           (cl-mpm/fastmaths::fast-@-matrix-vector
+            true-domain
+            (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))))))))
 
 (defun update-domain-polar-3d (mesh mp dt)
   "Use a corner tracking scheme to update domain lengths"
@@ -409,20 +432,23 @@
           (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R))))))
     (setf
      (varef domain 0)
-     (cl-mpm/fastmaths:mag
-      (cl-mpm/fastmaths::fast-@-matrix-vector
-       true-domain
-       (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
+     (abs
+      (cl-mpm/fastmaths:mag
+       (cl-mpm/fastmaths::fast-@-matrix-vector
+        true-domain
+        (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))))
      (varef domain 1)
-     (cl-mpm/fastmaths:mag
-      (cl-mpm/fastmaths::fast-@-matrix-vector
-       true-domain
-       (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))))
+     (abs
+      (cl-mpm/fastmaths:mag
+       (cl-mpm/fastmaths::fast-@-matrix-vector
+        true-domain
+        (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))))
      (varef domain 2)
-     (cl-mpm/fastmaths:mag
-      (cl-mpm/fastmaths::fast-@-matrix-vector
-       true-domain
-       (cl-mpm/utils:vector-from-list (list 0d0 0d0 1d0)))))))
+     (abs
+      (cl-mpm/fastmaths:mag
+       (cl-mpm/fastmaths::fast-@-matrix-vector
+        true-domain
+        (cl-mpm/utils:vector-from-list (list 0d0 0d0 1d0))))))))
 
 (defun update-domain-polar (mesh mp dt)
   (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
@@ -495,7 +521,8 @@
 (defun update-domain-corner (mesh mp dt)
   (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
       (update-domain-corner-2d mesh mp dt)
-      (update-domain-corner-3d mesh mp dt)))
+      (update-domain-corner-3d mesh mp dt))
+  (apply-domain-to-true-domain mesh mp))
 
 
 (defun update-domain-det (mesh mp)
@@ -515,7 +542,8 @@
             (declare (double-float scale))
             (setf (varef domain 0) (* (the double-float (varef domain-0 0)) scale)
                   (varef domain 1) (* (the double-float (varef domain-0 1)) scale)
-                  (varef domain 2) (* (the double-float (varef domain-0 2)) scale)))))))
+                  (varef domain 2) (* (the double-float (varef domain-0 2)) scale))))))
+  (apply-domain-to-true-domain mesh mp))
 
 
 (defun update-domain-max-corner-2d (mesh mp dt)
@@ -558,7 +586,8 @@
                 (* 1.0d0 (- (aref max-pos 0) (aref min-pos 0))))
           (setf (the double-float (aref domain-storage 1))
                 (* 1.0d0 (- (aref max-pos 1) (aref min-pos 1))))
-          ))))
+          )))
+  (apply-domain-to-true-domain-2d mp))
 
 (defun update-domain-deformation (mesh mp dt)
   "Update the domain length based on the increment of the stretch rate"

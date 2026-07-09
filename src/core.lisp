@@ -34,9 +34,9 @@
       sim
   (with-accessors ((h cl-mpm/mesh::mesh-resolution))
       mesh
-    ;; (break)
     (when removal-factor
-      (let ((h (* h removal-factor)))
+      (let ((h (* h removal-factor))
+            (nd (cl-mpm/mesh::mesh-nd mesh)))
         (remove-mps-func
          sim
          (lambda (mp)
@@ -46,7 +46,7 @@
              (or
               (> (cl-mpm/particle::mp-split-depth mp) split-depth)
               (if removal-factor
-                  (gimp-removal-criteria mp h)
+                  (gimp-removal-criteria mp h nd)
                   nil))))))))))
 
 (defun check-single-mps (sim)
@@ -903,7 +903,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   ;;   )
   nil
   )
-(defun gimp-removal-criteria (mp h)
+(defun gimp-removal-criteria (mp h nd)
   "Criteria for removal of gimp mps based on domain length"
   (with-accessors ((lens cl-mpm/particle::mp-domain-size))
       mp
@@ -912,7 +912,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           (aspect 0.1d0)
           (l-max nil)
           (l-min nil))
-      (loop for i from 0 to 2
+      (loop for i from 0 to nd
             do
             (let ((l (varef lens i)))
               (when (> l 0d0)

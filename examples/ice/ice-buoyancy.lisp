@@ -724,7 +724,7 @@
           (cl-mpm/damage::sim-damage-delocal-counter-max sim) 10
           (cl-mpm/aggregate::sim-enable-aggregate sim) t
           (cl-mpm::sim-ghost-factor *sim*) nil
-          (cl-mpm::sim-velocity-algorithm sim) :TBLEND
+          (cl-mpm::sim-velocity-algorithm sim) :TPIC
           (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) water-damping))
        ))
     ))

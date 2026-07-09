@@ -83,7 +83,9 @@
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   ;; (cl-mpm::update-domain-det mesh mp dt)
   ;; (cl-mpm::update-domain-stretch mesh mp dt)
+  ;; (cl-mpm::update-domain-midpoint mesh mp dt)
   ;; (cl-mpm::update-domain-corner mesh mp dt)
+  ;; (cl-mpm::update-domain-max-corner-2d mesh mp dt)
   ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
   (cl-mpm::update-domain-polar mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)
@@ -253,18 +255,20 @@
                ;; 'cl-mpm::mpm-sim-usf
                ;; 'cl-mpm/damage::mpm-sim-usl-damage
                ;; 'cl-mpm/damage::mpm-sim-damage
-               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
-               'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static
+               'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static
                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
                :args-list (list
                            :split-factor (/ 1.1d0 mp-scale)
-                           :enable-fbar t
+                           :enable-fbar nil
                            :enable-aggregate t
                            :vel-algo :QUASI-STATIC
-                           :max-split-depth 8
+                           :max-split-depth 3
                            :enable-length-localisation t
-                           :refinement refinement
-                           :enable-split t)))
+                           ;; :refinement refinement
+                           :enable-split t
+                           ;; :mp-removal-size nil
+                           )))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
@@ -287,7 +291,7 @@
         (format t "Estimated ductility ~E~%" ductility)
         (format t "Estimated lc ~E~%" length-scale)
         (format t "Estimated init stress ~E~%" init-stress)
-        (let ((rt 1d0)
+        (let ((rt (- 1d0 1d-9))
               (rc 0d0))
           (cl-mpm:add-mps
            sim
@@ -308,7 +312,7 @@
             :oversize oversize-ratio
             :kt-res-ratio rt
             :kc-res-ratio rc
-            :residual-strength 1d0;(- 1d0 1d-9)
+            :residual-strength 1d0
             :delay-time 1d1
             :delay-exponent 2d0
             :psi 0d0;(cl-mpm/utils:deg-to-rad 5d0)
@@ -319,8 +323,6 @@
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-enable-fbar sim) t)
       (setf (cl-mpm/damage::sim-enable-length-localisation sim) t)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       ;; (let ((mass-filter (* density (expt h 2) 1d-2)))
       ;;   (format t "Mass filter: ~F~%" mass-filter)
       ;;   (setf (cl-mpm::sim-mass-filter sim) mass-filter))
@@ -801,7 +803,7 @@
          (shelf-height 15)
          ;(soil-boundary (floor (* 15 1)))
          (soil-boundary 4)
-         (runout-aspect 1)
+         (runout-aspect 4)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height-true shelf-height)
@@ -1604,9 +1606,9 @@
        )
      :setup-dynamic
      (lambda (sim)
-       (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-6)
-       (setf (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND)
-       (setf (cl-mpm/aggregate::sim-enable-aggregate sim) nil
+       (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-15)
+       (setf (cl-mpm::sim-velocity-algorithm *sim*) :TFLIP)
+       (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t
              (cl-mpm::sim-ghost-factor sim) nil)))))
 
 (defun est-shear-from-angle (angle angle-r rc)
@@ -1634,8 +1636,8 @@
     (cl-mpm/damage::iterate-over-point-neighbour-mps
      (aref (cl-mpm::sim-mesh-list sim) 0)
      (cl-mpm/mesh::cell-centroid c)
-     (* 2 *length-scale*)
-     ;; (cl-mpm/mesh::cell-h c)
+     ;; (* 0.5 *length-scale*)
+     (* 0.5d0 (cl-mpm/mesh::cell-h c))
      (lambda (mesh mp dist)
        (declare (ignore mesh dist))
        (with-accessors ((d-ybar cl-mpm/particle::mp-damage-ybar)
@@ -1670,12 +1672,32 @@
   (cl-mpm/utils::set-workers 8)
   (setf *length-scale* 1d0)
   (let ((shelf-aspect 2d0))
-    (setup :refine 1
-           :mps 3
-           :notch-length 2d0
+    (setup :refine 0.5
+           :mps 4
+           :notch-length 4d0
            :shelf-aspect shelf-aspect
-           :multigrid-refinement 1)
+           :multigrid-refinement 0)
     (cl-mpm::domain-sort-mps *sim*)
+
+    (push (list :SCALAR "current-effective-angle"
+                (lambda (mp)
+                  (if (typep mp 'cl-mpm/particle::particle-chalk-delayed)
+                      (* (/ 180 pi) (atan (* (/ (- 1d0 (cl-mpm/particle::mp-damage-shear mp))
+                                                (- 1d0 (cl-mpm/particle::mp-damage-compression mp)))
+                                             (tan (cl-mpm/particle::mp-phi mp)))))
+                      0d0)))
+          (cl-mpm::sim-output-list *sim*))
+    (push (list :SCALAR "current-cohesion"
+                (lambda (mp)
+                  (if (typep mp 'cl-mpm/particle::particle-chalk-delayed)
+                      (*
+                       (if (> (cl-mpm/constitutive::voight-trace (cl-mpm/particle::mp-stress mp)) 0d0)
+                           (- 1d0 (cl-mpm/particle::mp-damage-tension mp))
+                           (- 1d0 (cl-mpm/particle::mp-damage-compression mp)))
+                       (max 0d0 (cl-mpm/particle::mp-c mp)))
+                      0d0)
+                  ))
+          (cl-mpm::sim-output-list *sim*))
     ;; (change-class *sim* 'cl-mpm::mpm-sim-usf)
     ;; (setf (cl-mpm::sim-dt *sim*) 0d0)
     ;; (cl-mpm::update-sim *sim*)
@@ -1685,27 +1707,27 @@
     ;; (break)
     ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static)
     ;; (setf (cl-mpm/dynamic-relaxation::sim-intra-mesh-aggregation *sim*) t)
-    (setf (cl-mpm/dynamic-relaxation::sim-octree-refinement-criteria *sim*)
-          (lambda (sim mesh c)
-            ;; nil
-            (or
-             ;; (and
-             ;;  ;; (> (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 0) 10d0)
-             ;;  (= 0 (cl-mpm/dynamic-relaxation::cell-mesh-index c))
-             ;;  (>= (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 0) (+ -3 (* shelf-aspect 15d0)))
-             ;;  (<= (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 0) (+ 2 (* shelf-aspect 15d0)))
-             ;;  (>= (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 1) 4d0)
-             ;;  (<= (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 1) 6d0)
-             ;;  (<= (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 2) 4d0)
-             ;;  )
-             ;; (<
-             ;;  (cl-mpm/fastmaths::diff-mag
-             ;;   (cl-mpm/mesh::cell-centroid c)
-             ;;   (cl-mpm/utils::vector-from-list (list (* shelf-aspect 14d0) 3d0 0d0)))
-             ;;  (* 4d0 (1+ (cl-mpm/dynamic-relaxation::cell-mesh-index c))))
-             (refinement-criteria sim mesh c)
-             )
-            ))
+    ;; (setf (cl-mpm/dynamic-relaxation::sim-octree-refinement-criteria *sim*)
+    ;;       (lambda (sim mesh c)
+    ;;         ;; nil
+    ;;         (or
+    ;;          ;; (and
+    ;;          ;;  ;; (> (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 0) 10d0)
+    ;;          ;;  (= 0 (cl-mpm/dynamic-relaxation::cell-mesh-index c))
+    ;;          ;;  (>= (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 0) (+ -3 (* shelf-aspect 15d0)))
+    ;;          ;;  (<= (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 0) (+ 2 (* shelf-aspect 15d0)))
+    ;;          ;;  (>= (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 1) 4d0)
+    ;;          ;;  (<= (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 1) 6d0)
+    ;;          ;;  (<= (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 2) 4d0)
+    ;;          ;;  )
+    ;;          ;; (<
+    ;;          ;;  (cl-mpm/fastmaths::diff-mag
+    ;;          ;;   (cl-mpm/mesh::cell-centroid c)
+    ;;          ;;   (cl-mpm/utils::vector-from-list (list (* shelf-aspect 14d0) 3d0 0d0)))
+    ;;          ;;  (* 4d0 (1+ (cl-mpm/dynamic-relaxation::cell-mesh-index c))))
+    ;;          (refinement-criteria sim mesh c)
+    ;;          )
+    ;;         ))
     )
 
   (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-15);)
@@ -1742,14 +1764,16 @@
        :damping-factor (sqrt 2d0)
        :max-adaptive-steps 12
        :min-adaptive-steps -12
-       :save-vtk-dr t
+       :save-vtk-dr nil
        :save-vtk-loadstep t
        :adaption-constant 2
        ;; :steps (round total-time dt)
-       ;; :explicit-dt-scale 0.45d0
-       ;; :explicit-damping-factor 1d-3
+       :explicit-mass-scaling t
+       :explicit-dt-scale 0.25d0
+       :explicit-damping-factor 1d-4
+       :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
        ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-usf
-       :explicit-mass-scaling nil
+       ;; :explicit-mass-scaling nil
        ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
        ;; :explicit-dt-scale 1d1
        ;; :elastic-dt-margin 1d3
@@ -1758,9 +1782,14 @@
        ;; :min-damage-inc 0.10d0
        ;; :elastic-dt 0.0001d0
        ;; :elastic-dt-margin 1d2
-       :explicit-dt-scale 10d0
-       :explicit-damping-factor 1d-3
-       :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-implicit-dynamic
+       ;; :explicit-dt-scale 10d0
+       ;; :explicit-damping-factor 1d-3
+       ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-implicit-dynamic
+
+       ;; :explicit-mass-scaling nil
+       ;; :explicit-dt-scale 100d0
+       ;; :explicit-damping-factor 0d-3
+       ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
        :setup-quasi-static
        (lambda (sim)
          (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-15)
@@ -1771,10 +1800,10 @@
           (cl-mpm::sim-ghost-factor sim) nil))
        :setup-dynamic
        (lambda (sim)
-         (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-15)
-         (setf (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND)
+         (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-3)
+         (setf (cl-mpm::sim-velocity-algorithm *sim*) :TFLIP)
          (setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) 10)
-         (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t
+         (setf (cl-mpm/aggregate::sim-enable-aggregate sim) nil
                (cl-mpm::sim-ghost-factor sim) nil))))))
 
 
