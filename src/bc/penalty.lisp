@@ -80,6 +80,9 @@
     :accessor bc-penalty-stiffness-scale
     :initform 1d0
     :initarg :stiffness-scale)
+   (trial-mode
+    :accessor bc-penalty-trial-mode
+    :initform nil)
    (load-lock
     :accessor bc-penalty-load-lock
     :initform (sb-thread:make-mutex)))
@@ -267,7 +270,7 @@
     (let* ((center-point (cl-mpm/fastmaths:fast-scale-vector normal datum))
            (new-center (cl-mpm/fastmaths:fast-.+ center-point delta-center))
            (new-datum (- (penetration-distance-point new-center 0d0 normal))))
-      (format t "Datum ~E - ~E~%" datum new-datum)
+      ;; (format t "Datum ~E - ~E~%" datum new-datum)
       (setf datum new-datum))))
 
 (defmethod bc-increment-center ((bc bc-penalty-distance) delta-center)
@@ -570,58 +573,59 @@
                                                 normal
                                                 normal-force)
 
-                  (cl-mpm::iterate-over-neighbours-point-linear
-                   mesh
-                   trial-point
-                   (lambda (mesh node svp grads)
-                     (with-accessors ((node-ext-force cl-mpm/mesh::node-external-force)
-                                      (node-int-force cl-mpm/mesh::node-internal-force)
-                                      (node-damp-force cl-mpm/mesh::node-damping-force)
-                                      (node-lock  cl-mpm/mesh:node-lock)
-                                      (node-mass  cl-mpm/mesh:node-mass)
-                                      (node-volume  cl-mpm/mesh::node-volume)
-                                      (node-volume-t  cl-mpm/mesh::node-volume-true)
-                                      (node-active  cl-mpm/mesh:node-active))
-                         node
-                       (declare (double-float volume svp))
-                       ;;Lock node for multithreading
-                       (when node-active
+                  (unless (bc-penalty-trial-mode bc)
+                    (cl-mpm::iterate-over-neighbours-point-linear
+                     mesh
+                     trial-point
+                     (lambda (mesh node svp grads)
+                       (with-accessors ((node-ext-force cl-mpm/mesh::node-external-force)
+                                        (node-int-force cl-mpm/mesh::node-internal-force)
+                                        (node-damp-force cl-mpm/mesh::node-damping-force)
+                                        (node-lock  cl-mpm/mesh:node-lock)
+                                        (node-mass  cl-mpm/mesh:node-mass)
+                                        (node-volume  cl-mpm/mesh::node-volume)
+                                        (node-volume-t  cl-mpm/mesh::node-volume-true)
+                                        (node-active  cl-mpm/mesh:node-active))
+                           node
+                         (declare (double-float volume svp))
                          ;;Lock node for multithreading
-                         (sb-thread:with-mutex (node-lock)
-                           (cl-mpm/fastmaths::fast-fmacc node-ext-force
-                                                         force-friction
-                                                         svp
-                                                         ;; (* svp contact-area)
-                                                         )
-                           (cl-mpm/fastmaths::fast-fmacc node-ext-force
-                                                         force
-                                                         svp)
-                           (cl-mpm/fastmaths::fast-fmacc node-damp-force
-                                                         normal
-                                                         (* -1d0 svp damping-force)))))))
-                  (sb-thread:with-mutex (debug-mutex)
-                    (vector-push-extend
-                     (make-dr-contact-point
-                      :position (cl-mpm/utils:vector-copy trial-point)
-                      :contact-area contact-area
-                      :stiffness (*
-                                  0.5d0
-                                  ;; epsilon
-                                  ;; (sqrt (+
-                                  ;;        (expt epsilon 2)
-                                  ;;        (expt (* friction epsilon) 2)
-                                  ;;        ))
-                                  epsilon
-                                  ;; (+ 1d0 (expt friction 2))
-                                  (+ 1d0 (expt friction 1))
-                                  contact-area)
-                      :density (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))
-                      :mesh mesh)
-                     (bc-penalty-contact-points bc)))
-                  (setf (cl-mpm/particle::mp-penalty-stiffness mp)
-                        (max
-                         (cl-mpm/particle::mp-penalty-stiffness mp)
-                         (* epsilon (+ 2d0 friction))))
+                         (when node-active
+                           ;;Lock node for multithreading
+                           (sb-thread:with-mutex (node-lock)
+                             (cl-mpm/fastmaths::fast-fmacc node-ext-force
+                                                           force-friction
+                                                           svp
+                                                           ;; (* svp contact-area)
+                                                           )
+                             (cl-mpm/fastmaths::fast-fmacc node-ext-force
+                                                           force
+                                                           svp)
+                             (cl-mpm/fastmaths::fast-fmacc node-damp-force
+                                                           normal
+                                                           (* -1d0 svp damping-force)))))))
+                    (sb-thread:with-mutex (debug-mutex)
+                      (vector-push-extend
+                       (make-dr-contact-point
+                        :position (cl-mpm/utils:vector-copy trial-point)
+                        :contact-area contact-area
+                        :stiffness (*
+                                    0.5d0
+                                    ;; epsilon
+                                    ;; (sqrt (+
+                                    ;;        (expt epsilon 2)
+                                    ;;        (expt (* friction epsilon) 2)
+                                    ;;        ))
+                                    epsilon
+                                    ;; (+ 1d0 (expt friction 2))
+                                    (+ 1d0 (expt friction 1))
+                                    contact-area)
+                        :density (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))
+                        :mesh mesh)
+                       (bc-penalty-contact-points bc)))
+                    (setf (cl-mpm/particle::mp-penalty-stiffness mp)
+                          (max
+                           (cl-mpm/particle::mp-penalty-stiffness mp)
+                           (* epsilon (+ 2d0 friction)))))
                   normal-force))
               0d0))))))
 

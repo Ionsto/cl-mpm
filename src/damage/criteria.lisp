@@ -499,7 +499,7 @@
               (- 1d0 (sin angle)))))
     (the double-float
          (/
-          (* 2 coheasion (cos angle))
+          (* 2d0 coheasion (cos angle))
           (+ 1d0 (sin angle))))))
 
 (defun mohr-coloumb-tensile-to-coheasion (tensile angle)
@@ -509,7 +509,7 @@
                 (- 1d0 (sin angle)))))
       (the double-float
            (/ (* tensile (+ 1d0 (sin angle)))
-              (* 2 (cos angle)))))))
+              (* 2d0 (cos angle)))))))
 
 
 ;; (let* ((stress (cl-mpm/utils:voigt-from-list (list 1d0 0d0 0d0

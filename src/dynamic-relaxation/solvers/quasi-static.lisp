@@ -278,12 +278,7 @@
       sim
     (declare (fixnum solve-count mass-update-iter))
     (unless initial-setup
-      (pre-step sim)
-      (with-accessors ((ke-prev sim-ke-prev)
-                       (ke sim-ke))
-          sim
-        (setf ke 0d0
-              ke-prev 0d0)))
+      (pre-step sim))
     (setf dt 1d0)
     (cl-mpm/penalty::reset-penalty sim)
     (cl-mpm::reset-nodes-force sim)
@@ -371,6 +366,7 @@
     (cl-mpm::g2p mesh mps dt damping :TRIAL)
     (incf solve-count)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
+    (cl-mpm::update-dynamic-stats sim)
     ))
 (cl-mpm/utils::with-arb-pool
   (defun update-node-forces-quasi-static (sim)
@@ -545,7 +541,7 @@
         (cl-mpm::reset-node-displacement sim)
         (cl-mpm::update-nodes sim)
         (cl-mpm::apply-essential-bcs sim)
-        ;; (cl-mpm::update-dynamic-stats sim)
+        (cl-mpm::update-dynamic-stats sim)
         ;; Also updates mps inline
         (cl-mpm::g2p mesh mps dt damping vel-algo)
         (cl-mpm::update-particles sim)

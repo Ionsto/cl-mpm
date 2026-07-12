@@ -228,6 +228,7 @@
             (setf oobf (/ oobf-num oobf-denom))
             (setf oobf (if (> oobf-num 0d0) sb-ext:double-float-positive-infinity 0d0)))
 
+        ;; (format t "~E ~E - ~E ~%" oobf-num oobf-denom oobf)
         (when (and *debug-oobf*
                    (> oobf-denom 0d0))
           (cl-mpm::iterate-over-nodes
@@ -749,6 +750,27 @@
             stats-power p)
       (incf stats-work p))))
 
+(defmethod cl-mpm::update-dynamic-stats ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul))
+  (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
+                   (stats-oobf cl-mpm::sim-stats-oobf)
+                   (stats-power cl-mpm::sim-stats-power)
+                   (stats-work cl-mpm::sim-stats-work))
+      sim
+    (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats-aggregated sim)
+      (setf stats-energy e
+            stats-oobf o
+            stats-power p)
+      (incf stats-work p))
+    ;; (if (cl-mpm/aggregate::sim-enable-aggregate sim)
+    ;;    ;;Other
+    ;;    ;; (progn)
+    ;;     ;; (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats sim)
+    ;;     ;;   (setf stats-energy e
+    ;;     ;;         stats-oobf o
+    ;;     ;;         stats-power p)
+    ;;     ;;   (incf stats-work p))
+    ;;     )
+    ))
 
 (defmethod cl-mpm::update-dynamic-stats ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
   (with-accessors ((stats-energy cl-mpm::sim-stats-energy)

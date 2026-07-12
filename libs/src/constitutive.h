@@ -492,7 +492,7 @@ namespace constitutive{
 
 
       Eigen::Matrix<double,6,1> pinc = (epse - elastic_strain);
-      const double inc = std::sqrt((2/3) * pinc.squaredNorm());
+      const double inc = std::sqrt((2.0/3.0) * pinc.squaredNorm());
       // double inc = std::sqrt(3* utils::voigt_j2(utils::voigt_deviatoric(epse-elastic_strain)));
       return MohrCoulombReturn(utils::swizzle_coombs_voigt(epse),f,inc,true,pmod);
     }

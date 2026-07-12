@@ -149,25 +149,56 @@
     (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
     ;; (setf dep de)
     (when enable-plasticity
-      (progn
-        (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm stress strain de e nu rho)
-          (declare (double-float f inc pmod ps-vm-1 ps-vm-inc))
-          (setf stress sig
-                ;; plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e plastic-strain)
-                p-mod pmod
-                yield-func f)
-          (setf ps-vm-inc inc)
-          (setf strain eps-e)
-          (setf ps-vm (+ ps-vm-1 ps-vm-inc))
-          ))
-      )
-    (when (> soft 0d0)
-      (with-accessors ((rho-r mp-rho-r)
-                       (rho-0 mp-rho-0))
-          mp
-        (declare (double-float rho-0 rho-r))
-        (setf
-         rho (+ rho-r (* (- rho-0 rho-r) (exp (- (* soft ps-vm))))))))
+      (unless (> soft 0d0)
+        (progn
+          (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm stress strain de e nu rho)
+            (declare (double-float f inc pmod ps-vm-1 ps-vm-inc))
+            (setf stress sig
+                  ;; plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e plastic-strain)
+                  p-mod pmod
+                  yield-func f)
+            (setf ps-vm-inc inc)
+            (setf strain eps-e)
+            (setf ps-vm (+ ps-vm-1 ps-vm-inc))
+            )))
+      (when (> soft 0d0)
+        
+        (with-accessors ((rho-r mp-rho-r)
+                         (rho-0 mp-rho-0))
+            mp
+          (let ((new-stress (cl-mpm/utils:voigt-zeros))
+                (new-strain (cl-mpm/utils:voigt-zeros)))
+            (labels ((plastic (plastic-vm)
+                       (setf
+                        rho (+ rho-r (* (- rho-0 rho-r) (exp (- (* soft plastic-vm))))))
+                       ;; (setf
+                       ;;  rho (+ rho-0 (* soft plastic-vm)))
+                       (cl-mpm/utils:voigt-copy-into stress new-stress)
+                       (cl-mpm/utils:voigt-copy-into strain new-strain)
+                       (multiple-value-bind (sig eps-e f inc pmod)
+                           (cl-mpm/ext::constitutive-vm
+                            new-stress
+                            new-strain
+                            de e nu rho)
+                         (setf
+                          new-stress sig
+                          new-strain eps-e
+                          p-mod pmod
+                          yield-func f
+                          ps-vm-inc inc
+                          ps-vm (+ ps-vm-1 inc))
+                         inc)))
+              (cl-mpm/constitutive::secant-hardening
+               #'plastic
+               ps-vm-1
+               #'identity))
+            (cl-mpm/utils::voigt-copy-into new-stress stress)
+            (cl-mpm/utils::voigt-copy-into new-strain strain))
+          ;; (declare (double-float rho-0 rho-r))
+          ;; (setf
+          ;;  rho (+ rho-r (* (- rho-0 rho-r) (exp (- (* soft ps-vm))))))
+          )
+        ))
     stress))
 
 (defmethod constitutive-model ((mp particle-vm-hardening) strain dt)
@@ -358,7 +389,7 @@
     (when enabled
       (let ((f-r t)
             (ps-inc-i 0d0))
-        (loop for i from 0 to 4;to 50
+        (loop for i from 0 to 0;to 50
               while (and f-r
                          ;; (if (= ps-inc-i 0d0)
                          ;;     t
@@ -390,7 +421,8 @@
                       stress sig
                       strain eps-e
                       yield-func f
-                      p-wave-0 pmod)
+                      p-wave-0 pmod
+                      )
                      (setf ps-vm-inc inc)
                      (setf ps-vm (+ ps-vm-1 inc)))
                    (setf (mp-plastic-iterations mp) i)
