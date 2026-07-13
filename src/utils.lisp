@@ -1421,19 +1421,16 @@
                                 (if (= *workers-pool-age* current-age)
                                   (progn
                                     (unless *workers-kill*
-                                      (handler-case
-                                          (let ((iter (sb-ext:atomic-incf (aref *workers-counter* 0))))
-                                            (when (< iter *workers-chunk-count*)
-                                              (funcall *workers-func* iter)))
-                                        (error (c)
-                                          (sb-thread:with-mutex (*worker-error-lock*)
-                                            (setf *workers-nesting* nil)
-                                            (format t "Thread threw error: ~a~%" c)
-                                            (push c *worker-error-list*))))
-                                      ;; (print "cleanup unexpected thread termination")
-                                      ;; (setf *workers-nesting* nil)
-                                      ;; (setf *workers-kill* t)
-                                      ))
+                                      (handler-bind
+                                          ((error (lambda (c)
+                                                    (format t "Thread threw error: ~a~%" c)
+                                                    (sb-thread:with-mutex (*worker-error-lock*)
+                                                      (setf *workers-nesting* nil)
+                                                      (format t "Thread threw error: ~a~%" c)
+                                                      (push c *worker-error-list*)))))
+                                        (let ((iter (sb-ext:atomic-incf (aref *workers-counter* 0))))
+                                          (when (< iter *workers-chunk-count*)
+                                            (funcall *workers-func* iter))))))
                                   (sb-thread:signal-semaphore *workers-run*))
                                 (sb-thread:signal-semaphore *workers-finish*)
                                 )))
@@ -1489,9 +1486,11 @@
           (sb-ext:atomic-update (aref *workers-counter* 0) (lambda (a) (declare (ignore a)) 0))
           (sb-thread:signal-semaphore *workers-run* length)
           (sb-thread:wait-on-semaphore *workers-finish* :n length)
+          (setf *workers-nesting* nil)
           (when *worker-error-list*
             (dolist (er *worker-error-list*)
-              (error er))))
+              (error er))
+            ))
         (setf *workers-nesting* nil)))
   (values))
 
@@ -1524,3 +1523,19 @@
               (magicl::matrix/double-float-nrows mat) size)
         mat
         )))
+
+
+(defun test ()
+
+  (format t "First error~%")
+  (ignore-errors
+   (bpdotimes (i 2)
+     (when (= i 0)
+       (error "Hello"))))
+  (pprint "We return")
+  (ignore-errors
+   (bpdotimes (i 2)
+     (when (= i 0)
+       (error "Hello"))))
+  (format t "Second error~%")
+  )
