@@ -21,7 +21,7 @@
   (with-accessors ((ductility cl-mpm/particle::mp-ductility)
                    (angle cl-mpm/particle::mp-friction-angle)
                    (angle-r cl-mpm/particle::mp-residual-friction)
-                   (rc mp-shear-residual-ratio)
+                   (rc mp-k-compressive-residual-ratio)
                    (init-stress mp-initiation-stress)
                    (oversize mp-oversize-scale))
       mp

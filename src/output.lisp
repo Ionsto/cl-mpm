@@ -335,6 +335,8 @@
                     (:SCALAR
                      (cl-mpm/output::save-parameter-nodes name (funcall accessor node)))
                     (:VECTOR
+                     (cl-mpm/output::save-parameter-nodes (format nil "~A_mag" name)
+                                                          (cl-mpm/fastmaths::mag (funcall accessor node)))
                      (cl-mpm/output::save-parameter-nodes (format nil "~A_x" name) (varef (funcall accessor node) 0))
                      (cl-mpm/output::save-parameter-nodes (format nil "~A_y" name) (varef (funcall accessor node) 1))
                      (when (= nd 3)
@@ -520,6 +522,7 @@
                 (:SCALAR
                  (cl-mpm/output::save-parameter name (funcall accessor mp)))
                 (:VECTOR
+                 (cl-mpm/output::save-parameter (format nil "~A_mag" name) (cl-mpm/fastmaths::mag (funcall accessor mp)))
                  (cl-mpm/output::save-parameter (format nil "~A_x" name) (varef (funcall accessor mp) 0))
                  (cl-mpm/output::save-parameter (format nil "~A_y" name) (varef (funcall accessor mp) 1))
                  (when (= nd 3)

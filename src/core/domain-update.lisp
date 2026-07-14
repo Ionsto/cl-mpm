@@ -23,6 +23,16 @@
       (apply-domain-to-true-domain-2d mp)
       (apply-domain-to-true-domain-3d mp)))
 
+(defgeneric clamp-domains (mesh mp))
+(defmethod clamp-domains (mesh (mp cl-mpm/particle::particle))
+  (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
+         (size (* h 0.5d0)))
+    (with-accessors ((domain cl-mpm/particle::mp-domain-size))
+        mp
+      (dotimes (i (cl-mpm/mesh:mesh-nd mesh))
+        (setf (cl-mpm/utils:varef domain i)
+              (min size (cl-mpm/utils:varef domain i)))))))
+
 (defun scale-domain-size-2d (mp)
   (with-accessors ((def cl-mpm/particle::mp-deformation-gradient)
                    (domain cl-mpm/particle::mp-domain-size)
@@ -388,7 +398,7 @@
         (let* ((R (magicl:@ u vt))
                (U (magicl:@ (magicl:transpose vt) s vt)))
           (setf true-domain (magicl:@ R U true-domain (magicl:transpose R))))))
-    (if t
+    (if nil
         (setf
          (varef domain 0)
          (abs
