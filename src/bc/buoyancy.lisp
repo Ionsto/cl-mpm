@@ -1135,14 +1135,15 @@
         sim
       (loop for mp across mps
             do
-               (with-accessors ((pos cl-mpm/particle:mp-position)
+               (with-accessors (;; (pos cl-mpm/particle:mp-position)
                                 (pressure cl-mpm/particle::mp-pressure)
                                 (mp-datum cl-mpm/particle::mp-pressure-datum)
                                 (mp-head cl-mpm/particle::mp-pressure-head)
                                 (mp-pfunc cl-mpm/particle::mp-pressure-func)
                                 )
                    mp
-                 (setf pressure (pressure-at-depth (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
+                 (let ((pos (get-mp-position mp)))
+                   (setf pressure (pressure-at-depth (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim))))
                  ;; (setf pressure -1d0)
                  ;; (setf mp-pfunc
                  ;;       (lambda (p)

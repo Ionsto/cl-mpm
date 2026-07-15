@@ -5,6 +5,7 @@
   (with-accessors ((damage        cl-mpm/particle::mp-damage)
                    (undamaged-stress        cl-mpm/particle::mp-undamaged-stress)
                    (def cl-mpm/particle::mp-deformation-gradient)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (stress        cl-mpm/particle::mp-stress)
                    (enable-damage cl-mpm/particle::mp-enable-damage)
                    (p-mod cl-mpm/particle::mp-p-modulus-0)
@@ -16,7 +17,7 @@
            ;; enable-damage
            (> damage 0.0d0))
       (cl-mpm/utils:voigt-copy-into undamaged-stress stress)
-      (cl-mpm/fastmaths:fast-scale! stress (/ (- 1d0 damage) (cl-mpm/fastmaths::det-3x3 def)))
+      (cl-mpm/fastmaths:fast-scale! stress (/ (- 1d0 damage) j))
       (setf (cl-mpm/particle::mp-p-modulus-0 mp)
             (*
              (max 1d-9 (- 1d0 damage))
@@ -27,6 +28,7 @@
                    (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                    (stress cl-mpm/particle::mp-stress)
                    (def cl-mpm/particle::mp-deformation-gradient)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (enable-damage cl-mpm/particle::mp-enable-damage)
                    (p-mod cl-mpm/particle::mp-p-modulus-0)
                    (e cl-mpm/particle::mp-e)
@@ -36,7 +38,7 @@
     (let ()
       (when (> damage 0.0d0)
         (cl-mpm/utils::copy-into undamaged-stress stress)
-        (cl-mpm/fastmaths:fast-scale! stress (/ 1d0 (cl-mpm/fastmaths:det-3x3 def)))
+        (cl-mpm/fastmaths:fast-scale! stress (/ 1d0 j))
         (multiple-value-bind (l v) (cl-mpm/utils::eig
                                     (voight-to-matrix
                                      stress))
@@ -62,6 +64,7 @@
                    (enable-damage cl-mpm/particle::mp-enable-damage)
                    (p-mod cl-mpm/particle::mp-p-modulus-0)
                    (def cl-mpm/particle::mp-deformation-gradient)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (e cl-mpm/particle::mp-e)
                    (nu cl-mpm/particle::mp-nu)
                    (de cl-mpm/particle::mp-elastic-matrix))
@@ -93,7 +96,7 @@
                      (magicl:transpose v)))
                    de
                    stress))
-            (cl-mpm/fastmaths:fast-scale! stress (/ 1d0 (cl-mpm/fastmaths:det-3x3 def)))))))))
+            (cl-mpm/fastmaths:fast-scale! stress (/ 1d0 j))))))))
 
 
 (defun apply-vol-degredation (mp)
@@ -180,6 +183,7 @@
                    (E cl-mpm/particle::mp-e)
                    (nu cl-mpm/particle::mp-nu)
                    (def cl-mpm/particle::mp-deformation-gradient)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (enable-damage cl-mpm/particle::mp-enable-damage))
       mp
     (declare (double-float damage damage-t damage-c damage-s))
@@ -229,7 +233,8 @@
                    (stress-u      cl-mpm/particle::mp-undamaged-stress)
                    (stress        cl-mpm/particle::mp-stress)
                    (p-mod         cl-mpm/particle::mp-p-modulus-0)
-                   (def cl-mpm/particle::mp-deformation-gradient)
+                   ;; (def cl-mpm/particle::mp-deformation-gradient)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (E cl-mpm/particle::mp-e)
                    (nu cl-mpm/particle::mp-nu)
                    (enable-damage cl-mpm/particle::mp-enable-damage))
@@ -239,7 +244,7 @@
            ;; enable-damage
            (> damage 0.0d0))
       (let* ((exponent 1)
-             (stress-uc (cl-mpm/fastmaths:fast-scale-voigt stress-u (/ 1d0 (cl-mpm/fastmaths:det-3x3 def))))
+             (stress-uc (cl-mpm/fastmaths:fast-scale-voigt stress-u (/ 1d0 j)))
              (p (/ (cl-mpm/constitutive::voight-trace stress-uc) 3d0))
              (pind p)
              (p-degredation 0d0)
@@ -278,6 +283,7 @@
                    (strain        cl-mpm/particle::mp-strain)
                    (p-mod         cl-mpm/particle::mp-p-modulus-0)
                    (def cl-mpm/particle::mp-deformation-gradient)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (E cl-mpm/particle::mp-e)
                    (nu cl-mpm/particle::mp-nu)
                    (de cl-mpm/particle::mp-elastic-matrix)
@@ -301,8 +307,7 @@
                 (cl-mpm/constitutive::voight-eye ep)
                 (cl-mpm/fastmaths:fast-scale! es (- 1d0 damage-s)))
                de
-               stress
-               ))
+               stress))
         (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
                (G (/ e (* 2 (+ 1d0 nu))))
                (P-0 (+ K (* 4/3 G))))
@@ -332,6 +337,7 @@
   (with-accessors ((damage        cl-mpm/particle::mp-damage)
                    (undamaged-stress        cl-mpm/particle::mp-undamaged-stress)
                    (def cl-mpm/particle::mp-deformation-gradient)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (stress        cl-mpm/particle::mp-stress)
                    (enable-damage cl-mpm/particle::mp-enable-damage)
                    (p-mod cl-mpm/particle::mp-p-modulus-0)
@@ -343,7 +349,7 @@
            ;; enable-damage
            (> damage 0.0d0))
       (cl-mpm/utils:voigt-copy-into undamaged-stress stress)
-      (cl-mpm/fastmaths:fast-scale! stress (/ (- 1d0 damage) (cl-mpm/fastmaths::det-3x3 def)))
+      (cl-mpm/fastmaths:fast-scale! stress (/ (- 1d0 damage) j))
       (cl-mpm/fastmaths::fast-.-
        stress
        (cl-mpm/constitutive::voight-eye pressure)
@@ -358,6 +364,7 @@
   (with-accessors ((damage        cl-mpm/particle::mp-damage)
                    (undamaged-stress        cl-mpm/particle::mp-undamaged-stress)
                    (def cl-mpm/particle::mp-deformation-gradient)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (stress        cl-mpm/particle::mp-stress)
                    (enable-damage cl-mpm/particle::mp-enable-damage)
                    (p-mod cl-mpm/particle::mp-p-modulus-0)
@@ -371,7 +378,7 @@
       (cl-mpm/utils:voigt-copy-into undamaged-stress stress)
       (setf (cl-mpm/utils:varef stress 0)
             (* (cl-mpm/utils:varef undamaged-stress 0)
-               (/ (- 1d0 damage) (cl-mpm/fastmaths::det-3x3 def))))
+               (/ (- 1d0 damage) j)))
       (setf (cl-mpm/particle::mp-p-modulus-0 mp)
             (*
              (- 1d0 damage)
@@ -384,6 +391,7 @@
                    (damage-c      cl-mpm/particle::mp-damage-compression)
                    (undamaged-stress        cl-mpm/particle::mp-undamaged-stress)
                    (def cl-mpm/particle::mp-deformation-gradient)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (stress        cl-mpm/particle::mp-stress)
                    (enable-damage cl-mpm/particle::mp-enable-damage)
                    (p-mod cl-mpm/particle::mp-p-modulus-0)
@@ -394,7 +402,7 @@
     (when (and
            ;; enable-damage
            (> damage 0.0d0))
-      (let ((stress-x (/ (cl-mpm/utils:varef undamaged-stress 0) (cl-mpm/fastmaths::det-3x3 def)))
+      (let ((stress-x (/ (cl-mpm/utils:varef undamaged-stress 0) j))
             (deg 0d0)
             )
         (setf
@@ -416,6 +424,7 @@
   (with-accessors ((damage        cl-mpm/particle::mp-damage)
                    (undamaged-stress        cl-mpm/particle::mp-undamaged-stress)
                    (def cl-mpm/particle::mp-deformation-gradient)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (stress        cl-mpm/particle::mp-stress)
                    (enable-damage cl-mpm/particle::mp-enable-damage)
                    (p-mod cl-mpm/particle::mp-p-modulus-0)
@@ -427,7 +436,7 @@
            ;; enable-damage
            (> damage 0.0d0))
       (cl-mpm/utils:voigt-copy-into undamaged-stress stress)
-      (let ((stress-x (/ (cl-mpm/utils:varef undamaged-stress 0) (cl-mpm/fastmaths::det-3x3 def)))
+      (let ((stress-x (/ (cl-mpm/utils:varef undamaged-stress 0) j))
             (deg 0d0)
             )
         (setf deg

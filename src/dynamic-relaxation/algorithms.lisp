@@ -134,6 +134,7 @@
                                       (enable-damage t)
                                       (enable-plastic t)
                                       (max-damage-inc 0.6d0)
+                                      (max-plastic-inc 1d0)
                                       (damping 1d0)
                                       (staggered-steps 10)
                                       (sub-conv-steps 50)
@@ -161,6 +162,7 @@
                        do
                           (progn
                             (let ((iv 0))
+                              (refine-mesh sim)
                               (cl-mpm/dynamic-relaxation:converge-quasi-static
                                sim
                                :kinetic-damping nil
@@ -202,6 +204,12 @@
                                      ;;                           :inertia-norm true-intertia))))
                                      ))
                                  (funcall post-iter-step i e o)
+                                 (let ((plastic-inc (plastic-increment-criteria sim)))
+                                   (format t "Plastic inc criteria ~E~%" plastic-inc)
+                                   (when (> plastic-inc max-plastic-inc)
+                                     (cl-mpm:sim-format sim t "Damage criteria failed~%")
+                                     (error (make-instance 'error-plastic-criteria
+                                                           :max-plastic-inc plastic-inc))))
                                  (unless true-stagger
                                    (let ((damage-inc (damage-increment-criteria sim)))
                                      (when (> damage-inc max-damage-inc)
@@ -257,7 +265,8 @@
                                     (when t
                                       (dotimes (i 2)
                                         (cl-mpm:update-sim sim))
-                                      (cl-mpm::update-dynamic-stats sim)))
+                                      (cl-mpm::update-dynamic-stats sim)
+                                      ))
                                   ;; No damage evolution -> instantly satisfy dconv
                                   (setf dconv 0d0)))
                             ;; (setf additional-conv (convergence-check sim))
@@ -1306,6 +1315,7 @@
                            (min-adaptive-steps 0)
                            (adaption-constant 2)
                            (max-damage-inc 0.3d0)
+                           (max-plastic-inc 0.5d0)
                            (min-damage-inc 0d0)
                            (dt-scale 1d0))
   (uiop:ensure-all-directories-exist (list output-dir))
@@ -1360,6 +1370,7 @@
                                       :enable-damage enable-damage
                                       :enable-plastic enable-plastic
                                       :max-damage-inc max-damage-inc
+                                      :max-plastic-inc max-plastic-inc
                                       :true-stagger true-stagger
                                       :post-iter-step
                                       (lambda (i-g energy oobf)

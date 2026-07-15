@@ -2109,3 +2109,10 @@
 
       (format t "Refining mesh inside convergence loop ~%"))
     (not refinement-check)))
+
+(defmethod refine-mesh ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree))
+  (cl-mpm/dynamic-relaxation::set-mesh-refinement
+   sim
+   (cl-mpm/dynamic-relaxation::sim-octree-refinement-criteria sim)
+   :derefine nil
+   :project-displacement t))

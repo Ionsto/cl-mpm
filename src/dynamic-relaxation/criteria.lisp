@@ -1013,6 +1013,7 @@
          0d0))
    #'max))
 
+
 (defgeneric damage-increment-criteria (sim)
   (:documentation "Damage criteria")
   )
@@ -1093,3 +1094,28 @@
     (if (> undamaged-energy 0d0)
         (/ energy undamaged-energy)
         0d0)))
+
+
+(defgeneric plastic-increment-criteria (sim)
+  (:documentation "Plastic criteria")
+  )
+(defmethod plastic-increment-criteria ((sim cl-mpm::mpm-sim))
+  0d0)
+(defmethod plastic-increment-criteria ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
+  (plastic-increment-criteria-mp sim))
+
+(defun plastic-increment-criteria-mp (sim)
+  (cl-mpm::reduce-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (if (typep mp 'cl-mpm/particle::particle-plastic)
+         (with-accessors ((volume cl-mpm/particle::mp-volume)
+                          (stress cl-mpm/particle::mp-undamaged-stress)
+                          (e cl-mpm/particle::mp-e)
+                          (vm-inc cl-mpm/particle::mp-strain-plastic-vm-inc)
+                          (strain cl-mpm/particle::mp-strain))
+             mp
+           (/ (* (sqrt e) vm-inc)
+              (* 0.5d0 (cl-mpm/fastmaths:dot stress strain))))
+         0d0))
+   #'max))

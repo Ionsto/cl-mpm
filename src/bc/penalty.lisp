@@ -24,10 +24,7 @@
 (defparameter *friction-epsilon-scale* 1d0)
 
 (defclass bc-penalty-structure (bc-penalty)
-  ((sim
-    :accessor bc-penalty-sim
-    :initarg :sim)
-   (sub-bcs
+  ((sub-bcs
     :accessor bc-penalty-structure-sub-bcs
     :initarg :sub-bcs
     :initform (list)))
@@ -49,9 +46,6 @@
    (displacement
     :accessor bc-displacement
     :initform (cl-mpm/utils:vector-zeros))
-   (sim
-    :accessor bc-penalty-sim
-    :initarg :sim)
    (friction
     :accessor bc-penalty-friction
     :initform 0d0
@@ -176,14 +170,12 @@
          (datum (- (penetration-distance-point point 0d0 normal))))
     (make-instance 'bc-penalty-distance
                    :index nil
-                   :sim sim
                    :datum datum
                    :normal normal
                    :epsilon epsilon
                    :friction friction
                    :center-point point
                    :radius radius
-                   ;; :margin (cl-mpm/mesh::mesh-resolution (cl-mpm::sim-mesh sim))
                    :damping damping)))
 
 (defun 2d-orthog (vec)
@@ -197,7 +189,6 @@
          (datum (- (penetration-distance-point point 0d0 normal))))
     (make-instance 'bc-penalty-distance
                    :index nil
-                   :sim sim
                    :datum datum
                    :normal normal
                    :epsilon epsilon
@@ -379,7 +370,6 @@
     (setf normal (cl-mpm/fastmaths::norm normal))
     (make-instance 'bc-penalty
                    :index nil
-                   :sim sim
                    :datum datum
                    :normal normal
                    :epsilon epsilon
@@ -393,7 +383,6 @@
     ;; (format t "Normal ~F ~F ~%" (magicl:tref normal 0 0) (magicl:tref normal 1 0))
     (make-instance 'bc-penalty
                    :index nil
-                   :sim sim
                    :datum datum
                    :normal normal
                    :epsilon epsilon
@@ -431,7 +420,6 @@
 (defun make-bc-penalty-structure (sim epsilon friction damping sub-bcs)
   (make-instance 'bc-penalty-structure
                  :index nil
-                 :sim sim
                  :epsilon epsilon
                  :friction friction
                  :damping damping
@@ -708,8 +696,7 @@
                    (sub-bcs bc-penalty-structure-sub-bcs)
                    (debug-mutex bc-penalty-load-lock)
                    (debug-force bc-penalty-load)
-                   (mp-stiffness bc-mp-stiffness)
-                   (sim bc-penalty-sim))
+                   (mp-stiffness bc-mp-stiffness))
       bc
     (reset-load bc)
     (setf mp-stiffness nil)
@@ -805,7 +792,6 @@
                    (sub-bcs bc-penalty-structure-sub-bcs)
                    (debug-mutex bc-penalty-load-lock)
                    (debug-force bc-penalty-load)
-                   ;; (sim bc-penalty-sim)
                    )
       bc
     (reset-load bc)
@@ -1102,7 +1088,6 @@
          (datum (- (penetration-distance-point point 0d0 normal))))
     (make-instance 'bc-penalty-square
                    :index nil
-                   :sim sim
                    :datum datum
                    :normal normal
                    :epsilon epsilon
@@ -1351,7 +1336,6 @@
              (mutex (sb-thread:make-mutex)))
         (let ((bc (make-instance 'bc-penalty-displacment
                                  :index nil
-                                 :sim sim
                                  :datum max-datum
                                  :normal normal
                                  :epsilon epsilon

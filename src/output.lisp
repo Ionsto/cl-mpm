@@ -459,7 +459,7 @@
      (list :VECTOR "fric-force" #'cl-mpm/particle::mp-penalty-frictional-force)
      (list :VOIGT "sig" #'cl-mpm/particle::mp-stress)
      (list :VOIGT "eps" #'cl-mpm/particle::mp-strain)
-     (list :MATRIX "size" (lambda (mp) (cl-mpm/particle::mp-true-domain mp)))
+     ;; (list :MATRIX "size" (lambda (mp) (cl-mpm/particle::mp-true-domain mp)))
      )))
   (setf
    (cl-mpm::sim-output-list-nodes sim)

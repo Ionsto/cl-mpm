@@ -260,8 +260,27 @@
       (loop for mp across mps-to-split
             for direction in split-direction
             do (loop for new-mp in (split-mp mp h direction)
-                     do (sim-add-mp sim new-mp)))))
+                     do (progn
+                          (ensure-mp-in-domain sim mp)
+                          (sim-add-mp sim new-mp))))))
   )
+
+(defun ensure-mp-in-domain (sim mp)
+  "Ensure that MP domain is entirely within the simulation domain"
+  (let* ((mesh (cl-mpm:sim-mesh sim))
+         (nd (cl-mpm/mesh:mesh-nd mesh))
+         (ms-list (cl-mpm/mesh:mesh-mesh-size mesh))
+         (domain (cl-mpm/particle::mp-domain-size mp))
+         (pos (cl-mpm/particle::mp-position mp)))
+    (declare (fixnum nd)
+             (list ms-list))
+    (loop for i from 0 below nd
+          for ms in ms-list
+          do (progn
+               (when (< (- (varef pos i) (varef domain i)) 0)
+                 (incf (varef pos i) (- 0 (- (varef pos i) (varef domain i)))))
+               (when (> (+ (varef pos i) (varef domain i)) ms)
+                 (incf (varef pos i) (- ms (+ (varef pos i) (varef domain i)))))))))
 
 (defun split-mps (sim)
   "Split mps that match the split-criteria"
@@ -278,8 +297,8 @@
     (loop while (not (= mp-count mp-count-prev))
           for i from 0 below 10
           do (progn
-               ;; (split-mps-cartesian sim)
-               (split-mps-eigenvalue sim)
+               (split-mps-cartesian sim)
+               ;; (split-mps-eigenvalue sim)
 
                (setf mp-count-prev mp-count)
                (setf mp-count (length (cl-mpm:sim-mps sim)))))))
@@ -312,4 +331,6 @@
       (remove-mps-func sim (lambda (mp) (position mp mps-to-delete)))
       (loop for mp across mps-to-split
             do (loop for new-mp in (split-vector mp (funcall criteria mp))
-                     do (sim-add-mp sim new-mp))))))
+                     do (progn
+                          (ensure-mp-in-domain sim mp)
+                          (sim-add-mp sim new-mp)))))))

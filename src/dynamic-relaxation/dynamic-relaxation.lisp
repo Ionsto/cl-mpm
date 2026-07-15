@@ -15,6 +15,9 @@
 (define-condition error-damage-criteria (non-convergence-error)
   ((max-damage-inc :initarg :max-damage-inc :reader max-damage-inc)))
 
+(define-condition error-plastic-criteria (non-convergence-error)
+  ((max-plastic-inc :initarg :max-plastic-inc :reader max-plastic-inc)))
+
 (define-condition error-inertia-criteria (non-convergence-error)
   ((inertia-norm :initarg :inertia-norm :reader inertia-norm)))
 
@@ -424,3 +427,7 @@
 
 
 
+
+(defgeneric refine-mesh (sim))
+(defmethod refine-mesh ((sim cl-mpm::mpm-sim))
+  )

@@ -9,7 +9,6 @@
                    (sub-bcs bc-penalty-structure-sub-bcs)
                    (debug-mutex bc-penalty-load-lock)
                    (debug-force bc-penalty-load)
-                   ;; (sim bc-penalty-sim)
                    )
       bc
     (reset-load bc)
@@ -54,8 +53,7 @@
                    (sub-bcs bc-penalty-structure-sub-bcs)
                    (debug-mutex bc-penalty-load-lock)
                    (debug-force bc-penalty-load)
-                   (mp-stiffness bc-mp-stiffness)
-                   (sim bc-penalty-sim))
+                   (mp-stiffness bc-mp-stiffness))
       bc
     (reset-load bc)
     (setf mp-stiffness nil)

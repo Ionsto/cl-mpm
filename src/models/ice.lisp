@@ -208,9 +208,11 @@
                )
           (setf
            damage-pressure
-           (if (> p 0d0)
-               (- 1d0 damage-t)
-               (- 1d0 damage-c)))
+           (- 1d0 damage)
+           ;; (if (> p 0d0)
+           ;;     (- 1d0 damage-t)
+           ;;     (- 1d0 damage-c))
+           )
 
           ;; (cl-mpm/fastmaths:fast-.- strain pressure-strain strain)
           ;; (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
@@ -227,9 +229,9 @@
                     (+
                      coheasion
                      (*
-                      0d0
+                      ;; 1d0
                       pressure
-                        damage-pressure))))
+                      damage-pressure))))
             ;; (cl-mpm/ext::constitutive-drucker-prager
             ;;  stress-u
             ;;  strain
@@ -836,6 +838,7 @@
                    (nu cl-mpm/particle::mp-nu)
                    (de cl-mpm/particle::mp-elastic-matrix)
                    (def cl-mpm/particle::mp-deformation-gradient)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (enable-damage cl-mpm/particle::mp-enable-damage))
       mp
     (declare (double-float damage damage-t damage-c damage-s))
@@ -844,7 +847,7 @@
            (> damage 0.0d0))
       (let* ((undamaged-stress (cl-mpm/fastmaths:fast-scale-voigt
                                 (cl-mpm/constitutive::linear-elastic-mat strain de)
-                                (/ 1d0 (magicl:det def))))
+                                (/ 1d0 j)))
              (exponent 1)
              (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
              (pind (- p pressure))

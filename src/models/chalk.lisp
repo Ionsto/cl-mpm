@@ -166,6 +166,23 @@
              (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi kc-r kt-r g-r damage))
     ;;Train elastic strain - plus trail kirchoff stress
     (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
+    ;; (when (and (> dt 0d0))
+    ;;   (let* (;; (E (* 0.01d0 E))
+    ;;          ;; (de-r (cl-mpm/constitutive::linear-elastic-matrix e nu))
+    ;;          )
+    ;;     (multiple-value-bind (eps pmod) (cl-mpm/models/visco::finite-strain-linear-viscous
+    ;;                                      stress-u
+    ;;                                      strain
+    ;;                                      de
+    ;;                                      e
+    ;;                                      nu
+    ;;                                      dt
+    ;;                                      1d1
+    ;;                                      )
+    ;;       (cl-mpm/utils::copy-into eps strain))
+    ;;     (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
+    ;;     )
+    ;;   )
 
     (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
 

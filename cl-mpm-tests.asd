@@ -1,6 +1,7 @@
 (in-package :asdf-user)
 (defsystem "cl-mpm-tests"
   :depends-on ("cl-mpm/all"
+               "cl-mpm/models/visco"
                "lisp-stat"
                "fiasco")
   :description "cl-mpm tests"
@@ -10,5 +11,6 @@
                 :components
                 ((:file "packages")
                  (:file "constitutive")
+                 (:file "visco")
                  (:file "cpp")
                  ))))
