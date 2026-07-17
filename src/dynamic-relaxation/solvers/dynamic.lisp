@@ -308,6 +308,7 @@
                       ;;     (format t "Conv crit: ~E - norm ~E~%" c residual-normaliser)
                       ;;     (< c conv-crit)))
                       :max-damage-inc 10d0
+                      :max-plastic-inc 10d0
                       :post-iter-step (lambda (i e o)
                                         (format t "Dynamic substep ~D~%" i)
 

@@ -41,11 +41,11 @@
         (update-nodes sim)
         (update-filtered-cells sim)
         ;; (cl-mpm/ghost::apply-half-step-ghost sim)
+        (apply-force-bcs sim dt)
         (update-stress mesh mps dt fbar)
         (cl-mpm::update-stiffness-mps sim)
         ;; Map forces onto nodes
         (p2g-force sim)
-        (apply-force-bcs sim dt)
         (update-node-forces sim)
         (apply-essential-bcs sim)
         (reset-node-displacement sim)

@@ -1261,68 +1261,79 @@
                        (df-inv cl-mpm/particle::mp-deformation-gradient-increment-inverse)
                        (damage cl-mpm/particle::mp-damage))
           mp
-        (let* ((mp-stress (funcall func-stress mp))
-               (mp-div (funcall func-div mp))
-               (f-stress (cl-mpm/utils:vector-zeros))
-               (f-div (cl-mpm/utils:vector-zeros)))
-          ;;Iterate over neighbour nodes
+
+        (let ((any-boundary nil))
           (cl-mpm::iterate-over-neighbours
            mesh mp
            (lambda (node svp grads fsvp fgrads)
              (when (cl-mpm/mesh:node-active node)
-               (with-accessors ((node-force cl-mpm/mesh::node-force)
-                                (node-force-ext cl-mpm/mesh::node-external-force)
-                                (node-force-int cl-mpm/mesh::node-internal-force)
-                                (node-pos cl-mpm/mesh::node-position)
-                                (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
-                                (node-lock  cl-mpm/mesh:node-lock)
-                                (node-boundary cl-mpm/mesh::node-boundary-node)
-                                (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
-                                (node-active  cl-mpm/mesh:node-active))
+               (with-accessors ((node-boundary cl-mpm/mesh::node-boundary-node))
                    node
-                 (declare (double-float volume svp))
-                 (when (and node-boundary
-                            ;; (funcall clip-func node-pos)
-                            )
-                   (let ((grads
-                           (if *trial-position*
-                               (cl-mpm::gradient-push-forwards-cached grads df-inv)
-                               grads))
-                         (volume
-                           ;; (cl-mpm/particle::mp-volume mp)
-                           (if *trial-position*
-                               (* volume (cl-mpm/fastmaths::det-3x3 df))
-                               volume)
-                           ))
-                     (cl-mpm/fastmaths:fast-zero f-stress)
-                     (cl-mpm/forces::det-stress-force-unrolled mp-stress grads (- volume) f-stress)
-                     (cl-mpm/fastmaths:fast-scale-vector
-                        mp-div
-                        (* volume svp)
-                        f-div)
-                       (let* ((f-total (cl-mpm/fastmaths::fast-.+ f-stress f-div)))
-                         (sb-thread:with-mutex (node-lock)
-                           (cl-mpm/fastmaths:fast-.+ node-force-ext f-stress node-force-ext)
-                           (cl-mpm/fastmaths:fast-.+ node-force-ext f-div    node-force-ext)
-                           (cl-mpm/fastmaths:fast-.+ node-buoyancy-force f-total node-buoyancy-force)
-                           ;; (incf node-boundary-scalar
-                           ;;       (* -1d0
-                           ;;          volume
-                           ;;          (funcall scalar mp)
-                           ;;          (+ (cl-mpm/utils::gradients-dx grads)
-                           ;;             (cl-mpm/utils::gradients-dy grads)
-                           ;;             (cl-mpm/utils::gradients-dz grads))))
-                           (cl-mpm/fastmaths::fast-.+
-                            (cl-mpm/fastmaths::fast-scale!
-                             (cl-mpm/utils::vector-from-list
-                              (list (cl-mpm/utils::gradients-dx grads)
-                                    (cl-mpm/utils::gradients-dy grads)
-                                    (cl-mpm/utils::gradients-dz grads)))
-                             (* -1d0 volume (funcall scalar mp)))
-                            (cl-mpm/mesh::node-boundary-vec node)
-                            (cl-mpm/mesh::node-boundary-vec node))
-                           ;; (incf node-boundary-scalar (* volume svp (funcall scalar mp)))
-                           )))))))))))))
+                 (when node-boundary
+                   (setf any-boundary t))))))
+          (when any-boundary
+            (let* ((mp-stress (funcall func-stress mp))
+                   (mp-div (funcall func-div mp))
+                   (f-stress (cl-mpm/utils:vector-zeros))
+                   (f-div (cl-mpm/utils:vector-zeros)))
+              ;;Iterate over neighbour nodes
+              (cl-mpm::iterate-over-neighbours
+               mesh mp
+               (lambda (node svp grads fsvp fgrads)
+                 (when (cl-mpm/mesh:node-active node)
+                   (with-accessors ((node-force cl-mpm/mesh::node-force)
+                                    (node-force-ext cl-mpm/mesh::node-external-force)
+                                    (node-force-int cl-mpm/mesh::node-internal-force)
+                                    (node-pos cl-mpm/mesh::node-position)
+                                    (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
+                                    (node-lock  cl-mpm/mesh:node-lock)
+                                    (node-boundary cl-mpm/mesh::node-boundary-node)
+                                    (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
+                                    (node-active  cl-mpm/mesh:node-active))
+                       node
+                     (declare (double-float volume svp))
+                     (when (and node-boundary
+                                ;; (funcall clip-func node-pos)
+                                )
+                       (let ((grads
+                               (if *trial-position*
+                                   (cl-mpm::gradient-push-forwards-cached grads df-inv)
+                                   grads))
+                             (volume
+                               ;; (cl-mpm/particle::mp-volume mp)
+                               (if *trial-position*
+                                   (* volume (cl-mpm/fastmaths::det-3x3 df))
+                                   volume)
+                               ))
+                         (cl-mpm/fastmaths:fast-zero f-stress)
+                         (cl-mpm/forces::det-stress-force-unrolled mp-stress grads (- volume) f-stress)
+                         (cl-mpm/fastmaths:fast-scale-vector
+                          mp-div
+                          (* volume svp)
+                          f-div)
+                         (let* ((f-total (cl-mpm/fastmaths::fast-.+ f-stress f-div)))
+                           (sb-thread:with-mutex (node-lock)
+                             (cl-mpm/fastmaths:fast-.+ node-force-ext f-stress node-force-ext)
+                             (cl-mpm/fastmaths:fast-.+ node-force-ext f-div    node-force-ext)
+                             (cl-mpm/fastmaths:fast-.+ node-buoyancy-force f-total node-buoyancy-force)
+                             ;; (incf node-boundary-scalar
+                             ;;       (* -1d0
+                             ;;          volume
+                             ;;          (funcall scalar mp)
+                             ;;          (+ (cl-mpm/utils::gradients-dx grads)
+                             ;;             (cl-mpm/utils::gradients-dy grads)
+                             ;;             (cl-mpm/utils::gradients-dz grads))))
+                             (cl-mpm/fastmaths::fast-.+
+                              (cl-mpm/fastmaths::fast-scale!
+                               (cl-mpm/utils::vector-from-list
+                                (list (cl-mpm/utils::gradients-dx grads)
+                                      (cl-mpm/utils::gradients-dy grads)
+                                      (cl-mpm/utils::gradients-dz grads)))
+                               (* -1d0 volume (funcall scalar mp)))
+                              (cl-mpm/mesh::node-boundary-vec node)
+                              (cl-mpm/mesh::node-boundary-vec node))
+                             ;; (incf node-boundary-scalar (* volume svp (funcall scalar mp)))
+                             )))))))))))))))
 
 (defmethod cl-mpm/bc::apply-sim-bc (sim (bc bc-scalar) dt)
   "Arbitrary closure BC"

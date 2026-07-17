@@ -89,6 +89,7 @@
   ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
   (cl-mpm::update-domain-polar mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)
+  ;; (cl-mpm::clamp-domains mesh mp)
   )
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
@@ -260,7 +261,7 @@
                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
                :args-list (list
                            :split-factor (/ 1.1d0 mp-scale)
-                           :enable-fbar nil
+                           :enable-fbar t
                            :enable-aggregate t
                            :vel-algo :QUASI-STATIC
                            :max-split-depth 3
@@ -280,7 +281,7 @@
       (let* ((E 1d9)
              (angle 50d0)
              ;; (angle 42d0)
-             (angle-r 10d0)
+             (angle-r 30d0)
              (init-c (* 0.25d0 26d3))
              (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile init-c (* angle (/ pi 180))))
              (gf (* 48d0 1d0))
@@ -291,7 +292,7 @@
         (format t "Estimated ductility ~E~%" ductility)
         (format t "Estimated lc ~E~%" length-scale)
         (format t "Estimated init stress ~E~%" init-stress)
-        (let ((rt (- 1d0 1d-9))
+        (let ((rt (- 1d0 1d-15))
               (rc 0d0))
           (cl-mpm:add-mps
            sim
@@ -308,20 +309,19 @@
             :friction-angle (cl-mpm/utils:deg-to-rad angle)
             :residual-friction (cl-mpm/utils:deg-to-rad angle-r)
             :initiation-stress init-stress
-            ;; :friction-model :DP
+            :friction-model :MC
             :oversize oversize-ratio
             :kt-res-ratio rt
             :kc-res-ratio rc
             :residual-strength 1d0
             :delay-time 1d1
             :delay-exponent 2d0
-            :psi 0d0;(cl-mpm/utils:deg-to-rad 5d0)
+            :psi (cl-mpm/utils:deg-to-rad 0d0)
             :index 0))))
 
       (setf (cl-mpm::sim-enable-damage sim) nil)
 
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-enable-fbar sim) t)
       (setf (cl-mpm/damage::sim-enable-length-localisation sim) t)
       ;; (let ((mass-filter (* density (expt h 2) 1d-2)))
       ;;   (format t "Mass filter: ~F~%" mass-filter)
@@ -803,7 +803,7 @@
          (shelf-height 15)
          ;(soil-boundary (floor (* 15 1)))
          (soil-boundary 4)
-         (runout-aspect 4)
+         (runout-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height-true shelf-height)
@@ -1114,7 +1114,7 @@
     ;;            ) p)
     ;;          1d0))))
 
-    (setf cl-mpm::*max-split-depth* 4))
+    )
 
     (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
@@ -1279,7 +1279,7 @@
                                         ) p)
                                       1d0)
                                   )))
-     (setf cl-mpm::*max-split-depth* 6))
+     )
     (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
@@ -1669,11 +1669,11 @@
 
 
 (defun test-oct ()
-  (cl-mpm/utils::set-workers 8)
+  (cl-mpm/utils::set-workers 16)
   (setf *length-scale* 1d0)
   (let ((shelf-aspect 2d0))
-    (setup :refine 0.5
-           :mps 4
+    (setup :refine 1
+           :mps 3
            :notch-length 4d0
            :shelf-aspect shelf-aspect
            :multigrid-refinement 0)
@@ -1769,7 +1769,7 @@
        :adaption-constant 2
        ;; :steps (round total-time dt)
        :explicit-mass-scaling t
-       :explicit-dt-scale 0.25d0
+       :explicit-dt-scale 0.9d0
        :explicit-damping-factor 1d-4
        :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
        ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-usf
@@ -1800,17 +1800,17 @@
           (cl-mpm::sim-ghost-factor sim) nil))
        :setup-dynamic
        (lambda (sim)
-         (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-3)
-         (setf (cl-mpm::sim-velocity-algorithm *sim*) :TFLIP)
+         (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-9)
+         (setf (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND)
          (setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) 10)
-         (setf (cl-mpm/aggregate::sim-enable-aggregate sim) nil
+         (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t
                (cl-mpm::sim-ghost-factor sim) nil))))))
 
 
 (defun test-real ()
-  (cl-mpm/utils::set-workers 4)
+  (cl-mpm/utils::set-workers 12)
   (setf *length-scale* 0.5d0)
-  (let ((shelf-aspect 1d0))
+  (let ((shelf-aspect 2d0))
     (setup :refine 0.5
            :mps 3
            :notch-length 4d0
@@ -1844,12 +1844,12 @@
           :terminal "png size 1920,1080")
          (incf step))
        :conv-criteria 1d-6
-       :damping 0d0
+       :damping 1d-4
        :dt dt
        :total-time 90d0
        :save-vtk-dr t
        :save-vtk-loadstep t
-       :dt-scale 0.25d0
+       :dt-scale 0.9d0
        :adaptive-mass-enabled t
        :adaptive-mass-scale 1d2))))
 (defmethod cl-mpm/dynamic-relaxation::damage-increment-criteria ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))

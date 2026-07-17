@@ -32,8 +32,7 @@
                    (enable-damage cl-mpm/particle::mp-enable-damage)
                    (p-mod cl-mpm/particle::mp-p-modulus-0)
                    (e cl-mpm/particle::mp-e)
-                   (nu cl-mpm/particle::mp-nu)
-                   )
+                   (nu cl-mpm/particle::mp-nu))
       mp
     (let ()
       (when (> damage 0.0d0)

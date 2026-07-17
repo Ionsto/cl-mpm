@@ -294,6 +294,7 @@
                           (enable-damage t)
                           (enable-plastic t)
                           (max-damage-inc 0.6d0)
+                          (max-plastic-inc 10d0)
                           (true-stagger nil)
                           (plotter (lambda (sim))))
   (let ((total-i 0))
@@ -321,14 +322,17 @@
                     while (not alt-conv-crit)
                     do
                        (progn
-                         
                          (loop for stagger-i from 0 to 100
-                               while (or (>= dconv damage-crit)
-                                         (>= (cl-mpm::sim-stats-oobf sim) oobf-crit))
+                               while (or
+                                      (< stagger-i 2)
+                                      (>= dconv damage-crit)
+                                      (>= (cl-mpm::sim-stats-oobf sim) oobf-crit))
                                do
                                   (progn
+                                    (format t "Stagger iter ~D~%" stagger-i)
                                     (when (> stagger-i 1)
                                       (setf true-stagger nil))
+                                    (refine-mesh sim)
                                     (cl-mpm/dynamic-relaxation:converge-quasi-static
                                      sim
                                      :oobf-crit oobf-crit
@@ -370,6 +374,12 @@
                                                  (error (make-instance 'error-inertia-criteria
                                                                        :text "True inertia exceeded"
                                                                        :inertia-norm true-intertia))))))
+                                       (let ((plastic-inc (plastic-increment-criteria sim)))
+                                         (format t "Plastic inc criteria ~E~%" plastic-inc)
+                                         (when (> plastic-inc max-plastic-inc)
+                                           (cl-mpm:sim-format sim t "Damage criteria failed~%")
+                                           (error (make-instance 'error-plastic-criteria
+                                                                 :max-plastic-inc plastic-inc))))
                                        (unless true-stagger
                                          (let ((damage-inc (damage-increment-criteria sim)))
                                            (cl-mpm:sim-format sim t "Damage ~E - prev damage ~E - inc ~E~%" damage damage-prev damage-inc)
@@ -379,7 +389,8 @@
                                                                    :text "Damage criteria exeeded"
                                                                    :max-damage-inc 0d0)))))
                                        ;; (save-conv-step sim output-dir *total-iter* global-step 0d0 o 0d0)
-                                       (incf *total-iter* substeps)))
+                                       (incf *total-iter* substeps)
+                                       (refine-mesh sim)))
 
                                     (let ((fast-trial-conv oobf-crit)
                                           (damage-iter t))
@@ -444,12 +455,11 @@
 
                                                  (incf total-i))
                                         (when t
-                                          (dotimes (i 2)
+                                          (dotimes (i 1)
                                             (cl-mpm:update-sim sim))
                                           (cl-mpm::update-dynamic-stats sim)
                                           (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim))
-                                          (cl-mpm:sim-format sim t "fast trial ~E~%" fast-trial-conv))
-                           ))
+                                          (cl-mpm:sim-format sim t "fast trial ~E~%" fast-trial-conv))))
 
                        (setf damage-prev damage)
                        (when save-vtk-dr
@@ -469,7 +479,6 @@
                        ))
                          (setf alt-conv-crit (convergence-check sim))
                          (unless alt-conv-crit
-                           (pprint "reset oobf")
                            (setf (cl-mpm::sim-stats-oobf sim) oobf-crit)))))
             (when (or (> (cl-mpm::sim-stats-oobf sim) oobf-crit)
                       (> dconv damage-crit))
@@ -633,6 +642,7 @@
                           (enable-plastic t)
                           (save-vtk-dr t)
                           (save-vtk-loadstep t)
+                          (max-plastic-inc 1d0)
                           (max-damage-inc 0.6d0)
                           (min-damage-inc 0d0)
                           (setup-quasi-static (lambda (sim)))
@@ -754,6 +764,7 @@
                                                      :conv-criteria conv-criteria
                                                      :conv-criteria-damage conv-criteria
                                                      :max-damage-inc max-damage-inc
+                                                     :max-plastic-inc max-plastic-inc
                                                      :save-vtk-dr save-vtk-dr)
                                   (setf quasi-conv conv
                                         stagger-iters inc-steps)

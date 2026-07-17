@@ -89,8 +89,9 @@
       (cl-mpm::iterate-over-mps
        mps
        (lambda (mp)
+         (setf (cl-mpm/particle::mp-p-modulus mp) (cl-mpm/particle::estimate-stiffness mp))
          (let* ((mp-volume (cl-mpm/particle::mp-volume mp))
-                (mp-pmod (cl-mpm/particle::estimate-stiffness mp))
+                (mp-pmod (cl-mpm/particle::mp-p-modulus mp))
                 (ul (estimate-ul-enhancement mp nd))
                 (mp-factor (* mp-pmod
                               mp-volume
@@ -349,10 +350,10 @@
     (setf dt 1d0)
     (cl-mpm::reset-nodes-force sim)
     (cl-mpm::apply-essential-bcs sim)
+    (cl-mpm::apply-force-bcs sim dt-loadstep)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
     (cl-mpm/damage::calculate-damage sim dt-loadstep)
     (cl-mpm::p2g-force-fs sim)
-    (cl-mpm::apply-force-bcs sim dt-loadstep)
     (when ghost-factor
       (cl-mpm/ghost::apply-ghost-cached sim)
       (cl-mpm::apply-essential-bcs sim))

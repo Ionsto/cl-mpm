@@ -608,6 +608,7 @@
 
 (defun estimate-stiffness-hencky (mp)
   (*
+   ;; (the double-float (/ 1d0 (cl-mpm/particle::mp-deformation-jacobian-strain mp)))
    (the double-float (/ 1d0 (cl-mpm/fastmaths::det-3x3 (cl-mpm/particle::mp-deformation-gradient mp))))
    (the double-float (estimate-log-enhancement mp))
    (the double-float (mp-p-modulus-0 mp))))

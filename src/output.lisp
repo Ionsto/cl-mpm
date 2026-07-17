@@ -481,6 +481,7 @@
      (list :VECTOR "force-int" #'cl-mpm/mesh::node-internal-force)
      (list :VECTOR "force-ext" #'cl-mpm/mesh::node-external-force)
      (list :VECTOR "force-damping" #'cl-mpm/mesh::node-damping-force)
+     (list :VECTOR "force-buoyancy" #'cl-mpm/mesh::node-buoyancy-force)
      ))))
 
 
