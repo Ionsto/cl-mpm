@@ -177,6 +177,11 @@
    (unique-index-lock
     :accessor sim-unique-index-lock
     :initform (sb-thread:make-mutex))
+   (remove-on-oversplit
+    :type boolean
+    :accessor sim-remove-on-oversplit
+    :initarg :remove-on-oversplit
+    :initform t)
    (max-split-depth
     :type integer
     :accessor sim-max-split-depth

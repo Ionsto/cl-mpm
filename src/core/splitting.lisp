@@ -245,6 +245,7 @@
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
                    (max-split-depth cl-mpm::sim-max-split-depth)
+                   (remove-on-oversplit cl-mpm::sim-remove-on-oversplit)
                    (split-factor cl-mpm::sim-split-factor))
       sim
     (declare (fixnum max-split-depth))
@@ -256,7 +257,14 @@
                                            (or
                                             (split-criteria-variable mp h split-factor nd)))) mps))
            (split-direction (map 'list (lambda (mp) (split-criteria-variable mp h split-factor nd)) mps-to-split)))
-      (remove-mps-func sim (lambda (mp) (split-criteria-variable mp h split-factor nd)))
+      (remove-mps-func sim (lambda (mp)
+                             (and
+                              ;; (not
+                              ;;  (and
+                              ;;   remove-on-oversplit
+                              ;;   (< (cl-mpm/particle::mp-split-depth mp) max-split-depth)))
+                              (< (cl-mpm/particle::mp-split-depth mp) max-split-depth)
+                              (split-criteria-variable mp h split-factor nd))))
       (loop for mp across mps-to-split
             for direction in split-direction
             do (loop for new-mp in (split-mp mp h direction)

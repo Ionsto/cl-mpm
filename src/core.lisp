@@ -883,25 +883,25 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
 
 (defun single-particle-criteria (mesh mp)
   "Criteria for checking if material point is unconnected to another MP"
-  ;; (let ((svp-sum 0d0)
-  ;;       (alone t))
-  ;;   (iterate-over-neighbours
-  ;;     mesh mp
-  ;;     (lambda (node svp grads fsvp fgrads)
-  ;;       (declare
-  ;;         (cl-mpm/mesh::node node)
-  ;;         (cl-mpm/particle:particle mp)
-  ;;         (type double-float svp))
-  ;;       (with-accessors ((node-svp cl-mpm/mesh::node-svp-sum)
-  ;;                        (node-active cl-mpm/mesh:node-active)
-  ;;                        ) node
-  ;;         (when node-active
-  ;;           (incf svp-sum node-svp)))))
-  ;;   (and (< svp-sum 2d0) (not (= svp-sum 0d0)))
-  ;;   ;; (setf alone t)
-  ;;   ;; alone
-  ;;   )
-  nil
+  (let ((svp-sum 0d0)
+        (alone t))
+    (iterate-over-neighbours
+      mesh mp
+      (lambda (node svp grads fsvp fgrads)
+        (declare
+          (cl-mpm/mesh::node node)
+          (cl-mpm/particle:particle mp)
+          (type double-float svp))
+        (with-accessors ((node-svp cl-mpm/mesh::node-svp-sum)
+                         (node-active cl-mpm/mesh:node-active)
+                         ) node
+          (when node-active
+            (incf svp-sum node-svp)))))
+    (and (< svp-sum 2d0) (not (= svp-sum 0d0)))
+    ;; (setf alone t)
+    ;; alone
+    )
+  ;; nil
   )
 (defun gimp-removal-criteria (mp h nd)
   "Criteria for removal of gimp mps based on domain length"
@@ -1134,7 +1134,7 @@ This modifies the dt of the simulation in the process
   (when (cl-mpm::sim-allow-mp-split sim)
     (split-mps sim))
   (check-mps sim)
-  ;; (check-single-mps sim)
+  (check-single-mps sim)
   ;; (cl-mpm/ghost::reset-ghost-cache sim)
   ;; (reset-node-displacement sim)
   )
