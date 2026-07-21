@@ -232,7 +232,6 @@
                    (stress-u      cl-mpm/particle::mp-undamaged-stress)
                    (stress        cl-mpm/particle::mp-stress)
                    (p-mod         cl-mpm/particle::mp-p-modulus-0)
-                   ;; (def cl-mpm/particle::mp-deformation-gradient)
                    (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (E cl-mpm/particle::mp-e)
                    (nu cl-mpm/particle::mp-nu)
@@ -240,8 +239,10 @@
       mp
     (declare (double-float damage damage-t damage-c damage-s))
     (when (and
+           t
            ;; enable-damage
-           (> damage 0.0d0))
+           ;; (> damage 0.0d0)
+           )
       (let* ((exponent 1)
              (stress-uc (cl-mpm/fastmaths:fast-scale-voigt stress-u (/ 1d0 j)))
              (p (/ (cl-mpm/constitutive::voight-trace stress-uc) 3d0))

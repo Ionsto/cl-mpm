@@ -154,12 +154,7 @@
                    (nu mp-nu)
                    (phi mp-phi)
                    (psi mp-psi)
-                   (kc-r mp-k-compressive-residual-ratio)
-                   (kt-r mp-k-tensile-residual-ratio)
-                   (g-r mp-shear-residual-ratio)
-                   (peerlings mp-peerlings-damage)
                    (p-mod mp-p-modulus-0)
-                   (def mp-deformation-gradient)
                    )
       mp
     (declare (magicl:matrix/double-float de stress stress-u strain plastic-strain)
@@ -203,11 +198,10 @@
                    (enable-damage cl-mpm/particle::mp-enable-damage)
                    )
       mp
-    (when enable-damage
-      ;; (cl-mpm/damage::apply-isotropic-degredation mp)
-      ;; (cl-mpm/damage::apply-vol-tensile-degredation mp)
-      (cl-mpm/damage::apply-tcs-degredation mp)
-      )))
+    ;; (cl-mpm/damage::apply-isotropic-degredation mp)
+    ;; (cl-mpm/damage::apply-vol-tensile-degredation mp)
+    (cl-mpm/damage::apply-tcs-degredation mp)
+    ))
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)
