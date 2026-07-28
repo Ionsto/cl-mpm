@@ -218,6 +218,8 @@
 
 
 
+(defmethod calculate-damage ((sim cl-mpm::mpm-sim) dt)
+  )
 
 (defmethod calculate-damage ((sim mpm-sim-damage) dt)
   (with-accessors ((mps cl-mpm:sim-mps)

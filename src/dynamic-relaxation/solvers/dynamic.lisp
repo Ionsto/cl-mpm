@@ -169,26 +169,6 @@
 (defmethod cl-mpm::update-sim ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
   "Update stress last algorithm"
   (declare (cl-mpm::mpm-sim sim))
-  ;; (with-slots ((mesh cl-mpm::mesh)
-  ;;              (mps cl-mpm::mps)
-  ;;              (bcs cl-mpm::bcs)
-  ;;              (bcs-force cl-mpm::bcs-force)
-  ;;              (dt cl-mpm::dt)
-  ;;              (dt-loadstep dt-loadstep)
-  ;;              (mass-filter cl-mpm::mass-filter)
-  ;;              (split cl-mpm::allow-mp-split)
-  ;;              (enable-damage cl-mpm::enable-damage)
-  ;;              (nonlocal-damage cl-mpm::nonlocal-damage)
-  ;;              (remove-damage cl-mpm::allow-mp-damage-removal)
-  ;;              (fbar cl-mpm::enable-fbar)
-  ;;              (bcs-force-list cl-mpm::bcs-force-list)
-  ;;              (ghost-factor cl-mpm::ghost-factor)
-  ;;              (initial-setup initial-setup)
-  ;;              (enable-aggregate cl-mpm/aggregate::enable-aggregate)
-  ;;              (damping cl-mpm::damping-factor)
-  ;;              (vel-algo cl-mpm::velocity-algorithm))
-  ;;     sim
-  ;;   (declare (type double-float mass-filter)))
   (with-slots ((mesh cl-mpm::mesh)
                (mps cl-mpm::mps)
                (bcs cl-mpm::bcs)
@@ -213,11 +193,11 @@
     (setf dt 1d0)
     (cl-mpm/penalty::reset-penalty sim)
     (cl-mpm::reset-nodes-force sim)
+    (cl-mpm::apply-force-bcs sim dt-loadstep)
     (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
     (cl-mpm/damage::calculate-damage sim dt-loadstep)
     (cl-mpm::p2g-force-fs sim)
-    (cl-mpm::apply-force-bcs sim dt-loadstep)
     (when ghost-factor
       (cl-mpm/ghost::apply-ghost sim ghost-factor)
       (cl-mpm::apply-bcs mesh bcs dt))
@@ -294,7 +274,7 @@
                       :crit conv-crit
                       :substeps substeps
                       :sub-conv-steps 50
-                      :dt-scale 0.95d0
+                      :dt-scale 0.9d0
                       :damping (sqrt 2d0)
                       ;; :convergance-criteria
                       ;; (lambda (sim f o)
@@ -322,7 +302,12 @@
                      t)
                  (cl-mpm/errors:error-simulation (c)
                    (princ c)
-                   (cl-mpm::reset-loadstep sim)
+                   ;; (cl-mpm::reset-loadstep sim)
+                   (cl-mpm:iterate-over-mps
+                    (cl-mpm:sim-mps sim)
+                    (lambda (mp)
+                      (cl-mpm/particle::reset-loadstep-mp mp)))
+                   (cl-mpm::reset-node-displacement sim)
                    nil))))
       (let ((conv nil)
             (dt-step (- dt 1d-15)))

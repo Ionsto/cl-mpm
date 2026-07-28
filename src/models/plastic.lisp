@@ -162,7 +162,6 @@
             (setf ps-vm (+ ps-vm-1 ps-vm-inc))
             )))
       (when (> soft 0d0)
-        
         (with-accessors ((rho-r mp-rho-r)
                          (rho-0 mp-rho-0))
             mp
@@ -495,16 +494,21 @@
       (multiple-value-bind (sig eps-e f yield)
           (cl-mpm/constitutive::plastic-dp stress de strain E nu phi psi c)
           ;; (cl-mpm/ext::constitutive-drucker-prager strain de E nu phi psi c)
-        (if yield
-            (progn
-              (setf stress sig
-                    plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
-                    yield-func f
-                    )
-              (setf strain eps-e))
-          (progn
-            (cl-mpm/fastmaths:fast-zero plastic-strain)
-            (setf yield-func 0d0))))
+        (setf stress sig
+              ;; plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
+              yield-func f
+              )
+        ;; (if yield
+        ;;     (progn
+        ;;       (setf stress sig
+        ;;             plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
+        ;;             yield-func f
+        ;;             )
+        ;;       (setf strain eps-e))
+        ;;   (progn
+        ;;     (cl-mpm/fastmaths:fast-zero plastic-strain)
+        ;;     (setf yield-func 0d0)))
+        )
       (incf ps-vm
             (multiple-value-bind (l v)
                 (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))

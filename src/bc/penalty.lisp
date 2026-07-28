@@ -1135,6 +1135,18 @@
      (<= (cl-mpm/fastmaths:dot b-c b-trial) (cl-mpm/fastmaths:dot b-c b-c))
      )))
 
+
+(defgeneric walk-penalty-list (bc func))
+(defmethod walk-penalty-list ((bc cl-mpm/penalty::bc-penalty) func)
+  (declare (function func))
+  (funcall func bc))
+
+(defmethod walk-penalty-list ((bc cl-mpm/penalty::bc-penalty-structure) func)
+  (declare (function func))
+  (funcall func bc)
+  (loop for sub-bc in (bc-penalty-structure-sub-bcs bc)
+        do (walk-penalty-list sub-bc func)))
+
 (defun iterate-over-penalty-point-normal ())
 
 (defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc cl-mpm/penalty::bc-penalty))

@@ -912,7 +912,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           (aspect 0.1d0)
           (l-max nil)
           (l-min nil))
-      (loop for i from 0 to nd
+      (loop for i from 0 below nd
             do
             (let ((l (varef lens i)))
               (when (> l 0d0)
@@ -1134,7 +1134,7 @@ This modifies the dt of the simulation in the process
   (when (cl-mpm::sim-allow-mp-split sim)
     (split-mps sim))
   (check-mps sim)
-  (check-single-mps sim)
+  ;; (check-single-mps sim)
   ;; (cl-mpm/ghost::reset-ghost-cache sim)
   ;; (reset-node-displacement sim)
   )

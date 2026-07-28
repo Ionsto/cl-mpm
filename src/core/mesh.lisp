@@ -252,6 +252,14 @@
     :accessor node-damage
     :initform 0d0
     :type double-float)
+   (vm-stress
+    :accessor node-vm-stress
+    :initform 0d0
+    :type double-float)
+   (vm-stress-error
+    :accessor node-vm-stress-error
+    :initform 0d0
+    :type double-float)
 
    ;;These are needed for dynamic relaxation
    (true-velocity

@@ -158,7 +158,7 @@
                    )
       mp
     (declare (magicl:matrix/double-float de stress stress-u strain plastic-strain)
-             (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi kc-r kt-r g-r damage))
+             (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi damage))
     ;;Train elastic strain - plus trail kirchoff stress
 
     (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
@@ -180,7 +180,8 @@
              stress-u sig
              strain eps-e
              yield-func f
-             p-mod pmod)
+             ;; p-mod pmod
+             )
             (let ()
               (setf ps-vm (+ ps-vm-1 inc))
               (setf ps-vm-inc inc)))))
@@ -621,7 +622,6 @@
                      (damage-rate cl-mpm/particle::mp-damage-rate)
                      (pressure cl-mpm/particle::mp-pressure)
                      (ybar cl-mpm/particle::mp-damage-ybar)
-                     (def cl-mpm/particle::mp-deformation-gradient)
                      (angle cl-mpm/particle::mp-friction-angle)
                      (c cl-mpm/particle::mp-coheasion)
                      (nu cl-mpm/particle::mp-nu)

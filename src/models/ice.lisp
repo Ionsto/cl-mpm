@@ -845,7 +845,7 @@
       mp
     (declare (double-float damage damage-t damage-c damage-s j pressure))
     (when (and
-           enable-damage
+           ;; enable-damage
            (> damage 0.0d0))
       (let* ((undamaged-stress (cl-mpm/fastmaths:fast-scale-voigt
                                 (cl-mpm/constitutive::linear-elastic-mat strain de)
@@ -901,14 +901,16 @@
                    (enable-damage cl-mpm/particle::mp-enable-damage)
                    (p-mod cl-mpm/particle::mp-p-modulus))
       mp
-    (when enable-damage
+    (when t
       ;; (cl-mpm/damage::apply-tensile-strain-degredation mp)
       ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
       ;; (cl-mpm/damage::apply-vol-degredation mp)
-      (apply-vol-pressure-degredation mp dt (* -1d0
-                                               (/ p 1)
-                                               (expt damage 1)
-                                               ))
+      (apply-vol-pressure-degredation
+       mp
+       dt
+       (* -1d0
+          (/ p 1)
+          (expt damage 1)))
       ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
       ;; (let ((pd  (* -1d0
       ;;               (/ p 3)

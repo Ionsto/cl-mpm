@@ -138,7 +138,9 @@
                                       (damping 1d0)
                                       (staggered-steps 10)
                                       (sub-conv-steps 50)
-                                      (true-stagger nil))
+                                      (true-stagger nil)
+                                      (stagger-plastic nil)
+                                      )
   (let* ((damage-prev (get-damage sim))
          (damage damage-prev)
          (oobf-crit   crit)
@@ -148,8 +150,19 @@
          (total-i 0)
          (stagger-iters 0))
     (set-mp-plastic-damage sim :enable-damage enable-damage :enable-plastic enable-plastic)
-
     (setf (cl-mpm:sim-enable-damage sim) nil)
+
+    (set-mp-plastic-damage
+     sim
+     :enable-damage
+     (and
+      enable-damage
+      (not true-stagger))
+     :enable-plastic
+     (and
+      enable-plastic
+      (not stagger-plastic)))
+
     (let ((additional-conv nil))
       (loop for i from 0 to 100
             while (not additional-conv)
@@ -157,10 +170,22 @@
                (progn
                  (loop for stagger-i from 0 to staggered-steps
                        while (or (>= dconv damage-crit)
+
+                                 (and
+                                  (or
+                                   true-stagger
+                                   stagger-plastic)
+                                  (< stagger-i 2))
+
                                  ;; (not additional-conv)
                                  (>= (cl-mpm::sim-stats-oobf sim) (cl-mpm/dynamic-relaxation::sim-convergence-critera sim)))
                        do
                           (progn
+                            (when (> stagger-i 0)
+                              (set-mp-plastic-damage
+                               sim
+                               :enable-damage enable-damage
+                               :enable-plastic enable-plastic))
                             (let ((iv 0))
                               (refine-mesh sim)
                               (cl-mpm/dynamic-relaxation:converge-quasi-static
@@ -204,12 +229,13 @@
                                      ;;                           :inertia-norm true-intertia))))
                                      ))
                                  (funcall post-iter-step i e o)
-                                 (let ((plastic-inc (plastic-increment-criteria sim)))
-                                   (format t "Plastic inc criteria ~E~%" plastic-inc)
-                                   (when (> plastic-inc max-plastic-inc)
-                                     (cl-mpm:sim-format sim t "Damage criteria failed~%")
-                                     (error (make-instance 'error-plastic-criteria
-                                                           :max-plastic-inc plastic-inc))))
+                                 (when max-plastic-inc 
+                                   (let ((plastic-inc (plastic-increment-criteria sim)))
+                                     (format t "Plastic inc criteria ~E~%" plastic-inc)
+                                     (when (> plastic-inc max-plastic-inc)
+                                       (cl-mpm:sim-format sim t "Damage criteria failed~%")
+                                       (error (make-instance 'error-plastic-criteria
+                                                             :max-plastic-inc plastic-inc)))))
                                  (unless true-stagger
                                    (let ((damage-inc (damage-increment-criteria sim)))
                                      (when (> damage-inc max-damage-inc)
@@ -308,16 +334,17 @@
                    ;conv-criteria
                               )
                  (damage-crit conv-criteria-damage)
-                 (dconv damage-crit)
+                 (dconv (if enable-damage damage-crit 0d0))
                  (inertia 0d0)
                  (intertia-crit 1d-3)
-                 (stagger-iters 0)
-                 )
+                 (stagger-iters 0))
             (reset-mp-velocity sim)
             (set-mp-plastic-damage sim :enable-damage enable-damage :enable-plastic enable-plastic)
             (setf (cl-mpm:sim-enable-damage sim) nil)
             ;; (setf (cl-mpm:sim-enable-damage sim) enable-damage)
-            (let ((alt-conv-crit nil))
+            (let ((alt-conv-crit nil)
+                  (staggered true-stagger)
+                  )
               (loop for ac from 0 to 10
                     while (not alt-conv-crit)
                     do
@@ -330,7 +357,8 @@
                                do
                                   (progn
                                     (format t "Stagger iter ~D~%" stagger-i)
-                                    (when (> stagger-i 1)
+                                    (when (and (> stagger-i 1)
+                                               (not staggered))
                                       (setf true-stagger nil))
                                     (refine-mesh sim)
                                     (cl-mpm/dynamic-relaxation:converge-quasi-static
@@ -374,12 +402,13 @@
                                                  (error (make-instance 'error-inertia-criteria
                                                                        :text "True inertia exceeded"
                                                                        :inertia-norm true-intertia))))))
-                                       (let ((plastic-inc (plastic-increment-criteria sim)))
-                                         (format t "Plastic inc criteria ~E~%" plastic-inc)
-                                         (when (> plastic-inc max-plastic-inc)
-                                           (cl-mpm:sim-format sim t "Damage criteria failed~%")
-                                           (error (make-instance 'error-plastic-criteria
-                                                                 :max-plastic-inc plastic-inc))))
+                                       (when max-plastic-inc
+                                         (let ((plastic-inc (plastic-increment-criteria sim)))
+                                           (format t "Plastic inc criteria ~E~%" plastic-inc)
+                                           (when (> plastic-inc max-plastic-inc)
+                                             (cl-mpm:sim-format sim t "Damage criteria failed~%")
+                                             (error (make-instance 'error-plastic-criteria
+                                                                   :max-plastic-inc plastic-inc)))))
                                        (unless true-stagger
                                          (let ((damage-inc (damage-increment-criteria sim)))
                                            (cl-mpm:sim-format sim t "Damage ~E - prev damage ~E - inc ~E~%" damage damage-prev damage-inc)
@@ -396,7 +425,10 @@
                                           (damage-iter t))
                                       (unless (typep sim 'cl-mpm/damage::mpm-sim-damage)
                                         (setf dconv 0d0))
-                                      (when (typep sim 'cl-mpm/damage::mpm-sim-damage)
+                                      (when
+                                          (and
+                                           enable-damage
+                                           (typep sim 'cl-mpm/damage::mpm-sim-damage))
                                         ;; (loop for k from 0 to 10
                                         ;;       while (and
                                         ;;              (<= fast-trial-conv (sqrt oobf-crit))
@@ -435,24 +467,11 @@
                                                      (error (make-instance 'error-damage-criteria
                                                                            :text "Damage criteria exeeded"
                                                                            :max-damage-inc 0d0))))
-                                                 ;; (when damage-iter
-                                                 ;;   (dotimes (i 2)
-                                                 ;;     (cl-mpm:update-sim sim))
-                                                 ;;   (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim))
-                                                 ;;   (cl-mpm:sim-format sim t "fast trial ~E~%" fast-trial-conv))
-
                                                  (save-conv-step sim output-dir *total-iter* global-step
                                                                  0d0
                                                                  fast-trial-conv
-                                                                 0d0
-                                                                 )
+                                                                 0d0)
                                                  (incf *total-iter*)
-                                                 ;; (save-conv-step sim output-dir *total-iter* global-step
-                                                 ;;                 0d0
-                                                 ;;                 o
-                                                 ;;                 0d0
-                                                 ;;                 )
-
                                                  (incf total-i))
                                         (when t
                                           (dotimes (i 1)
@@ -696,16 +715,15 @@
                   :damping-factor damping-factor
                   :post-iter-step
                   (lambda (j e o)
+                    ;; (refine-mesh sim)
                     (incf i)
                     (save-conv-step sim output-dir *total-iter* 0 0d0 o e)
                     (incf *total-iter* substeps)
                     (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_conv_~5,'0d.vtk" i)) sim)
                     (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_conv_nodes__~5,'0d.vtk" i)) sim)
-                    (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_conv_cells__~5,'0d.vtk" i)) sim)
-                    ;; (cl-mpm/penalty::save-vtk-penalties (merge-pathnames output-dir (format nil "sim_conv_p_~5,'0d.vtk" i)) sim)
-                    ))
-                 (cl-mpm::finalise-loadstep sim)
-                 ))
+                    (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_conv_cells__~5,'0d.vtk" i)) sim))
+                    )
+                 (cl-mpm::finalise-loadstep sim)))
       (setf (cl-mpm::sim-time sim) 0d0)
       (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
       (reset-mp-velocity sim)
@@ -1324,6 +1342,7 @@
                            (save-vtk-loadstep t)
                            (max-adaptive-steps 5)
                            (min-adaptive-steps 0)
+                           (compute-zero-loadstep nil)
                            (adaption-constant 2)
                            (max-damage-inc 0.3d0)
                            (max-plastic-inc 0.5d0)
@@ -1354,7 +1373,7 @@
              (load-step-size initial-load-step-size)
              (current-load initial-load)
              (current-adaptivity 0))
-        (loop for step from 1; to load-steps
+        (loop for step from (if compute-zero-loadstep 0 1)
               while (and (cl-mpm::sim-run-sim sim)
                          (< (+ 1d-15 current-load) 1d0))
               do
@@ -1419,6 +1438,9 @@
                                     (setf load-step-size
                                           (min (- 1d0 current-load)
                                                (* initial-load-step-size (expt adaption-constant (- current-adaptivity)))))
+
+                                    (when (= step 0)
+                                      (setf load-step-size 0d0))
                                     (cl-mpm:sim-format sim t "Load step size ~E adapted by ~D~%" load-step-size current-adaptivity)
                                     (setf quasi-conv (trial-solve))
                                     (unless quasi-conv

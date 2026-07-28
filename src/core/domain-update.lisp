@@ -96,7 +96,8 @@
                                   (the double-float (mtref stretch 1 1))))
         (setf (varef domain 2) (* (the double-float (varef domain 2))
                                   (the double-float (mtref stretch 2 2))))
-        ))))
+        )))
+  (apply-domain-to-true-domain mesh mp))
 
 
 ;; (declaim (ftype (function
@@ -607,7 +608,6 @@
                    (true-domain cl-mpm/particle::mp-true-domain)
                    )
       mp
-    
     (let* ((d-0 (cl-mpm/utils::matrix-diag (list (expt (varef domain-0 0) 2)
                                                  (expt (varef domain-0 1) 2)
                                                  (expt (varef domain-0 2) 2))))

@@ -97,6 +97,15 @@
    (cl-mpm/aggregate::sim-global-sparse-e sim)
    vec))
 
+(defun aggregate-scalar (sim vec)
+  (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
+   (cl-mpm/aggregate::sim-global-sparse-et sim)
+   vec))
+
+(defun extend-scalar (sim vec)
+  (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
+   (cl-mpm/aggregate::sim-global-sparse-e sim)
+   vec))
 
 (defclass mpm-sim-aggregated (mpm-sim)
   ((agg-elems
@@ -812,6 +821,37 @@
          :tol 1d-15
          :max-iters 10000
          :mask bcs-int)))))
+
+(cl-mpm/utils::with-arb-pool
+  (defun generalised-linear-solve-with-bcs (sim sma v)
+    (let* ((et (cl-mpm/aggregate::sim-global-sparse-et sim))
+           (e (cl-mpm/aggregate::sim-global-sparse-e sim))
+           (work-vec (grab-new))
+           (work-vec-agg (grab-new))
+           ;; (work-vec (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows e) 1))
+           ;; (work-vec-agg (cl-mpm/utils::arb-matrix (cl-mpm/utils::sparse-matrix-nrows et) 1))
+           )
+      (cl-mpm/utils::resize-vector work-vec (cl-mpm/utils::sparse-matrix-nrows e))
+      (cl-mpm/utils::resize-vector work-vec-agg (cl-mpm/utils::sparse-matrix-nrows et))
+      ()
+      (cl-mpm/linear-solver::solve-conjugant-gradients
+       (lambda (x)
+         (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
+          e
+          x
+          work-vec)
+         (cl-mpm/fastmaths::fast-.*
+          sma
+          work-vec
+          work-vec)
+         (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
+          et
+          work-vec
+          work-vec-agg)
+         work-vec-agg)
+       v
+       :tol 1d-15
+       :max-iters 10000))))
 
 (defun @-with-bcs (ma v bcs &optional (target-vi nil))
   (let ((target-vi (if target-vi

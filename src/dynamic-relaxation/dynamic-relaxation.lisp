@@ -413,7 +413,9 @@
 (defun estimate-ul-enhancement (particle nd)
   (declare (cl-mpm/particle::particle particle)
            (fixnum nd))
-  (let ((df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse particle)))
+  (let ((df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse particle))
+        ;; (df-inv (cl-mpm/particle::mp-deformation-gradient-strain-increment-inverse particle))
+        )
     (max 1d0
          (ecase nd
            (1
