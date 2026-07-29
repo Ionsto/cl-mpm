@@ -470,7 +470,6 @@
                                 :enable-fbar nil
                                 :gravity 0d0
                                 :max-split-depth 8)))
-         ;; (mp-scale (* mp-scale (expt 2 (- multigrid-refinement 1))))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
@@ -483,14 +482,14 @@
              (angle-rad (* angle (/ pi 180)))
              (angle-r 30d0)
              (gf *gf*)
-             (length-scale (* 1d-3))
+             (length-scale (* 7.5d-3))
              (ductility
                (cl-mpm/damage::estimate-ductility-jirsek2004
                 gf
                 length-scale
                 init-stress E))
-             (pd-inflection (- 1d0 1d-3))
-             )
+             ;(pd-inflection (- 1d0 1d-3))
+             (pd-inflection 0d0))
         (format t "Estimated ductility ~E~%" ductility)
         (format t "Init stress ~E~%" init-stress)
         (format t "PD inflection point ~E~%" pd-inflection)
@@ -504,6 +503,11 @@
         ;; (make-mps-vm)
         ;; (make-mps-elastic)
         )
+      ;; (defparameter *damage* 0.9d0)
+      ;; (cl-mpm:iterate-over-mps
+      ;;  (cl-mpm:sim-mps sim)
+      ;;  (lambda (mp)
+      ;;    (cl-mpm/damage::set-mp-damage mp *damage*)))
       (let* ((sur-height h-x)
              (sur-size (list 0.06d0 sur-height))
              (load surcharge-load)
@@ -1383,7 +1387,7 @@
     (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset
                       :epsilon-scale epsilon-scale
                       :corner-size (* 0.25d0 mesh-size)
-                      :smoothness 2)
+                      :smoothness 1)
     (unless *use-rigid-piston*
       (let ((pressure (cl-mpm/buoyancy::make-bc-pressure
                        *sim*
@@ -2363,7 +2367,7 @@
                        )
         do (dolist (gf (list 4.8d0))
              (dolist (localising (list t))
-               (dolist (epsilon-scale (list 1d3))
+               (dolist (epsilon-scale (list 1d2))
                  (dolist (piston-scale (list 1d0))
                    (dolist (mps (list 4))
                      (let (; (scale 1d0)
@@ -2383,7 +2387,6 @@
                                 ;; 35d4
                                 ;; 40d4
                                 ;; 50d4
-                                        ; 401d3
                                 ;; 289d3
                                 ;; 184d3
                                 ;; 72d3
@@ -2430,14 +2433,33 @@
                                     ;;                     (> damage 0d0)))
                                     ;;             (t nil))
                                     ;;           )))
-                                    ;; (push (list :SCALAR "damage-c-shear" #'cl-mpm/particle::mp-damage-shear) (cl-mpm::sim-output-list *sim*))
-                                    ;; (push (list :SCALAR "damage-c-tension" #'cl-mpm/particle::mp-damage-tension) (cl-mpm::sim-output-list *sim*))
-                                    ;; (push (list :SCALAR "damage-c-compression" #'cl-mpm/particle::mp-damage-compression) (cl-mpm::sim-output-list *sim*))
-                                    (setf name "nonham")
+                                    (push (list :SCALAR "damage-c-shear" #'cl-mpm/particle::mp-damage-shear) (cl-mpm::sim-output-list *sim*))
+                                    (push (list :SCALAR "damage-c-tension" #'cl-mpm/particle::mp-damage-tension) (cl-mpm::sim-output-list *sim*))
+                                    (push (list :SCALAR "damage-c-compression" #'cl-mpm/particle::mp-damage-compression) (cl-mpm::sim-output-list *sim*))
+                                    (push (list :SCALAR "current-effective-angle"
+                                                (lambda (mp)
+                                                  (if (typep mp 'cl-mpm/particle::particle-chalk-brittle)
+                                                      (* (/ 180 pi) (atan (* (/ (- 1d0 (cl-mpm/particle::mp-damage-shear mp))
+                                                                                (- 1d0 (cl-mpm/particle::mp-damage-compression mp)))
+                                                                             (tan (cl-mpm/particle::mp-phi mp)))))
+                                                      0d0)))
+                                          (cl-mpm::sim-output-list *sim*))
+                                    (push (list :SCALAR "current-cohesion"
+                                                (lambda (mp)
+                                                  (if (typep mp 'cl-mpm/particle::particle-chalk-brittle)
+                                                      (*
+                                                       (if (> (cl-mpm/constitutive::voight-trace (cl-mpm/particle::mp-stress mp)) 0d0)
+                                                           (- 1d0 (cl-mpm/particle::mp-damage-tension mp))
+                                                           (- 1d0 (cl-mpm/particle::mp-damage-compression mp)))
+                                                       (max 0d0 (cl-mpm/particle::mp-c mp)))
+                                                      0d0)
+                                                  ))
+                                          (cl-mpm::sim-output-list *sim*))
+                                    (setf name "fbar")
                                     (setf *damage-model* :MC)
                                     (let ((total-disp 1d-3)
                                           ;; (output-dir (format nil "./output-~A_~f_~D_~f_~f_~f-~F/" name refine mps scale piston-scale epsilon-scale s))
-                                          (output-dir (format nil "../ham-shear-box/data/output-~A_~f_~D_~f_~f_~f-~F/" name refine mps scale piston-scale epsilon-scale s))
+                                          (output-dir (format nil "../ham-shear-box/data/output-~A_~f_~D_~f-~F/" name refine mps epsilon-scale s))
                                           )
                                       (setf *displacement-increment* 0d0)
                                       (defparameter *data-disp* nil)
@@ -2451,7 +2473,7 @@
                                        :substeps 50
                                        :sub-conv-steps 100
                                        :criteria 1d-3
-                                       :enable-damage t
+                                       :enable-damage nil
                                        :enable-plastic t
                                        :max-adaptive-steps 0
                                        :min-adaptive-steps 0
@@ -2679,3 +2701,40 @@
 ;;    (mapcar (lambda (x) (multi-load-unload x 1d0 2)) x)
 ;;    )
 ;;   )
+
+
+(defun angle-test ()
+  (setup)
+  (let ((mp (aref (cl-mpm::sim-mps *sim*) 0)))
+    ;; (pprint (cl-mpm/particle::mp-ductility mp))
+    (cl-mpm/damage::set-mp-damage mp 0.9d0)
+    (pprint (cl-mpm/particle::mp-damage mp))
+    ;; (pprint (cl-mpm/particle::mp-damage-shear mp))
+    ;; (pprint (cl-mpm/particle::mp-damage-compression mp))
+    (pprint (* (/ 180 pi) (atan (* (/ (expt (- 1d0 (cl-mpm/particle::mp-damage-shear mp)) 2)
+                                      (- 1d0 (cl-mpm/particle::mp-damage-compression mp)))
+                                   (tan (cl-mpm/particle::mp-phi mp))))))
+    (let ((dv (list))
+          (ang (list))
+          (c (list))
+          )
+      (loop for r from 0d0 to 10d0 by 0.5d0
+            do
+               (let ((d (- 1d0 (exp (- r)))))
+                 (push d dv)
+                 (cl-mpm/damage::set-mp-damage mp (max 1d-9 d))
+                 (push
+                  (* (/ 180 pi) (atan (* (/  (- 1d0 (cl-mpm/particle::mp-damage-shear mp))
+                                            (- 1d0 (cl-mpm/particle::mp-damage-compression mp)))
+                                         (tan (cl-mpm/particle::mp-phi mp)))))
+                  ang)
+                 (push
+                  (* (cl-mpm/particle::mp-c mp)
+                     (- 1d0 (cl-mpm/particle::mp-damage-compression mp)))
+                  c)
+                 ))
+      (pprint dv)
+      (pprint ang)
+      (vgplot:plot dv ang)
+      )
+    ))
