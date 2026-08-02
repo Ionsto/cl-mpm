@@ -1301,54 +1301,70 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 (defun iterate-over-midpoints-normal-2d (mesh mp func)
   (declare (cl-mpm/particle::particle mp)
            (function func))
-  (flet ((update (x y)
-           (let ((domain (cl-mpm/particle::mp-domain-size mp))
-                 (position (cl-mpm/particle:mp-position mp))
-                 (corner (cl-mpm/utils:vector-zeros))
-                 )
-             (declare (double-float x y))
-             (cl-mpm/fastmaths::fast-.+-vector
-              position
-              (cl-mpm/fastmaths:fast-scale!
-               (cl-mpm/fastmaths:fast-.*
-                (vector-from-list
-                 (list
-                  x
-                  y
-                  0d0))
-                domain
-                ) 0.5d0) corner)
-             (funcall func corner 
-                      (cl-mpm/utils:vector-from-list (list x y 0d0))))))
-    (loop for x from -1d0 to 1d0 by 2d0
-          do (update x 0d0))
-    (loop for y from -1d0 to 1d0 by 2d0
-          do (update 0d0 y))))
+  (let ((v (cl-mpm/utils:vector-zeros)))
+    (flet ((update (x y)
+             (let ((domain (cl-mpm/particle::mp-domain-size mp))
+                   (position (cl-mpm/particle:mp-position mp))
+                   (corner (cl-mpm/utils:vector-zeros))
+                   )
+               (declare (double-float x y))
+               (setf (varef v 0) (* (varef domain 0) x 0.5d0)
+                     (varef v 1) (* (varef domain 1) x 0.5d0)
+                     (varef v 2) 0d0)
+               (cl-mpm/fastmaths::fast-.+-vector
+                position
+                v
+                ;; (cl-mpm/fastmaths:fast-scale!
+                ;;  (cl-mpm/fastmaths:fast-.*
+                ;;   (vector-from-list
+                ;;    (list
+                ;;     x
+                ;;     y
+                ;;     0d0))
+                ;;   domain
+                ;;   ) 0.5d0)
+                corner)
+               (funcall func corner 
+                        (cl-mpm/utils:vector-from-list (list x y 0d0))))))
+      (loop for x from -1d0 to 1d0 by 2d0
+            do (update x 0d0))
+      (loop for y from -1d0 to 1d0 by 2d0
+            do (update 0d0 y)))))
 
-(defun iterate-over-midpoints-2d (mesh mp func)
-  (declare (cl-mpm/particle::particle mp)
-           (function func))
-  (flet ((update (x y)
-           (let ((domain (cl-mpm/particle::mp-domain-size mp))
-                 (position (cl-mpm/particle:mp-position mp))
-                 (corner (cl-mpm/utils:vector-zeros)))
-             (declare (double-float x y))
-             (cl-mpm/fastmaths::fast-.+-vector
-              position
-              (cl-mpm/fastmaths:fast-scale!
-               (cl-mpm/fastmaths:fast-.*
-                (vector-from-list
-                 (list
-                  x
-                  y
-                  0d0))
-                domain
-                ) 0.5d0) corner)
-             (funcall func corner))))
-    (loop for x from -1d0 to 1d0 by 2d0
-          do (update x 0d0))
-    (loop for y from -1d0 to 1d0 by 2d0
-          do (update 0d0 y))))
+(cl-mpm/utils::with-arb-pool
+  (defun iterate-over-midpoints-2d (mesh mp func)
+    (declare (cl-mpm/particle::particle mp)
+             (function func))
+    (let ((v ;; (cl-mpm/utils:vector-zeros)
+            (grab-new)
+             ))
+      (cl-mpm/utils::resize-vector v 3)
+      (flet ((update (x y)
+               (let ((domain (cl-mpm/particle::mp-domain-size mp))
+                     (position (cl-mpm/particle:mp-position mp))
+                     (corner (cl-mpm/utils:vector-zeros)))
+                 (declare (double-float x y))
+                 (setf (varef v 0) (* (varef domain 0) x 0.5d0)
+                       (varef v 1) (* (varef domain 1) x 0.5d0)
+                       (varef v 2) 0d0)
+                 (cl-mpm/fastmaths::fast-.+-vector
+                  position
+                  v
+                  ;; (cl-mpm/fastmaths:fast-scale!
+                  ;;  (cl-mpm/fastmaths:fast-.*
+                  ;;   (vector-from-list
+                  ;;    (list
+                  ;;     x
+                  ;;     y
+                  ;;     0d0))
+                  ;;   domain
+                  ;;   ) 0.5d0)
+                  corner)
+                 (funcall func corner))))
+        (loop for x from -1d0 to 1d0 by 2d0
+              do (update x 0d0))
+        (loop for y from -1d0 to 1d0 by 2d0
+              do (update 0d0 y))))))
 
 (defun iterate-over-midpoints-3d (mesh mp func)
   (declare (cl-mpm/particle::particle mp)
