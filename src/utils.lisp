@@ -1016,18 +1016,6 @@
          ,new-func
          ))))
 
-;; (with-arb-pool
-;;   (defun test-poola ()
-;;     (let ((a (grab-new))
-;;           (b (grab-new)))
-;;       (setf a (cl-mpm/utils::resize-vector a 6))
-;;       (setf b (cl-mpm/utils::resize-vector b 6))
-;;       (setf (cl-mpm/utils::varef a 0) 1d0)
-;;       (setf (cl-mpm/utils::varef b 1) 2d0)
-;;       (pprint (cl-mpm/fastmaths::fast-.+ a b))
-;;       a
-;;       )
-;;     ))
 
 (defstruct sparse-matrix
   "Sparse self-adjoint matrix"

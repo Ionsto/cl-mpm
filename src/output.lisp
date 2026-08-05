@@ -8,6 +8,8 @@
    #:save-vtk-cells
    #:save-csv
    #:save-simulation-parameters
+   #:add-mp-output
+   #:add-node-output
    ))
 
 (in-package :cl-mpm/output)
@@ -433,6 +435,20 @@
 (defun write-binary-float (data stream)
   (loop for v across (float-to-binary data)
         do (write-byte v stream)))
+
+(defun add-mp-output (sim type name accessor)
+  (assert (position type (list :BOOL :SCALAR :VECTOR :VOIGT :MATRIX)))
+  (assert (stringp name))
+  (push
+   (list type name accessor)
+    (cl-mpm::sim-output-list sim)))
+(defun add-node-output (sim type name accessor)
+  (assert (position type (list :BOOL :SCALAR :VECTOR :VOIGT :MATRIX)))
+  (assert (stringp name))
+  (push
+   (list type name accessor)
+   (cl-mpm::sim-output-list-nodes sim)))
+
 
 (defmethod initialize-instance :after ((sim cl-mpm::mpm-sim) &key)
   (setf

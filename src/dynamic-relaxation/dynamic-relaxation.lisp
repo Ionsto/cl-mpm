@@ -112,8 +112,8 @@
                  (progn
                    (setf fnorm 0d0)
                    (optional-time
-                    nil
-                    ;; t
+                    ;; nil
+                    t
                     (dotimes (j substeps)
                       (cl-mpm:update-sim sim)
                       ;; (let ((power (cl-mpm::sim-stats-power sim))

@@ -164,7 +164,7 @@ leaves a hanging mpi domain at the back"
                    (> min-mps 0))
           (format t "Occupancy ratio : ~F%~%" (* 100d0 (/ max-mps min-mps))))))
     ))
-(defparameter *prune-nodes* t)
+(defparameter *prune-nodes* nil)
 (defmethod %domain-decompose :after ((sim cl-mpm/mpi::mpm-sim-mpi-nodes) domain-scaler)
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size)))

@@ -354,6 +354,7 @@
     (declare (double-float damping-scale damping))
     (unless initial-setup
       (pre-step sim))
+    ;; (format t "Threads are nested ~A~%" cl-mpm/utils::*workers-nesting*)
     (cl-mpm/penalty::reset-penalty sim)
     (setf dt 1d0)
     (cl-mpm::reset-nodes-force sim)

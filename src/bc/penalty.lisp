@@ -7,7 +7,7 @@
         :cl-mpm/fastmaths
         )
   (:import-from
-    :magicl tref .+ .-)
+    :magicl .+ .-)
   (:import-from
    :cl-mpm/fastmaths  fast-.+ fast-.- fast-.*)
   (:export
@@ -366,7 +366,6 @@
 (defun make-bc-penalty (sim normal datum epsilon friction)
   (let (;; (normal (cl-mpm/fastmaths::norm (cl-mpm/utils:vector-zeros)))
         )
-    ;; (setf (magicl:tref normal (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)) 0) 1d0)
     (setf normal (cl-mpm/fastmaths::norm normal))
     (make-instance 'bc-penalty
                    :index nil

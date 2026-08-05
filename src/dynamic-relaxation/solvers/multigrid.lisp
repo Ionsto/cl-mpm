@@ -2125,6 +2125,7 @@
 
 (defmethod refine-mesh ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree))
   ;; (g2p-stress-error sim)
+  ;; (g2p-gradient-strain-energy sim)
   (let ((refinement-check
           (cl-mpm/dynamic-relaxation::set-mesh-refinement
            sim
@@ -2283,10 +2284,168 @@
      cl-mpm/mesh::node-vm-stress-error)
     )
   )
+(defun g2p-gradient-strain-energy (sim)
+  (let ((mesh (cl-mpm:sim-mesh sim)))
+    (labels ((measure (mp)
+               (* 0.5d0
+                  ;; (cl-mpm/particle::mp-volume mp)
+                  (cl-mpm/fastmaths::dot
+                   (if (typep mp 'cl-mpm/particle::particle-damage)
+                       (cl-mpm/particle::mp-undamaged-stress mp)
+                       (cl-mpm/particle::mp-stress mp))
+                   (cl-mpm/particle::mp-strain mp)))))
+      (cl-mpm:iterate-over-nodes
+       (cl-mpm:sim-mesh sim)
+       (lambda (n)
+         (when t
+           (cl-mpm/fastmaths::fast-zero (cl-mpm/mesh::node-strain-gradient n))
+           (setf
+            (cl-mpm/mesh::node-vm-stress n) 0d0
+            (cl-mpm/mesh::node-vm-stress-error n) 0d0
+            ;; (cl-mpm/mesh::node-volume n) 0d0
+            )
+           )))
+
+      (cl-mpm::iterate-over-mps
+       (cl-mpm:sim-mps sim)
+       (lambda (mp)
+         (let ((vm (measure mp)))
+           (cl-mpm:iterate-over-neighbours
+            (cl-mpm:sim-mesh sim)
+            mp
+            (lambda (node svp grads fsvp fgrads)
+              (let ((ndstrain (cl-mpm/mesh::node-strain-gradient node)))
+                (sb-thread:with-mutex ((cl-mpm/mesh:node-lock node))
+                  (incf (cl-mpm/mesh::node-vm-stress node) vm)
+                  (incf (cl-mpm/utils:varef ndstrain 0)
+                        (* vm (cl-mpm/utils::gradients-dx grads)))
+                  (incf (cl-mpm/utils:varef ndstrain 1)
+                        (* vm (cl-mpm/utils::gradients-dy grads)))
+                  (incf (cl-mpm/utils:varef ndstrain 2)
+                        (* vm (cl-mpm/utils::gradients-dz grads)))
+                  )))))))
+
+      (cl-mpm:iterate-over-nodes
+       (cl-mpm:sim-mesh sim)
+       (lambda (n)
+         (when (cl-mpm/mesh::node-bcs n)
+           (loop for d fixnum from 0 to 2
+                 do
+                    (when (= (cl-mpm/utils::varef (cl-mpm/mesh::node-bcs n) d) 0d0)
+                      (setf (cl-mpm/utils::varef (cl-mpm/mesh::node-strain-gradient n) d)
+                            0d0))))))
+
+      (cl-mpm:iterate-over-nodes
+       (cl-mpm:sim-mesh sim)
+       (lambda (n)
+         (unless (cl-mpm/mesh::node-agg n)
+           (if (> (cl-mpm/mesh::node-vm-stress n) 0d0)
+               (progn
+                 (setf (cl-mpm/mesh::node-vm-stress-error n)
+                       (/
+                        (cl-mpm/fastmaths:mag (cl-mpm/mesh::node-strain-gradient n))
+                        (cl-mpm/mesh::node-vm-stress n))))
+               (setf (cl-mpm/mesh::node-vm-stress n) 0d0)))))
+      (cl-mpm/aggregate::project-global-scalar
+       sim
+       (cl-mpm/aggregate::extend-scalar
+        sim
+        (cl-mpm/aggregate::generalised-linear-solve-with-bcs
+         sim
+         (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-vm-stress)
+         (cl-mpm/aggregate::aggregate-scalar
+          sim
+          (cl-mpm/aggregate::assemble-global-scalar
+           sim
+           (lambda (n)
+             (cl-mpm/fastmaths:mag (cl-mpm/mesh::node-strain-gradient n)))))))
+       cl-mpm/mesh::node-vm-stress-error)
+
+      ;; (cl-mpm/aggregate::iterate-over-dimensions
+      ;;  (cl-mpm/mesh:mesh-nd mesh)
+      ;;  (lambda (d)
+      ;;    (cl-mpm/aggregate::project-global-vec
+      ;;     sim
+      ;;     (cl-mpm/aggregate::extend-vec
+      ;;      sim
+      ;;      (cl-mpm/aggregate::aggregate-vec
+      ;;       sim
+      ;;       (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-strain-gradient d)
+      ;;       d)
+      ;;      d)
+      ;;     #'cl-mpm/mesh::node-strain-gradient
+      ;;     d)))
+
+      ;; (cl-mpm::iterate-over-mps
+      ;;  (cl-mpm:sim-mps sim)
+      ;;  (lambda (mp)
+      ;;    (let ((vm (measure mp))
+      ;;          (vm-est 0d0))
+      ;;      (cl-mpm:iterate-over-neighbours
+      ;;       (cl-mpm:sim-mesh sim)
+      ;;       mp
+      ;;       (lambda (node svp grads fsvp fgrads)
+      ;;         (incf vm-est (* svp (cl-mpm/mesh::node-vm-stress node)))))
+      ;;      (let ((verr (abs (- vm vm-est))))
+      ;;        (cl-mpm:iterate-over-neighbours
+      ;;         (cl-mpm:sim-mesh sim)
+      ;;         mp
+      ;;         (lambda (node svp grads fsvp fgrads)
+      ;;           (sb-thread:with-mutex ((cl-mpm/mesh:node-lock node))
+      ;;             (incf (cl-mpm/mesh::node-vm-stress-error node)
+      ;;                   (* svp
+      ;;                      (cl-mpm/particle::mp-volume mp)
+      ;;                      verr)))))))))
+      ;; (cl-mpm:iterate-over-nodes
+      ;;  (cl-mpm:sim-mesh sim)
+      ;;  (lambda (n)
+      ;;    (when (cl-mpm/mesh::node-active n)
+      ;;      (when (> (cl-mpm/mesh::node-vm-stress n) 0d0)
+      ;;        (setf (cl-mpm/mesh::node-vm-stress-error n)
+      ;;              (/ (cl-mpm/mesh::node-vm-stress-error n)
+      ;;                 (abs (cl-mpm/mesh::node-vm-stress n))))))))
+
+      ;; (cl-mpm:iterate-over-nodes
+      ;;  (cl-mpm:sim-mesh sim)
+      ;;  (lambda (n)
+      ;;    (unless (cl-mpm/mesh::node-agg n)
+      ;;      (if (> (cl-mpm/mesh::node-volume n) 0d0)
+      ;;          (progn
+      ;;            (setf (cl-mpm/mesh::node-vm-stress-error n)
+      ;;                  (/ (cl-mpm/mesh::node-vm-stress-error n)
+      ;;                     (cl-mpm/mesh::node-volume n))))
+      ;;          (setf (cl-mpm/mesh::node-vm-stress-error n) 0d0)))))
+      ))
+
+    ;; (cl-mpm/aggregate::project-global-scalar
+    ;;  sim
+    ;;  (cl-mpm/aggregate::extend-scalar
+    ;;   sim
+    ;;   (cl-mpm/aggregate::generalised-linear-solve-with-bcs
+    ;;    sim
+    ;;    (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-volume)
+    ;;    (cl-mpm/aggregate::aggregate-scalar
+    ;;     sim
+    ;;     (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-vm-stress-error))))
+    ;;  cl-mpm/mesh::node-vm-stress-error)
+  )
+
+(defun refinement-criteria-arb (sim mesh c accessor)
+  (let ((damage -1d0))
+    (cl-mpm/damage::iterate-over-point-neighbour-mps
+     (aref (cl-mpm::sim-mesh-list sim) 0)
+     (cl-mpm/mesh::cell-centroid c)
+     (* 0.5d0 (cl-mpm/mesh::cell-h c))
+     (lambda (mesh mp dist)
+       (declare (ignore mesh dist))
+       (setf damage (max damage (funcall accessor mp)))))
+    (values damage)))
 
 (defun damage-refinement-criteria (sim mesh c)
   (let ((damage 0d0)
-        (damage-ybar 0d0))
+        (damage-ybar 0d0)
+        (length 0d0)
+        )
     (cl-mpm/damage::iterate-over-point-neighbour-mps
      (aref (cl-mpm::sim-mesh-list sim) 0)
      (cl-mpm/mesh::cell-centroid c)
@@ -2297,14 +2456,16 @@
        (cl-mpm/damage::damage-model-calculate-y mp 1d0)
        (with-accessors ((d-ybar cl-mpm/particle::mp-damage-y-local)
                         (d cl-mpm/particle::mp-damage)
+                        (l cl-mpm/particle::mp-true-local-length)
                         (initiation-stress cl-mpm/particle::mp-initiation-stress))
            mp
          (declare (double-float damage-ybar initiation-stress damage))
          (setf damage-ybar (max (* ;; (- 1d0 damage)
                                    (/ d-ybar initiation-stress)) damage-ybar))
          (setf damage (max d damage))
+         (setf length (max length l))
          )))
-    (values damage damage-ybar)))
+    (values damage damage-ybar length)))
 
 
 

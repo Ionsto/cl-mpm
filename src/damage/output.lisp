@@ -28,7 +28,6 @@
        (list :SCALAR "damage-y" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-damage-y-local mp))))
        (list :SCALAR "damage-k" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-history-stress mp))))
        (list :SCALAR "damage-length" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-true-local-length mp))))
-       (list :SCALAR "damage-length" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-true-local-length mp))))
        )))))
 
 ;; (defmethod cl-mpm/output::save-vtk (filename (sim cl-mpm/damage::mpm-sim-damage))

@@ -83,52 +83,14 @@
         (setf p-wave-0 (* (+ K (* 4/3 G lam))))))
     stress))
 
-(defclass particle-ice-brittle (particle-elastic-damage  particle-mc particle-finite-viscoelastic)
+(defclass particle-ice-brittle (particle-plastic-damage-frictional particle-finite-viscoelastic)
   ((trial-elastic-strain
     :accessor mp-trial-strain
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:voigt-zeros))
-   (friction-angle
-    :accessor mp-friction-angle
-    :initarg :friction-angle
-    :initform 30d0)
-   (plastic-damage-evolution
-    :accessor mp-plastic-damage-evolution
-    :initform nil
-    :initarg :plastic-damage-evolution)
-   (peerlings-damage
-    :accessor mp-peerlings-damage
-    :initform t
-    :initarg :peerlings-damage)
-   (shear-residual-ratio
-    :accessor mp-shear-residual-ratio
-    :initarg :g-res-ratio
-    :initform 1d-9)
-   (k-tensile-residual-ratio
-    :accessor mp-k-tensile-residual-ratio
-    :initarg :kt-res-ratio
-    :initform 1d-9
-    )
-   (k-compressive-residual-ratio
-    :accessor mp-k-compressive-residual-ratio
-    :initarg :kc-res-ratio
-    :initform 1d-9
-    )
    (damage-pressure
     :accessor mp-damage-pressure
     :initarg :damage-tension
-    :initform 0d0)
-   (damage-tension
-    :accessor mp-damage-tension
-    :initarg :damage-tension
-    :initform 0d0)
-   (damage-compression
-    :accessor mp-damage-compression
-    :initarg :damage-compression
-    :initform 0d0)
-   (damage-shear
-    :accessor mp-damage-shear
-    :initarg :damage-shear
     :initform 0d0))
   (:default-initargs
    :enable-viscosity nil
@@ -151,6 +113,25 @@
   ()
   (:documentation "A weakly compressible glen flow mp with damage mechanics"))
 
+(defmethod initialize-instance :after ((mp particle-ice-brittle) &key)
+  (with-accessors ((ductility cl-mpm/particle::mp-ductility)
+                   (angle cl-mpm/particle::mp-friction-angle)
+                   (angle-r cl-mpm/particle::mp-residual-friction)
+                   (rc mp-k-compressive-residual-ratio)
+                   (init-stress mp-initiation-stress)
+                   (oversize mp-oversize-scale))
+      mp
+    (let* ((c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (rad-to-deg angle)))
+           (rs (cl-mpm/damage::est-shear-from-angle (rad-to-deg angle) (rad-to-deg angle-r) rc))
+           (residual-strength (cl-mpm/particle::mp-residual-strength mp))
+           (oversize-ratio (cl-mpm/damage::compute-oversize-factor oversize ductility)))
+      (setf
+       (cl-mpm/particle::mp-phi mp) angle
+       (mp-c mp) (* oversize-ratio c)
+       (mp-shear-residual-ratio mp) rs)
+      ;; (setf (mp-shear-residual-ratio mp) (min (mp-shear-residual-ratio mp) residual-strength)
+      ;;       (mp-k-tensile-residual-ratio mp) (min residual-strength (mp-k-tensile-residual-ratio mp)))
+      )))
 
 
 (defmethod constitutive-model ((mp particle-ice-brittle) strain dt)
@@ -180,7 +161,6 @@
                    (kc-r mp-k-compressive-residual-ratio)
                    (kt-r mp-k-tensile-residual-ratio)
                    (g-r mp-shear-residual-ratio)
-                   (peerlings mp-peerlings-damage)
                    (L                cl-mpm/particle::mp-stretch-tensor)
                    (j mp-deformation-jacobian-strain)
                    (pressure mp-pressure)
@@ -652,7 +632,7 @@
               (+
                (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
                 stress
-                (* angle (/ pi 180d0)))))
+                angle)))
         (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
         ;; (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
         ))))
@@ -667,7 +647,6 @@
                    (damage-tension cl-mpm/particle::mp-damage-tension)
                    (damage-shear cl-mpm/particle::mp-damage-shear)
                    (damage-compression cl-mpm/particle::mp-damage-compression)
-                   (peerlings cl-mpm/particle::mp-peerlings-damage)
                    (kc-r cl-mpm/particle::mp-k-compressive-residual-ratio)
                    (kt-r cl-mpm/particle::mp-k-tensile-residual-ratio)
                    (g-r cl-mpm/particle::mp-shear-residual-ratio))
@@ -676,15 +655,11 @@
     ;; Directly compute the damage from K
     (let ()
       (setf damage (damage-response-exponential k E init-stress ductility))
-      (if peerlings
-          (setf
-           damage-tension (damage-response-exponential-peerlings-residual k E init-stress ductility kt-r)
-           damage-shear (damage-response-exponential-peerlings-residual k E init-stress ductility g-r)
-           damage-compression (damage-response-exponential-peerlings-residual k E init-stress ductility kc-r))
-          (setf
-           damage-tension (* kt-r damage)
-           damage-compression (* kc-r damage)
-           damage-shear (* g-r damage))))))
+      (setf
+       damage (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility 1d0)
+       damage-tension (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility kt-r)
+       damage-shear (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility g-r)
+       damage-compression (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility kc-r)))))
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-ice-brittle) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)
@@ -789,19 +764,6 @@
                 (max
                  k-n
                  (+
-                  ;; (if pd-inc ps-y 0d0)
-                  ;; (cl-mpm/damage::secant-solver
-                  ;;  k-n
-                  ;;  ybar-prev
-                  ;;  ybar
-                  ;;  dt
-                  ;;  (lambda (kmid ymid)
-                  ;;    (cl-mpm/damage::deriv-partial
-                  ;;     kmid
-                  ;;     ymid
-                  ;;     k0
-                  ;;     tau
-                  ;;     tau-exp)))
                   (cl-mpm/damage::auto-refine-substepper
                    k-n
                    ybar-prev
@@ -816,7 +778,81 @@
                                                       tau-exp
                                                       s-dt))
                    :tol 1d-6)
-                  ))))
+                  ;; (cl-mpm/damage::secant-solver
+                  ;;  k-n
+                  ;;  ybar-prev
+                  ;;  ybar
+                  ;;  dt
+                  ;;  (lambda (kmid ymid)
+                  ;;    (cl-mpm/damage::deriv-partial
+                  ;;     kmid
+                  ;;     ymid
+                  ;;     k0
+                  ;;     tau
+                  ;;     tau-exp)))
+                  )))
+          ;; (if (and (>= ybar-prev k0)
+          ;;          (>= ybar k0))
+          ;;     (setf k
+          ;;           (max
+          ;;            k-n
+          ;;            (+
+          ;;             ;; (if pd-inc ps-y 0d0)
+          ;;             ;; (cl-mpm/damage::huen-integration
+          ;;             ;;  k-n
+          ;;             ;;  ybar-prev
+          ;;             ;;  ybar
+          ;;             ;;  k0
+          ;;             ;;  tau
+          ;;             ;;  tau-exp
+          ;;             ;;  dt)
+          ;;             (cl-mpm/damage::secant-solver
+          ;;              k-n
+          ;;              ybar-prev
+          ;;              ybar
+          ;;              dt
+          ;;              (lambda (kmid ymid)
+          ;;                (cl-mpm/damage::deriv-partial
+          ;;                 kmid
+          ;;                 ymid
+          ;;                 k0
+          ;;                 tau
+          ;;                 tau-exp)))
+          ;;             ;; (cl-mpm/damage::auto-refine-substepper
+          ;;             ;;  k-n
+          ;;             ;;  ybar-prev
+          ;;             ;;  ybar
+          ;;             ;;  dt
+          ;;             ;;  (lambda (k y0 y1 s-dt)
+          ;;             ;;    (cl-mpm/damage::huen-integration k
+          ;;             ;;                                     y0
+          ;;             ;;                                     y1
+          ;;             ;;                                     k0
+          ;;             ;;                                     tau
+          ;;             ;;                                     tau-exp
+          ;;             ;;                                     s-dt))
+          ;;             ;;  :tol 1d-6)
+          ;;             )))
+          ;;     (progn
+          ;;       (let* ((r (/ (- k0 ybar-prev) (- ybar ybar-prev)))
+          ;;              (dt1 (* dt (- 1d0 r))))
+          ;;         (setf k
+          ;;               (max k-n
+          ;;                    (cl-mpm/damage::secant-solver
+          ;;                     k
+          ;;                     k0
+          ;;                     ybar
+          ;;                     dt1
+          ;;                     (lambda (kmid ymid)
+          ;;                       (cl-mpm/damage::deriv-partial
+          ;;                        kmid
+          ;;                        ymid
+          ;;                        k0
+          ;;                        tau
+          ;;                        tau-exp)))
+          ;;                    )))
+          ;;       ))
+          )
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))
 
@@ -901,22 +937,21 @@
                    (enable-damage cl-mpm/particle::mp-enable-damage)
                    (p-mod cl-mpm/particle::mp-p-modulus))
       mp
-    (when t
-      ;; (cl-mpm/damage::apply-tensile-strain-degredation mp)
-      ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
-      ;; (cl-mpm/damage::apply-vol-degredation mp)
-      (apply-vol-pressure-degredation
-       mp
-       dt
-       (* -1d0
-          (/ p 1)
-          (expt damage 1)))
-      ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
-      ;; (let ((pd  (* -1d0
-      ;;               (/ p 3)
-      ;;               (expt damage 1))))
-      ;;   (setf stress (cl-mpm/utils:voigt-eye pd)))
-      )))
+    ;; (cl-mpm/damage::apply-tensile-strain-degredation mp)
+    ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
+    ;; (cl-mpm/damage::apply-vol-degredation mp)
+    (apply-vol-pressure-degredation
+     mp
+     dt
+     (* -1d0
+        (/ p 3)
+        (expt damage 1)))
+    ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
+    ;; (let ((pd  (* -1d0
+    ;;               (/ p 3)
+    ;;               (expt damage 1))))
+    ;;   (setf stress (cl-mpm/utils:voigt-eye pd)))
+    ))
 
 
 (defmethod cl-mpm/particle::compute-mp-energy-release ((mp cl-mpm/particle::particle-ice-brittle))

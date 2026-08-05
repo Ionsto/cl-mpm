@@ -643,8 +643,9 @@
    (declare (double-float kt-r kc-r g-r damage k k-n))
    ;; Directly compute the damage from K
    (let ()
-     (setf damage (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility residual-strength))
+     ;; (setf damage (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility residual-strength))
      (setf
+      damage (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility 1d0)
       damage-tension (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility kt-r)
       damage-shear (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility g-r)
       damage-compression (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility kc-r)))))

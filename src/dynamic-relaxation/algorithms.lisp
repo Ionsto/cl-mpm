@@ -291,8 +291,7 @@
                                     (when t
                                       (dotimes (i 2)
                                         (cl-mpm:update-sim sim))
-                                      (cl-mpm::update-dynamic-stats sim)
-                                      ))
+                                      (cl-mpm::update-dynamic-stats sim)))
                                   ;; No damage evolution -> instantly satisfy dconv
                                   (setf dconv 0d0)))
                             ;; (setf additional-conv (convergence-check sim))
@@ -324,7 +323,12 @@
                           (true-stagger nil)
                           (plotter (lambda (sim))))
   (let ((total-i 0))
-    (handler-case
+    (handler-bind
+        ((cl-mpm/errors:error-simulation
+           (lambda (c)
+             (princ c)
+             (cl-mpm::reset-loadstep sim)
+             (return-from step-quasi-time (values nil 0)))))
         (progn
           (let* ((damage-prev (get-damage sim))
                  (damage damage-prev)
@@ -513,10 +517,7 @@
             (cl-mpm::finalise-loadstep sim)
             (save-timestep sim output-dir global-step :QUASI-STATIC)
             (values t stagger-iters)))
-      (cl-mpm/errors:error-simulation (c)
-        (princ c)
-        (cl-mpm::reset-loadstep sim)
-        (values nil 0))))
+      ))
   )
 (declaim (notinline step-real-time))
 (defun step-real-time (sim
@@ -580,7 +581,7 @@
                        (time
                         (dotimes (i substeps)
                           (cl-mpm::update-sim sim)
-                          (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
+                          ;; (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
                           (incf oobf (estimate-static-oobf sim))
                           (incf energy (cl-mpm::sim-stats-energy sim))
                           (incf work (estimate-strain-energy sim))
@@ -604,6 +605,7 @@
                                    (> oobf hist-oobf))
                            (cl-mpm:sim-format sim t "Inertia passed~%")
                            (setf intertial-passed t)))
+                       (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm/setup::estimate-elastic-dt sim)))
                        (when enable-mass-scaling
                          (let* ((hist 2d0)
                                 (hist-power 0.6d0)
@@ -1239,7 +1241,9 @@
                                                      :conv-criteria conv-criteria
                                                      :conv-criteria-damage conv-criteria
                                                      :max-damage-inc max-damage-inc
-                                                     :enable-plastic enable-plastic)
+                                                     :enable-plastic enable-plastic
+                                                     :true-stagger nil
+                                                     )
                                   (setf quasi-conv conv
                                         stagger-iters inc-steps)
                                   (unless quasi-conv

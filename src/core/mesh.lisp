@@ -260,7 +260,9 @@
     :accessor node-vm-stress-error
     :initform 0d0
     :type double-float)
-
+   (strain-gradient
+    :accessor node-strain-gradient
+    :initform (cl-mpm/utils:vector-zeros))
    ;;These are needed for dynamic relaxation
    (true-velocity
     :accessor node-true-velocity

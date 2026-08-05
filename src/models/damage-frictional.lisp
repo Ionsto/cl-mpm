@@ -38,9 +38,6 @@
       )))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-plastic-damage-frictional) dt)
-  ;; (setf (cl-mpm/particle::mp-damage mp) (cl-mpm/particle::mp-damage-tension mp))
-  ;; (cl-mpm/damage::apply-isotropic-degredation mp)
-  ;; (pprint "hello")
   (cl-mpm/damage::apply-tcs-degredation mp))
 
 (defmethod constitutive-model ((mp particle-plastic-damage-frictional) strain dt)
