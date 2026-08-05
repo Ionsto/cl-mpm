@@ -777,7 +777,7 @@
                                                       tau
                                                       tau-exp
                                                       s-dt))
-                   :tol 1d-6)
+                   :tol 1d-3)
                   ;; (cl-mpm/damage::secant-solver
                   ;;  k-n
                   ;;  ybar-prev
@@ -944,6 +944,7 @@
      mp
      dt
      (* -1d0
+        ;; (/ p 3)
         (/ p 3)
         (expt damage 1)))
     ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
