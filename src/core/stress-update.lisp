@@ -271,7 +271,7 @@
         (cl-mpm/utils::copy-into strain trial-elastic-strain)
         (setf volume (* volume-n (the double-float (cl-mpm/fastmaths::det-3x3 df))))
         (setf df-inc-inv (cl-mpm/fastmaths::fast-inv-3x3 df df-inc-inv))
-        (setf df-inc-strain-inv (cl-mpm/fastmaths::fast-inv-3x3 df-strain df-inc-strain-inv))
+        ;; (setf df-inc-strain-inv (cl-mpm/fastmaths::fast-inv-3x3 df-strain df-inc-strain-inv))
         (when (<= volume 0d0)
           (error 'cl-mpm/errors:error-volume-negative)))))
   (values))

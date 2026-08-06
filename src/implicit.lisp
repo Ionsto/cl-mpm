@@ -1726,7 +1726,9 @@
 
 
     ;;Do 1 step of linear solver
-    (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC))
+    ;; (cl-mpm::g2p mesh mps dt damping :TRIAL)
+    (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
+    )
   )
 
 
@@ -1848,7 +1850,8 @@
                    (list
                     0d0
                     (cl-mpm/fastmaths::mag-squared res)
-                    (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+ f-ext f-rct))
+                    (cl-mpm/fastmaths::mag-squared f-ext)
+                    ;; (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+ f-ext f-rct))
                     (cl-mpm/fastmaths:dot disp f-ext))))
                (list 0d0 0d0 0d0 0d0)))
          (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
@@ -1860,13 +1863,13 @@
           (let ((doobf-num (cl-mpm/fastmaths::mag-squared
                             (aggregate-vec sim
                                            res)))
-                (doobf-denom (cl-mpm/fastmaths::mag-squared
-                              (aggregate-vec sim
-                                             f-ext
-                                             ;; (cl-mpm/fastmaths::fast-.+
-                                             ;;  f-ext
-                                             ;;  f-rct)
-                                             ))))
+                (doobf-denom
+                  (+
+                   ;; (cl-mpm/fastmaths::mag-squared
+                   ;;  f-rct)
+                   (cl-mpm/fastmaths::mag-squared
+                    (aggregate-vec sim f-ext)))
+                  ))
             (incf oobf-num doobf-num)
             (incf oobf-denom doobf-denom))))
       (let ((oobf 0d0)

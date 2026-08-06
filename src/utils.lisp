@@ -1476,8 +1476,11 @@
           (sb-thread:wait-on-semaphore *workers-finish* :n length)
           (setf *workers-nesting* nil)
           (when *worker-error-list*
-            (dolist (er *worker-error-list*)
+            (let ((er (first *worker-error-list*)))
+              (setf *worker-error-list* nil)
               (error er))
+            ;; (dolist (er *worker-error-list*)
+            ;;   (error er))
             ))
         (setf *workers-nesting* nil)))
   (values))

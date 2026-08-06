@@ -216,7 +216,9 @@
                node
              (declare (magicl:matrix/double-float node-int-force node-ext-force))
              (let ((grads (cl-mpm::gradient-push-forwards-cached grads df-inv)))
-               (declare (sb-thread:mutex node-lock))
+               (declare (sb-thread:mutex node-lock)
+                        (cl-mpm/utils::gradients grads)
+                        (dynamic-extent grads))
                (sb-thread:with-mutex (node-lock)
                  (det-ext-force-2d mp node svp gravity volume node-ext-force)
                  (det-int-force-unrolled-2d stress grads volume node-int-force)))))))))

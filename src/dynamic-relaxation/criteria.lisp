@@ -175,12 +175,8 @@
                    (list
                     (* 0.5d0 mass (cl-mpm/fastmaths::mag-squared vel))
                     (cl-mpm/fastmaths::mag-squared res)
-                    (+
-                     (cl-mpm/fastmaths::mag-squared f-ext)
-                     (cl-mpm/fastmaths::mag-squared f-rct))
-                    ;; (+ (cl-mpm/fastmaths::mag-squared f-ext)
-                    ;;    (cl-mpm/fastmaths::mag-squared f-rct)
-                    ;;    )
+                    ;; (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+ f-ext f-rct))
+                    (cl-mpm/fastmaths::mag-squared f-ext)
                     (cl-mpm/fastmaths:dot disp f-ext))))
                (list 0d0 0d0 0d0 0d0)))
          (lambda (&rest args)
@@ -207,8 +203,8 @@
                                ))
                    (doobf-denom
                      (+
-                      (cl-mpm/fastmaths::mag-squared
-                       f-rct)
+                      ;; (cl-mpm/fastmaths::mag-squared
+                      ;;  f-rct)
                       (cl-mpm/fastmaths::mag-squared
                        (cl-mpm/aggregate::aggregate-vec sim f-ext d))))
                    (dpower (cl-mpm/fastmaths:dot

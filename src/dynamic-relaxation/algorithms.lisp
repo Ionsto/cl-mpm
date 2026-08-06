@@ -1032,7 +1032,8 @@
 
                  (cl-mpm::finalise-loadstep sim)
                  (funcall post-conv-step sim)
-                 (save-vtks sim output-dir step)
+                 (when save-vtk-loadstep
+                   (save-vtks sim output-dir step))
                  (funcall plotter sim)
                  (swank.live:update-swank)
               )))))
@@ -1702,7 +1703,7 @@
                        :dt-scale dt-scale
                        :substeps substeps
                        :kinetic-damping nil
-                       :damping-factor damping
+                       :damping-factor (sqrt 2d0)
                        :conv-steps conv-steps
                        :post-iter-step
                        (lambda (i energy oobf)
