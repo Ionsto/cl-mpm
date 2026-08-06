@@ -633,6 +633,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (setf (fill-pointer nc) 0)
     (cl-mpm/fastmaths::fast-.+-vector pos disp-inc pos)
     (cl-mpm/fastmaths::fast-.+-vector disp disp-inc disp)
+    (cl-mpm/fastmaths::fast-zero disp-inc)
     (cl-mpm/utils::vector-copy-into pos pos-trial)
     (setf contact-step contact)
     (unless contact
