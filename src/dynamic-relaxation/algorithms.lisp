@@ -326,6 +326,7 @@
     (handler-bind
         ((cl-mpm/errors:error-simulation
            (lambda (c)
+             (cl-mpm/utils::kill-errors)
              (princ c)
              (cl-mpm::reset-loadstep sim)
              (return-from step-quasi-time (values nil 0)))))

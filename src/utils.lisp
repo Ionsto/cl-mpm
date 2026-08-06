@@ -1485,6 +1485,9 @@
         (setf *workers-nesting* nil)))
   (values))
 
+(defun kill-errors ()
+  (setf *worker-error-list* nil))
+
 
 (defmacro bpdotimes ((i length) &body func)
   ;; `(lparallel:pdotimes (,i ,length)
