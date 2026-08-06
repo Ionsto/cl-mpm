@@ -462,12 +462,13 @@
                (mapcar (lambda (x) (* x e-scale)) size)
                ;; :sim-type 'cl-mpm::mpm-sim-usj
                ;:sim-type 'cl-mpm/damage::mpm-sim-usl-damage
+               ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
                :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
                ;; :sim-type 'cl-mpm::mpm-sim-usl
                ;; :sim-type 'cl-mpm/damage::mpm-sim-damage
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
                :args-list (list :enable-aggregate t
-                                :enable-fbar nil
+                                :enable-fbar t
                                 :gravity 0d0
                                 :max-split-depth 8)))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -488,8 +489,9 @@
                 gf
                 length-scale
                 init-stress E))
-             ;(pd-inflection (- 1d0 1d-3))
-             (pd-inflection 0d0))
+             ;; (pd-inflection (- 1d0 1d-2))
+             (pd-inflection 0d0)
+             )
         (format t "Estimated ductility ~E~%" ductility)
         (format t "Init stress ~E~%" init-stress)
         (format t "PD inflection point ~E~%" pd-inflection)
@@ -2356,9 +2358,9 @@
   (setf *run-sim* t)
   (loop for refine in (list
                        ;; 2
-                       4
+                       ;; 4
                        ;; 8
-                       ;; 16
+                       16
                        ;; 32
                        ;; 4.5
                        ;; 8.5
@@ -2367,9 +2369,9 @@
                        )
         do (dolist (gf (list 4.8d0))
              (dolist (localising (list t))
-               (dolist (epsilon-scale (list 1d2))
+               (dolist (epsilon-scale (list 1d3))
                  (dolist (piston-scale (list 1d0))
-                   (dolist (mps (list 4))
+                   (dolist (mps (list 2))
                      (let (; (scale 1d0)
                            (sample-scale 1d0))
                        (loop for s
@@ -2469,15 +2471,15 @@
                                        *sim*
                                        :output-dir output-dir
                                        :plotter #'plot
-                                       :load-steps 20
-                                       :substeps 50
+                                       :load-steps 100
+                                       :substeps 20
                                        :sub-conv-steps 100
                                        :criteria 1d-3
                                        :enable-damage nil
                                        :enable-plastic t
                                        :max-adaptive-steps 0
                                        :min-adaptive-steps 0
-                                       :max-damage-inc 0.5d0
+                                       :max-damage-inc 5d0;0.5d0
                                        :max-plastic-inc nil
                                        :compute-zero-loadstep nil
                                        :dt-scale 0.9d0
@@ -2499,7 +2501,17 @@
                                          (push (cl-mpm/dynamic-relaxation::get-damage *sim*) *data-damage*))
                                        :loading-function
                                        (lambda (percent)
-                                         (setf *displacement-increment* (* total-disp percent)))))
+                                         (let* ((points (list 0d0
+                                                              ;; 0.025d0
+                                                              ;; 0.05d0
+                                                              ;; 0.075d0
+                                                              ;; 0.1d0
+                                                              1d0
+                                                              ))
+                                                (p (list-interp percent points)))
+                                           ;; (if (> p 0.5d0)
+                                           ;;     (setf p (* 0.5d0 p)))
+                                           (setf *displacement-increment* (* total-disp p))))))
                                     (when *skip*
                                       (setf *run-sim* t)))))))))))))
 
@@ -2523,28 +2535,33 @@
          dt))))
 
 (defun profile ()
-  (setup :refine 16)
-  ;; (sb-profile:unprofile)
-  ;; (sb-profile:profile "CL-MPM")
-  ;; ;; (sb-profile:profile "CL-MPM/PARTICLE")
-  ;; ;; (sb-profile:profile "CL-MPM/MESH")
-  ;; ;; (sb-profile:profile "CL-MPM/SHAPE-FUNCTION")
-  ;; (sb-profile:reset)
-  (with-accessors ((bcs-force-list cl-mpm::sim-bcs-force-list)
-                   (mesh cl-mpm:sim-mesh)
-                   (dt cl-mpm:sim-dt))
-      *sim*
-    (time-form
-     100
-     (loop for bcs-f in bcs-force-list
-           do (cl-mpm::apply-bcs mesh bcs-f dt))))
-  ;; (time-form
-  ;;  100
-  ;;  (progn
-  ;;    (format t "~D~%" i)
-  ;;    (cl-mpm::update-sim *sim*)))
+  (cl-mpm/utils:set-workers 16)
+  (setup :refine 8 :mps 4 :surcharge-load 10d3
+         :epsilon-scale 1d3
+         :piston-scale 1d0
+         :piston-mps 0
+         :friction 0d0
+         :mp-refine 0
+         :init-stress
+         (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile
+          131d3
+          42d0)
+         )
+  (cl-mpm::domain-sort-mps *sim*)
+  (sb-profile:unprofile)
+  (sb-profile:profile "CL-MPM")
+  (sb-profile:profile "CL-MPM/PARTICLE")
+  (sb-profile:profile "CL-MPM/PENALTY")
+  ;; (sb-profile:profile "CL-MPM/MESH")
+  ;; (sb-profile:profile "CL-MPM/SHAPE-FUNCTION")
+  (sb-profile:reset)
+  (time-form
+   10
+   (progn
+     (format t "~D~%" i)
+     (cl-mpm::update-sim *sim*)))
   (format t "MPS ~D~%" (length (cl-mpm:sim-mps *sim*)))
-  ;; (sb-profile:report)
+  (sb-profile:report)
   )
 
 (defun profile-penalty ()
@@ -2702,7 +2719,6 @@
 ;;    )
 ;;   )
 
-
 (defun angle-test ()
   (setup)
   (let ((mp (aref (cl-mpm::sim-mps *sim*) 0)))
@@ -2738,3 +2754,13 @@
       (vgplot:plot dv ang)
       )
     ))
+
+(defun est-angle (angle rs rc)
+  (let* ((ratio (if (< rc 1d0) (/ (- 1d0 rs) (- 1d0 rc)) 0d0))
+         (angle-plastic (* angle (/ pi 180)))
+         (angle-plastic-damaged (atan (* ratio (tan angle-plastic))))
+         )
+    (format t "Plastic virgin angle: ~F~%"
+            (* (/ 180 pi) angle-plastic))
+    (format t "Plastic residual angle: ~F~%"
+            (* (/ 180 pi) angle-plastic-damaged))))

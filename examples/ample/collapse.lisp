@@ -1,4 +1,4 @@
-(defpackage :cl-mpm/examples/collapse
+(defpackage :cl/mpm/examples/collapse
   (:use :cl))
 
 ;; (sb-ext:restrict-compiler-policy 'speed  0 0)
@@ -73,7 +73,7 @@
                  :mass-update-count 1
                  :damping-update-count 1
                  :max-split-depth 6
-                 :enable-split nil
+                 :enable-split t
                  :gravity -10d0
                  )
                 (when multigrid-enabled
@@ -187,7 +187,7 @@
                 (multigrid-refine 0))
   (defparameter *sim* nil)
   (let ((mps-per-dim mps))
-    (setf *sim* (setup-test-column '(16 16) '(8 8) sim-type refine mps-per-dim multigrid-refine))
+    (setf *sim* (setup-test-column '(32 16) '(8 8) sim-type refine mps-per-dim multigrid-refine))
     ;; (setf *sim* (setup-test-column '(16) '(8) sim-type refine mps-per-dim multigrid-refine))
     ;; (setf *sim* (setup-test-column '(8 8) '(8 8) sim-type refine mps-per-dim multigrid-refine))
     ;; (setf *sim* (setup-test-column '(32 32 16) '(8 8 8) sim-type refine mps-per-dim multigrid-refine))
@@ -314,8 +314,8 @@
   )
 
 (defun test-real-time ()
-  (setup :mps 2 :refine 1)
-  (let ((output-dir (format nil "./output-TFLIP/")))
+  (setup :mps 3 :refine 1)
+  (let ((output-dir (format nil "./output/")))
     (vgplot:close-all-plots)
     ;; (change-class *sim* 'cl-mpm/aggregate::mpm-sim-agg-usf)
     (change-class *sim* 'cl-mpm/aggregate::mpm-sim-agg-usf)
@@ -339,7 +339,7 @@
                   (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
                   (incf step))
        :total-time 100d0
-       :damping 1d0
+       :damping 0.01d0
        :dt 0.5d0
        :initial-quasi-static nil
        :dt-scale 0.9d0))))

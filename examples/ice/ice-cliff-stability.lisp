@@ -135,8 +135,8 @@
     (defparameter *ice-length* ice-length)
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
                                                :sim-type
-                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
-                                               'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static
+                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static
                                                :args-list
                                                (list
                                                 :enable-fbar nil
@@ -144,7 +144,7 @@
                                                 :split-factor (* 1.2d0 (sqrt 2) (/ 1d0 mps))
                                                 :enable-split nil
                                                 :max-split-depth 6
-                                                :refinement multigrid-refines
+                                                ;; :refinement multigrid-refines
                                                 )))
 
     (setf mesh-resolution (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
@@ -388,13 +388,13 @@
                             (format t "Problem ~f ~f~%" height flotation)
                             (defparameter *length-scaler* 1d0)
                             (setup :refine 0.25d0
-                                   :multigrid-refines 2
+                                   :multigrid-refines 0
                                    :friction 0d0
                                    :ice-height height
                                    :mps mps
                                    :hydro-static nil
                                    :cryo-static t
-                                   :aspect 10d0
+                                   :aspect 2d0
                                    :slope 0d0
                                    ;; :bench-length (* 1d0 height)
                                    :floatation-ratio flotation
