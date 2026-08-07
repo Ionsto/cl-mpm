@@ -326,6 +326,7 @@
     (handler-bind
         ((cl-mpm/errors:error-simulation
            (lambda (c)
+             (format t "Handled error~%")
              (cl-mpm/utils::kill-errors)
              (princ c)
              (cl-mpm::reset-loadstep sim)
