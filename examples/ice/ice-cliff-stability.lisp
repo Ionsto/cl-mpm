@@ -150,9 +150,11 @@
     (setf mesh-resolution (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
     (setf h-fine (* mesh-resolution (expt 2 (- multigrid-refines))))
     (let* ((angle *angle*)
+           (E 1d9)
            (init-stress (* 0.1185d6 1d0))
-           (gf *gf*)
+           ;; (gf *gf*)
            (length-scale (* h-fine *length-scaler*))
+           (gf (/ (* 2 length-scale (expt init-stress 2)) E))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E)))
       (format t "Ice length ~F~%" ice-length)
       (format t "Water height ~F~%" water-level)
@@ -173,7 +175,7 @@
           (mapcar (lambda (e) (* (/ e mesh-resolution) mps)) block-size)
           density
           'cl-mpm/particle::particle-ice-delayed
-          :E 1d9
+          :E E
           :nu 0.24d0
           :kt-res-ratio rt
           :kc-res-ratio rc
