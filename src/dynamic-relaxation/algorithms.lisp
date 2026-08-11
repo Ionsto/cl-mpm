@@ -645,6 +645,7 @@
                           (post-conv-step (lambda (sim)))
                           (plotter (lambda (sim)))
                           (dt-scale 1d0)
+                          (conv-dt-scale nil)
                           (damping-factor 1d0)
                           (explicit-dt-scale 0.9d0)
                           (explicit-damping-factor 1d-3)
@@ -713,7 +714,7 @@
                   :energy-crit 1d0;conv-criteria
                   :oobf-crit conv-criteria
                   :kinetic-damping nil
-                  :dt-scale dt-scale
+                  :dt-scale (if conv-dt-scale conv-dt-scale dt-scale)
                   :conv-steps 1000
                   :substeps substeps
                   :damping-factor damping-factor

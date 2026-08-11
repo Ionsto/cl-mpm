@@ -458,6 +458,7 @@
     (list
      (list :BOOL "fric-contact" #'cl-mpm/particle::mp-penalty-contact-step)
      (list :SCALAR "i1" (lambda (mp) (cl-mpm/utils::trace-voigt (cl-mpm/particle:mp-stress mp))))
+     (list :SCALAR "j2" (lambda (mp) (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils::deviatoric-voigt (cl-mpm/particle:mp-stress mp))))))
      (list :SCALAR "unique-id" #'cl-mpm/particle::mp-unique-index)
      (list :SCALAR "mass" #'cl-mpm/particle::mp-mass)
      (list :SCALAR "volume" #'cl-mpm/particle::mp-volume)

@@ -777,7 +777,7 @@
                                                       tau
                                                       tau-exp
                                                       s-dt))
-                   :tol 1d-3)
+                   :tol 1d-1)
                   ;; (cl-mpm/damage::secant-solver
                   ;;  k-n
                   ;;  ybar-prev
@@ -791,67 +791,6 @@
                   ;;     tau
                   ;;     tau-exp)))
                   )))
-          ;; (if (and (>= ybar-prev k0)
-          ;;          (>= ybar k0))
-          ;;     (setf k
-          ;;           (max
-          ;;            k-n
-          ;;            (+
-          ;;             ;; (if pd-inc ps-y 0d0)
-          ;;             ;; (cl-mpm/damage::huen-integration
-          ;;             ;;  k-n
-          ;;             ;;  ybar-prev
-          ;;             ;;  ybar
-          ;;             ;;  k0
-          ;;             ;;  tau
-          ;;             ;;  tau-exp
-          ;;             ;;  dt)
-          ;;             (cl-mpm/damage::secant-solver
-          ;;              k-n
-          ;;              ybar-prev
-          ;;              ybar
-          ;;              dt
-          ;;              (lambda (kmid ymid)
-          ;;                (cl-mpm/damage::deriv-partial
-          ;;                 kmid
-          ;;                 ymid
-          ;;                 k0
-          ;;                 tau
-          ;;                 tau-exp)))
-          ;;             ;; (cl-mpm/damage::auto-refine-substepper
-          ;;             ;;  k-n
-          ;;             ;;  ybar-prev
-          ;;             ;;  ybar
-          ;;             ;;  dt
-          ;;             ;;  (lambda (k y0 y1 s-dt)
-          ;;             ;;    (cl-mpm/damage::huen-integration k
-          ;;             ;;                                     y0
-          ;;             ;;                                     y1
-          ;;             ;;                                     k0
-          ;;             ;;                                     tau
-          ;;             ;;                                     tau-exp
-          ;;             ;;                                     s-dt))
-          ;;             ;;  :tol 1d-6)
-          ;;             )))
-          ;;     (progn
-          ;;       (let* ((r (/ (- k0 ybar-prev) (- ybar ybar-prev)))
-          ;;              (dt1 (* dt (- 1d0 r))))
-          ;;         (setf k
-          ;;               (max k-n
-          ;;                    (cl-mpm/damage::secant-solver
-          ;;                     k
-          ;;                     k0
-          ;;                     ybar
-          ;;                     dt1
-          ;;                     (lambda (kmid ymid)
-          ;;                       (cl-mpm/damage::deriv-partial
-          ;;                        kmid
-          ;;                        ymid
-          ;;                        k0
-          ;;                        tau
-          ;;                        tau-exp)))
-          ;;                    )))
-          ;;       ))
           )
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))
@@ -893,13 +832,6 @@
              (p-deg 0d0)
              (s (cl-mpm/constitutive::deviatoric-voigt undamaged-stress)))
         (declare (double-float damage-t damage-c damage-s p-deg))
-        ;; (setf stress
-        ;;        (cl-mpm/constitutive::voight-eye (- pressure))
-        ;;       ;; (cl-mpm/fastmaths:fast-.+
-        ;;       ;;  (cl-mpm/constitutive::voight-eye (- p pressure))
-        ;;       ;;  s
-        ;;       ;;  stress)
-        ;;       )
         (setf
          p-deg
          (if (> pind 0d0)
@@ -945,7 +877,7 @@
      dt
      (* -1d0
         ;; (/ p 3)
-        (/ p 3)
+        (/ p 1)
         (expt damage 1)))
     ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
     ;; (let ((pd  (* -1d0

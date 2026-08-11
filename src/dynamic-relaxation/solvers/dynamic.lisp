@@ -268,12 +268,12 @@
                    (let (;; (conv-crit 1d-3)
                          (conv-crit crit)
                          (residual-normaliser nil)
-                         (substeps 50))
+                         (substeps 20))
                      (generalised-staggered-solve
                       sim
                       :crit conv-crit
                       :substeps substeps
-                      :sub-conv-steps 50
+                      :sub-conv-steps 100
                       :dt-scale 0.9d0
                       :damping (sqrt 2d0)
                       ;; :convergance-criteria

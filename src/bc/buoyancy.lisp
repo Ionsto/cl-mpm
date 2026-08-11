@@ -1065,7 +1065,7 @@
                           (mp-body-force cl-mpm/particle::mp-body-force))
              mp
            (let ((pos (get-mp-position mp)))
-             (setf pressure (pressure-at-depth (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
+             (setf pressure (pressure-at-depth (varef pos 1) datum rho (cl-mpm:sim-gravity sim)))
              (when (typep mp 'cl-mpm/particle::particle-damage)
                (when (cl-mpm/particle::mp-enable-damage mp)
                  ;; (cl-mpm/utils:vector-copy-into
@@ -1083,7 +1083,7 @@
               mesh mp
               (lambda (node svp grads fsvp fgrad)
                 (declare (double-float mp-boundary svp damage rho datum))
-                (when t                 ;(cl-mpm/mesh::node-boundary-node node)
+                (when t
                   (when node
                     (setf mp-datum datum
                           mp-head rho)

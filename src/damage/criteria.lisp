@@ -576,6 +576,8 @@
                (magicl:transpose v))))))
     (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain+ (magicl:@ de strain+)))))))
 
+(declaim (ftype (function (magicl::matrix/double-float double-float) double-float)
+                criterion-mohr-coloumb-rankine-stress-tensile))
 (defun criterion-mohr-coloumb-rankine-stress-tensile (stress angle)
   (declare (double-float angle))
   (multiple-value-bind (s1 s2 s3) (principal-stresses-3d stress)
@@ -592,8 +594,7 @@
          (- (* k s1) s3)
          (- (* k s1) s2)
          (- (* k s2) s3))
-          k))
-     )))
+          k)))))
 
 
 
