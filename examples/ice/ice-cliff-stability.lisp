@@ -62,7 +62,7 @@
     (declare (double-float E ps-vm angle pressure))
     (progn
       (let* ((ps-y (sqrt (* E (expt ps-vm 2))))
-             ;; (stress (cl-mpm/constitutive:linear-elastic-mat strain de))
+             (stress (cl-mpm/constitutive:linear-elastic-mat strain de))
              (stress-pressure
                (cl-mpm/fastmaths:fast-.+
                 undamaged-stress
@@ -74,25 +74,28 @@
               (*
                (+
                 (if pd-inc ps-y 0d0)
-                ;; (cl-mpm/damage::tensile-energy-norm strain e de)
-                (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure angle)
+                ;(cl-mpm/damage::tensile-energy-norm strain e de)
+                ;(cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure angle)
+                (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress angle)
                 )))))))
 
 
 
-(defparameter *angle* 40d0)
-(defparameter *angle-r* 15d0)
+(defparameter *angle* 30d0)
+(defparameter *angle-r* 10d0)
 (defparameter *angle-psi* 0d0)
 (defparameter *rt* 1d0)
 (defparameter *rc* 0d0)
 (defparameter *enable-plastic-damage* nil)
 (defparameter *delay-time* 1d6)
-(defparameter *delay-exponent* 4d0)
+(defparameter *delay-exponent* 2d0)
 (defparameter *enable-viscosity* nil)
 (defparameter *viscosity* 1d13)
-(defparameter *length-scaler* 4d0)
+(defparameter *length-scaler* 2d0)
 (defparameter *gf* 10000d0)
 (defparameter *pd-oversize* 1d-4)
+
+(defparameter *penalty-epsilon-scale* 1d-2)
 
 (defun setup (&key (refine 1) (mps 2)
                 (pressure-condition t)
@@ -103,6 +106,7 @@
                 (bench-length 0d0)
                 (aspect 1)
                 (floatation-ratio 0.9)
+                (bench-extra-cut 0d0)
                 ;; (extra-cliff-height 0)
                 (slope 0d0)
                 (use-penalty t)
@@ -152,10 +156,13 @@
     (let* ((angle *angle*)
            (E 1d9)
            (init-stress (* 0.1185d6 1d0))
+           ;(init-stress 0.1d6)
+           ;(init-stress 1d6)
            ;; (gf *gf*)
            (length-scale (* h-fine *length-scaler*))
-           (gf (/ (* 2 length-scale (expt init-stress 2)) E))
-           (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E)))
+           (gf (/ (* 10 length-scale (expt init-stress 2)) E))
+           (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
+           (ductility 10d0))
       (format t "Ice length ~F~%" ice-length)
       (format t "Water height ~F~%" water-level)
       (format t "True Water height ~F~%" (- datum offset))
@@ -164,9 +171,8 @@
       (format t "Estimated lc ~E~%" length-scale)
       (format t "Estimated ductility ~E~%" ductility)
       (format t "Init stress ~E~%" init-stress)
-      (let* ((rt 1d0)
-             (rc *rc*)
-             )
+      (let* ((rt *rt*)
+             (rc *rc*))
         (cl-mpm:add-mps
          *sim*
          (cl-mpm/setup:make-block-mps
@@ -229,6 +235,13 @@
                                   :refine 2))
 
 
+      (let ((cutout (+ (- ice-height water-level) bench-extra-cut))
+            (cutback bench-length))
+        (when (> cutback 0d0)
+          (cl-mpm/setup:remove-sdf
+           *sim*
+           (cl-mpm/setup::rectangle-sdf (list (first block-size) (+ offset ice-height ice-height))
+                                        (list cutback (+ cutout ice-height))))))
       (let* ((domain-height (second domain-size))
              (midpoint (/ (+ domain-height (+ water-level offset)) 2))
              (dist (- domain-height midpoint))
@@ -238,14 +251,14 @@
              )
         ;; (pprint cutout)
         (when (> cutback 0d0)
-          (cl-mpm/setup:remove-sdf
-           *sim*
-           (cl-mpm/setup::rectangle-sdf (list (first block-size)
-                                              ;; (+ offset ice-height)
-                                              midpoint
-                                              )
-                                        (list cutback cutout))
-           )
+          ;(cl-mpm/setup:remove-sdf
+          ; *sim*
+          ; (cl-mpm/setup::rectangle-sdf (list (first block-size)
+          ;                                    ;; (+ offset ice-height)
+          ;                                    midpoint
+          ;                                    )
+          ;                              (list cutback cutout))
+          ; )
           ;; (cl-mpm/setup::remove-sdf *sim*
           ;;                           (lambda (p)
           ;;                             (cl-mpm/setup::plane-point-point-sdf
@@ -320,7 +333,7 @@
                                          offset
                                          0d0))
          (* domain-half 1.1d0)
-         (* E 0.01d0)
+         (* E *penalty-epsilon-scale*)
          friction
          ;; 0.1d0
          0d0
