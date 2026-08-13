@@ -471,7 +471,7 @@
              (cl-mpm/utils::kill-errors)
              (princ c)
              (cl-mpm::reset-loadstep sim)
-             (format t "Thread ~D~%" (cl-mpi:mpi-comm-rank))
+             ;; (format t "Thread ~D~%" (cl-mpi:mpi-comm-rank))
              (return-from step-quasi-time (values nil 0)))))
         (progn
           (let* ((oobf-crit   conv-criteria)
