@@ -165,20 +165,14 @@
     (let* ((angle *angle*)
            (E 1d9)
            (init-stress (* 0.1185d6 1d0))
-           ;(init-stress 0.1d6)
-           ;(init-stress 1d6)
+                                        ;(init-stress 0.1d6)
+                                        ;(init-stress 1d6)
            ;; (gf *gf*)
-           (length-scale (* h-fine *length-scaler*))
-<<<<<<< Updated upstream
+           (length-scale (* h-fine *length-scaler*)))
            (gf (/ (* 10 length-scale (expt init-stress 2)) E))
-           (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
-           (ductility 10d0))
-=======
-           (gf (/ (* 2 length-scale (expt init-stress 2)) E))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
            (ductility 10d0)
            )
->>>>>>> Stashed changes
       (format t "Ice length ~F~%" ice-length)
       (format t "Water height ~F~%" water-level)
       (format t "True Water height ~F~%" (- datum offset))
@@ -375,7 +369,7 @@
     ;;  *bc-erode*
     ;;  )
     (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
-    ))
+    )
 
 (defun save-stabilty-data (output-dir sim stable height floatation notch)
   (let ((filename (merge-pathnames (format nil "data_~A_~A_~A.json" height floatation notch) output-dir)))
