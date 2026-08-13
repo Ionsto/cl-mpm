@@ -74,23 +74,14 @@
               (*
                (+
                 (if pd-inc ps-y 0d0)
-<<<<<<< Updated upstream
-                ;(cl-mpm/damage::tensile-energy-norm strain e de)
-                ;(cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure angle)
-=======
                 ;; (cl-mpm/damage::tensile-energy-norm strain e de)
                 ;; (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure angle)
->>>>>>> Stashed changes
                 (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress angle)
                 )))))))
 
 
 
-<<<<<<< Updated upstream
-(defparameter *angle* 30d0)
-=======
 (defparameter *angle* 40d0)
->>>>>>> Stashed changes
 (defparameter *angle-r* 10d0)
 (defparameter *angle-psi* 0d0)
 (defparameter *rt* 1d0)
@@ -116,12 +107,10 @@
                 (aspect 1)
                 (floatation-ratio 0.9)
                 (bench-extra-cut 0d0)
-                ;; (extra-cliff-height 0)
                 (slope 0d0)
                 (use-penalty t)
                 (stick-base t)
-                (multigrid-refines 0)
-                )
+                (multigrid-refines 0))
   (let* ((density 918d0)
          (water-density 1028d0)
          (mesh-resolution (/ 10d0 refine))
@@ -165,10 +154,7 @@
     (let* ((angle *angle*)
            (E 1d9)
            (init-stress (* 0.1185d6 1d0))
-                                        ;(init-stress 0.1d6)
-                                        ;(init-stress 1d6)
-           ;; (gf *gf*)
-           (length-scale (* h-fine *length-scaler*)))
+           (length-scale (* h-fine *length-scaler*))
            (gf (/ (* 10 length-scale (expt init-stress 2)) E))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
            (ductility 10d0)
@@ -251,44 +237,7 @@
           (cl-mpm/setup:remove-sdf
            *sim*
            (cl-mpm/setup::rectangle-sdf (list (first block-size) (+ offset ice-height ice-height))
-                                        (list cutback (+ cutout ice-height))))))
-      (let* ((domain-height (second domain-size))
-             (midpoint (/ (+ domain-height (+ water-level offset)) 2))
-             (dist (- domain-height midpoint))
-             (cutout (/ dist 1))
-             ;; (cutout (+ (- end-height water-level) 00d0))
-             (cutback bench-length)
-             )
-        ;; (pprint cutout)
-        (when (> cutback 0d0)
-          ;(cl-mpm/setup:remove-sdf
-          ; *sim*
-          ; (cl-mpm/setup::rectangle-sdf (list (first block-size)
-          ;                                    ;; (+ offset ice-height)
-          ;                                    midpoint
-          ;                                    )
-          ;                              (list cutback cutout))
-          ; )
-          ;; (cl-mpm/setup::remove-sdf *sim*
-          ;;                           (lambda (p)
-          ;;                             (cl-mpm/setup::plane-point-point-sdf
-          ;;                              p
-          ;;                              (cl-mpm/utils:vector-from-list (list ice-length datum 0d0))
-          ;;                              (cl-mpm/utils:vector-from-list (list (- ice-length cutback) offset 0d0))))
-          ;;                           :refine 3
-          ;;                           )
-          )
-        ))
-    ;; (setf
-    ;;  (cl-mpm:sim-bcs *sim*)
-    ;;  (cl-mpm/bc::make-outside-bc-varfix
-    ;;   (cl-mpm:sim-mesh *sim*)
-    ;;   '(0 nil 0)
-    ;;   '(0 nil 0)
-    ;;   '(nil 0 nil)
-    ;;   '(nil 0 nil)
-    ;;   '(nil nil 0)
-    ;;   '(nil nil 0)))
+                                        (list cutback (+ cutout ice-height)))))))
     (cl-mpm/setup:setup-bcs
      *sim*
      :left '(0 nil 0)
@@ -304,11 +253,7 @@
     (setf (cl-mpm::sim-allow-mp-damage-removal *sim*) nil)
     (setf (cl-mpm::sim-mp-damage-removal-instant *sim*) nil)
     (setf (cl-mpm::sim-mp-damage-removal-criteria *sim*) 0.99d0)
-    (setf (cl-mpm::sim-ghost-factor *sim*)
-          ;; nil
-          (* E 1d-4)
-          )
-    ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :PIC)
+    (setf (cl-mpm::sim-ghost-factor *sim*) nil)
     (setf (cl-mpm::sim-velocity-algorithm *sim*) :BLEND)
     (setf (cl-mpm:sim-dt *sim*) (* 0.5d0 (cl-mpm/setup:estimate-elastic-dt *sim*)))
     (setf (cl-mpm::sim-enable-damage *sim*) nil)
@@ -328,9 +273,9 @@
            water-density
            (lambda (pos) t))))
 
-    (cl-mpm:add-bcs-force-list
-     *sim*
-     *water-bc*)
+    ;; (cl-mpm:add-bcs-force-list
+    ;;  *sim*
+    ;;  *water-bc*)
 
     (let ((domain-half (* 0.5d0 (first domain-size)))
           (friction friction))
@@ -369,7 +314,7 @@
     ;;  *bc-erode*
     ;;  )
     (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
-    )
+    ))
 
 (defun save-stabilty-data (output-dir sim stable height floatation notch)
   (let ((filename (merge-pathnames (format nil "data_~A_~A_~A.json" height floatation notch) output-dir)))
