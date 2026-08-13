@@ -11,7 +11,7 @@
 
 (in-package :cl-mpm/damage)
 
-(defclass mpm-sim-damage (cl-mpm::mpm-sim-usf)
+(defclass mpm-sim-damage (cl-mpm::mpm-sim)
   ((delocal-counter
     :accessor sim-damage-delocal-counter
     :type fixnum
@@ -39,6 +39,8 @@
     :initform nil)
    )
   (:documentation "Explicit simulation with update stress first update"))
+
+(defclass mpm-sim-damage-usf (mpm-sim-damage cl-mpm::mpm-sim-usf) ())
 
 (defclass mpm-sim-usl-damage (mpm-sim-damage cl-mpm::mpm-sim-usl) ())
 

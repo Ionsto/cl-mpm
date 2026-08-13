@@ -554,9 +554,7 @@
          (density (/ mass volume)))
     (*
      (/ pi 2)
-     (sqrt (/ E density))
-     ;; (sqrt (/ E (* density)))
-     )))
+     (sqrt (/ E density)))))
 
 (defgeneric estimate-critical-damping (sim))
 (defmethod estimate-critical-damping ((sim cl-mpm:mpm-sim))

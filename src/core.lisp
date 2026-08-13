@@ -202,7 +202,8 @@
   (cl-mpm::iterate-over-nodes
    (cl-mpm:sim-mesh sim)
    (lambda (n)
-     (when (cl-mpm/mesh::node-active n)
+     (when t
+       ;; (cl-mpm/mesh::node-active n)
        (cl-mpm/mesh::reset-node-force n)))))
 
 
@@ -709,7 +710,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   (iterate-over-nodes
    mesh
    (lambda (node)
-     (when (cl-mpm/mesh:node-active node)
+     (when t
+       ;; (cl-mpm/mesh:node-active node)
        (when reset-displacement
          (cl-mpm::fast-zero (cl-mpm/mesh::node-displacment node)))
        (cl-mpm/mesh:reset-node node)))))

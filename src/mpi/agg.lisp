@@ -30,9 +30,9 @@
                         (neighbours cl-mpm/mesh::cell-cartesian-neighbours)
                         (active cl-mpm/mesh::cell-active))
            cell
-         (when (and active partial
-                    ;; (in-computational-domain sim (cl-mpm/mesh::cell-centroid cell))
-                    )
+         (when (and active
+                    partial
+                    (in-computational-domain sim (cl-mpm/mesh::cell-centroid cell)))
            (setf agg t)
            ;;Set all our neighbours to also be aggregate
            (loop for n in neighbours
@@ -49,7 +49,7 @@
            cell
          ;;Set all aggregated nodes
          (when (and active agg
-                    ;; (in-computational-domain sim (cl-mpm/mesh::node-position cell))
+                    ;; (in-computational-domain sim (cl-mpm/mesh::cell-centroid cell))
                     )
            (loop for n across nodes
                  do (when (and (cl-mpm/mesh::node-active n)
@@ -70,13 +70,13 @@
                    (cl-mpm/aggregate::get-closest-cell
                     mesh
                     (cl-mpm/mesh::node-position node)
-                    :exclude
+                    :filter
                     (lambda (c)
-                      (not
-                       (cl-mpm/mpi::in-computational-domain-buffer
-                        sim
-                        (cl-mpm/mesh::cell-centroid c)
-                        (- (cl-mpm/mesh::mesh-resolution (cl-mpm::sim-mesh sim)))))))))
+                      ;; (not)
+                      (cl-mpm/mpi::in-computational-domain-buffer
+                       sim
+                       (cl-mpm/mesh::cell-centroid c)
+                       (* 0d0 (cl-mpm/mesh::mesh-resolution (cl-mpm::sim-mesh sim))))))))
              (if closest-elem
                  (progn
                    (setf (cl-mpm/mesh::node-agg-interior-cell node) closest-elem)

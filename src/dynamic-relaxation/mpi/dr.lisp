@@ -36,7 +36,7 @@
                  (progn
                    (dotimes (j substeps)
                      (cl-mpm:update-sim sim))
-                   (cl-mpm::update-dynamic-stats sim)
+                   ;; (cl-mpm::update-dynamic-stats sim)
                    (setf oobf (cl-mpm::sim-stats-oobf sim))
                    (when (= 0 rank)
                      (format t "Estimated dt ~E~%" (cl-mpm:sim-dt sim)))
@@ -62,3 +62,35 @@
           (format t "System didn't converge~%"))
         )
       (values load fnorm oobf))))
+
+
+
+
+(defmethod save-timestep ((sim cl-mpm/mpi:mpm-sim-mpi) output-dir step type)
+  (when (uiop:file-exists-p (merge-pathnames output-dir "timesteps.csv"))
+    (let ((str 
+            (with-output-to-string (stream)
+              (cl-mpm:sim-format sim stream
+                                 "~D,~f,~f,~f,~f,~f,~f,~A,~f~%"
+                                 step
+                                 (cl-mpm::sim-time sim)
+                                 (get-damage sim)
+                                 (get-plastic sim)
+                                 (cl-mpm::sim-stats-energy sim)
+                                 (cl-mpm::sim-stats-oobf sim)
+                                 (cl-mpm::sim-stats-work sim)
+                                 type
+                                 0d0))))
+      (when (= (cl-mpi:mpi-comm-rank) 0)
+        (with-open-file (stream (merge-pathnames "timesteps.csv" output-dir) :direction :output :if-exists :append)
+          (format stream str))))))
+
+(defmethod save-conv-step ((sim cl-mpm/mpi:mpm-sim-mpi) output-dir total-iter step real-time oobf energy)
+  (when (uiop:file-exists-p (merge-pathnames output-dir "timesteps.csv"))
+    (let ((str
+            (with-output-to-string (stream)
+              (cl-mpm:sim-format sim stream "~D,~D,~f,~f,~f,~f,~f~%" total-iter step real-time (get-plastic sim) (get-damage sim)
+                                 (if (sb-ext:float-infinity-p oobf) 0d0 oobf) energy))))
+      (when (= (cl-mpi:mpi-comm-rank) 0)
+        (with-open-file (stream (merge-pathnames output-dir "conv.csv") :direction :output :if-exists :append)
+          (format stream str))))))

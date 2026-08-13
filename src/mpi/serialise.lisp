@@ -160,6 +160,7 @@
   (float vol cl-mpm/mesh::node-volume)
   (float j-inc cl-mpm/mesh::node-jacobian-inc)
   (vector velocity cl-mpm/mesh::node-velocity)
+  (vector acc cl-mpm/mesh::node-acceleration)
   (vector force cl-mpm/mesh::node-force)
   (vector force-int cl-mpm/mesh::node-internal-force)
   (vector force-ext cl-mpm/mesh::node-external-force)

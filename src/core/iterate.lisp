@@ -181,12 +181,8 @@ Calls func with only the node"
    Calls func with only the node"
   (declare (type function func)
            (type (vector cl-mpm/particle:particle *) mps))
-  ;; (dotimes (i (length mps))
-  ;;   (funcall func (aref mps i)))
-  ;; (break)
   (cl-mpm/utils::bpdotimes (i (length mps))
     (funcall func (aref mps i)))
-
   (values))
 
 
@@ -223,6 +219,17 @@ Calls func with only the node"
   (values))
 
 
+(defmethod reduce-over-global-mps-sum ((sim cl-mpm::mpm-sim) map)
+  (lparallel:pmap-reduce
+   map
+   #'+
+   (cl-mpm:sim-mps sim)))
+
+(defmethod reduce-over-global-mps-max ((sim cl-mpm::mpm-sim) map)
+  (lparallel:pmap-reduce
+   map
+   #'max
+   (cl-mpm:sim-mps sim)))
 
 
 ;; (defgeneric iterate-over-neighbours-shape (mesh shape-func mp func)

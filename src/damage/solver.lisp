@@ -1,5 +1,5 @@
 (in-package :cl-mpm/damage)
-(defmethod cl-mpm::update-sim ((sim mpm-sim-damage))
+(defmethod cl-mpm::update-sim ((sim mpm-sim-damage-usf))
   (declare (cl-mpm::mpm-sim-usf sim))
   (with-slots ((mesh cl-mpm::mesh)
                (mps  cl-mpm::mps)

@@ -681,7 +681,7 @@
     oobf))
 
 (declaim (notinline true-intertial-criteria))
-(defun true-intertial-criteria (sim loadstep-dt)
+(defmethod true-intertial-criteria ((sim cl-mpm:mpm-sim) loadstep-dt)
   (if (> loadstep-dt 0d0)
       (destructuring-bind (inertia-norm ext-norm)
           (cl-mpm::reduce-over-nodes
@@ -717,9 +717,56 @@
                     (cl-mpm/fastmaths::mag-squared f-ext)))
                  (list 0d0 0d0)))
            (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
-        (if (> ext-norm 0d0)
-            (sqrt (/ inertia-norm ext-norm))
-            (if (> inertia-norm 0d0) sb-ext:double-float-positive-infinity 0d0)))))
+
+        (let (;; (inertia-norm (cl-mpm/mpi::mpi-sum inertia-norm))
+              ;; (ext-norm (cl-mpm/mpi::mpi-sum ext-norm))
+              )
+          (if (> ext-norm 0d0)
+              (sqrt (/ inertia-norm ext-norm))
+              (if (> inertia-norm 0d0) sb-ext:double-float-positive-infinity 0d0))))))
+
+(defmethod true-intertial-criteria ((sim cl-mpm/mpi::mpm-sim-mpi) loadstep-dt)
+  (if (> loadstep-dt 0d0)
+      (destructuring-bind (inertia-norm ext-norm)
+          (cl-mpm::reduce-over-nodes
+           (cl-mpm:sim-mesh sim)
+           (lambda (node)
+             (if (and (cl-mpm/mesh:node-active node)
+                      (or
+                       (not (cl-mpm/mesh::node-agg node))
+                       ;; (cl-mpm/mesh::node-interior node)
+                       )
+                      )
+                 (with-accessors ((active cl-mpm/mesh::node-active)
+                                  (f-ext cl-mpm/mesh::node-external-force)
+                                  ;; (f-int cl-mpm/mesh::node-residual)
+                                  (res cl-mpm/mesh::node-residual)
+                                  (node-oobf cl-mpm/mesh::node-oobf)
+                                  (mass cl-mpm/mesh::node-mass)
+                                  (volume cl-mpm/mesh::node-volume)
+                                  (volume-t cl-mpm/mesh::node-volume-true)
+                                  (vel cl-mpm/mesh::node-velocity)
+                                  (disp cl-mpm/mesh::node-displacment)
+                                  (true-mass cl-mpm/mesh::node-true-mass)
+                                  )
+                     node
+                   (declare (double-float mass))
+                   (list
+                    (*
+                     (* true-mass true-mass)
+                     (cl-mpm/fastmaths::mag-squared
+                      (cl-mpm/fastmaths:fast-scale-vector
+                       disp
+                       (expt (/ 1d0 loadstep-dt) 2))))
+                    (cl-mpm/fastmaths::mag-squared f-ext)))
+                 (list 0d0 0d0)))
+           (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
+
+        (let ((inertia-norm (cl-mpm/mpi::mpi-sum inertia-norm))
+              (ext-norm (cl-mpm/mpi::mpi-sum ext-norm)))
+          (if (> ext-norm 0d0)
+              (sqrt (/ inertia-norm ext-norm))
+              (if (> inertia-norm 0d0) sb-ext:double-float-positive-infinity 0d0))))))
 
 (defgeneric estimate-static-oobf (sim))
 
@@ -1001,13 +1048,12 @@
   (cl-mpm/damage::g2p-damage sim))
 
 (defun damage-increment-criteria-mp (sim)
-  (cl-mpm::reduce-over-mps
-   (cl-mpm:sim-mps sim)
+  (cl-mpm::reduce-over-global-mps-max
+   sim
    (lambda (mp)
      (if (typep mp 'cl-mpm/particle::particle-damage)
          (min 1d0 (cl-mpm/particle::mp-damage-increment mp))
-         0d0))
-   #'max))
+         0d0))))
 
 
 (defgeneric damage-increment-criteria (sim)
@@ -1023,10 +1069,10 @@
   )
 
 (declaim (notinline compute-damage-delta))
-(defun compute-damage-delta (sim)
+(defmethod compute-damage-delta ((sim cl-mpm::mpm-sim))
   (let* ((delta-ds
-           (cl-mpm::reduce-over-mps
-            (cl-mpm:sim-mps sim)
+           (cl-mpm::reduce-over-global-mps-sum
+            sim
             (lambda (mp)
               (if (typep mp 'cl-mpm/particle::particle-damage)
                 (with-accessors ((damage cl-mpm/particle::mp-damage)
@@ -1035,11 +1081,10 @@
                                  (mass cl-mpm/particle::mp-mass))
                     mp
                   (expt (* mass (- damage damage-prev)) 2))
-                0d0))
-            #'+))
+                0d0))))
          (delta-incs
-           (cl-mpm::reduce-over-mps
-            (cl-mpm:sim-mps sim)
+           (cl-mpm::reduce-over-global-mps-sum
+            sim
             (lambda (mp)
               (if (typep mp 'cl-mpm/particle::particle-damage)
                   (with-accessors ((damage cl-mpm/particle::mp-damage)
@@ -1048,8 +1093,7 @@
                                    (mass cl-mpm/particle::mp-mass))
                       mp
                     (expt (* mass damage) 2))
-                  0d0))
-            #'+)))
+                  0d0)))))
     (if (> delta-incs 0d0)
         (sqrt (/ delta-ds delta-incs))
         0d0)))
@@ -1058,10 +1102,10 @@
 
 
 
-(defun compute-max-damage-energy-crit (sim)
+(defmethod compute-max-damage-energy-crit ((sim cl-mpm:mpm-sim))
   (let* ((energy
-           (cl-mpm::reduce-over-mps
-            (cl-mpm:sim-mps sim)
+           (cl-mpm::reduce-over-global-mps-sum
+            sim
             (lambda (mp)
               (if (typep mp 'cl-mpm/particle::particle-damage)
                   (with-accessors ((volume cl-mpm/particle::mp-volume)
@@ -1070,11 +1114,10 @@
                                    (strain cl-mpm/particle::mp-strain))
                       mp
                     (* 0.5d0 volume damage-inc (cl-mpm/fastmaths:dot stress strain)))
-                  0d0))
-            #'+))
+                  0d0))))
          (undamaged-energy
-           (cl-mpm::reduce-over-mps
-            (cl-mpm:sim-mps sim)
+           (cl-mpm::reduce-over-global-mps-sum
+            sim
             (lambda (mp)
               (if (typep mp 'cl-mpm/particle::particle-damage)
                   (with-accessors ((volume cl-mpm/particle::mp-volume)
@@ -1084,8 +1127,7 @@
                                    (strain cl-mpm/particle::mp-strain))
                       mp
                     (* 0.5d0 volume (- 1d0 damage) (cl-mpm/fastmaths:dot stress strain)))
-                  0d0))
-            #'+)))
+                  0d0)))))
     ;; (format t "Energy reduction ~E - undamaged energy ~E ~%" energy undamaged-energy)
     (if (> undamaged-energy 0d0)
         (/ energy undamaged-energy)
@@ -1100,9 +1142,9 @@
 (defmethod plastic-increment-criteria ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
   (plastic-increment-criteria-mp sim))
 
-(defun plastic-increment-criteria-mp (sim)
-  (cl-mpm::reduce-over-mps
-   (cl-mpm:sim-mps sim)
+(defmethod plastic-increment-criteria-mp ((sim cl-mpm::mpm-sim))
+  (cl-mpm::reduce-over-global-mps-max
+   sim
    (lambda (mp)
      (typecase mp
        (plastic-damage-type
@@ -1136,23 +1178,4 @@
                    eeng)
                 0d0)
             )))
-       (t 0d0)
-       )
-     ;; (if (typep mp 'cl-mpm/particle::particle-plastic)
-     ;;     (with-accessors ((volume cl-mpm/particle::mp-volume)
-     ;;                      (stress cl-mpm/particle::mp-undamaged-stress)
-     ;;                      (e cl-mpm/particle::mp-e)
-     ;;                      (vm-inc cl-mpm/particle::mp-strain-plastic-vm-inc)
-     ;;                      (strain cl-mpm/particle::mp-strain))
-     ;;         mp
-     ;;       (declare (double-float e vm-inc))
-     ;;       (let ((eeng (* 0.5d0 (cl-mpm/fastmaths:dot stress strain))))
-     ;;         (declare (double-float eeng))
-     ;;         (if (> eeng 0d0)
-     ;;             (/ (* (sqrt e) vm-inc)
-     ;;                eeng)
-     ;;             0d0)
-     ;;         ))
-     ;;     0d0)
-     )
-   #'max))
+       (t 0d0)))))

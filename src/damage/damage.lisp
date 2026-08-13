@@ -1,6 +1,17 @@
 (in-package :cl-mpm/damage)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim #.cl-mpm/settings:*optimise-setting*)
+
+(defun iterate-over-damage-mps (mps func)
+  "Helper function for iterating over all nodes in a mesh
+   Calls func with only the node"
+  (declare (type function func)
+           (type (vector (or cl-mpm/particle:particle
+                             cl-mpm/particle::particle-damage-fundemental) *) mps))
+  (cl-mpm/utils::bpdotimes (i (length mps))
+    (funcall func (aref mps i)))
+  (values))
 
 
 (defmethod cl-mpm/particle::compute-mp-energy-release ((mp cl-mpm/particle::particle-damage))
@@ -16,10 +27,10 @@
    (cl-mpm/particle::mp-damage mp) d
    (cl-mpm/particle::mp-damage-n mp) d))
 
-(defmethod cl-mpm::reset-loadstep ((sim mpm-sim-damage))
-  (call-next-method)
-  ;; (calculate-damage sim 1d0)
-  )
+;; (defmethod cl-mpm::reset-loadstep ((sim mpm-sim-damage))
+;;   (call-next-method)
+;;   ;; (calculate-damage sim 1d0)
+;;   )
 
 (defmethod cl-mpm/particle::reset-loadstep-mp ((mp cl-mpm/particle::particle-damage))
   (with-accessors ((ybar      cl-mpm/particle::mp-damage-ybar)
@@ -962,13 +973,6 @@ Calls the function with the mesh mp and node"
   (call-next-method))
 
 (defmethod (setf cl-mpm::sim-mps) (mps (sim cl-mpm/damage::mpm-sim-damage))
-  ;; (with-accessors ((mesh cl-mpm::sim-mesh))
-  ;;     sim
-  ;;   (loop for mp across mps
-  ;;         when (and
-  ;;               (typep mp 'cl-mpm/particle:particle-damage)
-  ;;               (eq (cl-mpm/particle::mp-damage-position mp) nil))
-  ;;           do (local-list-add-particle mesh mp)))
   (call-next-method))
 
 

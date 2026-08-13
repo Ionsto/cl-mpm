@@ -17,16 +17,18 @@
 (defmethod update-min-domain-size ((sim mpm-sim-mpi))
   (setf (mpm-sim-mpi-min-size sim)
         (* (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)) (mpm-sim-mpi-halo-depth sim))))
-(defmethod update-min-domain-size ((sim mpm-sim-mpi-nodes-damage))
+
+(defmethod update-min-domain-size ((sim mpm-sim-mpi-damage))
   (setf (mpm-sim-mpi-min-size sim)
         (max
          (* (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)) (mpm-sim-mpi-halo-depth sim))
          (mpm-sim-mpi-halo-damage-size sim))))
+
 (defmethod (setf cl-mpm::sim-mesh) :after (value (sim mpm-sim-mpi))
   (update-min-domain-size sim))
 (defmethod (setf mpm-sim-mpi-halo-depth) :after (value (sim mpm-sim-mpi))
   (update-min-domain-size sim))
-(defmethod (setf mpm-sim-mpi-halo-damage-size) :after (value (sim mpm-sim-mpi-nodes-damage))
+(defmethod (setf mpm-sim-mpi-halo-damage-size) :after (value (sim mpm-sim-mpi-damage))
   (update-min-domain-size sim))
 
 
@@ -129,3 +131,4 @@
                   ;; (format t "global : dt - ~F~%" (* (sqrt mass-scale) (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh)))
                   (* (sqrt mass-scale) (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh)))
                 (cl-mpm::sim-dt sim))))))))
+

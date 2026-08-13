@@ -1235,6 +1235,7 @@
 
 (declaim (notinline reset-penalty))
 (defun reset-penalty (sim)
+  ;; (setf (fill-pointer (bc-penalty-contact-points bc)) 0)
   (cl-mpm:iterate-over-mps
    (sim-mps sim)
    (lambda (mp)

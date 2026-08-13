@@ -71,6 +71,7 @@
                                  ))))))))))))))))))
 
 (defun map-stiffness-quasi-static (sim)
+  ;; (pprint "Hello")
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mps cl-mpm:sim-mps))
       sim
@@ -78,7 +79,7 @@
      mesh
      (lambda (node)
        (declare (cl-mpm/mesh::node node))
-       (when (cl-mpm/mesh:node-active node)
+       (when t;(cl-mpm/mesh:node-active node)
          (setf (the double-float (cl-mpm/mesh::node-mass node)) 0d0))))
 
     (let* ((h (cl-mpm/mesh::mesh-resolution mesh))
@@ -89,7 +90,8 @@
       (cl-mpm::iterate-over-mps
        mps
        (lambda (mp)
-         (setf (cl-mpm/particle::mp-p-modulus mp) (cl-mpm/particle::estimate-stiffness mp))
+         (setf (cl-mpm/particle::mp-p-modulus mp)
+               (cl-mpm/particle::estimate-stiffness mp))
          (let* ((mp-volume (cl-mpm/particle::mp-volume mp))
                 (mp-pmod (cl-mpm/particle::mp-p-modulus mp))
                 (ul (estimate-ul-enhancement mp nd))

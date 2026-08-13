@@ -1065,20 +1065,26 @@
                           (mp-body-force cl-mpm/particle::mp-body-force))
              mp
            (let ((pos (get-mp-position mp)))
-             (setf pressure (pressure-at-depth (varef pos 1) datum rho (cl-mpm:sim-gravity sim)))
-             (when (typep mp 'cl-mpm/particle::particle-damage)
-               (when (cl-mpm/particle::mp-enable-damage mp)
-                 ;; (cl-mpm/utils:vector-copy-into
-                 ;;  (calculate-val-mp-datum-propotional
-                 ;;   mp
-                 ;;   (lambda (mp) (buoyancy-virtual-div
-                 ;;                 (tref pos 1 0)
-                 ;;                 datum
-                 ;;                 (* damage rho 0d0)
-                 ;;                 (cl-mpm:sim-gravity sim)))
-                 ;;   datum)
-                 ;;  (cl-mpm/particle::mp-body-force mp))
-                 ))
+             (setf
+              pressure
+              (pressure-at-depth
+               (varef pos 1)
+               datum
+               rho
+               (cl-mpm:sim-gravity sim)))
+             ;; (when (typep mp 'cl-mpm/particle::particle-damage)
+             ;;   (when (cl-mpm/particle::mp-enable-damage mp)
+             ;;     (cl-mpm/utils:vector-copy-into
+             ;;      (calculate-val-mp-datum-propotional
+             ;;       mp
+             ;;       (lambda (mp) (buoyancy-virtual-div
+             ;;                     (tref pos 1 0)
+             ;;                     datum
+             ;;                     (* damage rho 0d0)
+             ;;                     (cl-mpm:sim-gravity sim)))
+             ;;       datum)
+             ;;      (cl-mpm/particle::mp-body-force mp))
+             ;;     ))
              (cl-mpm::iterate-over-neighbours
               mesh mp
               (lambda (node svp grads fsvp fgrad)
@@ -1087,8 +1093,7 @@
                   (when node
                     (setf mp-datum datum
                           mp-head rho)
-                    (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))
-                    ))))))))
+                    (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))))))))))
 
       (when (> dt 0d0)
         (let ((damping (bc-viscous-damping bc)))

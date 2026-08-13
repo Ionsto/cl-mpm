@@ -827,8 +827,9 @@
                                 (/ 1d0 j)))
              (exponent 1)
              (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
-             (pind (- p pressure))
-             ;; (pind p)
+             (pressure (* pressure damage))
+             ;; (pind (- p pressure))
+             (pind p)
              (p-deg 0d0)
              (s (cl-mpm/constitutive::deviatoric-voigt undamaged-stress)))
         (declare (double-float damage-t damage-c damage-s p-deg))
@@ -838,6 +839,7 @@
              (- 1d0 (expt damage-t exponent))
              (- 1d0 (expt damage-c exponent))))
         (setf p (* p p-deg))
+        ;; (setf pressure (* pressure p-deg))
         (setf stress
               (cl-mpm/fastmaths:fast-.+
                (cl-mpm/constitutive::voight-eye (- p pressure))
@@ -867,24 +869,19 @@
                    (stress cl-mpm/particle::mp-stress)
                    (damage cl-mpm/particle::mp-damage)
                    (enable-damage cl-mpm/particle::mp-enable-damage)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (p-mod cl-mpm/particle::mp-p-modulus))
       mp
-    ;; (cl-mpm/damage::apply-tensile-strain-degredation mp)
-    ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
-    ;; (cl-mpm/damage::apply-vol-degredation mp)
     (apply-vol-pressure-degredation
      mp
      dt
      (* -1d0
-        ;; (/ p 3)
         (/ p 1)
-        (expt damage 1)))
-    ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
-    ;; (let ((pd  (* -1d0
-    ;;               (/ p 3)
-    ;;               (expt damage 1))))
-    ;;   (setf stress (cl-mpm/utils:voigt-eye pd)))
-    ))
+        ;; (expt damage 1)
+        ))
+    ;; (setf stress (cl-mpm/utils::voigt-eye (/ p 1)))
+    )
+  )
 
 
 (defmethod cl-mpm/particle::compute-mp-energy-release ((mp cl-mpm/particle::particle-ice-brittle))
