@@ -30,6 +30,7 @@
                "cl-mpm/errors"
                "cl-mpm/settings"
                "lparallel"
+               "trivial-backtrace"
                "sb-concurrency"
                "array-operations")
   :description "MPM utility functions definitions"
@@ -217,7 +218,9 @@
        (:file "algorithms")))))))
 
 
-(defsystem "cl-mpm/dynamic-relaxation-mpi"
+#+asdf-system-connections
+(defsystem-connection "cl-mpm/dynamic-relaxation-mpi"
+  :requires ("cl-mpm/dynamic-relaxation" "cl-mpm/mpi")
   :depends-on ("cl-mpm/dynamic-relaxation"
                "cl-mpm/mpi")
   :description "MPM implicit with MPI"
@@ -230,7 +233,8 @@
       :serial t
       :components
       ((:file "mpi/solvers")
-       (:file "mpi/dr")))))))
+       (:file "mpi/dr")
+       (:file "mpi/criteria")))))))
 
 
 
@@ -326,8 +330,7 @@
                    (:file "damage")
                    (:file "solver")
                    (:file "output")
-                   (:file "agg")
-                   ))))))
+                   (:file "agg")))))))
 
 (defsystem "cl-mpm/buoyancy"
   :depends-on ("cl-mpm"
@@ -782,10 +785,10 @@
 
 
 
-#+asdf-system-connections
-(defsystem-connection "cl-mpm/dynamic-relaxation-mpi"
-  :requires ("cl-mpm/dynamic-relaxation" "cl-mpm/mpi")
-  :components ((:file "src/dynamic-relaxation/mpi/solvers")))
+;; #+asdf-system-connections
+;; (defsystem-connection "cl-mpm/dynamic-relaxation-mpi"
+;;   :requires ("cl-mpm/dynamic-relaxation" "cl-mpm/mpi")
+;;   :components ((:file "src/dynamic-relaxation/mpi/solvers")))
 
 
 #+asdf-system-connections

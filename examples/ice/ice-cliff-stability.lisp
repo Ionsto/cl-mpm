@@ -74,14 +74,23 @@
               (*
                (+
                 (if pd-inc ps-y 0d0)
+<<<<<<< Updated upstream
                 ;(cl-mpm/damage::tensile-energy-norm strain e de)
                 ;(cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure angle)
+=======
+                ;; (cl-mpm/damage::tensile-energy-norm strain e de)
+                ;; (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure angle)
+>>>>>>> Stashed changes
                 (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress angle)
                 )))))))
 
 
 
+<<<<<<< Updated upstream
 (defparameter *angle* 30d0)
+=======
+(defparameter *angle* 40d0)
+>>>>>>> Stashed changes
 (defparameter *angle-r* 10d0)
 (defparameter *angle-psi* 0d0)
 (defparameter *rt* 1d0)
@@ -160,9 +169,16 @@
            ;(init-stress 1d6)
            ;; (gf *gf*)
            (length-scale (* h-fine *length-scaler*))
+<<<<<<< Updated upstream
            (gf (/ (* 10 length-scale (expt init-stress 2)) E))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
            (ductility 10d0))
+=======
+           (gf (/ (* 2 length-scale (expt init-stress 2)) E))
+           (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
+           (ductility 10d0)
+           )
+>>>>>>> Stashed changes
       (format t "Ice length ~F~%" ice-length)
       (format t "Water height ~F~%" water-level)
       (format t "True Water height ~F~%" (- datum offset))
@@ -380,11 +396,13 @@
 (defun stability-qt-test ()
   (cl-mpm/utils:set-workers 8)
   (let* ((heights (list 400d0))
-         (floatations (list 0d0
-                            0.25d0
-                            0.5d0
-                            0.9d0
-                            1d0)))
+         (floatations (list
+                       ;;0d0
+                       ;; 0.25d0
+                       ;; 0.5d0
+                       0d0
+                       ;; 1d0
+                            )))
     (defparameter *stability* (make-array (list (length heights) (length floatations)) :initial-element nil
                                                                                        :element-type t))
     (let ((stability-dir (merge-pathnames (format nil "./analysis_scripts/ice/ice-cliff-stability/data-cliff-stability/"))))
@@ -401,7 +419,7 @@
                           (let* ((mps 3)
                                  (output-dir (format nil "./output-~f-~f/" height flotation)))
                             (format t "Problem ~f ~f~%" height flotation)
-                            (defparameter *length-scaler* 1d0)
+                            (defparameter *length-scaler* 2d0)
                             (setup :refine 0.25d0
                                    :multigrid-refines 0
                                    :friction 0d0
@@ -414,40 +432,7 @@
                                    ;; :bench-length (* 1d0 height)
                                    :floatation-ratio flotation
                                    :use-penalty nil
-                                   :stick-base nil)
-                            ;; (cl-mpm/output:add-node-output
-                            ;;  *sim*
-                            ;;  :VECTOR
-                            ;;  "se-grad"
-                            ;;  #'cl-mpm/mesh::node-strain-gradient)
-                            ;; (cl-mpm/output:add-mp-output
-                            ;;  *sim*
-                            ;;  :SCALAR
-                            ;;  "se"
-                            ;;  (lambda (mp)
-                            ;;    (* 0.5d0
-                            ;;       ;; (cl-mpm/particle::mp-volume mp)
-                            ;;       (cl-mpm/fastmaths::dot
-                            ;;        (if (typep mp 'cl-mpm/particle::particle-damage)
-                            ;;            (cl-mpm/particle::mp-undamaged-stress mp)
-                            ;;            (cl-mpm/particle::mp-stress mp))
-                            ;;        (cl-mpm/particle::mp-strain mp)))))
-                            ;; (cl-mpm/output:add-node-output
-                            ;;  *sim*
-                            ;;  :SCALAR
-                            ;;  "se-grad-mag"
-                            ;;  (lambda (n)
-                            ;;    (cl-mpm/mesh::node-vm-stress-error n)
-                            ;;    ;; (cl-mpm/fastmaths::mag (cl-mpm/mesh::node-strain-gradient n))
-                            ;;    ))
-                            ;; (cl-mpm/output:add-node-output
-                            ;;  *sim*
-                            ;;  :SCALAR
-                            ;;  "se-mag"
-                            ;;  (lambda (n)
-                            ;;    (cl-mpm/mesh::node-vm-stress n)
-                            ;;    ;; (cl-mpm/fastmaths::mag (cl-mpm/mesh::node-strain-gradient n))
-                            ;;    ))
+                                   :stick-base t)
                             (cl-mpm::domain-sort-mps *sim*)
                             (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree)
                               (setf (cl-mpm/dynamic-relaxation::sim-intra-mesh-aggregation *sim*) t)
@@ -470,10 +455,6 @@
                                       (multiple-value-bind (damage damage-y length)
                                           (cl-mpm/dynamic-relaxation::damage-refinement-criteria sim mesh c)
                                         (> damage 0d0)
-                                        ;; (and
-                                        ;;  (> damage-y 1d0)
-                                        ;;  (>= (cl-mpm/mesh::cell-h c)
-                                        ;;      length))
                                         )
                                       )))
                             (plot-domain)
@@ -494,7 +475,7 @@
                                         :min-adaptive-steps -8
                                         :max-adaptive-steps 4
                                         :adaption-constant 4
-                                        :max-damage-inc 1d1
+                                        :max-damage-inc 10d0
                                         :max-plastic-inc nil
                                         :save-vtk-dr t
                                         :save-vtk-loadstep t
