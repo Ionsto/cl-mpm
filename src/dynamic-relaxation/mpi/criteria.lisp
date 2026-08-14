@@ -4,8 +4,7 @@
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (sim-agg cl-mpm/aggregate::sim-enable-aggregate))
       sim
-    (destructuring-bind (mass
-                         energy
+    (destructuring-bind (energy
                          oobf-num
                          oobf-denom
                          power)
@@ -13,10 +12,14 @@
          (cl-mpm:sim-mesh sim)
          (lambda (node)
            (if (and (cl-mpm/mesh:node-active node)
+                    (not (cl-mpm/mesh::node-agg node))
                     (cl-mpm/mpi::node-in-computational-domain sim node))
                (with-accessors ((active cl-mpm/mesh::node-active)
                                 (f-ext cl-mpm/mesh::node-external-force)
-                                (res cl-mpm/mesh::node-residual)
+                                (f-rct cl-mpm/mesh::node-reaction-force)
+                                ;(res cl-mpm/mesh::node-residual)
+                                (res cl-mpm/mesh::node-force)
+                                (f-int cl-mpm/mesh::node-internal-force)
                                 (node-oobf cl-mpm/mesh::node-oobf)
                                 (mass cl-mpm/mesh::node-mass)
                                 (volume cl-mpm/mesh::node-volume)
@@ -26,21 +29,20 @@
                                 )
                    node
                  (declare (double-float mass))
-                 (let (;(mass 1d0)
-                       ;; (scale-factor (expt mass 1))
-                       (scale-factor 1d0)
-                       ;; (scale-factor (/ volume volume-t))
-                       )
+                 (let ()
                    (list
-                    scale-factor
-                    (* scale-factor (* 0.5d0 mass (cl-mpm/fastmaths::mag-squared vel)))
-                    (* scale-factor (cl-mpm/fastmaths::mag-squared res))
-                    (* scale-factor (cl-mpm/fastmaths::mag-squared f-ext))
-                    (* scale-factor
-                       (cl-mpm/fastmaths:dot
-                        disp f-ext)))))
-               (list 0d0 0d0 0d0 0d0 0d0)))
-         (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
+                    (* 0.5d0 mass (cl-mpm/fastmaths::mag-squared vel))
+                    (cl-mpm/fastmaths::mag-squared res)
+                    ;; (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+ f-ext f-rct))
+                    (cl-mpm/fastmaths::mag-squared f-ext)
+                    (cl-mpm/fastmaths:dot disp f-ext))))
+               (list 0d0 0d0 0d0 0d0)))
+         (lambda (&rest args)
+           (if args
+               (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) (first args) (second args))
+               (list 0d0 0d0 0d0 0d0))
+           ))
+      (declare (double-float energy oobf-num oobf-denom power))
       (declare (double-float mass energy oobf-num oobf-denom power))
       (when sim-agg
         (cl-mpm/aggregate::iterate-over-dimensions-with-mutex
@@ -75,15 +77,12 @@
       (let ((oobf 0d0)
             (oobf-num (cl-mpm/mpi::mpi-sum oobf-num))
             (oobf-denom (cl-mpm/mpi::mpi-sum oobf-denom))
-            (mass (cl-mpm/mpi::mpi-sum mass))
             (power (cl-mpm/mpi::mpi-sum power))
             (energy (cl-mpm/mpi::mpi-sum energy)))
         (if (> oobf-denom 0d0)
             (setf oobf (sqrt (/ oobf-num oobf-denom)))
             (setf oobf (if (> oobf-num 0d0) sb-ext:double-float-positive-infinity 0d0)))
-        (if (> mass 0d0)
-            (values energy oobf power)
-            (values 0d0 0d0 0d0))))))
+        (values energy oobf power)))))
 
 (defmethod cl-mpm::update-dynamic-stats ((sim cl-mpm/dynamic-relaxation::mpm-sim-quasi-static-mpi))
   (with-accessors ((stats-energy cl-mpm::sim-stats-energy)

@@ -48,7 +48,7 @@
 
 (defclass mpm-sim-damage-nd-2 (mpm-sim-damage cl-mpm::mpm-nd-2d) ())
 
-(defclass mpm-sim-agg-damage (mpm-sim-damage cl-mpm/aggregate::mpm-sim-aggregated)
+(defclass mpm-sim-agg-damage (mpm-sim-damage-usf cl-mpm/aggregate::mpm-sim-aggregated)
   ()
   (:documentation "Explicit damage simulation"))
 

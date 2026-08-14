@@ -471,7 +471,6 @@
              (cl-mpm/utils::kill-errors)
              (princ c)
              (cl-mpm::reset-loadstep sim)
-             ;; (format t "Thread ~D~%" (cl-mpi:mpi-comm-rank))
              (return-from step-quasi-time (values nil 0)))))
         (progn
           (let* ((oobf-crit   conv-criteria)
@@ -483,18 +482,14 @@
             (reset-mp-velocity sim)
             (set-mp-plastic-damage sim :enable-damage enable-damage :enable-plastic enable-plastic)
             (setf (cl-mpm:sim-enable-damage sim) nil)
-            ;; (format t "Try checkpoint ~D~%")
-            ;; (cl-mpm)
             (format t "Checkpoint passed~%")
             (setf (cl-mpm::sim-stats-oobf sim) oobf-crit)
             (let ((alt-conv-crit nil))
               (loop for ac from 0 to 10
                     while (not alt-conv-crit)
-                    do
-                       (progn
+                    do (progn
                          (loop for stagger-i from 0 to 100
                                while (or
-                                      ;; (< stagger-i 2)
                                       (>= dconv damage-crit)
                                       (>= (cl-mpm::sim-stats-oobf sim) oobf-crit))
                                do
@@ -522,6 +517,7 @@
                                        (check-damage-increment sim :max-damage-inc max-damage-inc)
                                        (check-plastic-increment sim :max-plastic-inc max-plastic-inc)
                                        (incf total-i)
+                                       (save-conv-step sim output-dir *total-iter* global-step 0d0 (cl-mpm::sim-stats-oobf sim) 0d0)
                                        (when save-vtk-dr
                                          (save-vtks-dr-step sim output-dir global-step *trial-iter* total-i))
                                        (incf *total-iter* substeps)

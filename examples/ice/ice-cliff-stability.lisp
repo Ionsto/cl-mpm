@@ -75,8 +75,8 @@
                (+
                 (if pd-inc ps-y 0d0)
                 ;; (cl-mpm/damage::tensile-energy-norm strain e de)
-                ;; (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure angle)
-                (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress angle)
+                (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure angle)
+                ;; (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress angle)
                 )))))))
 
 
