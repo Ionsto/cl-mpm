@@ -402,9 +402,9 @@
            water-density
            (lambda (pos) t))))
 
-    ;; (cl-mpm:add-bcs-force-list
-    ;;  *sim*
-    ;;  *water-bc*)
+    (cl-mpm:add-bcs-force-list
+     *sim*
+     *water-bc*)
 
     (let ((domain-half (* 0.5d0 (first domain-size)))
           (friction friction)
