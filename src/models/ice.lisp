@@ -91,6 +91,10 @@
    (damage-pressure
     :accessor mp-damage-pressure
     :initarg :damage-tension
+    :initform 0d0)
+   (material-damping
+    :accessor mp-material-damping
+    :initarg :material-damping
     :initform 0d0))
   (:default-initargs
    :enable-viscosity nil
@@ -867,6 +871,7 @@
   (with-accessors ((p cl-mpm/particle::mp-pressure)
                    (def cl-mpm/particle::mp-deformation-gradient)
                    (stress cl-mpm/particle::mp-stress)
+                   (de cl-mpm/particle::mp-elastic-matrix)
                    (damage cl-mpm/particle::mp-damage)
                    (enable-damage cl-mpm/particle::mp-enable-damage)
                    (j cl-mpm/particle::mp-deformation-jacobian-strain)
@@ -876,10 +881,31 @@
      mp
      dt
      (* -1d0
-        (/ p 1)
+        (/ p 3)
         ;; (expt damage 1)
         ))
     ;; (setf stress (cl-mpm/utils::voigt-eye (/ p 1)))
+    (when (> dt 0d0)
+      (let ((damping-factor (/ (cl-mpm/particle::mp-material-damping mp) dt))
+            (p (* 1/3 (cl-mpm/utils:trace-voigt (cl-mpm/utils::stretch-to-sym (cl-mpm/particle::mp-stretch-tensor mp)))))
+            )
+        (cl-mpm/fastmaths::fast-.+
+         (cl-mpm/fastmaths::fast-scale!
+          (cl-mpm/constitutive::linear-elastic-mat
+           (cl-mpm/utils:voigt-eye p)
+           de)
+          damping-factor)
+         stress
+         stress)))
+    ;; (let ((damping-factor (cl-mpm/particle::mp-material-damping mp)))
+    ;;   (cl-mpm/fastmaths::fast-.+
+    ;;    (cl-mpm/fastmaths::fast-scale!
+    ;;     (cl-mpm/constitutive::linear-elastic-mat
+    ;;      (cl-mpm/utils::stretch-to-sym (cl-mpm/particle::mp-stretch-tensor mp))
+    ;;      de)
+    ;;     damping-factor)
+    ;;    stress
+    ;;    stress))
     )
   )
 
