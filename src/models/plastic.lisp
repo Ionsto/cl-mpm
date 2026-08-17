@@ -353,15 +353,20 @@
       (progn
         ;; (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
         ))
-    ;; (let ((damping-factor 0d0))
-    ;;   (cl-mpm/fastmaths::fast-.+
-    ;;    (cl-mpm/fastmaths::fast-scale!
-    ;;     (cl-mpm/constitutive::linear-elastic-mat
-    ;;      (cl-mpm/utils::stretch-to-sym (cl-mpm/particle::mp-stretch-tensor mp))
-    ;;      de)
-    ;;     damping-factor)
-    ;;    stress
-    ;;    stress))
+    (when (> dt 0d0)
+      (let ((damping-factor (/ 0d-2 dt))
+            (p (* 1/3 (cl-mpm/utils:trace-voigt (cl-mpm/utils::stretch-to-sym (cl-mpm/particle::mp-stretch-tensor mp))))))
+        (cl-mpm/fastmaths::fast-.+
+         (cl-mpm/fastmaths::fast-scale!
+          (cl-mpm/constitutive::linear-elastic-mat
+           ;; (cl-mpm/utils:voigt-eye p)
+           ;; (cl-mpm/utils::stretch-to-sym-noadjust (cl-mpm/particle::mp-stretch-tensor mp))
+           (cl-mpm/utils::stretch-to-sym (cl-mpm/particle::mp-stretch-tensor mp))
+           ;; (cl-mpm/particle::mp-stretch-tensor mp)
+           de)
+          damping-factor)
+         stress
+         stress)))
     stress))
 
 (defmethod constitutive-model ((mp particle-mc) strain dt)

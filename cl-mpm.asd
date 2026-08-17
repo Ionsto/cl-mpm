@@ -6,6 +6,7 @@
 ;; (defsystem "symbolic-derivation"
 ;;   :description "Symbolic derivation library from #TODO"
 ;;   :author "Aleksander Ksiazek"
+
 ;;   :serial t
 ;;   :components ((:file "src/core/symbolic-derivation")))
 

@@ -1058,48 +1058,65 @@
                      mp-head rho
                      mp-boundary 0d0)))))
         ;;Populate pressure on MPs
-        (cl-mpm:iterate-over-mps
-         mps
-         (lambda (mp)
-           (with-accessors ((pressure cl-mpm/particle::mp-pressure)
-                            (mp-datum cl-mpm/particle::mp-pressure-datum)
-                            (mp-head cl-mpm/particle::mp-pressure-head)
-                            (mp-pfunc cl-mpm/particle::mp-pressure-func)
-                            (mp-boundary cl-mpm/particle::mp-boundary)
-                            (mp-volume cl-mpm/particle::mp-volume)
-                            (damage cl-mpm/particle::mp-damage)
-                            (mp-body-force cl-mpm/particle::mp-body-force))
-               mp
-             (let ((pos (get-mp-position mp)))
-               (setf
-                pressure
-                (pressure-at-depth
-                 (varef pos 1)
-                 datum
-                 rho
-                 (cl-mpm:sim-gravity sim)))
-               ;; (when (typep mp 'cl-mpm/particle::particle-damage)
-               ;;   (when (cl-mpm/particle::mp-enable-damage mp)
-               ;;     (cl-mpm/utils:vector-copy-into
-               ;;      (calculate-val-mp-datum-propotional
-               ;;       mp
-               ;;       (lambda (mp) (buoyancy-virtual-div
-               ;;                     (tref pos 1 0)
-               ;;                     datum
-               ;;                     (* damage rho 0d0)
-               ;;                     (cl-mpm:sim-gravity sim)))
-               ;;       datum)
-               ;;      (cl-mpm/particle::mp-body-force mp))
-               ;;     ))
-               (cl-mpm::iterate-over-neighbours
-                mesh mp
-                (lambda (node svp grads fsvp fgrad)
-                  (declare (double-float mp-boundary svp damage rho datum))
-                  (when t
-                    (when node
-                      (setf mp-datum datum
-                            mp-head rho)
-                      (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))))))))))
+        (let ((gravity (cl-mpm::sim-gravity sim)))
+          (declare (double-float rho gravity))
+          (cl-mpm:iterate-over-mps
+           mps
+           (lambda (mp)
+             (with-accessors ((pressure cl-mpm/particle::mp-pressure)
+                              (mp-datum cl-mpm/particle::mp-pressure-datum)
+                              (mp-head cl-mpm/particle::mp-pressure-head)
+                              (mp-pfunc cl-mpm/particle::mp-pressure-func)
+                              (mp-boundary cl-mpm/particle::mp-boundary)
+                              (mp-volume cl-mpm/particle::mp-volume)
+                              (damage cl-mpm/particle::mp-damage)
+                              (mp-body-force cl-mpm/particle::mp-body-force))
+                 mp
+               (let ((pos (get-mp-position mp)))
+                 (setf
+                  pressure
+                  (pressure-at-depth
+                   (varef pos 1)
+                   datum
+                   rho
+                   (cl-mpm:sim-gravity sim)))
+                 (when (typep mp 'cl-mpm/particle::particle-damage)
+                   (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
+                         (*
+                          ;; (-
+                          ;;  (* rho (cl-mpm/particle::mp-damage mp))
+                          ;;  (* (cl-mpm/particle::mp-damage mp)
+                          ;;   (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))))
+                          (*
+                           damage
+                           ;; rho
+                           (- rho 918d0;; (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))
+                              )
+                           )
+                          gravity))
+                   ;; (when (cl-mpm/particle::mp-enable-damage mp)
+
+                   ;;   ;; (cl-mpm/utils:vector-copy-into
+                   ;;   ;;  (calculate-val-mp-datum-propotional
+                   ;;   ;;   mp
+                   ;;   ;;   (lambda (mp) (buoyancy-virtual-div
+                   ;;   ;;                 (tref pos 1 0)
+                   ;;   ;;                 datum
+                   ;;   ;;                 (* damage rho 0d0)
+                   ;;   ;;                 (cl-mpm:sim-gravity sim)))
+                   ;;   ;;   datum)
+                   ;;   ;;  (cl-mpm/particle::mp-body-force mp))
+                   ;;   )
+                   )
+                 (cl-mpm::iterate-over-neighbours
+                  mesh mp
+                  (lambda (node svp grads fsvp fgrad)
+                    (declare (double-float mp-boundary svp damage rho datum))
+                    (when t
+                      (when node
+                        (setf mp-datum datum
+                              mp-head rho)
+                        (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node))))))))))))
 
         (when (> dt 0d0)
           (let ((damping (bc-viscous-damping bc)))

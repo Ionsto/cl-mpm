@@ -547,16 +547,15 @@
 
 (defun estimate-strain-energy (sim)
   (let* ((energy
-           (cl-mpm::reduce-over-mps
-            (cl-mpm:sim-mps sim)
+           (cl-mpm::reduce-over-global-mps-sum
+            sim
             (lambda (mp)
               (with-accessors ((volume cl-mpm/particle::mp-volume)
                                (stress cl-mpm/particle::mp-stress-kirchoff)
                                (damage-inc cl-mpm/particle::mp-damage-increment)
                                (strain cl-mpm/particle::mp-strain))
                   mp
-                (* 0.5d0 volume (cl-mpm/fastmaths:dot stress strain))))
-            #'+)))
+                (* 0.5d0 volume (cl-mpm/fastmaths:dot stress strain)))))))
     energy))
 
 (defun estimate-static-oobf-mass-scaled (sim)
