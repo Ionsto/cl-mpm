@@ -410,32 +410,41 @@
                                     (let ((fast-trial-conv oobf-crit)
                                           (damage-iter t)
                                           (save-update nil))
-                                      (loop for d from 0 to 100
-                                            while damage-iter
-                                            do (setf (cl-mpm:sim-enable-damage sim) t)
-                                               (if (<= d 5)
-                                                   (cl-mpm/damage::calculate-damage sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
-                                                   (dotimes (i 5)
-                                                     (cl-mpm/damage::calculate-damage sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))))
-                                               (when stagger-damage
-                                                 (setf (cl-mpm:sim-enable-damage sim) nil))
-                                               (setf damage (get-damage sim))
-                                               (setf dconv (compute-damage-delta sim))
-                                               (setf damage-prev damage)
-                                               (unless (>= dconv damage-crit)
-                                                 (setf damage-iter nil))
-                                               (cl-mpm:sim-format sim t "step ~D/~D - d-conv ~E - ~E~%" stagger-i d dconv fast-trial-conv)
-                                               (cl-mpm:sim-format sim t "Damage ~E - prev damage ~E ~%" damage damage-prev)
-                                               (cl-mpm:sim-format sim t "step ~D/~D - d-conv ~E~%" stagger-i d dconv)
-                                               (check-damage-increment sim :max-damage-inc max-damage-inc)
-                                               (setf damage-prev damage))
+                                      (unless (cl-mpm:sim-enable-damage sim)
+                                        (setf (cl-mpm:sim-enable-damage sim) t)
+                                        (cl-mpm/damage::calculate-damage
+                                         sim
+                                         (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)))
+                                      (let ((dconv-1 (compute-damage-delta sim)))
+                                        (setf dconv dconv-1)
+                                        (cl-mpm:sim-format sim t "step ~D/~D - d-conv ~E ~A~%" stagger-i 0 dconv stagger-damage)
+                                        (when stagger-damage
+                                          (format t "Staggering damage~%")
+                                          (loop for d from 0 to 100
+                                                while damage-iter
+                                                do (setf (cl-mpm:sim-enable-damage sim) t)
+                                                   (if (<= d 5)
+                                                       (cl-mpm/damage::calculate-damage sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
+                                                       (dotimes (i 5)
+                                                         (cl-mpm/damage::calculate-damage sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))))
+                                                   (when stagger-damage
+                                                     (setf (cl-mpm:sim-enable-damage sim) nil))
+                                                   (setf damage (get-damage sim))
+                                                   (setf dconv (compute-damage-delta sim))
+                                                   (setf damage-prev damage)
+                                                   (unless (>= dconv damage-crit)
+                                                     (setf damage-iter nil))
+                                                   (cl-mpm:sim-format sim t "step ~D/~D - d-conv ~E - ~E~%" stagger-i d dconv fast-trial-conv)
+                                                   (cl-mpm:sim-format sim t "Damage ~E - prev damage ~E ~%" damage damage-prev)
+                                                   (cl-mpm:sim-format sim t "step ~D/~D - d-conv ~E~%" stagger-i d dconv)
+                                                   (check-damage-increment sim :max-damage-inc max-damage-inc)
+                                                   (setf damage-prev damage))
+                                          (cl-mpm:update-sim sim)
+                                          (cl-mpm::update-dynamic-stats sim)
+                                          (setf dconv dconv-1)))
                                       (when save-update
                                         (incf iv)
-                                        (funcall post-iter-step iv (cl-mpm::sim-stats-energy sim) (cl-mpm::sim-stats-oobf sim))))
-                                    (when t
-                                      (dotimes (i 1)
-                                        (cl-mpm:update-sim sim))
-                                      (cl-mpm::update-dynamic-stats sim)))
+                                        (funcall post-iter-step iv (cl-mpm::sim-stats-energy sim) (cl-mpm::sim-stats-oobf sim)))))
                                   ;; No damage evolution -> instantly satisfy dconv
                                   (setf dconv 0d0)))))
                  (setf additional-conv (convergence-check sim)))))

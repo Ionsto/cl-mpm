@@ -240,11 +240,11 @@
   (call-next-method))
 
 
-(defmethod cl-mpm::calculate-min-dt ((sim cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic))
+(defmethod cl-mpm::calculate-min-dt ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
   ;;we dont care about the stiffness from our BC constraints at all!
   (cl-mpm::calculate-min-dt-mps sim))
 
-(defmethod cl-mpm/setup::%estimate-elastic-dt ((sim cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic))
+(defmethod cl-mpm/setup::%estimate-elastic-dt ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
   (with-accessors ((mps cl-mpm:sim-mps)
                    (bcs-force-list cl-mpm:sim-bcs-force-list))
       sim
@@ -287,11 +287,12 @@
                       ;;                 c 1d0)))
                       ;;     (format t "Conv crit: ~E - norm ~E~%" c residual-normaliser)
                       ;;     (< c conv-crit)))
-                      :max-damage-inc 10d0
-                      :max-plastic-inc 10d0
+                      :max-damage-inc 0.1d0
+                      :max-plastic-inc nil;10d0
                       :post-iter-step (lambda (i e o)
                                         (format t "Dynamic substep ~D~%" i)
 
+                                        ;; (check-damage-increment sim)
                                         (when nil;(uiop:directory-exists-p "./output/")
                                           (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "rsim_step_~5,'0d.vtk" i)) sim)
                                           (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "rsim_step_nodes_~5,'0d.vtk" i)) sim)
