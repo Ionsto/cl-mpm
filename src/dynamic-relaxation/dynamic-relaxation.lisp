@@ -345,22 +345,7 @@
                  (declare (double-float num dnum denom ddenom))
                  (sb-thread::with-mutex (mut)
                    (incf num dnum)
-                   (incf denom ddenom))))
-             ;; (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
-             ;;        (res-prev (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual-prev d))
-             ;;        (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)))
-             ;;   (let ((dnum (cl-mpm/fastmaths:dot
-             ;;                vi
-             ;;                (cl-mpm/aggregate::aggregate-vec
-             ;;                 sim
-             ;;                 (cl-mpm/fastmaths::fast-.- res-prev res)
-             ;;                 d)))
-             ;;         (ddenom (* dt (cl-mpm/fastmaths:dot vi (cl-mpm/aggregate::@-mass-matrix-vec sim vi d)))))
-             ;;     (declare (double-float num dnum denom ddenom))
-             ;;     (sb-thread::with-mutex (mut)
-             ;;       (incf num dnum)
-             ;;       (incf denom ddenom))))
-             )))
+                   (incf denom ddenom)))))))
         (min 1.9d0
              (max 0d0
                   (* (the double-float (cl-mpm/dynamic-relaxation::sim-damping-scale sim))

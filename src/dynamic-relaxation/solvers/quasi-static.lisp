@@ -71,7 +71,6 @@
                                  ))))))))))))))))))
 
 (defun map-stiffness-quasi-static (sim)
-  ;; (pprint "Hello")
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mps cl-mpm:sim-mps))
       sim

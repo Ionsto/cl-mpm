@@ -190,6 +190,10 @@
     :accessor node-reaction-force
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:vector-zeros))
+   (inertia-force
+    :accessor node-inertia-force
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
    (velocity
     :accessor node-velocity
     :initarg :velocity
