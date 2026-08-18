@@ -87,7 +87,7 @@
 (defparameter *rt* 1d0)
 (defparameter *rc* 0d0)
 (defparameter *enable-plastic-damage* nil)
-(defparameter *delay-time* 1d6)
+(defparameter *delay-time* 1d5)
 (defparameter *delay-exponent* 2d0)
 (defparameter *enable-viscosity* nil)
 (defparameter *viscosity* 1d13)
@@ -333,7 +333,8 @@
   (if (> (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
       (progn
         (pprint "Check velocity")
-        (cl-mpm/dynamic-relaxation::check-max-velocity sim :max-velocity 1d0))
+        (cl-mpm/dynamic-relaxation::check-max-velocity sim :max-velocity 1d0)
+        t)
       t))
 
 (defmethod cl-mpm/dynamic-relaxation::damage-increment-criteria ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
@@ -362,7 +363,7 @@
                  (loop for fi from 0
                        for flotation in floatations
                        do
-                          (let* ((mps 3)
+                          (let* ((mps 2)
                                  (output-dir (format nil "./output-~f-~f/" height flotation)))
                             (format t "Problem ~f ~f~%" height flotation)
                             (defparameter *length-scaler* 2d0)
@@ -373,12 +374,12 @@
                                    :mps mps
                                    :hydro-static nil
                                    :cryo-static t
-                                   :aspect 4d0
+                                   :aspect 2d0
                                    :slope 0d0
                                    ;; :bench-length (* 1d0 height)
                                    :floatation-ratio flotation
                                    :use-penalty nil
-                                   :stick-base nil)
+                                   :stick-base t)
                             (cl-mpm::domain-sort-mps *sim*)
                             (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree)
                               (setf (cl-mpm/dynamic-relaxation::sim-intra-mesh-aggregation *sim*) t)
@@ -400,8 +401,7 @@
 
                                       (multiple-value-bind (damage damage-y length)
                                           (cl-mpm/dynamic-relaxation::damage-refinement-criteria sim mesh c)
-                                        (> damage 0d0)
-                                        )
+                                        (> damage 0d0))
                                       )))
                             (plot-domain)
                             (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
@@ -419,9 +419,9 @@
                                         :conv-criteria 1d-3
                                         :substeps 20
                                         :min-adaptive-steps -8
-                                        :max-adaptive-steps 4
+                                        :max-adaptive-steps 8
                                         :adaption-constant 4
-                                        :max-damage-inc 10d0
+                                        :max-damage-inc 0.1d0
                                         :max-plastic-inc nil
                                         :save-vtk-dr t
                                         :save-vtk-loadstep t

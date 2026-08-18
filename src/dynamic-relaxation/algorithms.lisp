@@ -462,6 +462,7 @@
                     do (progn
                          (loop for stagger-i from 0 to 100
                                while (or
+                                      ;; (<= stagger-i 1)
                                       (>= dconv damage-crit)
                                       (>= (cl-mpm::sim-stats-oobf sim) oobf-crit))
                                do
