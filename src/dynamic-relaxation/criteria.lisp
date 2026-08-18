@@ -767,6 +767,19 @@
               (sqrt (/ inertia-norm ext-norm))
               (if (> inertia-norm 0d0) sb-ext:double-float-positive-infinity 0d0))))))
 
+(defmethod max-velocity-criteria ((sim cl-mpm:mpm-sim) loadstep-dt)
+  (if (> loadstep-dt 0d0)
+      (cl-mpm::reduce-over-global-nodes-max
+       sim
+       (lambda (n)
+         (if (cl-mpm/mesh::node-active n)
+             (let ((vmag (cl-mpm/fastmaths:mag (cl-mpm/mesh::node-displacment n))))
+               (/ vmag loadstep-dt)
+               )
+             0d0)))
+      0d0))
+
+
 (defgeneric estimate-static-oobf (sim))
 
 (defmethod estimate-static-oobf ((sim cl-mpm::mpm-sim))
@@ -1178,3 +1191,51 @@
                 0d0)
             )))
        (t 0d0)))))
+
+
+(defmethod check-deformation-gradient ((sim cl-mpm::mpm-sim) &key (max-deformation-gradient 10d0))
+  (let ((max-def (compute-max-deformation sim)))
+    (when (> max-def max-deformation-gradient)
+      (cl-mpm:sim-format sim t "Deformation gradient criteria exceeded~%")
+      (error (make-instance 'non-convergence-error
+                            :text "Deformation gradient J exceeded"
+                            :ke-norm 0d0
+                            :oobf-norm 0d0)))))
+(defmethod check-true-inertia (sim &key (max-inertia 1d-3))
+  (let ((true-intertia (true-intertial-criteria sim (sim-dt-loadstep sim))))
+    (cl-mpm:sim-format sim t "True intertia ~E~%" true-intertia)
+    (when (> true-intertia max-inertia)
+      (cl-mpm:sim-format sim t "Inertia criteria exceeded~%")
+      (error (make-instance 'error-inertia-criteria
+              :text "True inertia exceeded"
+              :inertia-norm true-intertia)))))
+
+(defmethod check-max-velocity (sim &key (max-velocity 1d0))
+  (let ((velocity (max-velocity-criteria sim (sim-dt-loadstep sim))))
+    (cl-mpm:sim-format sim t "Max velocity ~E~%" velocity)
+    (when (> velocity max-velocity)
+      (cl-mpm:sim-format sim t "Velocity criteria exceeded~%")
+      (error (make-instance 'error-velocity-criteria
+                            :text "Velocity exceeded"
+                            :velocity velocity)))))
+(defmethod check-damage-increment ((sim cl-mpm::mpm-sim) &key (max-damage-inc 0.1d0))
+  (when (cl-mpm:sim-enable-damage sim)
+    (when max-damage-inc
+      (let ((damage-inc (damage-increment-criteria sim)))
+        (declare (double-float max-damage-inc damage-inc))
+        (format t "Damage increment criteria ~E~%" damage-inc)
+        (when (> damage-inc max-damage-inc)
+          (cl-mpm:sim-format sim t "Damage criteria failed~%")
+          (error (make-instance 'non-convergence-error
+                  :text "Damage criteria exeeded"
+                  :ke-norm 0d0
+                  :oobf-norm 0d0)))))))
+(defmethod check-plastic-increment ((sim cl-mpm::mpm-sim) &key (max-plastic-inc 0.1d0))
+  (when max-plastic-inc
+    (let ((plastic-inc (plastic-increment-criteria sim)))
+      (declare (double-float max-plastic-inc plastic-inc))
+      (format t "Plastic inc criteria ~E~%" plastic-inc)
+      (when (> plastic-inc max-plastic-inc)
+        (cl-mpm:sim-format sim t "Plastic criteria failed~%")
+        (error (make-instance 'error-plastic-criteria
+                              :max-plastic-inc plastic-inc))))))

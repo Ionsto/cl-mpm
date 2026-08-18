@@ -99,3 +99,22 @@
 ;; (defclass mpm-sim-dr-multigrid (mpm-sim-dr-ul cl-mpm::mpm-sim-multigrid)
 ;;   ()
 ;;   (:documentation "Dynamic relaxation with multigrid"))
+
+
+
+(define-condition non-convergence-error (cl-mpm/errors:error-simulation)
+  ((text :initarg :text :reader text)
+   (ke-norm :initarg :ke-norm :reader ke-norm)
+   (oobf-norm :initarg :oobf-norm :reader oobf-norm)))
+
+(define-condition error-damage-criteria (non-convergence-error)
+  ((max-damage-inc :initarg :max-damage-inc :reader max-damage-inc)))
+
+(define-condition error-plastic-criteria (non-convergence-error)
+  ((max-plastic-inc :initarg :max-plastic-inc :reader max-plastic-inc)))
+
+(define-condition error-inertia-criteria (non-convergence-error)
+  ((inertia-norm :initarg :inertia-norm :reader inertia-norm)))
+
+(define-condition error-velocity-criteria (non-convergence-error)
+  ((velocity :initarg :velocity :reader velocity)))

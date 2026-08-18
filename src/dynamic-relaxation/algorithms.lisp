@@ -298,43 +298,6 @@
 ;;                             :ke-norm 0d0
 ;;                             :oobf-norm 0d0)))))
 
-(defmethod check-deformation-gradient ((sim cl-mpm::mpm-sim) &key (max-deformation-gradient 10d0))
-  (let ((max-def (compute-max-deformation sim)))
-    (when (> max-def max-deformation-gradient)
-      (cl-mpm:sim-format sim t "Deformation gradient criteria exceeded~%")
-      (error (make-instance 'non-convergence-error
-                            :text "Deformation gradient J exceeded"
-                            :ke-norm 0d0
-                            :oobf-norm 0d0)))))
-(defmethod check-true-inertia (sim &key (max-inertia 1d-3))
-  (let ((true-intertia (true-intertial-criteria sim (sim-dt-loadstep sim))))
-    (cl-mpm:sim-format sim t "True intertia ~E~%" true-intertia)
-    (when (> true-intertia max-inertia)
-      (cl-mpm:sim-format sim t "Inertia criteria exceeded~%")
-      (error (make-instance 'error-inertia-criteria
-              :text "True inertia exceeded"
-              :inertia-norm true-intertia)))))
-(defmethod check-damage-increment ((sim cl-mpm::mpm-sim) &key (max-damage-inc 0.1d0))
-  (when (cl-mpm:sim-enable-damage sim)
-    (when max-damage-inc
-      (let ((damage-inc (damage-increment-criteria sim)))
-        (declare (double-float max-damage-inc damage-inc))
-        (format t "Damage increment criteria ~E~%" damage-inc)
-        (when (> damage-inc max-damage-inc)
-          (cl-mpm:sim-format sim t "Damage criteria failed~%")
-          (error (make-instance 'non-convergence-error
-                  :text "Damage criteria exeeded"
-                  :ke-norm 0d0
-                  :oobf-norm 0d0)))))))
-(defmethod check-plastic-increment ((sim cl-mpm::mpm-sim) &key (max-plastic-inc 0.1d0))
-  (when max-plastic-inc
-    (let ((plastic-inc (plastic-increment-criteria sim)))
-      (declare (double-float max-plastic-inc plastic-inc))
-      (format t "Plastic inc criteria ~E~%" plastic-inc)
-      (when (> plastic-inc max-plastic-inc)
-        (cl-mpm:sim-format sim t "Plastic criteria failed~%")
-        (error (make-instance 'error-plastic-criteria
-                              :max-plastic-inc plastic-inc))))))
 
 (defun generalised-staggered-solve (sim
                                     &key
@@ -1164,6 +1127,7 @@
       (funcall setup-quasi-static sim)
       (let* ((current-adaptivity 0)
              (prev-steps-easy (list t t))
+             (easy-step-counter 0)
              (prev-step-iter 0)
              (elastic-dt (if elastic-dt elastic-dt (cl-mpm/setup::estimate-elastic-dt sim)))
              (max-steps (floor total-time (/ dt (expt adaption-constant max-adaptive-steps))))
@@ -1230,15 +1194,26 @@
                                      (if (and (= i 1)
                                               (if (> min-damage-inc 0d0)
                                                   (< (damage-increment-criteria sim) min-damage-inc)
-                                                  (<= stagger-iters 3)))
+                                                  t
+                                                  ;; (<= stagger-iters 3)
+                                                  ))
                                          (progn
+                                           (incf easy-step-counter)
                                            (setf (nth (mod prev-step-iter (length prev-steps-easy)) prev-steps-easy) t)
-                                           (cl-mpm:sim-format sim t "Potential adaption easy steps ~A~%" prev-steps-easy)
-                                           (when (every #'identity prev-steps-easy)
+                                           (cl-mpm:sim-format sim t "Potential adaption easy steps ~A~%" easy-step-counter)
+                                           (when (>= easy-step-counter 2)
                                              (setf current-adaptivity
                                                    (max min-adaptive-steps
-                                                        (- current-adaptivity 1)))))
-                                         (setf (nth (mod prev-step-iter 2) prev-steps-easy) nil)))))
+                                                        (- current-adaptivity 1))))
+                                           ;; (cl-mpm:sim-format sim t "Potential adaption easy steps ~A~%" prev-steps-easy)
+                                           ;; (when (every #'identity prev-steps-easy)
+                                           ;;   (setf current-adaptivity
+                                           ;;         (max min-adaptive-steps
+                                           ;;              (- current-adaptivity 1))))
+                                           )
+                                         (progn
+                                           (setf easy-step-counter 0)
+                                           (setf (nth (mod prev-step-iter 2) prev-steps-easy) nil))))))
                    (unless quasi-conv
                      ;;We've adapted down to a min
                      (cl-mpm:sim-format sim t "Start real-timestepping~%")
@@ -1634,6 +1609,7 @@
       (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) dt)
       (let* ((current-adaptivity 0)
              (max-steps (floor total-time (/ dt (expt adaption-constant max-adaptive-steps))))
+             (easy-step-counter 0)
              (sim-time 0d0))
         (loop for step from 1 to (+ 1 max-steps)
               while (and (cl-mpm::sim-run-sim sim)
@@ -1671,6 +1647,7 @@
                                   (setf quasi-conv conv
                                         stagger-iters inc-steps)
                                   (unless quasi-conv
+                                    (setf easy-step-counter 0)
                                     (if (= current-adaptivity max-adaptive-steps)
                                         (progn
                                           (cl-mpm::reset-node-displacement sim)
@@ -1679,7 +1656,13 @@
                                         (incf current-adaptivity)))))
                            finally (progn
                                      (cl-mpm:sim-format sim t "finished with ~d dt adaptions - stagger iters ~d~%" (- i 1) stagger-iters)
-                                     (when (and (= i 1) (< stagger-iters 4))
+                                     (when (= i 1)
+                                       (incf easy-step-counter))
+                                     (cl-mpm:sim-format sim t "easy steps ~D~%" easy-step-counter)
+                                     (when (and (= i 1)
+                                                (> easy-step-counter 2)
+                                                ;; (< stagger-iters 4)
+                                                )
                                        (setf current-adaptivity
                                              (max min-adaptive-steps
                                                   (- current-adaptivity 1)))))))

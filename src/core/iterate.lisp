@@ -232,6 +232,19 @@ Calls func with only the node"
    (cl-mpm:sim-mps sim)))
 
 
+(defmethod reduce-over-global-nodes-sum ((sim cl-mpm::mpm-sim) map)
+  (reduce-over-nodes
+   (cl-mpm:sim-mesh sim)
+   map
+   #'+))
+
+(defmethod reduce-over-global-nodes-max ((sim cl-mpm::mpm-sim) map)
+  (reduce-over-nodes
+   (cl-mpm:sim-mesh sim)
+   map
+   #'max))
+
+
 ;; (defgeneric iterate-over-neighbours-shape (mesh shape-func mp func)
 ;;   (:documentation "For a given shape function iterate over relevant nodes and call func with mesh, mp, node, weight and gradients"))
 
