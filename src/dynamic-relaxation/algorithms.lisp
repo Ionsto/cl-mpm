@@ -487,6 +487,7 @@
                                      (lambda (i e o)
                                        (format t "Updated damage inside of non-stagger ~A~%" (cl-mpm:sim-enable-damage sim))
                                        (funcall plotter sim)
+                                       (convergence-check sim)
                                        (check-damage-increment sim :max-damage-inc max-damage-inc)
                                        (check-plastic-increment sim :max-plastic-inc max-plastic-inc)
                                        (incf total-i)

@@ -377,6 +377,7 @@
     (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::filter-cells sim)
     (cl-mpm::update-node-kinematics sim)
+    (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::iterate-over-nodes
      mesh
      (lambda (n)
@@ -384,8 +385,8 @@
         (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n))
        (cl-mpm/utils:vector-copy-into (cl-mpm/mesh::node-velocity n) (cl-mpm/mesh::node-true-velocity n))))
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
+    (cl-mpm::reset-node-displacement sim)
     (setf (cl-mpm::sim-damping-factor sim) 0d0)
     ;; (midpoint-starter sim)
-    (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (setf initial-setup t)))
 
