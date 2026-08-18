@@ -329,12 +329,19 @@
        :notch notch
        )))))
 
+(defmethod cl-mpm/dynamic-relaxation::convergence-check ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
+  (if (> (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
+      (progn
+        (pprint "Check velocity")
+        (cl-mpm/dynamic-relaxation::check-max-velocity sim :max-velocity 1d0))
+      t))
+
 (defmethod cl-mpm/dynamic-relaxation::damage-increment-criteria ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
   (cl-mpm/dynamic-relaxation::compute-max-damage-energy-crit sim))
 
 (defun stability-qt-test ()
   (cl-mpm/utils:set-workers 8)
-  (let* ((heights (list 400d0))
+  (let* ((heights (list 200d0))
          (floatations (list
                        ;;0d0
                        ;; 0.25d0
@@ -359,19 +366,19 @@
                                  (output-dir (format nil "./output-~f-~f/" height flotation)))
                             (format t "Problem ~f ~f~%" height flotation)
                             (defparameter *length-scaler* 2d0)
-                            (setup :refine 0.25d0
+                            (setup :refine 1d0
                                    :multigrid-refines 0
                                    :friction 0d0
                                    :ice-height height
                                    :mps mps
                                    :hydro-static nil
                                    :cryo-static t
-                                   :aspect 2d0
+                                   :aspect 4d0
                                    :slope 0d0
                                    ;; :bench-length (* 1d0 height)
                                    :floatation-ratio flotation
                                    :use-penalty nil
-                                   :stick-base t)
+                                   :stick-base nil)
                             (cl-mpm::domain-sort-mps *sim*)
                             (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree)
                               (setf (cl-mpm/dynamic-relaxation::sim-intra-mesh-aggregation *sim*) t)
@@ -419,7 +426,7 @@
                                         :save-vtk-dr t
                                         :save-vtk-loadstep t
                                         :enable-damage t
-                                        :enable-plastic nil
+                                        :enable-plastic t
                                         ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                                         ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
                                         :plotter (lambda (sim) (plot-domain))
