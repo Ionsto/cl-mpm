@@ -195,7 +195,7 @@
           :oversize (- 1d0 *pd-oversize*)
           :enable-plasticity t
           :enable-damage t
-          :residual-strength 0d0
+          :residual-strength 1d0
 
           :enable-viscosity nil
           :viscosity *viscosity*
