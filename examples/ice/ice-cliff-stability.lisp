@@ -95,6 +95,10 @@
 (defparameter *gf* 10000d0)
 (defparameter *pd-oversize* 1d-4)
 
+(defparameter *ductility* 10d0)
+;; (defparameter *tensile-strength* 0.1185d6)
+(defparameter *tensile-strength* 0.1d6)
+
 (defparameter *penalty-epsilon-scale* 1d-2)
 
 (defun setup (&key (refine 1) (mps 2)
@@ -153,16 +157,19 @@
     (setf h-fine (* mesh-resolution (expt 2 (- multigrid-refines))))
     (let* ((angle *angle*)
            (E 1d9)
-           (init-stress (* 0.1185d6 1d0))
+           ;; (init-stress (* 0.1185d6 1d0))
+           (init-stress *tensile-strength*)
            (length-scale (* h-fine *length-scaler*))
            (gf (/ (* 10 length-scale (expt init-stress 2)) E))
-           (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
-           (ductility 10d0)
+           ;; (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
+           ;; (ductility 10d0)
+           (ductility *ductility*)
            )
       (format t "Ice length ~F~%" ice-length)
       (format t "Water height ~F~%" water-level)
       (format t "True Water height ~F~%" (- datum offset))
       (format t "Cliff height ~F~%" (- (+ offset ice-height) datum))
+      (format t "Init stress ~E - ductilty ~E ~%" init-stress ductility)
       (format t "Mesh size ~F~%" mesh-resolution)
       (format t "Estimated lc ~E~%" length-scale)
       (format t "Estimated ductility ~E~%" ductility)
@@ -374,12 +381,12 @@
                                    :mps mps
                                    :hydro-static nil
                                    :cryo-static t
-                                   :aspect 2d0
+                                   :aspect 4d0
                                    :slope 0d0
                                    ;; :bench-length (* 1d0 height)
                                    :floatation-ratio flotation
                                    :use-penalty nil
-                                   :stick-base t)
+                                   :stick-base nil)
                             (cl-mpm::domain-sort-mps *sim*)
                             (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree)
                               (setf (cl-mpm/dynamic-relaxation::sim-intra-mesh-aggregation *sim*) t)
