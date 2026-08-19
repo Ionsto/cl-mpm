@@ -424,7 +424,7 @@
                           (substeps 50)
                           (total-steps 0)
                           (damping 1d0)
-                          (sub-conv-steps 50)
+                          (sub-conv-steps 100)
                           (conv-criteria 1d-3)
                           (conv-criteria-damage 1d-3)
                           (output-dir "./output/")
@@ -1542,6 +1542,7 @@
                          (dt 1d0)
                          (total-time 1d0)
                          (substeps 50)
+                         (sub-conv-steps 50)
                          (enable-damage t)
                          (enable-plastic t)
                          (max-adaptive-steps 5)
@@ -1694,6 +1695,7 @@
                                                      :output-dir output-dir
                                                      :dt-scale dt-scale
                                                      :substeps substeps
+                                                     :sub-conv-steps sub-conv-steps
                                                      :enable-damage enable-damage
                                                      :damping damping
                                                      :save-vtk-dr save-vtk-dr

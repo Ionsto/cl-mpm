@@ -31,7 +31,8 @@
             (cl-mpm/fastmaths::fast-.- vn vt inertia-force)
             (cl-mpm/fastmaths::fast-scale! inertia-force (/ (- real-mass) real-dt))
             (cl-mpm/fastmaths:fast-fmacc force-damp vn (* true-damping -1d0 real-mass))
-            (setf (cl-mpm/mesh::node-inertia-force node) inertia-force))
+            ;; (setf (cl-mpm/mesh::node-inertia-force node) inertia-force)
+            )
           ;;Set acc to f/m
           (cl-mpm/fastmaths::fast-.+ inertia-force force force)
           (cl-mpm/fastmaths::fast-.+-vector force-int force force)
@@ -80,6 +81,24 @@
                  (cl-mpm::calculate-forces-midpoint node 0d0 0d0 mass-scale)))))
         (cl-mpm::compute-reaction-force sim)
         (cl-mpm::apply-essential-bcs sim)
+        ;; (when enable-aggregate
+        ;;   (let* ((ma (cl-mpm/aggregate::sim-global-ma sim)))
+        ;;     (cl-mpm/aggregate::iterate-over-dimensions
+        ;;      (cl-mpm/mesh:mesh-nd mesh)
+        ;;      (lambda (d)
+        ;;        (let ((f (cl-mpm/aggregate::aggregate-vec
+        ;;                  sim
+        ;;                  (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d)
+        ;;                  d)))
+        ;;          ;; (cl-mpm/aggregate::apply-internal-bcs sim f d)
+        ;;          (let* ((acc (cl-mpm/aggregate::linear-solve-with-bcs sim ma f d)))
+        ;;            (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
+        ;;            (cl-mpm/aggregate::project-int-vec
+        ;;             sim
+        ;;             ;; (cl-mpm/aggregate::extend-vec sim acc d)
+        ;;             acc
+        ;;             #'cl-mpm/mesh::node-acceleration d)
+        ;;            ))))))
         (when enable-aggregate
           (cl-mpm/aggregate::iterate-over-dimensions
            (cl-mpm::mesh-nd mesh)
@@ -131,7 +150,7 @@
                          :max-iters 10000
                          :mask bcs-int
                          )))
-                 (cl-mpm/fastmaths::fast-scale! acc (/ 1d0 mass-scale))
+                 ;; (cl-mpm/fastmaths::fast-scale! acc (/ 1d0 mass-scale))
                  (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
                  (cl-mpm/aggregate::project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d))))))
 
@@ -157,20 +176,21 @@
         ;; (cl-mpm::apply-essential-bcs sim)
         )))
 
-;; ;; (defmethod cl-mpm::update-nodes ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
-;; ;;   (with-accessors ((mesh cl-mpm::sim-mesh)
-;; ;;                    (dt cl-mpm/dynamic-relaxation::sim-dt-loadstep)
-;; ;;                    (agg cl-mpm/aggregate::sim-enable-aggregate))
-;; ;;       sim
-;; ;;     (cl-mpm::iterate-over-nodes
-;; ;;      mesh
-;; ;;      (lambda (node)
-;; ;;        (when (and (cl-mpm/mesh:node-active node)
-;; ;;                   (or (not (cl-mpm/mesh::node-agg node))
-;; ;;                       (cl-mpm/mesh::node-interior node)))
-;; ;;          (cl-mpm::update-node node dt))))
-;; ;;     (when agg
-;; ;;       (cl-mpm/aggregate::project-displacement sim))))
+(defmethod cl-mpm::update-nodes ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
+  (with-accessors ((mesh cl-mpm::sim-mesh)
+                   ;; (dt cl-mpm/dynamic-relaxation::sim-dt-loadstep)
+                   (agg cl-mpm/aggregate::sim-enable-aggregate))
+      sim
+    (let ((dt 1d0))
+      (cl-mpm::iterate-over-nodes
+       mesh
+       (lambda (node)
+         (when (and (cl-mpm/mesh:node-active node)
+                    (or (not (cl-mpm/mesh::node-agg node))
+                        (cl-mpm/mesh::node-interior node)))
+           (cl-mpm::update-node node dt))))
+      (when agg
+        (cl-mpm/aggregate::project-displacement sim)))))
 
 (defmethod map-stiffness ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
   (with-accessors ((mesh cl-mpm:sim-mesh)
@@ -196,21 +216,25 @@
                (cl-mpm/particle::estimate-stiffness mp))
          (let* ((mp-volume (cl-mpm/particle::mp-volume mp))
                 (mp-mass (cl-mpm/particle::mp-mass mp))
-                (mp-pmod
-                  (+
-                   (cl-mpm/particle::mp-p-modulus mp)
-                   (+
-                    (* (/ 1d0 (expt dt-true 1))
-                       (sim-true-damping sim)
-                       mp-mass)
-                    (* (/ 1d0 (expt dt-true 2))
-                       mp-mass))))
+                (mp-pmod (cl-mpm/particle::mp-p-modulus mp))
                 (ul (estimate-ul-enhancement mp nd))
-                (mp-factor (* mp-pmod
-                              mp-volume
-                              ul
-                              mass-scale
-                              (/ 1d0 (* h h)))))
+                (mp-factor
+                  (+
+                   (* 16d0
+                      ul
+                      mass-scale
+                      (+
+                       (* (/ 1d0 (expt dt-true 1))
+                          (sim-true-damping sim)
+                          mp-mass)
+                       (* (/ 1d0 (expt dt-true 2))
+                          mp-mass)))
+                   (*
+                    mp-pmod
+                    mp-volume
+                    ul
+                    mass-scale
+                    (/ 1d0 (* h h))))))
            (declare (type double-float mp-factor mp-pmod ul mp-volume))
            (cl-mpm::iterate-over-neighbours
             mesh mp
@@ -246,21 +270,21 @@
 
     (cl-mpm/ghost::apply-ghost-stiffness sim)
 
-    (when (and enable-dynamics
-               (> dt-true 0d0))
-      (let ((mass-scale (the double-float (/ 1d0 (cl-mpm::sim-dt-scale sim)))))
-        (cl-mpm:iterate-over-nodes
-         mesh
-         (lambda (node)
-           (when (cl-mpm/mesh:node-active node)
-             (incf (cl-mpm/mesh:node-mass node)
-                   (* mass-scale
-                      (+
-                       (* (/ 1d0 (expt dt-true 1))
-                          (sim-true-damping sim)
-                          (cl-mpm/mesh::node-true-mass node))
-                       (* (/ 1d0 (expt dt-true 2))
-                          (cl-mpm/mesh::node-true-mass node))))))))))
+    ;; (when (and enable-dynamics
+    ;;            (> dt-true 0d0))
+    ;;   (let ((mass-scale (the double-float (/ 1d0 (cl-mpm::sim-dt-scale sim)))))
+    ;;     (cl-mpm:iterate-over-nodes
+    ;;      mesh
+    ;;      (lambda (node)
+    ;;        (when (cl-mpm/mesh:node-active node)
+    ;;          (incf (cl-mpm/mesh:node-mass node)
+    ;;                (* mass-scale
+    ;;                   (+
+    ;;                    (* (/ 1d0 (expt dt-true 1))
+    ;;                       (sim-true-damping sim)
+    ;;                       (cl-mpm/mesh::node-true-mass node))
+    ;;                    (* (/ 1d0 (expt dt-true 2))
+    ;;                       (cl-mpm/mesh::node-true-mass node))))))))))
 
     (cl-mpm/aggregate::update-mass-matrix sim)
     (setf (cl-mpm:sim-dt sim) 1d0)

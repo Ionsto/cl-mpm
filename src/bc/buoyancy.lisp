@@ -189,6 +189,19 @@
     (cl-mpm/fastmaths::fast-.+ corner corner-disp corner-disp)
     corner-disp))
 
+(defun calculate-val-scalar-mp-gimp (mesh mp func)
+  (let ((val 0d0)
+        (count 0))
+    (cl-mpm::iterate-over-corners
+     mesh
+     mp
+     (lambda (c)
+       (let ((pos (compute-corner-displaced mesh c)))
+         (incf val (funcall func pos))
+         (incf count))))
+    (setf val (/ val count))
+    val))
+
 (defun calculate-val-stress-mp-gimp (mesh mp func)
   (let ((val (cl-mpm/utils::voigt-zeros))
         (count 0))
@@ -927,7 +940,9 @@
        (lambda (mp) (calculate-val-force-mp-gimp mesh mp func-div))
        (lambda (pos) (funcall clip-function pos datum))
        ;; (lambda (mp) (calculate-val-mp-gimp mesh mp #'melt-rate))
+       :scaler
        (lambda (mp) (calculate-scalar-val-mp-datum-proportional mp #'melt-rate datum))
+       :damage-volume nil
        )
       ;; (apply-force-cells-3d
       ;;  sim
@@ -1072,28 +1087,41 @@
                               (damage cl-mpm/particle::mp-damage)
                               (mp-body-force cl-mpm/particle::mp-body-force))
                  mp
-               (let ((pos (get-mp-position mp)))
+               (let (;; (pos (get-mp-position mp))
+                     )
                  (setf
                   pressure
-                  (pressure-at-depth
-                   (varef pos 1)
-                   datum
-                   rho
-                   (cl-mpm:sim-gravity sim)))
-                 (when (typep mp 'cl-mpm/particle::particle-damage)
+                  (calculate-val-scalar-mp-gimp
+                   mesh
+                   mp
+                   (lambda (pos)
+                     (pressure-at-depth
+                      (varef pos 1)
+                      datum
+                      rho
+                      (cl-mpm:sim-gravity sim))))
+                  ;; (pressure-at-depth
+                  ;;  (varef pos 1)
+                  ;;  datum
+                  ;;  rho
+                  ;;  (cl-mpm:sim-gravity sim))
+                  )
+                 (setf (varef (cl-mpm/particle::mp-body-force mp) 1) 0d0)
+                 (when (and (typep mp 'cl-mpm/particle::particle-damage)
+                            (> (cl-mpm/particle::mp-damage mp) 0d0))
                    (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
-                         (*
-                          ;; (-
-                          ;;  (* rho (cl-mpm/particle::mp-damage mp))
-                          ;;  (* (cl-mpm/particle::mp-damage mp)
-                          ;;   (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))))
-                          (*
-                           damage
-                           ;; rho
-                           (- rho 918d0;; (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))
-                              )
-                           )
-                          gravity))
+                         (calculate-val-scalar-mp-gimp
+                          mesh
+                          mp
+                          (lambda (pos)
+                            (*
+                             (if (< (varef pos 1) datum) 1d0 0d0)
+                             damage
+                             ;; (- rho (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume-0 mp)))
+                             (- rho 918d0)
+                             gravity
+                             )
+                            )))
                    ;; (when (cl-mpm/particle::mp-enable-damage mp)
 
                    ;;   ;; (cl-mpm/utils:vector-copy-into
@@ -1276,7 +1304,9 @@
                       )))))))))))))
 
 (declaim (notinline apply-force-mps-3d))
-(defun apply-force-mps-3d (mesh mps func-stress func-div clip-func &optional (scalar (lambda (mp) 0d0)))
+(defun apply-force-mps-3d (mesh mps func-stress func-div clip-func &key (scalar (lambda (mp) 0d0))
+                           (damage-volume nil)
+                             )
   "Update force on nodes, with virtual stress field from mps"
   (declare (function func-stress func-div clip-func scalar))
   (cl-mpm:iterate-over-mps
@@ -1329,9 +1359,11 @@
                                    grads))
                              (volume
                                ;; (cl-mpm/particle::mp-volume mp)
-                               (if *trial-position*
-                                   (* volume (cl-mpm/fastmaths::det-3x3 df))
-                                   volume)
+                               (*
+                                (if damage-volume (- 1d0 damage) 1d0)
+                                (if *trial-position*
+                                    (* volume (cl-mpm/fastmaths::det-3x3 df))
+                                    volume))
                                ))
                          (cl-mpm/fastmaths:fast-zero f-stress)
                          (cl-mpm/forces::det-stress-force-unrolled mp-stress grads (- volume) f-stress)
