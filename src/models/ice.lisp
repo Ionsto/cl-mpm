@@ -881,24 +881,22 @@
      mp
      dt
      (* -1d0
-        (/ p 1)
-        ;; (expt damage 1)
-        ))
+        (/ p 1)))
     ;; (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
     ;;       (* (varef (cl-mpm/particle::mp-body-force mp) 1)
     ;;          damage))
     ;; (setf stress (cl-mpm/utils::voigt-eye (/ p 1)))
-    (when (> dt 0d0)
-      (let ((damping-factor (/ (cl-mpm/particle::mp-material-damping mp) dt))
-            (p (* 1/3 (cl-mpm/utils:trace-voigt (cl-mpm/utils::stretch-to-sym (cl-mpm/particle::mp-stretch-tensor mp))))))
-        (cl-mpm/fastmaths::fast-.+
-         (cl-mpm/fastmaths::fast-scale!
-          (cl-mpm/constitutive::linear-elastic-mat
-           (cl-mpm/utils:voigt-eye p)
-           de)
-          damping-factor)
-         stress
-         stress)))
+    ;; (when (> dt 0d0)
+    ;;   (let ((damping-factor (/ (cl-mpm/particle::mp-material-damping mp) dt))
+    ;;         (p (* 1/3 (cl-mpm/utils:trace-voigt (cl-mpm/utils::stretch-to-sym (cl-mpm/particle::mp-stretch-tensor mp))))))
+    ;;     (cl-mpm/fastmaths::fast-.+
+    ;;      (cl-mpm/fastmaths::fast-scale!
+    ;;       (cl-mpm/constitutive::linear-elastic-mat
+    ;;        (cl-mpm/utils:voigt-eye p)
+    ;;        de)
+    ;;       damping-factor)
+    ;;      stress
+    ;;      stress)))
     ;; (let ((damping-factor (cl-mpm/particle::mp-material-damping mp)))
     ;;   (cl-mpm/fastmaths::fast-.+
     ;;    (cl-mpm/fastmaths::fast-scale!

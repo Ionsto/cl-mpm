@@ -150,7 +150,7 @@
                          :max-iters 10000
                          :mask bcs-int
                          )))
-                 ;; (cl-mpm/fastmaths::fast-scale! acc (/ 1d0 mass-scale))
+                 (cl-mpm/fastmaths::fast-scale! acc (/ 1d0 mass-scale))
                  (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
                  (cl-mpm/aggregate::project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d))))))
 
@@ -201,7 +201,7 @@
      mesh
      (lambda (node)
        (declare (cl-mpm/mesh::node node))
-       (when t;(cl-mpm/mesh:node-active node)
+       (when (cl-mpm/mesh:node-active node)
          (setf (the double-float (cl-mpm/mesh::node-mass node)) 0d0))))
 
     (let* ((h (cl-mpm/mesh::mesh-resolution mesh))

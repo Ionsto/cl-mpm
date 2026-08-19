@@ -172,6 +172,28 @@
    (call-next-method)))
 
 
+(defmethod cl-mpm::reduce-over-global-nodes-sum ((sim cl-mpm/mpi::mpm-sim-mpi) map)
+  (mpi-sum
+   (cl-mpm::reduce-over-nodes
+    (cl-mpm:sim-mesh sim)
+    (lambda (n)
+      (if (node-in-computational-domain sim n)
+          (funcall map n)
+          0d0))
+    #'+)
+   ))
+
+(defmethod cl-mpm::reduce-over-global-nodes-max ((sim cl-mpm/mpi::mpm-sim-mpi) map)
+  (mpi-max
+   (cl-mpm::reduce-over-nodes
+    (cl-mpm:sim-mesh sim)
+    (lambda (n)
+      (if (node-in-computational-domain sim n)
+          (funcall map n)
+          -1d30))
+    #'max)
+   ))
+
 (defun mpi-max (value)
   (cl-mpi:mpi-barrier)
   ;; (static-vectors:with-static-vector (source 1 :element-type 'double-float :initial-element (coerce value 'double-float))

@@ -102,6 +102,8 @@
                                    :split-depth new-split-depth
                                    :true-domain (cl-mpm/utils:matrix-copy new-domain)
                                    ))))
+          (dolist (mp mps)
+            (setf (cl-mpm/particle::mp-volume-0 mp) (/ volume-0 2)))
           mps)))))
 
 ;; (defmacro split-linear (dir direction dimension)
