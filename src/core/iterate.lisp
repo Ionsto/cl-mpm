@@ -181,8 +181,10 @@ Calls func with only the node"
    Calls func with only the node"
   (declare (type function func)
            (type (vector cl-mpm/particle:particle *) mps))
-  (cl-mpm/utils::bpdotimes (i (length mps))
-    (funcall func (aref mps i)))
+  (when (and mps
+             (> (length mps) 0d0))
+    (cl-mpm/utils::bpdotimes (i (length mps))
+                             (funcall func (aref mps i))))
   (values))
 
 
