@@ -152,6 +152,9 @@ leaves a hanging mpi domain at the back"
            (bound-lower (* rank slice-size))
            (bound-upper (* (+ 1 rank) slice-size))
            (comp-size (mpm-sim-mpi-domain-count sim)))
+
+      (when (= rank 0)
+        (format t "Start domain decompose"))
       (unless (mpm-sim-mpi-domain-bounds sim)
         (setup-domain-bounds sim :domain-scaler domain-scaler))
       (setf (mpm-sim-mpi-domain-index sim) index)
@@ -482,11 +485,15 @@ leaves a hanging mpi domain at the back"
                            )
   (let ((rank (cl-mpi::mpi-comm-rank))
         (stagnent nil))
+    (when (= rank 0)
+      (format t "Compute metrics~%"))
     (load-balance-setup sim)
     (loop for j from 0 to substeps
           while (not stagnent)
           do
              (progn
+               (when (= rank 0)
+                 (format t "Balance step ~D~%" j))
                (setf stagnent t)
                (loop for dim in dims ;(i (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
                      do
