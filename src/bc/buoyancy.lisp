@@ -1115,8 +1115,8 @@
                              (if (< (varef pos 1) datum) 1d0 0d0)
                              damage
                              ;; rho
-                             ;; (- rho (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume-0 mp)))
-                             (- rho (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp)))
+                             (- rho (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume-0 mp)))
+                             ;; (- rho (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp)))
                              ;; (- rho 918d0)
                              gravity)))))
                  (cl-mpm::iterate-over-neighbours
@@ -1691,18 +1691,18 @@
 
 
 (defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc bc-buoyancy))
-  ;; (with-accessors ((datum bc-buoyancy-datum)
-  ;;                  (clip-func bc-buoyancy-clip-func)
-  ;;                  (rho bc-buoyancy-rho))
-  ;;     bc
-  ;;   (declare (function clip-func))
-  ;;   (locate-mps-cells sim (lambda (pos) (funcall clip-func pos datum)))
-  ;;   (markup-cells-nodes sim bc)
-  ;;   (compute-stiffness-cells-3d
-  ;;    (cl-mpm:sim-mps sim)
-  ;;    (cl-mpm:sim-mesh sim)
-  ;;    (lambda (pos) (abs (* (max 0d0 (- datum (varef pos 1))) rho (cl-mpm:sim-gravity sim))))
-  ;;    clip-func))
+  (with-accessors ((datum bc-buoyancy-datum)
+                   (clip-func bc-buoyancy-clip-func)
+                   (rho bc-buoyancy-rho))
+      bc
+    (declare (function clip-func))
+    (locate-mps-cells sim (lambda (pos) (funcall clip-func pos datum)))
+    (markup-cells-nodes sim bc)
+    (compute-stiffness-cells-3d
+     (cl-mpm:sim-mps sim)
+     (cl-mpm:sim-mesh sim)
+     (lambda (pos) (abs (* (max 0d0 (- datum (varef pos 1))) rho (cl-mpm:sim-gravity sim))))
+     clip-func))
   ;; (apply-force-mps-3d mesh mps
   ;;                     (lambda (mp) (calculate-val-mp mp func-stress))
   ;;                     (lambda (mp) (calculate-val-mp mp func-div))

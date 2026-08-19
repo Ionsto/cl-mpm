@@ -349,11 +349,16 @@ leaves a hanging mpi domain at the back"
 
 (defgeneric load-balance-metric (sim))
 
-(defmethod load-balance-metric (sim)
+(defmethod load-balance-metric ((sim cl-mpm::mpm-sim))
   (let ((rank (cl-mpi:mpi-comm-rank)))
     (set-mp-mpi-index sim)
-    (lparallel:pcount-if (lambda (mp) (= (cl-mpm/particle::mp-mpi-index mp) rank))
-                         (cl-mpm:sim-mps sim))))
+    ;; (count-if (lambda (mp) (= (cl-mpm/particle::mp-mpi-index mp) rank))
+    ;;           (cl-mpm:sim-mps sim))
+    (let ((count (lparallel:pcount-if (lambda (mp) (= (cl-mpm/particle::mp-mpi-index mp) rank))
+                                 (cl-mpm:sim-mps sim))))
+      ;; (format t "Rank ~D - count ~E~%" rank count)
+      count
+      )))
 
 
 (defun load-balance-setup (sim)
@@ -379,8 +384,7 @@ leaves a hanging mpi domain at the back"
       ;;   )
       (when (> dim-length 1)
         (setf (aref metric-array dim-index)
-              (coerce (round (mpm-sim-mpi-load-metric sim)) 'integer)
-              )
+              (coerce (round (mpm-sim-mpi-load-metric sim)) 'integer))
         ;; (format t "Metric ~E~%" (float (mpm-sim-mpi-load-metric sim) 0d0))
         (mpi-vector-integer-sum metric-array)
         ;; (format t "Dim index ~D~%" dim-index)
@@ -438,7 +442,9 @@ leaves a hanging mpi domain at the back"
 (defun load-balance-value (sim)
   (let ((rank (cl-mpi::mpi-comm-rank))
         (size (cl-mpi::mpi-comm-size)))
-    (let* ((metric (float (mpm-sim-mpi-load-metric sim) 0d0))
+    (let* ((metric ;; (float (mpm-sim-mpi-load-metric sim) 0d0)
+             (load-balance-metric sim)
+                   )
            (sum-mps (mpi-sum metric))
            (max-mps (mpi-max metric))
            (balance nil))
@@ -448,8 +454,7 @@ leaves a hanging mpi domain at the back"
                max-mps
                (/ sum-mps
                   (cl-mpi:mpi-comm-size)))))
-      ;; (when t;(> min-mps 0)
-      ;;   ;; (setf balance (mpi-max (/ max-mps min-mps)))
+      ;; (when t
       ;;   (when (= rank 0)
       ;;     (format t "Occupancy ratio : ~F%~%" (* 100d0 balance))))
       balance)
@@ -526,19 +531,25 @@ leaves a hanging mpi domain at the back"
     (let ((balance (load-balance-value sim))
           (rank (cl-mpi::mpi-comm-rank)))
       (when (= rank 0)
-        (format t "Check balance~%"))
+        (format t "Check balance ~E~%" balance))
       (when (and balance (> balance max-bounds))
         (let ((balance nil)
               (stag nil))
           (loop repeat max-iters
+                for iter from 0
                 while (and (if balance (> balance min-bounds) t)
                            (not stag))
                 do
-                   (multiple-value-bind (balance stagnent) (cl-mpm/mpi::load-balance sim
-                                                                                     :exchange-mps t
-                                                                                     :step-size step-size
-                                                                                     :substeps substeps
-                                                                                     :dims dims)
-                     (setf balance balance
-                           stag stagnent))))
-        (domain-decompose sim)))))
+                   (progn
+                     (when (= rank 0)
+                       (format t "Load balance iter ~D - ~E~%" iter balance))
+                     (multiple-value-bind (balance stagnent) (cl-mpm/mpi::load-balance sim
+                                                                                       :exchange-mps t
+                                                                                       :step-size step-size
+                                                                                       :substeps substeps
+                                                                                       :dims dims)
+                       (setf balance balance
+                             stag stagnent))))))
+
+      (set-mp-mpi-index sim)
+      (domain-decompose sim))))
