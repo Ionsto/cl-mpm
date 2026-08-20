@@ -1431,14 +1431,14 @@
                                         (handler-bind
                                             ((error
                                                (lambda (c)
+                                                 (trivial-backtrace:print-backtrace c)
                                                  (format t "Thread threw error: ~a~%" c)
                                                  (sb-thread:with-mutex (*worker-error-lock*)
                                                    (setf *workers-nesting* nil)
-                                                   (trivial-backtrace:print-backtrace c)
+                                                   ;; (trivial-backtrace:print-backtrace c)
                                                    (format t "Thread threw error: ~a~%" c)
                                                    (push c *worker-error-list*))
-                                                 (return-from trial-exec)
-                                                 )))
+                                                 (return-from trial-exec))))
                                           (let ((iter (sb-ext:atomic-incf (aref *workers-counter* 0))))
                                             (when (< iter *workers-chunk-count*)
                                               (funcall *workers-func* iter)))))

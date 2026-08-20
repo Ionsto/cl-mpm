@@ -22,8 +22,6 @@
    :vel-algo :QUASI-STATIC)
   (:documentation "DR psudo-linear step with update stress last update"))
 
-;; (defmethod cl-mpm/dynamic-relaxation::map-stiffness :after ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-mpi))
-;;   (cl-mpm/mpi::mpi-sync-mass sim))
 
 
 (defmethod cl-mpm/dynamic-relaxation::save-vtks ((sim cl-mpm/mpi::mpm-sim-mpi) output-dir step &optional prefix)
@@ -68,7 +66,6 @@
          (let ((dt-scale (cl-mpm::sim-dt-scale sim)))
            (setf (cl-mpm::sim-dt-scale sim) (* 1d0 dt-scale))
            (update-node-fictious-mass sim)
-           (cl-mpm/mpi::mpi-sync-mass sim)
            ;; (cl-mpm/aggregate::update-node-forces-agg sim (* -0.5d0 dt))
            (update-node-forces-midpoint-starter sim)
            ;; (cl-mpm::reset-node-displacement sim)
@@ -126,9 +123,9 @@
        (setf
         (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n))
        (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-true-velocity n))))
-    ;; (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
+    (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (cl-mpm::reset-node-displacement sim)
-    (midpoint-starter-mpi sim)
+    ;; (midpoint-starter-mpi sim)
     (setf (cl-mpm::sim-damping-factor sim) 0d0)
     (setf initial-setup t))
 
@@ -143,7 +140,7 @@
     (cl-mpm::iterate-over-nodes
      (cl-mpm:sim-mesh sim)
      (lambda (n)
-       (when (not (cl-mpm/mpi::node-in-computational-domain sim n))
+       (when t;(not (cl-mpm/mpi::node-in-computational-domain sim n))
          (setf (cl-mpm/mesh::node-mass n) 0d0))))
     (map-stiffness-quasi-static sim)
     (cl-mpm/mpi::mpi-sync-mass sim)
@@ -199,7 +196,6 @@
     (cl-mpm::apply-force-bcs sim dt-loadstep)
     (cl-mpm/mpi::mpi-sync-force sim)
     (update-node-fictious-mass sim)
-    ;; (cl-mpm/mpi::mpi-sync-mass sim)
     ;;Update our nodes after force mapping
     (cl-mpm::update-node-forces sim)
     (cl-mpm::apply-essential-bcs sim)
@@ -249,7 +245,6 @@
         (cl-mpm/mpi::mpi-sync-force sim))
 
     (update-node-fictious-mass sim)
-    ;; (cl-mpm/mpi::mpi-sync-mass sim)
     (update-node-forces-quasi-static sim)
     (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-nodes sim)
