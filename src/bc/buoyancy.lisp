@@ -940,7 +940,7 @@
        (lambda (mp) (calculate-val-force-mp-gimp mesh mp func-div))
        (lambda (pos) (funcall clip-function pos datum))
        ;; (lambda (mp) (calculate-val-mp-gimp mesh mp #'melt-rate))
-       :scaler
+       :scalar
        (lambda (mp) (calculate-scalar-val-mp-datum-proportional mp #'melt-rate datum))
        :damage-volume nil)
       ;; (apply-force-cells-3d
@@ -1696,7 +1696,7 @@
                    (rho bc-buoyancy-rho))
       bc
     (declare (function clip-func))
-    (locate-mps-cells sim (lambda (pos) (funcall clip-func pos datum)))
+    ;; (locate-mps-cells sim (lambda (pos) (funcall clip-func pos datum)))
     (markup-cells-nodes sim bc)
     (compute-stiffness-cells-3d
      (cl-mpm:sim-mps sim)
@@ -1735,7 +1735,7 @@
                (sqrt (max 0d0 (- node-volume-t node-volume)))
                (max 0d0
                     (*
-                     1d0
+                     2d0
                      (abs
                       (funcall
                        stiffness-func

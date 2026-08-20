@@ -507,8 +507,8 @@
                        ;; (mp-disp-inc (cl-mpm/fastmaths:fast-scale-vector mp-vel dt))
                        (mp-disp-inc disp-inc)
                        (force (cl-mpm/utils:vector-zeros))
-                       (mp-vel (if (> damping 0d0)
-                                   (compute-point-velocity mesh trial-point)
+                       (mp-vel (if (and (> damping 0d0) (> dt 0d0))
+                                   (cl-mpm/fastmaths:fast-scale-vector disp-inc (/ 1d0 dt))
                                    (cl-mpm/utils:vector-zeros)))
                        (mp-mass (if (> damping 0d0)
                                     (compute-point-mass mesh trial-point)
@@ -522,7 +522,9 @@
                                    (cl-mpm/fastmaths:fast-scale-vector normal rel-disp)))
                        (tang-disp-norm-squared (cl-mpm/fastmaths::mag-squared tang-disp))
 
-                       (normal-damping (* 1d0 damping (sqrt (* epsilon mp-mass)) contact-area))
+                       (normal-damping (* damping
+                                          (sqrt (* epsilon mp-mass))
+                                          contact-area))
                        (damping-force (* normal-damping rel-vel))
                        (force-friction (cl-mpm/utils:vector-zeros))
                        (stick-friction (* friction (abs normal-force))))
@@ -602,7 +604,13 @@
                                     ;;        (expt epsilon 2)
                                     ;;        (expt (* friction epsilon) 2)
                                     ;;        ))
-                                    epsilon
+                                    (+
+                                     epsilon
+                                     (if (> dt 0d0)
+                                         (* (sqrt (* epsilon mp-mass))
+                                            damping
+                                            (/ 1d0 dt))
+                                         0d0))
                                     ;; (+ 1d0 (expt friction 2))
                                     (+ 1d0 (expt friction 1))
                                     contact-area)
@@ -713,7 +721,7 @@
                                  0d0
                                  nil
                                  nil)))
-             (;cl-mpm::iterate-over-corners
+             (;;cl-mpm::iterate-over-corners
               cl-mpm::iterate-over-midpoints
               mesh
               mp
