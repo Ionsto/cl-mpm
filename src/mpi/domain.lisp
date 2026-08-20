@@ -355,11 +355,15 @@ leaves a hanging mpi domain at the back"
 (defmethod load-balance-metric ((sim cl-mpm::mpm-sim))
   (let ((rank (cl-mpi:mpi-comm-rank)))
     (set-mp-mpi-index sim)
-    (format t "Compute load balance metric on ~A~%" (cl-mpm:sim-mps sim))
+    (format t "Compute load balance metric on ~D~%" (length (cl-mpm:sim-mps sim)))
     ;; (count-if (lambda (mp) (= (cl-mpm/particle::mp-mpi-index mp) rank))
     ;;           (cl-mpm:sim-mps sim))
-    (let ((count (lparallel:pcount-if (lambda (mp) (= (cl-mpm/particle::mp-mpi-index mp) rank))
-                                 (cl-mpm:sim-mps sim))))
+    (let ((count
+            (count-if (lambda (mp) (= (cl-mpm/particle::mp-mpi-index mp) rank))
+                      (cl-mpm:sim-mps sim))
+            ;; (lparallel:pcount-if (lambda (mp) (= (cl-mpm/particle::mp-mpi-index mp) rank))
+            ;;                      (cl-mpm:sim-mps sim))
+            ))
       ;; (format t "Rank ~D - count ~E~%" rank count)
       count
       )))
@@ -535,6 +539,7 @@ leaves a hanging mpi domain at the back"
                                 (max-bounds 1.5d0)
                                 (step-size 1d-1)
                                 (dims (list :x :y :z))
+                                (exchange-mps t)
                                 )
   (when (typep sim 'cl-mpm/mpi:mpm-sim-mpi)
     (load-balance-setup sim)
@@ -554,7 +559,7 @@ leaves a hanging mpi domain at the back"
                      (when (= rank 0)
                        (format t "Load balance iter ~D - ~E~%" iter balance))
                      (multiple-value-bind (balance stagnent) (cl-mpm/mpi::load-balance sim
-                                                                                       :exchange-mps t
+                                                                                       :exchange-mps exchange-mps
                                                                                        :step-size step-size
                                                                                        :substeps substeps
                                                                                        :dims dims)

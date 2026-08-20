@@ -452,15 +452,18 @@
                              (loop for packet in recv
                                    do
                                       (destructuring-bind (rank tag object) packet
-                                        (when (> (length object) 0)
-                                          (when object
-                                            (cl-mpm/utils::bpdotimes (i (length object))
-                                              (let ((mp (aref object i)))
-                                                   (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)
-                                                   (when (slot-exists-p mp 'cl-mpm/particle::damage-position)
-                                                     (setf (cl-mpm/particle::mp-damage-position mp) nil))
-                                                   (vector-push-extend mp mps))))))))))))))))))
-  ;; (cl-mpi:mpi-barrier)
+                                        (when object
+                                          (when (> (length object) 0)
+                                            (cl-mpm/utils::bpdotimes
+                                             (i (length object))
+                                             (let ((mp (aref object i)))
+                                               (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)
+                                               (when (slot-exists-p mp 'cl-mpm/particle::damage-position)
+                                                 (setf (cl-mpm/particle::mp-damage-position mp) nil))
+                                               (cl-mpm::sim-add-mp sim mp)
+                                               ;; (vector-push-extend mp mps)
+                                               ))))))))))))))))
+  (cl-mpi:mpi-barrier))
 ;  )
 
 (defvar *mutex-code* (cl-store:register-code 110 'sb-thread:mutex))

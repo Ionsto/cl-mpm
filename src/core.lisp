@@ -543,10 +543,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
 (defgeneric apply-force-bcs (sim dt))
 (defmethod apply-force-bcs ((sim mpm-sim) dt)
   (with-accessors ((mesh sim-mesh)
-                   (dt sim-dt)
                    (bcs-list sim-bcs-force-list)
-                   (bcs-force sim-bcs-force)
-                   )
+                   (bcs-force sim-bcs-force))
       sim
     (cl-mpm::apply-bcs mesh bcs-force dt)
     (loop for bcs in bcs-list
@@ -802,8 +800,13 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     ;;Sometimes when compacting the array; sbcl will just discard make and unadjustable array in place which is a bit wild
     (when (and (not (adjustable-array-p mps))
                (= (length mps) 0))
-      (setf mps (make-array 0 :adjustable t :fill-pointer 0)))
-    )
+      (setf mps (make-array 0 :element-type 'cl-mpm/particle::particle :adjustable t :fill-pointer 0)))
+    (when (not (adjustable-array-p mps))
+      (setf mps (make-array (length mps)
+                            :element-type 'cl-mpm/particle::particle
+                            :adjustable t
+                            :fill-pointer (length mps)
+                            :initial-contents mps))))
   (values))
 
 (defun remove-material-damaged (sim)
