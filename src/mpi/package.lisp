@@ -22,7 +22,8 @@
    #:mpi-sum
    ))
 
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim #.cl-mpm/settings:*optimise-setting*)
 (in-package :cl-mpm/mpi)
 
 (defclass mpm-sim-mpi (cl-mpm::mpm-sim)

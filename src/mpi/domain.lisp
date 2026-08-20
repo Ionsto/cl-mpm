@@ -1,4 +1,5 @@
 (in-package :cl-mpm/mpi)
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
 (defun exchange-domain-bounds (sim)
   (with-accessors ((mesh sim-mesh)
