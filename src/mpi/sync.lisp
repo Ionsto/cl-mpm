@@ -248,9 +248,10 @@
                    (declare (double-float mass svp vol pmod))
                    (setf active t)
                    (incf mass (the double-float (mpi-object-node-mass-mass mpi-node)))
-                   (incf svp (the double-float  (mpi-object-node-mass-svp mpi-node)))
-                   (incf vol (the double-float  (mpi-object-node-mass-vol mpi-node)))
-                   (incf pmod (the double-float (mpi-object-node-mass-pmod mpi-node)))))
+                   ;; (incf svp (the double-float  (mpi-object-node-mass-svp mpi-node)))
+                   ;; (incf vol (the double-float  (mpi-object-node-mass-vol mpi-node)))
+                   ;; (incf pmod (the double-float (mpi-object-node-mass-pmod mpi-node)))
+                   ))
                (error "MPI exchange touched invalid node?"))))))))
 
 (defun mpi-sync-j-inc (sim)
