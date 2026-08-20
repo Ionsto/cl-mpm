@@ -244,7 +244,28 @@
     (cl-mpm/mpi::with-mpi-errors
         (cl-mpm/mpi::mpi-sync-force sim))
 
-    (update-node-fictious-mass sim)
+    (let* ((nd (cl-mpm/mesh::mesh-nd mesh))
+           (h (cl-mpm/mesh::mesh-resolution mesh))
+           (mass-scale (the double-float (/ 1d0 (the double-float (cl-mpm::sim-dt-scale sim)))))
+           (p-wave
+             (cl-mpm::reduce-over-global-mps-max
+              sim
+              (lambda (mp)
+                (setf (cl-mpm/particle::mp-p-modulus mp)
+                      (cl-mpm/particle::estimate-stiffness mp))
+                (let* ((mp-volume (cl-mpm/particle::mp-volume mp))
+                       (mp-pmod (cl-mpm/particle::mp-p-modulus mp))
+                       (ul (estimate-ul-enhancement mp nd))
+                       (mp-factor (* mp-pmod
+                                     mp-volume
+                                     ul
+                                     mass-scale
+                                     (/ 1d0 (* h h)))))
+                  mp-factor)))))
+      (when (= (cl-mpi:mpi-comm-rank) 0)
+        (format t "Max p-wave ~E~%" p-wave)))
+    (cl-mpm/mpi::with-mpi-errors
+        (update-node-fictious-mass sim))
     (update-node-forces-quasi-static sim)
     (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-nodes sim)

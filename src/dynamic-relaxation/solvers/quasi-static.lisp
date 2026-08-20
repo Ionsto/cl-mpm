@@ -240,6 +240,7 @@
        (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-true-velocity n))))
     ;; (cl-mpm::reset-grid mesh :reset-displacement t)
     (cl-mpm::reset-node-displacement sim)
+    (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (midpoint-starter sim)
     ;; (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     ;; (cl-mpm::reset-node-displacement sim)
@@ -377,8 +378,8 @@
     (cl-mpm::g2p mesh mps dt damping :TRIAL)
     (incf solve-count)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
-    (cl-mpm::update-dynamic-stats sim)
-    ))
+    (cl-mpm::update-dynamic-stats sim)))
+
 (cl-mpm/utils::with-arb-pool
   (defun update-node-forces-midpoint-starter (sim)
     (with-accessors ((mesh cl-mpm:sim-mesh)

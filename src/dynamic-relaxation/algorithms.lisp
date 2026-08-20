@@ -486,6 +486,7 @@
                                      (lambda (sim f o)
                                        (setf dconv (compute-damage-delta sim))
                                        (and
+                                        (convergence-criteria sim)
                                         (<= o (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
                                         (< dconv damage-crit)))
                                      :damping-factor damping
@@ -494,6 +495,7 @@
                                        (format t "Updated damage inside of non-stagger ~A~%" (cl-mpm:sim-enable-damage sim))
                                        (funcall plotter sim)
                                        (convergence-check sim)
+                                       (check-deformation-gradient sim :max-deformation-gradient 50d0)
                                        (check-damage-increment sim :max-damage-inc max-damage-inc)
                                        (check-plastic-increment sim :max-plastic-inc max-plastic-inc)
                                        (incf total-i)
@@ -1209,7 +1211,7 @@
                                            (incf easy-step-counter)
                                            (setf (nth (mod prev-step-iter (length prev-steps-easy)) prev-steps-easy) t)
                                            (cl-mpm:sim-format sim t "Potential adaption easy steps ~A~%" easy-step-counter)
-                                           (when (>= easy-step-counter 2)
+                                           (when (>= easy-step-counter 8)
                                              (setf current-adaptivity
                                                    (max min-adaptive-steps
                                                         (- current-adaptivity 1))))
@@ -1548,6 +1550,7 @@
                          (max-adaptive-steps 5)
                          (min-adaptive-steps -1)
                          (adaption-constant 2)
+                         (adaption-easy-steps 2)
                          (save-vtk-loadstep t)
                          (save-vtk-conv t)
                          (save-vtk-dr t)
@@ -1582,6 +1585,7 @@
         (change-class temp-sim elastic-solver)
 
         (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep temp-sim) 0d0)
+        (setf (cl-mpm::sim-dt temp-sim) 0d0)
         (setf (cl-mpm::sim-velocity-algorithm temp-sim) :QUASI-STATIC)
         (set-mp-plastic-damage temp-sim :enable-plastic nil :enable-damage nil)
         ;; find initial quasi-static formation
@@ -1723,7 +1727,7 @@
                                        (incf easy-step-counter))
                                      (cl-mpm:sim-format sim t "easy steps ~D~%" easy-step-counter)
                                      (when (and (= i 1)
-                                                (> easy-step-counter 2)
+                                                (> easy-step-counter adaption-easy-steps)
                                                 ;; (< stagger-iters 4)
                                                 )
                                        (setf current-adaptivity
