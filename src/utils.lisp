@@ -1427,16 +1427,33 @@
                                 (if (= *workers-pool-age* current-age)
                                   (progn
                                     (unless *workers-kill*
-                                      (handler-case
+                                      (block trial-exec
+                                        (handler-bind
+                                            ((error
+                                               (lambda (c)
+                                                 (format t "Thread threw error: ~a~%" c)
+                                                 (sb-thread:with-mutex (*worker-error-lock*)
+                                                   (setf *workers-nesting* nil)
+                                                   (trivial-backtrace:print-backtrace c)
+                                                   (format t "Thread threw error: ~a~%" c)
+                                                   (push c *worker-error-list*))
+                                                 (return-from trial-exec)
+                                                 )))
                                           (let ((iter (sb-ext:atomic-incf (aref *workers-counter* 0))))
                                             (when (< iter *workers-chunk-count*)
-                                              (funcall *workers-func* iter)))
-                                        (error (c)
-                                          (format t "Thread threw error: ~a~%" c)
-                                          (sb-thread:with-mutex (*worker-error-lock*)
-                                            (setf *workers-nesting* nil)
-                                            (format t "Thread threw error: ~a~%" c)
-                                            (push c *worker-error-list*))))))
+                                              (funcall *workers-func* iter)))))
+                                      ;; (handler-case
+                                      ;;     (let ((iter (sb-ext:atomic-incf (aref *workers-counter* 0))))
+                                      ;;       (when (< iter *workers-chunk-count*)
+                                      ;;         (funcall *workers-func* iter)))
+                                      ;;   (error (c)
+                                      ;;     (format t "Thread threw error: ~a~%" c)
+                                      ;;     (sb-thread:with-mutex (*worker-error-lock*)
+                                      ;;       (setf *workers-nesting* nil)
+                                      ;;       (trivial-backtrace:print-backtrace c)
+                                      ;;       (format t "Thread threw error: ~a~%" c)
+                                      ;;       (push c *worker-error-list*))))
+                                      ))
                                   (sb-thread:signal-semaphore *workers-run*))
                                 (sb-thread:signal-semaphore *workers-finish*)
                                 )))
