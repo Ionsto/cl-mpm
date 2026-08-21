@@ -39,15 +39,28 @@
                    ;; (y-prev    cl-mpm/particle::mp-damage-y-local-prev)
                    (damage    cl-mpm/particle::mp-damage)
                    (damage-n  cl-mpm/particle::mp-damage-n)
-                   (stress cl-mpm/particle::mp-undamaged-stress))
+                   (stress cl-mpm/particle::mp-undamaged-stress)
+                   (d-energy cl-mpm/particle::mp-d-energy)
+                   (d-energy-n cl-mpm/particle::mp-d-energy-n))
       mp
     (setf ybar ybar-prev)
     (setf damage damage-n)
     (cl-mpm/fastmaths::fast-zero stress)
     (cl-mpm/damage::compute-damage mp)
+    (setf d-energy d-energy-n)
     (call-next-method)))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle) dt))
+
+;; (defmethod cl-mpm/particle::post-damage-step :after ((mp cl-mpm/particle::particle-damage) dt)
+;;   (with-accessors ((volume cl-mpm/particle::mp-volume)
+;;                    (stress cl-mpm/particle::mp-stress)
+;;                    (damage-n cl-mpm/particle::mp-damage-n)
+;;                    (damage cl-mpm/particle::mp-damage)
+;;                    (d-energy cl-mpm/particle::mp-d-energy)
+;;                    (strain cl-mpm/particle::mp-strain))
+;;       mp
+;;     (setf d-energy (* 0.5d0 volume (cl-mpm/fastmaths:dot stress strain)))))
 
 (declaim
  ;(inline damage-rate-profile)

@@ -17,6 +17,17 @@
     :initarg :residual-friction
     :initform 0d0)))
 
+(defclass particle-plastic-damage-frictional-delayed (particle-plastic-damage-frictional)
+  ((delay-time
+    :accessor mp-delay-time
+    :initform 1d0
+    :initarg :delay-time)
+   (delay-exponent
+    :accessor mp-delay-exponent
+    :initform 1d0
+    :initarg :delay-exponent)))
+
+
 (defmethod initialize-instance :after ((mp particle-plastic-damage-frictional) &key)
   (with-accessors ((ductility cl-mpm/particle::mp-ductility)
                    (angle cl-mpm/particle::mp-friction-angle)
@@ -188,3 +199,56 @@
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-fpd-isotropic) dt)
   ;; (setf (cl-mpm/particle::mp-damage mp) (cl-mpm/particle::mp-damage-tension mp))
   (cl-mpm/damage::apply-isotropic-degredation mp))
+
+(defmethod update-damage ((mp cl-mpm/particle::particle-plastic-damage-frictional-delayed) dt)
+  (when (cl-mpm/particle::mp-enable-damage mp)
+    (with-accessors ((damage cl-mpm/particle:mp-damage)
+                     (damage-n cl-mpm/particle::mp-damage-n)
+                     (E cl-mpm/particle::mp-e)
+                     (Gf cl-mpm/particle::mp-Gf)
+                     (damage-inc cl-mpm/particle::mp-damage-increment)
+                     (ybar cl-mpm/particle::mp-damage-ybar)
+                     (ybar-prev cl-mpm/particle::mp-damage-ybar-prev)
+                     (init-stress cl-mpm/particle::mp-initiation-stress)
+                     (length cl-mpm/particle::mp-local-length)
+                     (k cl-mpm/particle::mp-history-stress)
+                     (k-n cl-mpm/particle::mp-history-stress-n)
+                     (tau cl-mpm/particle::mp-delay-time)
+                     (tau-exp cl-mpm/particle::mp-delay-exponent)
+                     (ductility cl-mpm/particle::mp-ductility))
+        mp
+      (declare (double-float damage damage-inc k ybar tau dt))
+      (when t;(<= damage 1d0)
+        ;;Damage increment holds the delocalised driving factor
+        (break)
+        (setf (cl-mpm/particle::mp-damage-prev-trial mp) (cl-mpm/particle::mp-damage mp))
+        (setf damage-inc 0d0)
+        (let ((a tau-exp)
+              (k0 init-stress))
+          (when t;; (or (>= ybar-prev k0)
+                ;;     (>= ybar k0))
+            (setf k
+                  (max
+                   k-n
+                   (cl-mpm/damage::auto-refine-substepper
+                    k-n
+                    ybar-prev
+                    ybar
+                    dt
+                    (lambda (k y0 y1 s-dt)
+                      (cl-mpm/damage::huen-integration
+                       k
+                       y0
+                       y1
+                       k0
+                       tau
+                       tau-exp
+                       s-dt))
+                    :tol 1d-1)
+                   ))))
+        (compute-damage mp)
+        (setf damage-inc (- damage damage-n))
+        (setf (cl-mpm/particle::mp-time-averaged-damage-inc mp) (/ damage-inc dt))
+        (incf (the double-float (cl-mpm/particle::mp-time-averaged-counter mp)))
+        (setf damage (max 0d0 (min 1d0 damage))))
+      (values))))

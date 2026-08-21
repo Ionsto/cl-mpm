@@ -7,8 +7,7 @@
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
 (defclass mpm-sim-dr-mpi (cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
-                          cl-mpm/mpi::mpm-sim-mpi-nodes
-                          )
+                          cl-mpm/mpi::mpm-sim-mpi-nodes)
   ()
   (:documentation "DR psudo-linear step with update stress last update"))
 

@@ -75,7 +75,7 @@
    (residual-strength
     :initarg :residual-strength
     :accessor mp-residual-strength
-    :initform (- 1d0 1d-9))
+    :initform 1d0)
    (history-stress-n
     :accessor mp-history-stress-n
     :initform 0d0))

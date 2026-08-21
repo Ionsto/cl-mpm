@@ -1,5 +1,76 @@
 (in-package :cl-mpm/dynamic-relaxation)
 
+(defun displacement-convergence-norm (sim)
+  (let* ((vel
+           (cl-mpm::reduce-over-global-nodes-sum
+            sim
+            (lambda (n)
+              (if (and (cl-mpm/mesh::node-active n)
+                       (or
+                        (cl-mpm/mesh::node-interior n)
+                        (not (cl-mpm/mesh::node-agg n)))
+                       )
+                  (cl-mpm/fastmaths::mag (cl-mpm/mesh::node-velocity n))
+                  0d0))))
+         (disp
+           (cl-mpm::reduce-over-global-nodes-sum
+            sim
+            (lambda (n)
+              (if (and (cl-mpm/mesh::node-active n)
+                       (or
+                        (cl-mpm/mesh::node-interior n)
+                        (not (cl-mpm/mesh::node-agg n))))
+                  (cl-mpm/fastmaths::mag
+                   (cl-mpm/mesh::node-displacment n))
+                  0d0))))
+         (norm (if (> disp 0d0) (/ vel disp))))
+    ;; (format t "Disp ~E~%" norm)
+    norm))
+(defmethod cl-mpm::update-dynamic-stats ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
+  (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
+                   (stats-oobf cl-mpm::sim-stats-oobf)
+                   (stats-power cl-mpm::sim-stats-power)
+                   (stats-work cl-mpm::sim-stats-work))
+      sim
+    (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats-aggregated sim)
+      (setf stats-energy e
+            stats-oobf o
+            stats-power p)
+      (incf stats-work p))
+    ;; (setf stats-oobf (displacement-convergence-norm sim))
+    ))
+
+
+(defmethod convergence-criteria ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
+  (let* ((vel
+          (cl-mpm::reduce-over-global-nodes-sum
+           sim
+           (lambda (n)
+             (if (and (cl-mpm/mesh::node-active n)
+                      (or
+                       (cl-mpm/mesh::node-interior n)
+                       (not (cl-mpm/mesh::node-agg n)))
+                      )
+                 (cl-mpm/fastmaths::mag (cl-mpm/mesh::node-velocity n))
+               0d0))
+           ))
+        (disp
+          (cl-mpm::reduce-over-global-nodes-sum
+           sim
+           (lambda (n)
+             (if (and (cl-mpm/mesh::node-active n)
+                      (or
+                       (cl-mpm/mesh::node-interior n)
+                       (not (cl-mpm/mesh::node-agg n))))
+               (cl-mpm/fastmaths::mag
+                (cl-mpm/mesh::node-displacment n))
+               0d0))
+           ))
+        (norm (if (> disp 0d0) (/ vel disp)))
+        )
+    (format t "Dynamic criteria ~E - ~E / ~E~%" norm vel disp)
+    (< norm (cl-mpm/dynamic-relaxation::sim-convergence-critera sim)))
+  t)
 
 
 (defun dr-calculate-forces-implicit-dynamic (node true-damping dt mass-scale real-dt)
@@ -27,12 +98,13 @@
               (inertia-force (cl-mpm/utils:vector-zeros)))
           (unless (= real-dt 0d0)
             (cl-mpm/utils:vector-copy-into disp vn)
-            (cl-mpm/fastmaths:fast-scale! vn (/ 1d0 real-dt))
+            (cl-mpm/fastmaths:fast-scale! vn (/ 2d0 real-dt))
             (cl-mpm/fastmaths::fast-.- vn vt inertia-force)
-            (cl-mpm/fastmaths::fast-scale! inertia-force (/ (- real-mass) real-dt))
+            (cl-mpm/fastmaths::fast-scale! inertia-force (/ (* (- real-mass) 2d0) real-dt))
             (cl-mpm/fastmaths:fast-fmacc force-damp vn (* true-damping -1d0 real-mass))
-            ;; (setf (cl-mpm/mesh::node-inertia-force node) inertia-force)
-            )
+            (setf (cl-mpm/mesh::node-inertia-force node) inertia-force)
+            (setf (cl-mpm/mesh::node-true-acceleration node)
+                  (cl-mpm/fastmaths::fast-scale inertia-force (/ 1d0 real-mass))))
           ;;Set acc to f/m
           (cl-mpm/fastmaths::fast-.+ inertia-force force force)
           (cl-mpm/fastmaths::fast-.+-vector force-int force force)
@@ -154,8 +226,8 @@
                  (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
                  (cl-mpm/aggregate::project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d))))))
 
-        (when (= (mod solve-count damping-update-count) 0)
-          (setf damping (the double-float (cl-mpm/dynamic-relaxation::dr-estimate-damping sim))))
+        ;; (when (= (mod solve-count damping-update-count) 0))
+        (setf damping (the double-float (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
 
         (cl-mpm:iterate-over-nodes
          mesh
@@ -168,8 +240,8 @@
                               (agg cl-mpm/mesh::node-agg)
                               (acc cl-mpm/mesh::node-acceleration))
                  node
-               (when (or internal
-                         (not agg))
+               (when (or (not agg)
+                         internal)
                  (cl-mpm::integrate-vel-midpoint vel acc mass mass-scale 1d0 damping))))))
         (cl-mpm::apply-essential-bcs sim)
         ;; (cl-mpm/aggregate::project-displacement sim)
@@ -218,18 +290,18 @@
                 (mp-mass (cl-mpm/particle::mp-mass mp))
                 (mp-pmod (cl-mpm/particle::mp-p-modulus mp))
                 (ul (estimate-ul-enhancement mp nd))
+                (mass-factor
+                  (*
+                   ul
+                   mass-scale
+                   (+
+                    (* (/ 1d0 (expt dt-true 1))
+                       (sim-true-damping sim)
+                       mp-mass))))
                 (mp-factor
                   (+
-                   (* 16d0
-                      ul
-                      mass-scale
-                      (+
-                       (* (/ 1d0 (expt dt-true 1))
-                          (sim-true-damping sim)
-                          mp-mass)
-                       (* (/ 1d0 (expt dt-true 2))
-                          mp-mass)))
                    (*
+                    0.25d0
                     mp-pmod
                     mp-volume
                     ul
@@ -254,8 +326,12 @@
                   (sb-thread::with-mutex ((cl-mpm/mesh::node-lock node))
                     (incf node-mass
                           (the double-float
-                               (* 0.25d0
-                                  mp-factor))))))))))))))
+                               (+
+                                (*
+                                 (/ 2d0 (expt dt-true 2))
+                                 svp
+                                 mp-mass)
+                                mp-factor))))))))))))))
 
 (defmethod update-node-fictious-mass ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
   (with-accessors ((mesh cl-mpm::sim-mesh)
@@ -290,6 +366,15 @@
     (setf (cl-mpm:sim-dt sim) 1d0)
     ))
 
+(defmethod cl-mpm::apply-force-bcs ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic) dt)
+  (call-next-method sim (* 0.5d0 dt)))
+
+(defmethod cl-mpm::apply-force-bcs ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic) dt)
+  (call-next-method sim (* 0.5d0 dt)))
+
+(defmethod cl-mpm/damage::calculate-damage ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic) dt)
+  (call-next-method sim (* 0.5d0 dt)))
+
 (defmethod cl-mpm::update-sim ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
   "Update stress last algorithm"
   (declare (cl-mpm::mpm-sim sim))
@@ -313,13 +398,18 @@
       sim
     (unless initial-setup
       (pre-step sim))
-    ;; (setf dt 1d0)
+    (setf (cl-mpm:sim-dt sim) 1d0)
     (cl-mpm/penalty::reset-penalty sim)
     (cl-mpm::reset-nodes-force sim)
-    (cl-mpm::apply-force-bcs sim dt-loadstep)
     (cl-mpm::apply-essential-bcs sim)
-    (cl-mpm::update-stress mesh mps dt-loadstep fbar)
+
+    (cl-mpm::apply-force-bcs sim dt-loadstep)
+    (cl-mpm::update-stress mesh mps (* 0.5d0 dt-loadstep) fbar)
     (cl-mpm/damage::calculate-damage sim dt-loadstep)
+
+    ;; (cl-mpm::apply-force-bcs sim (* 1d0 dt-loadstep))
+    ;; (cl-mpm::update-stress mesh mps (* 1d0 dt-loadstep) fbar)
+    ;; (cl-mpm/damage::calculate-damage sim (* 1d0 dt-loadstep))
     (cl-mpm::p2g-force-fs sim)
     ;; (when ghost-factor
     ;;   (cl-mpm/ghost::apply-ghost sim ghost-factor)
@@ -332,7 +422,7 @@
     (cl-mpm::update-nodes sim)
     (cl-mpm::update-filtered-cells sim)
     ;; (cl-mpm::update-dynamic-stats sim)
-    ;; (cl-mpm::g2p mesh mps dt damping :TRIAL)
+    ;; (cl-mpm::g2p mesh mps 1d0 0d0 :TRIAL)
     (cl-mpm::update-dynamic-stats sim)
     (incf solve-count)
     ))
@@ -341,26 +431,33 @@
   ;;DR algorithm requires that finalisation is called once
   ;; (setf (cl-mpm/dynamic-relaxation::sim-sub-stepping sim) nil)
   (with-accessors ((real-dt cl-mpm/dynamic-relaxation::sim-dt-loadstep)
-                   (mesh cl-mpm::sim-mesh))
+                   (mesh cl-mpm::sim-mesh)
+                   (mps cl-mpm:sim-mps)
+                   (dt-loadstep cl-mpm/dynamic-relaxation::sim-dt-loadstep)
+                   (fbar cl-mpm::sim-enable-fbar))
       sim
     (cl-mpm::iterate-over-nodes
      mesh
      (lambda (n)
-
        (with-accessors ((disp cl-mpm/mesh::node-displacment)
                         (vel cl-mpm/mesh:node-velocity)
                         (vel-n cl-mpm/mesh::node-true-velocity)
                         (acc cl-mpm/mesh::node-acceleration))
            n
+         (cl-mpm/fastmaths::fast-scale! disp 2d0)
          (unless (= real-dt 0d0)
            (cl-mpm/utils:vector-copy-into disp vel)
            (cl-mpm/fastmaths:fast-scale! vel (/ 1d0 real-dt))
            (cl-mpm/fastmaths::fast-.- vel vel-n acc)
-           (cl-mpm/fastmaths::fast-scale! acc (/ 1d0 real-dt))))
+           (cl-mpm/fastmaths::fast-scale! acc (/ 2d0 real-dt))
+           (cl-mpm/fastmaths::fast-.+ vel-n (cl-mpm::fast-scale acc real-dt) vel)
+           )
+         )
        (cl-mpm/utils:vector-copy-into (cl-mpm/mesh::node-velocity n) (cl-mpm/mesh::node-true-velocity n))
-       (setf (cl-mpm/mesh:node-mass n) (cl-mpm/mesh::node-true-mass n))
-       )))
-  (cl-mpm/aggregate::update-mass-matrix sim)
+       (setf (cl-mpm/mesh:node-mass n) (cl-mpm/mesh::node-true-mass n))))
+    (cl-mpm/aggregate::update-mass-matrix sim)
+    (cl-mpm::update-stress mesh mps dt-loadstep fbar)
+    (cl-mpm/damage::calculate-damage sim (* 2d0 dt-loadstep)))
   (cl-mpm::update-dynamic-stats sim)
   (call-next-method))
 
@@ -449,22 +546,51 @@
                       :sub-conv-steps 100
                       :dt-scale 0.9d0
                       :damping (sqrt 2d0)
-                      ;; :convergance-criteria
-                      ;; (lambda (sim f o)
-                      ;;   (let ((c ;; (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)
-                      ;;            (cl-mpm/dynamic-relaxation::vel-norm-aggregated sim)))
-                      ;;     (if residual-normaliser
-                      ;;         (setf c (/ c residual-normaliser))
-                      ;;         (when (> c 0d0)
-                      ;;           (setf residual-normaliser c
-                      ;;                 c 1d0)))
-                      ;;     (format t "Conv crit: ~E - norm ~E~%" c residual-normaliser)
-                      ;;     (< c conv-crit)))
+                      ;; :enable-damage (cl-mpm:sim-enable-damage sim)
+                      ;; :convergence-criteria
+                      ;; (lambda (sim)
+                      ;;   (let* ((vel
+                      ;;            (cl-mpm::reduce-over-global-nodes-sum
+                      ;;             sim
+                      ;;             (lambda (n)
+                      ;;               (if (and (cl-mpm/mesh::node-active n)
+                      ;;                        (or
+                      ;;                         (cl-mpm/mesh::node-interior n)
+                      ;;                         (not (cl-mpm/mesh::node-agg n)))
+                      ;;                        )
+                      ;;                   (cl-mpm/fastmaths::mag (cl-mpm/mesh::node-velocity n))
+                      ;;                   0d0))
+                      ;;             ))
+                      ;;          (disp
+                      ;;            (cl-mpm::reduce-over-global-nodes-sum
+                      ;;             sim
+                      ;;             (lambda (n)
+                      ;;               (if (and (cl-mpm/mesh::node-active n)
+                      ;;                        (or
+                      ;;                         (cl-mpm/mesh::node-interior n)
+                      ;;                         (not (cl-mpm/mesh::node-agg n))))
+                      ;;                   (cl-mpm/fastmaths::mag
+                      ;;                    (cl-mpm/mesh::node-displacment n))
+                      ;;                   0d0))
+                      ;;             ))
+                      ;;          (norm (if (> disp 0d0) (/ vel disp)))
+                      ;;          )
+                      ;;     (format t "Dynamic criteria ~E - ~E / ~E~%" norm vel disp)
+                      ;;     (< norm (cl-mpm/dynamic-relaxation::sim-convergence-critera sim)))
+                      ;;   ;; (let ((c ;; (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)
+                      ;;   ;;          (cl-mpm/dynamic-relaxation::vel-norm-aggregated sim)))
+                      ;;   ;;   (if residual-normaliser
+                      ;;   ;;       (setf c (/ c residual-normaliser))
+                      ;;   ;;       (when (> c 0d0)
+                      ;;   ;;         (setf residual-normaliser c
+                      ;;   ;;               c 1d0)))
+                      ;;   ;;   (format t "Conv crit: ~E - norm ~E~%" c residual-normaliser)
+                      ;;   ;;   (< c conv-crit))
+                      ;;   )
                       :max-damage-inc 0.1d0
                       :max-plastic-inc nil;10d0
                       :post-iter-step (lambda (i e o)
                                         (format t "Dynamic substep ~D~%" i)
-
                                         ;; (check-damage-increment sim)
                                         (when nil;(uiop:directory-exists-p "./output/")
                                           (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "rsim_step_~5,'0d.vtk" i)) sim)
@@ -515,3 +641,92 @@
   (if (cl-mpm/dynamic-relaxation::sim-sub-stepping sim)
       (call-next-method)
       (super-step sim)))
+
+;; (let ((work-pool (cl-mpm/utils::make-object-pool
+;;                  :constructor (lambda ()
+;;                                 (cl-mpm/utils:vector-zeros)))))
+;;   (defmethod dr-estimate-damping ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
+;;     (with-accessors ((mesh cl-mpm:sim-mesh))
+;;         sim
+;;       (let ((num 0d0)
+;;             (denom 0d0)
+;;             (dt 1d0))
+;;         (declare (double-float denom num))
+;;         (cl-mpm/utils::object-pool-ensure-size work-pool)
+;;         (setf
+;;          num
+;;          (float
+;;           (cl-mpm::reduce-over-nodes
+;;            mesh
+;;            (lambda (node)
+;;              (if (and (cl-mpm/mesh:node-active node)
+;;                       (not (cl-mpm/mesh::node-agg node)))
+;;                  (*
+;;                     (cl-mpm/fastmaths:dot
+;;                      (cl-mpm/mesh::node-velocity node)
+;;                      (cl-mpm/fastmaths:fast-.-
+;;                       (cl-mpm/mesh::node-residual-prev node)
+;;                       (cl-mpm/mesh::node-residual node)
+;;                       )
+;;                      )
+;;                     )
+;;                  0d0))
+;;            #'+)
+;;           0d0))
+;;         (setf
+;;          denom
+;;          (* dt
+;;             (the double-float
+;;                  (float
+;;                   (cl-mpm::reduce-over-nodes
+;;                    mesh
+;;                    (lambda (node)
+;;                      (the double-float
+;;                           (if (and (cl-mpm/mesh:node-active node)
+;;                                    (not (cl-mpm/mesh::node-agg node)))
+;;                               (*
+;;                                (the double-float (cl-mpm/mesh:node-mass node))
+;;                                (the double-float (cl-mpm/fastmaths::mag-squared
+;;                                                   (cl-mpm/mesh::node-velocity node))))
+;;                               0d0)))
+;;                    #'+)
+;;                   0d0
+;;                   ))))
+
+;;         ;; (when (cl-mpm/aggregate::sim-enable-aggregate sim)
+;;         ;;   (cl-mpm/aggregate::iterate-over-dimensions-with-mutex
+;;         ;;    (cl-mpm/mesh::mesh-nd mesh)
+;;         ;;    (lambda (d mut)
+;;         ;;      (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
+;;         ;;             (res-prev (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual-prev d))
+;;         ;;             (ma (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-mass))
+;;         ;;             (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d))
+;;         ;;             (vglobal
+;;         ;;               (cl-mpm/aggregate::extend-vec
+;;         ;;                sim
+;;         ;;                vi
+;;         ;;                d)))
+;;         ;;        (let ((dnum (cl-mpm/fastmaths:dot
+;;         ;;                     (cl-mpm/fastmaths::fast-.- res-prev res)
+;;         ;;                     vglobal
+;;         ;;                     ))
+;;         ;;              (ddenom (* dt (cl-mpm/fastmaths:dot vglobal
+;;         ;;                                                  (cl-mpm/fastmaths::fast-.*
+;;         ;;                                                   ma
+;;         ;;                                                   vglobal)))))
+;;         ;;          (declare (double-float num dnum denom ddenom))
+;;         ;;          (sb-thread::with-mutex (mut)
+;;         ;;            (incf num dnum)
+;;         ;;            (incf denom ddenom)))))))
+;;         (format t "~E ~E ~%" num denom)
+;;         (min 1.9d0
+;;              (max 0d0
+;;                   (* ;(the double-float (cl-mpm/dynamic-relaxation::sim-damping-scale sim))
+;;                      (if (> num 0d0)
+;;                          (if (= denom 0d0)
+;;                              0d0
+;;                              (the double-float
+;;                                   (* (sqrt 2d0)
+;;                                      (the double-float
+;;                                           (sqrt (max 0d0 (the double-float (/ num denom))))))))
+;;                          0d0))))))))

@@ -949,6 +949,15 @@
    (damage-increment
     :accessor mp-damage-increment
     :type DOUBLE-FLOAT
+    :initform 0d0
+    )
+   (d-energy-n
+    :accessor mp-d-energy-n
+    :type DOUBLE-FLOAT
+    :initform 0d0)
+   (d-energy
+    :accessor mp-d-energy
+    :type DOUBLE-FLOAT
     :initform 0d0)
    (undamaged-stress
     :accessor mp-undamaged-stress
@@ -1113,6 +1122,8 @@
                    (y-prev    cl-mpm/particle::mp-damage-y-local-prev)
                    (volume    cl-mpm/particle::mp-volume)
                    (volume-n    cl-mpm/particle::mp-volume-n)
+                   (d-energy cl-mpm/particle::mp-d-energy)
+                   (d-energy-n cl-mpm/particle::mp-d-energy-n)
                    )
       mp
     ;; (cl-mpm/utils:matrix-copy-into def def-0)
@@ -1122,6 +1133,7 @@
     (setf ybar-prev ybar)
     (setf y-prev y)
     (setf damage-n damage)
+    (setf d-energy-n d-energy)
     ;; (setf volume-n volume)
     (call-next-method)))
 
