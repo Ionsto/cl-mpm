@@ -194,6 +194,10 @@
     :accessor node-inertia-force
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:vector-zeros))
+   (true-acceleration
+    :accessor node-true-acceleration
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
    (velocity
     :accessor node-velocity
     :initarg :velocity

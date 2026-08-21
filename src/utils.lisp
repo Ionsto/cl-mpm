@@ -1431,7 +1431,7 @@
                                         (handler-bind
                                             ((error
                                                (lambda (c)
-                                                 (trivial-backtrace:print-backtrace c)
+                                                 ;; (trivial-backtrace:print-backtrace c)
                                                  (format t "Thread threw error: ~a~%" c)
                                                  (sb-thread:with-mutex (*worker-error-lock*)
                                                    (setf *workers-nesting* nil)

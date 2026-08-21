@@ -194,8 +194,11 @@
               ;;                                 (cl-mpm/mesh::node-residual n))
               )))
          (cl-mpm::apply-essential-bcs sim))))
+
 (defmethod cl-mpm::reset-loadstep ((sim mpm-sim-dr-ul))
   (setf (sim-initial-setup sim) nil)
+  (setf (cl-mpm::sim-stats-oobf sim) (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
+  ;; (format t "RESET--------------------------------------~%")
   (call-next-method))
 
 (defgeneric pre-step (sim))

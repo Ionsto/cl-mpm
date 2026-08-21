@@ -78,6 +78,8 @@
   ((sub-stepping
     :initform nil
     :accessor sim-sub-stepping))
+  (:default-initargs
+   :vel-algo :TBLEND)
   (:documentation "DR implicit-dynamic wrapper class - acts just like an explicit solver"))
 
 (defclass mpm-sim-dr-usf (mpm-sim-dr)

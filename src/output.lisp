@@ -493,6 +493,7 @@
      (list :SCALAR "boundary-scalar" #'cl-mpm/mesh::node-boundary-scalar)
      (list :SCALAR "mass" #'cl-mpm/mesh::node-mass)
      (list :VECTOR "vel" #'cl-mpm/mesh::node-velocity)
+     (list :VECTOR "acc" #'cl-mpm/mesh::node-acceleration)
      (list :VECTOR "bcs" (lambda (n)
                            (if (cl-mpm/mesh::node-bcs n)
                                (cl-mpm/mesh::node-bcs n)

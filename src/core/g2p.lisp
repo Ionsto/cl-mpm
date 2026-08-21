@@ -177,8 +177,7 @@
                        (when (cl-mpm/mesh:node-active node)
                          (with-accessors ((node-disp cl-mpm/mesh::node-displacment)) node
                            (cl-mpm/fastmaths::fast-fmacc disp-inc node-disp svp)
-                           (incf svp-sum svp)
-                           ))))
+                           (incf svp-sum svp)))))
                     (progn
                       ,@update)))))
            )

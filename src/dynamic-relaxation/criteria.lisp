@@ -880,7 +880,6 @@
          (ddf (cl-mpm/fastmaths::fast-scale! (cl-mpm/fastmaths:fast-.- df (cl-mpm/utils:matrix-eye 1d0)) (/ 1d0 h))))
     (cl-mpm/fastmaths:fast-.+ (cl-mpm/utils:matrix-eye 1d0) ddf)))
 
-
 (defun compute-max-deformation-2d (sim)
   (cl-mpm::reduce-over-global-mps-max
    sim
@@ -938,13 +937,9 @@
   )
 
 (defun compute-max-deformation (sim)
-  ;; (/)
   (if (= (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)) 2)
           (compute-max-deformation-2d sim)
-          (compute-max-deformation-3d sim))
-  ;; 1d0
-  ;; (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))
-  )
+          (compute-max-deformation-3d sim)))
 
 (defmethod print-max-deformation (sim)
   (let ((cmax 0d0)
@@ -1122,7 +1117,7 @@
             (lambda (mp)
               (if (typep mp 'cl-mpm/particle::particle-damage)
                   (with-accessors ((damage cl-mpm/particle::mp-damage)
-                                   (damage-prev cl-mpm/particle::mp-damage-prev-trial)
+                                   ;; (damage-prev cl-mpm/particle::mp-damage-prev-trial)
                                    (inc cl-mpm/particle::mp-damage-increment)
                                    (mass cl-mpm/particle::mp-mass))
                       mp
@@ -1217,6 +1212,7 @@
 
 (defmethod check-deformation-gradient ((sim cl-mpm::mpm-sim) &key (max-deformation-gradient 10d0))
   (let ((max-def (compute-max-deformation sim)))
+    (cl-mpm:sim-format sim t "Deformation gradient ~E~%" max-def)
     (when (> max-def max-deformation-gradient)
       (cl-mpm:sim-format sim t "Deformation gradient criteria exceeded ~E~%" max-def)
       (error (make-instance 'non-convergence-error

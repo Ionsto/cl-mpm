@@ -118,7 +118,7 @@
 
 (defparameter *max-deformation-gradient* 10d0)
 
-;; (defun generalised-staggered-solve (sim
+;; (defun gneneralised-staggered-solve (sim
 ;;                                     &key
 ;;                                       (output-dir "./output/")
 ;;                                       (crit 1d-3)
@@ -314,6 +314,7 @@
                                       (staggered-steps 10)
                                       (sub-conv-steps 50)
                                       (save-vtk-dr t)
+                                      (convergence-criteria nil)
                                       (stagger-damage nil))
   (let* ((damage-prev (get-damage sim))
          (damage damage-prev)
@@ -352,9 +353,11 @@
                                :substeps substeps
                                :convergance-criteria
                                (lambda (sim f o)
-                                 (and
-                                  (<= o (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
-                                  (convergence-criteria sim)))
+                                 (if convergence-criteria
+                                     (funcall convergence-criteria sim)
+                                     (and
+                                      (<= o (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
+                                      (convergence-criteria sim))))
                                :conv-steps sub-conv-steps
                                :damping-factor damping
                                :post-iter-step
@@ -433,6 +436,7 @@
                           (enable-plastic t)
                           (max-damage-inc 0.6d0)
                           (max-plastic-inc 10d0)
+                          (max-deformation-gradient 10d0)
                           (stagger-damage nil)
                           (plotter (lambda (sim))))
   (let ((total-i 0))
@@ -440,7 +444,6 @@
         ((cl-mpm/errors:error-simulation
            (lambda (c)
              (format t "Handled error~%")
-
              (save-conv-step sim output-dir *total-iter* global-step 0d0 (cl-mpm::sim-stats-oobf sim) 0d0)
              (when save-vtk-dr
                (save-vtks-dr-step sim output-dir global-step *trial-iter* total-i))
@@ -495,7 +498,7 @@
                                        (format t "Updated damage inside of non-stagger ~A~%" (cl-mpm:sim-enable-damage sim))
                                        (funcall plotter sim)
                                        (convergence-check sim)
-                                       (check-deformation-gradient sim :max-deformation-gradient 50d0)
+                                       (check-deformation-gradient sim :max-deformation-gradient max-deformation-gradient)
                                        (check-damage-increment sim :max-damage-inc max-damage-inc)
                                        (check-plastic-increment sim :max-plastic-inc max-plastic-inc)
                                        (incf total-i)
@@ -1414,8 +1417,7 @@
                      ;;         (* damping (cl-mpm/setup:estimate-critical-damping sim))))
                      (setf (cl-mpm/dynamic-relaxation::sim-damping-scale sim) damping)
                      (time
-                      (;;cl-mpm/dynamic-relaxation:converge-quasi-static
-                       generalised-staggered-solve
+                      (generalised-staggered-solve
                        sim
                        :crit criteria
                        :enable-damage enable-damage
@@ -1557,6 +1559,7 @@
                          (damping (sqrt 2d0))
                          (max-damage-inc 0.5d0)
                          (max-plastic-inc nil)
+                         (max-deformation-gradient 10d0)
                          (elastic-solver 'mpm-sim-quasi-static)
                          (initial-quasi-static t)
                          (conv-criteria 1d-3))
@@ -1608,46 +1611,8 @@
            ))
         (cl-mpm::finalise-loadstep temp-sim)
         (cl-mpm::reset-grid (cl-mpm:sim-mesh temp-sim) :reset-displacement t)))
-    (let (;(substeps 50)
-          ;; (vel-algo (cl-mpm::sim-velocity-algorithm sim))
-          ;; (sim-type (class-of sim))
-          )
-      ;; (when initial-quasi-static
-      ;;   (when (not (subtypep (type-of sim) elastic-solver))
-      ;;     (format t "Changed class from ~A to ~A~%" (type-of sim) elastic-solver)
-      ;;     (change-class sim elastic-solver))
-      ;;   (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
-      ;;   (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
-      ;;   (set-mp-plastic-damage sim :enable-plastic nil :enable-damage nil)
-      ;;   (pprint sim)
-      ;;   ;; find initial quasi-static formation
-      ;;   (cl-mpm/dynamic-relaxation:converge-quasi-static
-      ;;    sim
-      ;;    :energy-crit conv-criteria
-      ;;    :oobf-crit conv-criteria
-      ;;    :kinetic-damping nil
-      ;;    :dt-scale dt-scale
-      ;;    :conv-steps 10000
-      ;;    :substeps substeps
-      ;;    :damping-factor damping
-      ;;    :post-iter-step
-      ;;    (lambda (i e o)
-      ;;      (save-conv-step sim output-dir *total-iter* 0 0d0 o e)
-      ;;      (incf *total-iter* substeps)
-      ;;      (when save-vtk-conv
-      ;;        (save-vtks sim output-dir i "conv"))
-      ;;      (funcall plotter sim)
-      ;;      ))
-      ;;   (cl-mpm::finalise-loadstep sim)
-      ;;   (cl-mpm::reset-grid (cl-mpm:sim-mesh sim))
-      ;;   (cl-mpm:sim-format sim t "Reset grid, finalise loadstep~%")
-      ;;   (setf (cl-mpm::sim-time sim) 0d0)
-      ;;   (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
-      ;;   (setf (cl-mpm::sim-velocity-algorithm sim) vel-algo)
-      ;;   (cl-mpm:sim-format sim t "Set plastic-damage~%")
-      ;;   (set-mp-plastic-damage sim :enable-plastic enable-plastic :enable-damage enable-damage)
-      ;;   (cl-mpm:sim-format sim t "Change class~%")
-      ;;   (change-class sim sim-type))
+    (let ()
+      (set-mp-plastic-damage sim :enable-plastic enable-plastic :enable-damage enable-damage)
       (cl-mpm:sim-format sim t "Call post-conv~%")
       (funcall post-conv-step sim)
       (cl-mpm:sim-format sim t "Start iter~%")
@@ -1672,26 +1637,6 @@
                                         (+ (min (- total-time sim-time) adapted-dt) 1d-15))
                                   (cl-mpm:sim-format sim t "trial step ~d, dt refine ~d - dt ~E~%" i current-adaptivity (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)))
                                 (setf *trial-iter* i)
-
-                                ;; (setf (cl-mpm:sim-dt sim) (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
-                                ;; (setf (cl-mpm/dynamic-relaxation::sim-true-damping sim) 0d0)
-                                ;; (generalised-staggered-solve
-                                ;;  sim
-                                ;;  :crit 1d-3
-                                ;;  :substeps 20
-                                ;;  :sub-conv-steps 100
-                                ;;  :dt-scale 0.9d0
-                                ;;  :damping (sqrt 2d0)
-                                ;;  :max-plastic-inc nil
-                                ;;  :max-damage-inc 0.1d0)
-
-                                ;; (setf (cl-mpm::sim-dt-scale sim) dt-scale)
-                                ;; (setf (cl-mpm::sim-dt sim) dt)
-                                ;; (setf (cl-mpm::sim-damping-factor sim) 0d0)
-                                ;; ;; (setf (cl-mpm/dynamic-relaxation::sim-sub-stepping sim) nil)
-                                ;; (cl-mpm::finalise-loadstep sim)
-
-                                ;; (setf quasi-conv t)
                                 (multiple-value-bind (conv inc-steps)
                                     (step-quasi-time sim step
                                                      :total-steps *total-iter*
@@ -1707,6 +1652,7 @@
                                                      :conv-criteria-damage conv-criteria
                                                      :max-damage-inc max-damage-inc
                                                      :max-plastic-inc max-plastic-inc
+                                                     :max-deformation-gradient max-deformation-gradient
                                                      :enable-plastic enable-plastic
                                                      ;; :stagger-damage t
                                                      )
@@ -2059,6 +2005,7 @@
     (setf (cl-mpm:sim-damping-factor sim) (*
                                            (sqrt mass-scale)
                                            damping (cl-mpm/setup:estimate-critical-damping sim)))
+
     (setf (cl-mpm:sim-enable-damage sim) enable-damage)
     (cl-mpm:iterate-over-mps
      (cl-mpm:sim-mps sim)
@@ -2067,6 +2014,7 @@
          (setf (cl-mpm/particle::mp-enable-damage mp) enable-damage))
        (when (typep mp 'cl-mpm/particle::particle-plastic)
          (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plastic))))
+
     (funcall post-conv-step sim)
     (setf (cl-mpm::sim-dt-scale sim) dt-scale)
     (setf (cl-mpm:sim-dt sim) (* (cl-mpm/setup:estimate-elastic-dt sim :dt-scale dt-scale)))
