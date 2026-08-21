@@ -91,9 +91,11 @@
 (defparameter *delay-exponent* 2d0)
 (defparameter *enable-viscosity* nil)
 (defparameter *viscosity* 1d13)
-(defparameter *length-scaler* 2d0)
 (defparameter *gf* 10000d0)
 (defparameter *pd-oversize* 1d-4)
+
+(defparameter *length-scaler* 2d0)
+(defparameter *length-scale* nil)
 
 (defparameter *ductility* 10d0)
 ;; (defparameter *tensile-strength* 0.1185d6)
@@ -159,7 +161,10 @@
            (E 1d9)
            ;; (init-stress (* 0.1185d6 1d0))
            (init-stress *tensile-strength*)
-           (length-scale (* h-fine *length-scaler*))
+           (length-scale
+             (if *length-scale*
+                 *length-scale*
+                 (* h-fine *length-scaler*)))
            (gf (/ (* 10 length-scale (expt init-stress 2)) E))
            ;; (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
            ;; (ductility 10d0)
@@ -307,7 +312,7 @@
        *floor-bc*
        ))
     (unless use-penalty
-      (if stick-base 
+      (if stick-base
           (cl-mpm/setup:setup-bcs
            *sim*
            :left '(0 nil 0)
