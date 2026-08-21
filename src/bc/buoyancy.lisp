@@ -1088,15 +1088,15 @@
                      )
                  (setf
                   pressure
-                  (calculate-val-scalar-mp-gimp
-                   mesh
-                   mp
-                   (lambda (pos)
-                     (pressure-at-depth
-                      (varef pos 1)
-                      datum
-                      rho
-                      (cl-mpm:sim-gravity sim))))
+                  (* (calculate-val-scalar-mp-gimp
+                      mesh
+                      mp
+                      (lambda (pos)
+                        (pressure-at-depth
+                         (varef pos 1)
+                         datum
+                         rho
+                         (cl-mpm:sim-gravity sim)))))
                   ;; (pressure-at-depth
                   ;;  (varef pos 1)
                   ;;  datum

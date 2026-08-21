@@ -98,9 +98,9 @@
               (inertia-force (cl-mpm/utils:vector-zeros)))
           (unless (= real-dt 0d0)
             (cl-mpm/utils:vector-copy-into disp vn)
-            (cl-mpm/fastmaths:fast-scale! vn (/ 2d0 real-dt))
+            (cl-mpm/fastmaths:fast-scale! vn (/ 1d0 real-dt))
             (cl-mpm/fastmaths::fast-.- vn vt inertia-force)
-            (cl-mpm/fastmaths::fast-scale! inertia-force (/ (* (- real-mass) 2d0) real-dt))
+            (cl-mpm/fastmaths::fast-scale! inertia-force (/ (* (- real-mass) 1d0) real-dt))
             (cl-mpm/fastmaths:fast-fmacc force-damp vn (* true-damping -1d0 real-mass))
             (setf (cl-mpm/mesh::node-inertia-force node) inertia-force)
             (setf (cl-mpm/mesh::node-true-acceleration node)
@@ -267,6 +267,7 @@
 (defmethod map-stiffness ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (dt-true cl-mpm/dynamic-relaxation::sim-dt-loadstep)
+                   (true-damping sim-true-damping)
                    (mps cl-mpm:sim-mps))
       sim
     (cl-mpm::iterate-over-nodes
@@ -290,14 +291,7 @@
                 (mp-mass (cl-mpm/particle::mp-mass mp))
                 (mp-pmod (cl-mpm/particle::mp-p-modulus mp))
                 (ul (estimate-ul-enhancement mp nd))
-                (mass-factor
-                  (*
-                   ul
-                   mass-scale
-                   (+
-                    (* (/ 1d0 (expt dt-true 1))
-                       (sim-true-damping sim)
-                       mp-mass))))
+                
                 (mp-factor
                   (+
                    (*
@@ -316,21 +310,26 @@
                (cl-mpm/mesh::node node)
                ;; (ignore grads fsvp fgrads)
                (double-float svp))
-              (declare (type double-float mp-pmod mp-volume ul))
+              (declare (type double-float mp-pmod mp-volume ul dt-true true-damping))
               (with-slots ((node-active cl-mpm/mesh::active)
                            (node-mass cl-mpm/mesh::mass))
                   node
-                (declare (type double-float mp-volume mp-pmod svp)
+                (declare (type double-float mp-volume mp-pmod svp mp-mass)
                          (double-float node-mass))
                 (when node-active
                   (sb-thread::with-mutex ((cl-mpm/mesh::node-lock node))
                     (incf node-mass
                           (the double-float
                                (+
-                                (*
-                                 (/ 2d0 (expt dt-true 2))
-                                 svp
-                                 mp-mass)
+                                (the double-float
+                                     (*
+                                      (the double-float 
+                                           (+
+                                            (* (/ 1d0 (expt dt-true 1)) true-damping)
+                                            (/ 2d0 (expt dt-true 2))))
+                                      mass-scale
+                                      svp
+                                      mp-mass))
                                 mp-factor))))))))))))))
 
 (defmethod update-node-fictious-mass ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
@@ -367,13 +366,13 @@
     ))
 
 (defmethod cl-mpm::apply-force-bcs ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic) dt)
-  (call-next-method sim (* 0.5d0 dt)))
+  (call-next-method sim (* 1d0 dt)))
 
 (defmethod cl-mpm::apply-force-bcs ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic) dt)
-  (call-next-method sim (* 0.5d0 dt)))
+  (call-next-method sim (* 1d0 dt)))
 
 (defmethod cl-mpm/damage::calculate-damage ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic) dt)
-  (call-next-method sim (* 0.5d0 dt)))
+  (call-next-method sim (* 1d0 dt)))
 
 (defmethod cl-mpm::update-sim ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
   "Update stress last algorithm"
@@ -404,7 +403,7 @@
     (cl-mpm::apply-essential-bcs sim)
 
     (cl-mpm::apply-force-bcs sim dt-loadstep)
-    (cl-mpm::update-stress mesh mps (* 0.5d0 dt-loadstep) fbar)
+    (cl-mpm::update-stress mesh mps (* 1d0 dt-loadstep) fbar)
     (cl-mpm/damage::calculate-damage sim dt-loadstep)
 
     ;; (cl-mpm::apply-force-bcs sim (* 1d0 dt-loadstep))
@@ -444,20 +443,21 @@
                         (vel-n cl-mpm/mesh::node-true-velocity)
                         (acc cl-mpm/mesh::node-acceleration))
            n
-         (cl-mpm/fastmaths::fast-scale! disp 2d0)
+         (cl-mpm/fastmaths::fast-scale! disp 1d0)
          (unless (= real-dt 0d0)
            (cl-mpm/utils:vector-copy-into disp vel)
            (cl-mpm/fastmaths:fast-scale! vel (/ 1d0 real-dt))
            (cl-mpm/fastmaths::fast-.- vel vel-n acc)
-           (cl-mpm/fastmaths::fast-scale! acc (/ 2d0 real-dt))
-           (cl-mpm/fastmaths::fast-.+ vel-n (cl-mpm::fast-scale acc real-dt) vel)
+           (cl-mpm/fastmaths::fast-scale! acc (/ 1d0 real-dt))
+           ;; (cl-mpm/fastmaths::fast-.+ vel-n (cl-mpm::fast-scale acc real-dt) vel)
            )
          )
        (cl-mpm/utils:vector-copy-into (cl-mpm/mesh::node-velocity n) (cl-mpm/mesh::node-true-velocity n))
        (setf (cl-mpm/mesh:node-mass n) (cl-mpm/mesh::node-true-mass n))))
     (cl-mpm/aggregate::update-mass-matrix sim)
-    (cl-mpm::update-stress mesh mps dt-loadstep fbar)
-    (cl-mpm/damage::calculate-damage sim (* 2d0 dt-loadstep)))
+    ;; (cl-mpm::update-stress mesh mps dt-loadstep fbar)
+    ;; (cl-mpm/damage::calculate-damage sim (* 2d0 dt-loadstep))
+    )
   (cl-mpm::update-dynamic-stats sim)
   (call-next-method))
 

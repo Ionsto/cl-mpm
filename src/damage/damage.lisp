@@ -655,7 +655,10 @@ Calls the function with the mesh mp and node"
                  ;; (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
                  ;;
                  (weight
-                   (weight-func-mps mesh mp mp-other (sqrt (* length ll)))
+                   (weight-func-mps mesh mp mp-other
+                                    ;; (sqrt (* length ll))
+                                    (min length ll)
+                                    )
                    ;; (weight-func-mps mesh mp mp-other length)
                    ;; (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))
                    ;; (weight-func-mps mesh mp mp-other ll)

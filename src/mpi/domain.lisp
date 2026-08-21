@@ -70,8 +70,7 @@
                          (> (+ bu (* node-buffer h)) (cl-mpm/utils:varef pos i))
                          (<= (- bl (* node-buffer h)) (cl-mpm/utils:varef pos i)))
                         )))))
-    in-bounds
-    ))
+    in-bounds))
 
 (defun calculate-domain-sizes (sim &optional size)
   (with-accessors ((mesh cl-mpm:sim-mesh)

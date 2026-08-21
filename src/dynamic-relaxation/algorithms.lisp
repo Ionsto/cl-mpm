@@ -1059,6 +1059,7 @@
                           (min-damage-inc 0d0)
                           (setup-quasi-static (lambda (sim)))
                           (setup-dynamic (lambda (sim)))
+                          (elastic-solver 'mpm-sim-quasi-static)
                           (explicit-dynamic-solver 'cl-mpm::mpm-sim-usf))
   (let ((damping-0 (cl-mpm/setup::estimate-critical-damping sim)))
     (when steps
@@ -1088,44 +1089,69 @@
     (let ((quasi-static-solver (class-of sim))
           (load-steps conv-load-steps)
           (i 0))
+      (let ((temp-sim (copy-instance sim)))
+        (change-class temp-sim elastic-solver)
 
-      (reset-mp-velocity sim)
-      (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
-      (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
-      (set-mp-plastic-damage sim :enable-plastic nil :enable-damage nil)
-      (funcall setup-quasi-static sim)
-      (let ((gravity (cl-mpm:sim-gravity sim)))
-        (loop for lstp from 1 to load-steps
-              do
-                 (progn
-                   (setf (cl-mpm:sim-gravity sim)
-                         (* gravity (/ lstp load-steps)))
-                   (cl-mpm/dynamic-relaxation:converge-quasi-static
-                    sim
-                    :energy-crit 1d0;conv-criteria
-                    :oobf-crit conv-criteria
-                    :kinetic-damping nil
-                    :dt-scale (if conv-dt-scale conv-dt-scale dt-scale)
-                    :conv-steps 1000
-                    :substeps substeps
-                    :damping-factor damping-factor
-                    :post-iter-step
-                    (lambda (j e o)
-                      ;; (refine-mesh sim)
-                      (incf i)
-                      (save-conv-step sim output-dir *total-iter* 0 0d0 o e)
-                      (incf *total-iter* substeps)
-                      (save-vtks sim output-dir i "conv")
-                      ;; (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_conv_~5,'0d.vtk" i)) sim)
-                      ;; (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_conv_nodes__~5,'0d.vtk" i)) sim)
-                      ;; (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_conv_cells__~5,'0d.vtk" i)) sim)
-                      )
-                    )
-                   (cl-mpm::finalise-loadstep sim))))
-      (setf (cl-mpm::sim-time sim) 0d0)
-      (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
-      (reset-mp-velocity sim)
-      (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
+        (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep temp-sim) 0d0)
+        (setf (cl-mpm::sim-dt temp-sim) 0d0)
+        (setf (cl-mpm::sim-velocity-algorithm temp-sim) :QUASI-STATIC)
+        (set-mp-plastic-damage temp-sim :enable-plastic nil :enable-damage nil)
+        ;; find initial quasi-static formation
+        (cl-mpm/dynamic-relaxation:converge-quasi-static
+         temp-sim
+         :energy-crit conv-criteria
+         :oobf-crit conv-criteria
+         :kinetic-damping nil
+         :dt-scale dt-scale
+         :conv-steps 10000
+         :substeps substeps
+         :damping-factor (sqrt 2d0)
+         :post-iter-step
+         (lambda (i e o)
+           (save-conv-step temp-sim output-dir *total-iter* 0 0d0 o e)
+           (incf *total-iter* substeps)
+           (save-vtks temp-sim output-dir i "conv")
+           (funcall plotter temp-sim)))
+        (cl-mpm::finalise-loadstep temp-sim)
+        (cl-mpm::reset-grid (cl-mpm:sim-mesh temp-sim) :reset-displacement t))
+
+      ;; (reset-mp-velocity sim)
+      ;; (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
+      ;; (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
+      ;; (set-mp-plastic-damage sim :enable-plastic nil :enable-damage nil)
+      ;; (funcall setup-quasi-static sim)
+      ;; (let ((gravity (cl-mpm:sim-gravity sim)))
+      ;;   (loop for lstp from 1 to load-steps
+      ;;         do
+      ;;            (progn
+      ;;              (setf (cl-mpm:sim-gravity sim)
+      ;;                    (* gravity (/ lstp load-steps)))
+      ;;              (cl-mpm/dynamic-relaxation:converge-quasi-static
+      ;;               sim
+      ;;               :energy-crit 1d0;conv-criteria
+      ;;               :oobf-crit conv-criteria
+      ;;               :kinetic-damping nil
+      ;;               :dt-scale (if conv-dt-scale conv-dt-scale dt-scale)
+      ;;               :conv-steps 1000
+      ;;               :substeps substeps
+      ;;               :damping-factor damping-factor
+      ;;               :post-iter-step
+      ;;               (lambda (j e o)
+      ;;                 ;; (refine-mesh sim)
+      ;;                 (incf i)
+      ;;                 (save-conv-step sim output-dir *total-iter* 0 0d0 o e)
+      ;;                 (incf *total-iter* substeps)
+      ;;                 (save-vtks sim output-dir i "conv")
+      ;;                 ;; (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_conv_~5,'0d.vtk" i)) sim)
+      ;;                 ;; (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_conv_nodes__~5,'0d.vtk" i)) sim)
+      ;;                 ;; (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_conv_cells__~5,'0d.vtk" i)) sim)
+      ;;                 )
+      ;;               )
+      ;;              (cl-mpm::finalise-loadstep sim))))
+      ;; (setf (cl-mpm::sim-time sim) 0d0)
+      ;; (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
+      ;; (reset-mp-velocity sim)
+      ;; (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
 
       (cl-mpm:iterate-over-mps
        (cl-mpm:sim-mps sim)
