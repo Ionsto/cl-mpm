@@ -350,16 +350,18 @@
       t))
 
 (defmethod cl-mpm/dynamic-relaxation::damage-increment-criteria ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
-  (cl-mpm/dynamic-relaxation::compute-max-damage-energy-crit sim))
+  (cl-mpm/dynamic-relaxation::damage-increment-criteria-mp sim)
+  ;; (cl-mpm/dynamic-relaxation::compute-max-damage-energy-crit sim)
+  )
 
 (defun stability-qt-test ()
   (cl-mpm/utils:set-workers 8)
-  (let* ((heights (list 200d0))
+  (let* ((heights (list 1000d0))
          (floatations (list
                        ;;0d0
                        ;; 0.25d0
                        ;; 0.5d0
-                       0d0
+                       1d0
                        ;; 1d0
                             )))
     (defparameter *stability* (make-array (list (length heights) (length floatations)) :initial-element nil
@@ -379,14 +381,15 @@
                                  (output-dir (format nil "./output-~f-~f/" height flotation)))
                             (format t "Problem ~f ~f~%" height flotation)
                             (defparameter *length-scaler* 2d0)
-                            (setup :refine 1d0
+                            (defparameter *length-scale* 10d0)
+                            (setup :refine 2d0
                                    :multigrid-refines 0
                                    :friction 0d0
                                    :ice-height height
                                    :mps mps
                                    :hydro-static nil
                                    :cryo-static t
-                                   :aspect 4d0
+                                   :aspect 1d0
                                    :slope 0d0
                                    ;; :bench-length (* 1d0 height)
                                    :floatation-ratio flotation
@@ -397,24 +400,9 @@
                               (setf (cl-mpm/dynamic-relaxation::sim-intra-mesh-aggregation *sim*) t)
                               (setf (cl-mpm/dynamic-relaxation::sim-octree-refinement-criteria *sim*)
                                     (lambda (sim mesh c)
-                                      ;; (let ((grad-mag 0d0))
-                                      ;;   (cl-mpm::cell-iterate-over-neighbours
-                                      ;;    mesh c
-                                      ;;    (lambda (c v n w grads)
-                                      ;;      (setf grad-mag
-                                      ;;            (max
-                                      ;;             grad-mag
-                                      ;;             (cl-mpm/mesh::node-vm-stress-error n)
-                                      ;;             ;; (cl-mpm/fastmaths::mag (cl-mpm/mesh::node-strain-gradient n))
-                                      ;;             ))))
-                                      ;;   (> (* grad-mag (cl-mpm/mesh::cell-h c)) *refine-crit*)
-                                      ;;   ;; (> grad-mag *refine-crit*)
-                                      ;;   )
-
                                       (multiple-value-bind (damage damage-y length)
                                           (cl-mpm/dynamic-relaxation::damage-refinement-criteria sim mesh c)
-                                        (> damage 0d0))
-                                      )))
+                                        (> damage 0d0)))))
                             (plot-domain)
                             (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
                             (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
@@ -429,11 +417,11 @@
                                         ;; :steps 1000
                                         :dt-scale 0.9d0
                                         :conv-criteria 1d-3
-                                        :substeps 20
+                                        :substeps (* 20 (round height 100))
                                         :min-adaptive-steps -8
                                         :max-adaptive-steps 8
                                         :adaption-constant 4
-                                        :max-damage-inc 0.1d0
+                                        :max-damage-inc 0.9d0
                                         :max-plastic-inc nil
                                         :save-vtk-dr t
                                         :save-vtk-loadstep t
