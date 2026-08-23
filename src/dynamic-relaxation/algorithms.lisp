@@ -318,13 +318,16 @@
                                       (stagger-damage nil))
   (let* ((damage-prev (get-damage sim))
          (damage damage-prev)
-         (crit (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
+         ;; (crit (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
+         ;; (crit (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
          (oobf-crit   crit)
          (energy-crit 1d0)
          (damage-crit crit)
          (dconv damage-crit)
          (total-i 0))
-    (setf (cl-mpm:sim-enable-damage sim) nil)
+    (setf
+     (cl-mpm/dynamic-relaxation::sim-convergence-critera sim) crit
+     (cl-mpm:sim-enable-damage sim) nil)
     (set-mp-plastic-damage
      sim
      :enable-damage enable-damage
@@ -471,7 +474,7 @@
                     do (progn
                          (loop for stagger-i from 0 to 100
                                while (or
-                                      ;; (<= stagger-i 1)
+                                      (<= stagger-i 1)
                                       (>= dconv damage-crit)
                                       (>= (cl-mpm::sim-stats-oobf sim) oobf-crit))
                                do
@@ -506,7 +509,29 @@
                                        (when save-vtk-dr
                                          (save-vtks-dr-step sim output-dir global-step *trial-iter* total-i))
                                        (incf *total-iter* substeps)
+                                       (when (cl-mpm::sim-enable-damage sim)
+                                         (setf dconv (compute-damage-delta sim))
+                                         (format t "d-conv subiter ~E~%" dconv))
 
+                                       ;; (when (and enable-damage
+                                       ;;            (not stagger-damage)
+                                       ;;            (> stagger-i 1))
+                                       ;;   (let ((dconv-1 (compute-damage-delta sim)))
+                                       ;;     (setf dconv dconv-1)
+                                       ;;     (cl-mpm:sim-format sim t "subiter-step ~D/~D - d-conv ~E ~A~%" stagger-i 0 dconv stagger-damage)
+                                       ;;     (loop for d from 1 to 100
+                                       ;;           when (>= dconv damage-crit)
+                                       ;;             do (progn
+                                       ;;                  (cl-mpm/damage::calculate-damage
+                                       ;;                   sim
+                                       ;;                   (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
+                                       ;;                  (setf dconv (compute-damage-delta sim))
+                                       ;;                  (cl-mpm:sim-format sim t "step ~D/~D - d-conv ~E~%" stagger-i d dconv)
+                                       ;;                  (save-conv-step sim output-dir *total-iter* global-step 0d0 (cl-mpm::sim-stats-oobf sim) 0d0)
+                                       ;;                  (incf *total-iter*)
+                                       ;;                  (check-damage-increment sim :max-damage-inc max-damage-inc)
+                                       ;;                  ))
+                                       ;;     (setf dconv dconv-1)))
                                        (refine-mesh sim)))
                                     (when enable-damage
                                       (setf (cl-mpm:sim-enable-damage sim) enable-damage)
@@ -1055,6 +1080,7 @@
                           (save-vtk-dr t)
                           (save-vtk-loadstep t)
                           (max-plastic-inc 1d0)
+                          (max-deformation-gradient 10d0)
                           (max-damage-inc 0.6d0)
                           (min-damage-inc 0d0)
                           (setup-quasi-static (lambda (sim)))
@@ -1165,9 +1191,7 @@
       (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) dt)
       (funcall setup-quasi-static sim)
       (let* ((current-adaptivity 0)
-             (prev-steps-easy (list t t))
              (easy-step-counter 0)
-             (prev-step-iter 0)
              (elastic-dt (if elastic-dt elastic-dt (cl-mpm/setup::estimate-elastic-dt sim)))
              (max-steps (floor total-time (/ dt (expt adaption-constant max-adaptive-steps))))
              )
@@ -1208,12 +1232,14 @@
                                                      :conv-criteria-damage conv-criteria
                                                      :max-damage-inc max-damage-inc
                                                      :max-plastic-inc max-plastic-inc
+                                                     :max-deformation-gradient max-deformation-gradient
                                                      :stagger-damage nil
                                                      :save-vtk-dr save-vtk-dr)
                                   (setf quasi-conv conv
                                         stagger-iters inc-steps)
                                   (cl-mpm:sim-format sim t "Quasi-conv? ~A~%" quasi-conv)
                                   (unless quasi-conv
+                                    (setf easy-step-counter 0)
                                     (when (= current-adaptivity max-adaptive-steps)
                                       (cl-mpm:sim-format sim t "Quasi-time terminated as too many dt refinemets are required~%"))
                                     (when (<= (sim-dt-loadstep sim) (* elastic-dt-margin elastic-dt))
@@ -1227,32 +1253,27 @@
                                       (incf i 1)))))
                            finally (progn
                                      (cl-mpm:sim-format sim t "Finished with ~D dt adaptions - stagger iters ~D - conv ~A~%" (- i 1) stagger-iters quasi-conv)
-                                     (incf prev-step-iter)
                                      (when (> min-damage-inc 0d0)
                                        (format t "End of step max damage inc ~E~%" (damage-increment-criteria sim)))
                                      (if (and (= i 1)
+                                              quasi-conv
                                               (if (> min-damage-inc 0d0)
                                                   (< (damage-increment-criteria sim) min-damage-inc)
-                                                  t
-                                                  ;; (<= stagger-iters 3)
-                                                  ))
+                                                  t))
                                          (progn
                                            (incf easy-step-counter)
-                                           (setf (nth (mod prev-step-iter (length prev-steps-easy)) prev-steps-easy) t)
                                            (cl-mpm:sim-format sim t "Potential adaption easy steps ~A~%" easy-step-counter)
                                            (when (>= easy-step-counter 8)
                                              (setf current-adaptivity
                                                    (max min-adaptive-steps
                                                         (- current-adaptivity 1))))
-                                           ;; (cl-mpm:sim-format sim t "Potential adaption easy steps ~A~%" prev-steps-easy)
-                                           ;; (when (every #'identity prev-steps-easy)
                                            ;;   (setf current-adaptivity
                                            ;;         (max min-adaptive-steps
                                            ;;              (- current-adaptivity 1))))
                                            )
                                          (progn
                                            (setf easy-step-counter 0)
-                                           (setf (nth (mod prev-step-iter 2) prev-steps-easy) nil))))))
+                                           )))))
                    (unless quasi-conv
                      ;;We've adapted down to a min
                      (cl-mpm:sim-format sim t "Start real-timestepping~%")
@@ -1397,6 +1418,7 @@
                            (damping 1d0)
                            (kinetic-damping nil)
                            (criteria 1d-3)
+                           (max-plastic-inc nil)
                            (conv-steps 50)
                            (post-conv-step (lambda (sim)))
                            (post-iter-step (lambda (sub-iter oobf energy)))
@@ -1452,6 +1474,7 @@
                        :substeps substeps
                        :damping damping
                        :sub-conv-steps conv-steps
+                       :max-plastic-inc max-plastic-inc
                        :post-iter-step
                        (lambda (i energy oobf)
                          (funcall post-iter-step i energy oobf)

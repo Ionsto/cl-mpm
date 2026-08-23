@@ -252,10 +252,8 @@
              yield-func f
              ;; p-wave (* 1.0d0 pmod)
              )
-            (when (> inc 0d0)
+            (when t;(> inc 0d0)
               (setf p-wave (* 1.0d0 pmod)))
-            ;; (when (> f 0d0)
-            ;;   (format t "P-wave adjusted ~E - ~E~%" pmod p-wave))
             (let (;; (inc (expt (* 1/3 (max 0d0
                   ;;                        (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
                   ;;                           (cl-mpm/utils::trace-voigt strain)))) 1))
@@ -816,7 +814,7 @@
                    (stress        cl-mpm/particle::mp-stress)
                    (undamaged-stress-kirchoff cl-mpm/particle::mp-undamaged-stress)
                    (strain cl-mpm/particle::mp-strain)
-                   (p-mod         cl-mpm/particle::mp-p-modulus-0)
+                   (p-mod cl-mpm/particle::mp-p-modulus-0)
                    (E cl-mpm/particle::mp-e)
                    (nu cl-mpm/particle::mp-nu)
                    (de cl-mpm/particle::mp-elastic-matrix)
@@ -830,32 +828,31 @@
       (let* ((undamaged-stress (cl-mpm/fastmaths:fast-scale-voigt
                                 (cl-mpm/constitutive::linear-elastic-mat strain de)
                                 (/ 1d0 j)))
-             (exponent 1)
              (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
              (pressure (* pressure damage))
-             ;; (pind (- p pressure))
-             (pind p)
+             (pind (- p pressure))
+             ;; (pind p)
              (p-deg 0d0)
              (s (cl-mpm/constitutive::deviatoric-voigt undamaged-stress)))
         (declare (double-float damage-t damage-c damage-s p-deg))
         (setf
          p-deg
          (if (> pind 0d0)
-             (- 1d0 (expt damage-t exponent))
-             (- 1d0 (expt damage-c exponent))))
+             (- 1d0 damage-t)
+             (- 1d0 damage-c)))
         (setf p (* p p-deg))
         ;; (setf pressure (* pressure p-deg))
         (setf stress
               (cl-mpm/fastmaths:fast-.+
                (cl-mpm/constitutive::voight-eye (- p pressure))
-               (cl-mpm/fastmaths:fast-scale! s (- 1d0 (expt damage-s exponent)))
+               (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage-s))
                stress))
         (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
                (G (/ e (* 2 (+ 1d0 nu))))
                (P-0 (+ K (* 4/3 G))))
           (declare (double-float K G P-0 e nu))
           (setf K (* K p-deg))
-          (setf G (* G (- 1d0 (expt damage-s exponent))))
+          (setf G (* G (- 1d0 damage-s)))
           (setf p-mod
                 (max
                  (* 1d-6 P-0)

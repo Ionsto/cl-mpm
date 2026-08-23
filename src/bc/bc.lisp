@@ -160,6 +160,7 @@
                    (setf (varef (cl-mpm/mesh:node-velocity node) d) 0d0)
                    (setf (varef (cl-mpm/mesh:node-acceleration node) d) 0d0)
                    (setf (varef (cl-mpm/mesh::node-displacment node) d) 0d0)
+                   (setf (varef (cl-mpm/mesh::node-true-velocity node) d) 0d0)
                    (setf (varef (cl-mpm/mesh::node-external-force node) d) 0d0)
                    (setf (varef (cl-mpm/mesh::node-internal-force node) d) 0d0)
                    (setf (varef (cl-mpm/mesh::node-residual node) d) 0d0)
@@ -167,7 +168,8 @@
                    (setf (varef (cl-mpm/mesh::node-ghost-force node) d) 0d0)
                    (setf (varef (cl-mpm/mesh::node-buoyancy-force node) d) 0d0)
                    (setf (varef (cl-mpm/mesh::node-damping-force node) d) 0d0)
-                   (setf (varef (cl-mpm/mesh::node-force node) d) 0d0)))))))
+                   (setf (varef (cl-mpm/mesh::node-force node) d) 0d0)
+                   ))))))
 
 (defmethod apply-bc ((bc bc-constant-velocity) node mesh dt)
   "Fixed velocity BC over some dimensions"

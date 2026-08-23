@@ -123,8 +123,11 @@
 
 
 
+
+
 (defmethod map-stiffness ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
   (map-stiffness-quasi-static sim))
+
 
 (defgeneric update-node-fictious-mass (sim))
 
@@ -807,3 +810,4 @@
     (map-stiffness-quasi-static sim)
     (cl-mpm/aggregate::update-mass-matrix sim)
     (setf dt 1d0)))
+

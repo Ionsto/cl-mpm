@@ -880,16 +880,34 @@
          (ddf (cl-mpm/fastmaths::fast-scale! (cl-mpm/fastmaths:fast-.- df (cl-mpm/utils:matrix-eye 1d0)) (/ 1d0 h))))
     (cl-mpm/fastmaths:fast-.+ (cl-mpm/utils:matrix-eye 1d0) ddf)))
 
+(defun compute-deformation-aspect-2d (mp)
+  (let* ((df (cl-mpm/particle::mp-deformation-gradient-increment mp))
+         ;; (lens (magicl:@ df (cl-mpm/utils:vector-from-list (list 1d0 1d0 0d0))))
+         (df-2d (cl-mpm/utils::slice-matrix-2d df))
+         )
+    ;; (pprint df-2d)
+    (multiple-value-bind (l v) (cl-mpm/utils:eig
+                                (cl-mpm/fastmaths::fast-@-arbt-arb df-2d df-2d))
+      (destructuring-bind (l0 l1) l
+        (sqrt (/ l1 l0))))
+    ;; (let ((lens-2d (list (cl-mpm/utils:varef lens 0)
+    ;;                      (cl-mpm/utils:varef lens 1))))
+    ;;   (/ (reduce #'max lens-2d)
+    ;;      (reduce #'min lens-2d)))
+    ))
+
 (defun compute-max-deformation-2d (sim)
   (cl-mpm::reduce-over-global-mps-max
    sim
-   (lambda (mp)
-     (let* ((df (cl-mpm/particle::mp-deformation-gradient-increment mp))
-            (lens (magicl:@ df (cl-mpm/utils:vector-from-list (list 1d0 1d0 0d0)))))
-       (let ((lens-2d (list (cl-mpm/utils:varef lens 0)
-                            (cl-mpm/utils:varef lens 1))))
-         (/ (reduce #'max lens-2d)
-            (reduce #'min lens-2d))))))
+   #'compute-deformation-aspect-2d
+   ;; (lambda (mp)
+   ;;   (let* ((df (cl-mpm/particle::mp-deformation-gradient-increment mp))
+   ;;          (lens (magicl:@ df (cl-mpm/utils:vector-from-list (list 1d0 1d0 0d0)))))
+   ;;     (let ((lens-2d (list (cl-mpm/utils:varef lens 0)
+   ;;                          (cl-mpm/utils:varef lens 1))))
+   ;;       (/ (reduce #'max lens-2d)
+   ;;          (reduce #'min lens-2d)))))
+   )
   ;; (cl-mpm::reduce-over-cells
   ;;  (cl-mpm:sim-mesh sim)
   ;;  (lambda (c)
@@ -1138,11 +1156,28 @@
             (lambda (mp)
               (if (typep mp 'cl-mpm/particle::particle-damage)
                   (with-accessors ((volume cl-mpm/particle::mp-volume)
-                                   (stress cl-mpm/particle::mp-undamaged-stress)
+                                   (stress cl-mpm/particle::mp-stress)
+                                   (strain cl-mpm/particle::mp-strain)
                                    (damage-inc cl-mpm/particle::mp-damage-increment)
-                                   (strain cl-mpm/particle::mp-strain))
+                                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
+                                   (k cl-mpm/particle::mp-history-stress)
+                                   (k-n cl-mpm/particle::mp-history-stress-n))
                       mp
-                    (* 0.5d0 volume damage-inc (cl-mpm/fastmaths:dot stress strain)))
+                    (let ((k-temp k)
+                          (e-d-n 0d0)
+                          (e-d 0d0))
+                      (declare (double-float volume j))
+                      (setf k k-n)
+                      (cl-mpm/damage::compute-damage mp)
+                      (cl-mpm/particle::post-damage-step mp (cl-mpm:sim-dt sim))
+                      (setf e-d-n (* 0.5d0 volume j (cl-mpm/fastmaths:dot stress strain)))
+                      (setf k k-temp)
+                      (cl-mpm/damage::compute-damage mp)
+                      (cl-mpm/particle::post-damage-step mp (cl-mpm:sim-dt sim))
+                      (setf e-d (* 0.5d0 volume j (cl-mpm/fastmaths:dot stress strain)))
+                      (expt (- e-d e-d-n) 2))
+                    ;; (* 0.5d0 volume damage-inc (cl-mpm/fastmaths:dot stress strain))
+                    )
                   0d0))))
          (undamaged-energy
            (cl-mpm::reduce-over-global-mps-sum
@@ -1150,13 +1185,16 @@
             (lambda (mp)
               (if (typep mp 'cl-mpm/particle::particle-damage)
                   (with-accessors ((volume cl-mpm/particle::mp-volume)
-                                   (stress cl-mpm/particle::mp-undamaged-stress)
+                                   (stress cl-mpm/particle::mp-stress)
                                    (damage-n cl-mpm/particle::mp-damage-n)
                                    (damage cl-mpm/particle::mp-damage)
+                                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
                                    (strain cl-mpm/particle::mp-strain))
                       mp
-                    (* 0.5d0 volume (- 1d0 damage) (cl-mpm/fastmaths:dot stress strain)))
+                      (declare (double-float volume j))
+                    (expt (* 0.5d0 volume j (cl-mpm/fastmaths:dot stress strain)) 2))
                   0d0)))))
+    (declare (double-float undamaged-energy energy))
     ;; (format t "Energy reduction ~E - undamaged energy ~E ~%" energy undamaged-energy)
     (if (> undamaged-energy 0d0)
         (/ energy undamaged-energy)
@@ -1215,10 +1253,9 @@
     (cl-mpm:sim-format sim t "Deformation gradient ~E~%" max-def)
     (when (> max-def max-deformation-gradient)
       (cl-mpm:sim-format sim t "Deformation gradient criteria exceeded ~E~%" max-def)
-      (error (make-instance 'non-convergence-error
+      (error (make-instance 'error-deformation-gradient
                             :text "Deformation gradient J exceeded"
-                            :ke-norm 0d0
-                            :oobf-norm 0d0)))))
+                            :deformation-gradient max-def)))))
 (defmethod check-true-inertia (sim &key (max-inertia 1d-3))
   (let ((true-intertia (true-intertial-criteria sim (sim-dt-loadstep sim))))
     (cl-mpm:sim-format sim t "True intertia ~E~%" true-intertia)
@@ -1244,10 +1281,9 @@
         (format t "Damage increment criteria ~E~%" damage-inc)
         (when (> damage-inc max-damage-inc)
           (cl-mpm:sim-format sim t "Damage criteria failed~%")
-          (error (make-instance 'non-convergence-error
-                  :text "Damage criteria exeeded"
-                  :ke-norm 0d0
-                  :oobf-norm 0d0)))))))
+          (error (make-instance 'error-damage-criteria
+                  :text "Damage criteria exceeded"
+                  :max-damage-inc damage-inc)))))))
 (defmethod check-plastic-increment ((sim cl-mpm::mpm-sim) &key (max-plastic-inc 0.1d0))
   (when max-plastic-inc
     (let ((plastic-inc (plastic-increment-criteria sim)))

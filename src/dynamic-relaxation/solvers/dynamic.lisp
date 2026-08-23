@@ -142,6 +142,7 @@
                        (enable-aggregate cl-mpm/aggregate::sim-enable-aggregate))
           sim
         (declare (double-float damping damping-scale))
+        (cl-mpm::apply-essential-bcs sim)
         (cl-mpm:iterate-over-nodes
          mesh
          (lambda (node)
@@ -342,6 +343,7 @@
     (loop for bcs-f in bcs-force-list
           do (loop for bc across bcs-f
                    do (cl-mpm/bc::assemble-bc-stiffness sim bc)))
+    (cl-mpm::apply-essential-bcs sim)
 
     (cl-mpm/ghost::apply-ghost-stiffness sim)
 

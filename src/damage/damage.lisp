@@ -655,10 +655,7 @@ Calls the function with the mesh mp and node"
                  ;; (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
                  ;;
                  (weight
-                   (weight-func-mps mesh mp mp-other
-                                    ;; (sqrt (* length ll))
-                                    (min length ll)
-                                    )
+                   (weight-func-mps mesh mp mp-other (sqrt (* length ll)))
                    ;; (weight-func-mps mesh mp mp-other length)
                    ;; (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))
                    ;; (weight-func-mps mesh mp mp-other ll)
@@ -832,7 +829,8 @@ Calls the function with the mesh mp and node"
 (declaim (notinline length-localisation))
 (defun length-localisation (local-length local-length-damaged damage)
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  (* local-length (max (- 1d0 damage) 1d-10))
+  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
   ;; (* local-length (max (expt (- 1d0 damage) 2) 1d-10))
   ;; (* local-length (max (- 1d0 damage) 1d-10))
   ;; local-length

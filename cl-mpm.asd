@@ -6,7 +6,6 @@
 ;; (defsystem "symbolic-derivation"
 ;;   :description "Symbolic derivation library from #TODO"
 ;;   :author "Aleksander Ksiazek"
-
 ;;   :serial t
 ;;   :components ((:file "src/core/symbolic-derivation")))
 
@@ -886,6 +885,17 @@
                 ((:module "damage"
                   :components
                   ((:file "triaxial")))))))
+
+(defsystem "cl-mpm/examples/damage/fragmentation"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:module "examples"
+                :components
+                ((:module "damage"
+                  :components
+                  ((:file "fragmentation")))))))
+
+
 
 
 

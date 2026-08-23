@@ -70,6 +70,7 @@
   ()
   (:documentation "DR implicit quasi-static wrapper class"))
 
+
 (defclass mpm-sim-dr-paper (mpm-sim-dr-ul)
   ()
   (:documentation "DR implicit quasi-static wrapper class"))
@@ -120,3 +121,6 @@
 
 (define-condition error-velocity-criteria (non-convergence-error)
   ((velocity :initarg :velocity :reader velocity)))
+
+(define-condition error-deformation-gradient (non-convergence-error)
+  ((def-grad :initarg :deformation-gradient :reader def-grad)))

@@ -207,6 +207,7 @@
                       (cl-mpm/mesh::cell-active cell)
                       (not (cl-mpm/mesh::cell-partial cell))
                       (not (cl-mpm/mesh::cell-agg cell))
+                      ;; (> volume (* volume-t volume-ratio-min))
                       (not (eq cell exclude))
                       (funcall filter cell))
                  (let ((dist-tr (cl-mpm/fastmaths::diff-norm

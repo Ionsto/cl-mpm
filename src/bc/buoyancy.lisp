@@ -399,7 +399,7 @@
                                              (* 0.25d0 (/
                                                         (cl-mpm/mesh::node-volume n)
                                                         (cl-mpm/mesh::node-volume-true n))))))
-                            (when (< vest 0.5d0)
+                            (when (< vest 0.8d0)
                               (setf boundary t)
                               (loop for n across nodes
                                     do
@@ -1071,7 +1071,7 @@
                      mp-boundary 0d0)))))
         ;;Populate pressure on MPs
         (let ((gravity (cl-mpm::sim-gravity sim)))
-          (declare (double-float rho gravity))
+          (declare (double-float rho gravity datum))
           (cl-mpm:iterate-over-mps
            mps
            (lambda (mp)
@@ -1082,52 +1082,47 @@
                               (mp-boundary cl-mpm/particle::mp-boundary)
                               (mp-volume cl-mpm/particle::mp-volume)
                               (damage cl-mpm/particle::mp-damage)
+                              (mp-volume-0 cl-mpm/particle::mp-volume-0)
+                              (mp-mass cl-mpm/particle::mp-mass)
                               (mp-body-force cl-mpm/particle::mp-body-force))
                  mp
-               (let (;; (pos (get-mp-position mp))
-                     )
-                 (setf
-                  pressure
-                  (* (calculate-val-scalar-mp-gimp
-                      mesh
-                      mp
-                      (lambda (pos)
-                        (pressure-at-depth
-                         (varef pos 1)
-                         datum
-                         rho
-                         (cl-mpm:sim-gravity sim)))))
-                  ;; (pressure-at-depth
-                  ;;  (varef pos 1)
-                  ;;  datum
-                  ;;  rho
-                  ;;  (cl-mpm:sim-gravity sim))
-                  )
-                 (setf (varef (cl-mpm/particle::mp-body-force mp) 1) 0d0)
-                 (when (and (typep mp 'cl-mpm/particle::particle-damage)
-                            (> (cl-mpm/particle::mp-damage mp) 0d0))
-                   (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
-                         (calculate-val-scalar-mp-gimp
-                          mesh
-                          mp
-                          (lambda (pos)
-                            (*
-                             (if (< (varef pos 1) datum) 1d0 0d0)
-                             damage
-                             ;; rho
-                             (- rho (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume-0 mp)))
-                             ;; (- rho (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp)))
-                             ;; (- rho 918d0)
-                             gravity)))))
-                 (cl-mpm::iterate-over-neighbours
-                  mesh mp
-                  (lambda (node svp grads fsvp fgrad)
-                    (declare (double-float mp-boundary svp damage rho datum))
-                    (when t
-                      (when node
-                        (setf mp-datum datum
-                              mp-head rho)
-                        (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node))))))))))))
+               (declare (double-float mp-mass mp-volume-0 damage))
+               (setf
+                pressure
+                (calculate-val-scalar-mp-gimp
+                 mesh
+                 mp
+                 (lambda (pos)
+                   (pressure-at-depth
+                    (varef pos 1)
+                    datum
+                    rho
+                    (cl-mpm:sim-gravity sim)))))
+               (setf (varef (cl-mpm/particle::mp-body-force mp) 1) 0d0)
+               (when (and (typep mp 'cl-mpm/particle::particle-damage)
+                          (> damage 0d0))
+                 (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
+                       (calculate-val-scalar-mp-gimp
+                        mesh
+                        mp
+                        (lambda (pos)
+                          (*
+                           (if (< (varef pos 1) datum) 1d0 0d0)
+                           damage
+                           ;; rho
+                           (- rho (/ mp-mass mp-volume-0))
+                           ;; (- rho (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp)))
+                           ;; (- rho 918d0)
+                           gravity)))))
+               (cl-mpm::iterate-over-neighbours
+                mesh mp
+                (lambda (node svp grads fsvp fgrad)
+                  (declare (double-float mp-boundary svp damage rho datum))
+                  (when t
+                    (when node
+                      (setf mp-datum datum
+                            mp-head rho)
+                      (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))))))))))
 
         (when (> dt 0d0)
           (let ((damping (bc-viscous-damping bc)))

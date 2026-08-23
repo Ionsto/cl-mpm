@@ -160,99 +160,21 @@
 ;;          (dk-1 (deriv-partial (+ k (* dt dk-0)) y-1 k0 tau n)))
 ;;     (+ k (* (/ dt 2) (+ dk-0 dk-1)))))
 
-;; (defun forwards-integration (k y-0 y-1 k0 tau n dt)
-;;   (+ k (* dt (deriv-partial k y-0 k0 tau n))))
-
-
-;; (defun test (int-scheme data-time data-y)
-;;   (let ((data-k (list 0d0))
-;;         (data-step (list))
-;;         (y-n 0d0)
-;;         (dt (- (second data-time) (first data-time)))
-;;         )
-;;     (loop for time in data-time
-;;           for y-n1 in data-y
-;;           for step from 0
-;;           do
-;;              (progn
-;;                (let* ((kn (funcall int-scheme
-;;                                    (first data-k)
-;;                                    y-n
-;;                                    y-n1
-;;                                    dt
-;;                                    ))
-;;                       )
-;;                  (setf y-n y-n1)
-;;                  (push kn data-k))
-;;                )
-;;           )
-;;     (reverse data-k)))
-
-;; (defun test-forwards ()
-;;   (let* ((t0 1d0)
-;;          (tau 1d0)
-;;          (dt 1d0)
-;;          (n 2d0)
-;;          (data-coarse-time (loop for time from 0d0 to 10d0 by 0.1d0 collect time))
-;;          (data-coarse-y (loop for time in data-coarse-time collect (+ time (sin time))))
-;;          (data-time (loop for time from 0d0 to 10d0 by dt collect time))
-;;          (data-y (loop for time in data-time collect (+ time (sin time)))))
-;;     (let ((test-f (test
-;;                    (lambda (k y0 y1 dt) (forwards-integration k y0 y1 t0 tau n dt))
-;;                    data-time
-;;                    data-y))
-;;           (test-huen (test
-;;                    (lambda (k y0 y1 dt) (huen-integration k y0 y1 t0 tau n dt))
-;;                    data-time
-;;                    data-y))
-;;           (test-back (test
-;;                       (lambda (k y0 y1 dt) (backwards-integration k y0 y1 t0 tau n dt))
-;;                       data-time
-;;                       data-y))
-;;           (test-mid (test
-;;                       (lambda (k y0 y1 dt) (midpoint-integration k y0 y1 t0 tau n dt))
-;;                       data-time
-;;                       data-y))
-;;           (test-coarse-euler (test
-;;                               (lambda (k y0 y1 dt) (forwards-integration k y0 y1 t0 tau n dt))
-;;                              data-coarse-time
-;;                              data-coarse-y))
-;;           (test-coarse-huen (test
-;;                              (lambda (k y0 y1 dt) (huen-integration k y0 y1 t0 tau n dt))
-;;                              data-coarse-time
-;;                              data-coarse-y))
-;;           (test-coarse-back (test
-;;                              (lambda (k y0 y1 dt) (backwards-integration k y0 y1 t0 tau n dt))
-;;                              data-coarse-time
-;;                              data-coarse-y))
-;;           )
-;;       (vgplot:plot
-;;        ;; data-time data-y "Y"
-;;        data-coarse-time data-coarse-y "Y coarse"
-;;        data-time test-f "K-euler"
-;;        data-time test-huen "K-huen"
-;;        data-time test-back "K-back"
-;;        data-time test-mid "K-mid"
-;;        data-coarse-time test-coarse-euler "K-euler-coarse"
-;;        ;; data-coarse-time test-coarse-huen "K-huen-coarse"
-;;        ;; data-coarse-time test-coarse-back "K-back-coarse"
-;;        ))
-    
-;;     ;; (test (lambda (k y0 y1 dt) (huen-integration k y0 y1     t0 tau n dt)))
-;;     ;; (test (lambda (k y0 y1 dt) (backwards-integration k y0 y1     t0 tau n dt)))
-;;     )
-
-;;  )
-
 
 (defun deriv-partial (k y k0 tau n)
   (declare (double-float k y k0 tau n))
-  (if (>= y k0)
+  (if t;(>= y k0)
       (/
        (* k0
-          (expt
-           (/ (the double-float (max 0d0 (- y k)))
-              k0) n))
+          (the double-float
+               (expt
+                (/
+                 (the double-float (max 0d0 (- y (max k k0))))
+                 ;; (the double-float (max 0d0 (- y k)))
+                 (max
+                  k0
+                  k
+                  )) n)))
        tau)
       0d0)
   ;; (if t;(> y k0)
@@ -269,7 +191,8 @@
   (declare (double-float k y-0 y-1 k0 tau n dt))
   (let* ((dk-0 (deriv-partial k y-0 k0 tau n))
          (dk-1 (deriv-partial (+ k (* dt dk-0)) y-1 k0 tau n)))
-    (+ k (* (/ dt 2) (+ dk-0 dk-1)))))
+    (declare (double-float dk-0 dk-1))
+    (the double-float (+ k (* (/ dt 2) (+ dk-0 dk-1))))))
 
 (defun forwards-integration (k y-0 y-1 k0 tau n dt)
   (declare (double-float k y-0 y-1 k0 tau n dt))
@@ -303,11 +226,9 @@
   (let* ((r 0)
          (kn0 (integrate-substep k y-0 y-1 dt (expt 2 r) function))
          (kn1 (integrate-substep k y-0 y-1 dt (expt 2 (1+ r)) function))
-         ;; (tol 1d-3)
-         (err tol)
-         )
+         (err tol))
     (when (> (max kn0 kn1) 0d0)
-      (loop for i from 0 to 10
+      (loop for i from 0 to 100
             while
             (and
              (> (max kn0 kn1) 0d0)
@@ -320,7 +241,9 @@
                   kn0 kn1
                   ;; (integrate-substep k y-0 y-1 dt (expt 2 r) function)
                   kn1 (integrate-substep k y-0 y-1 dt (expt 2 (1+ r)) function))
-                 (setf err (/ (abs (- kn0 kn1)) (max kn0 kn1))))))
+                 (setf err (/ (abs (- kn0 kn1)) (max kn0 kn1)))))
+      (when (> err tol)
+        (format t "Damage integration failed to hit bounds ~E ~E~%" err tol)))
     kn1))
 
 (defun secant-solver (k0 y0 y1 dt func)
