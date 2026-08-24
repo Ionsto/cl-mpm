@@ -494,7 +494,7 @@
                 (setf (cl-mpm/particle::mp-cached-nodes obj) (make-array 8 :fill-pointer 0 :element-type 'cl-mpm/particle::node-cache :initial-element (cl-mpm/particle::make-empty-node-cache)))
                 )
                (t
-                (setf (sb-mop:slot-value-using-class 'cl-mpm/mesh::node obj slot) (cl-store:restore-object stream)))))
+                (setf (sb-mop:slot-value-using-class 'cl-mpm/particle::particle obj slot) (cl-store:restore-object stream)))))
     obj))
 
 ;; (defvar *node-cache-code* (cl-store:register-code 113 'cl-mpm/particle::node-cache))
