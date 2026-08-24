@@ -14,8 +14,7 @@
              ;; (the double-float (max 0d0 (- y k)))
              (max
               k0
-              k
-              )) n)))
+              k)) n)))
    tau))
 
 (defun huen-integration (k y-0 y-1 k0 tau n dt)

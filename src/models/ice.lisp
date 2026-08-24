@@ -810,7 +810,7 @@
                    (damage-c      cl-mpm/particle::mp-damage-compression)
                    (damage-s      cl-mpm/particle::mp-damage-shear)
                    (stress        cl-mpm/particle::mp-stress)
-                   (undamaged-stress-kirchoff cl-mpm/particle::mp-undamaged-stress)
+                   (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                    (strain cl-mpm/particle::mp-strain)
                    (p-mod cl-mpm/particle::mp-p-modulus-0)
                    (E cl-mpm/particle::mp-e)
@@ -826,7 +826,8 @@
            ;; (> damage 0.0d0)
            )
       (let* ((undamaged-stress (cl-mpm/fastmaths:fast-scale-voigt
-                                (cl-mpm/constitutive::linear-elastic-mat strain de)
+                                ;; (cl-mpm/constitutive::linear-elastic-mat strain de)
+                                undamaged-stress
                                 (/ 1d0 j)))
              (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
              (pressure (* 1d0 pressure damage))
