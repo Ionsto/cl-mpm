@@ -1035,9 +1035,6 @@
     :initform nil
     ;:initform (cl-mpm/utils::vector-zeros)
     )
-   (damage-model
-    :accessor mp-damage-model
-    :initarg :damage-model)
    (enable-damage
     :accessor mp-enable-damage
     :initarg :enable-damage
