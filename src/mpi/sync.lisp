@@ -483,7 +483,7 @@
              ((eq 'cl-mpm/particle::cached-nodes (sb-mop:slot-definition-name slot))
               nil)
              (t
-              (cl-store:store-object (sb-mop:slot-value-using-class 'cl-mpm/mesh::node obj slot) stream)))))
+              (cl-store:store-object (sb-mop:slot-value-using-class 'cl-mpm/mesh::particle obj slot) stream)))))
 
 (cl-store:defrestore-cl-store (cl-mpm/particle::particle stream)
   (let ((obj (make-instance 'cl-mpm/particle::particle)))
