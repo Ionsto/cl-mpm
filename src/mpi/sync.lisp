@@ -474,28 +474,33 @@
    (sb-thread:make-mutex))
 
 
-(defvar *particle-code* (cl-store:register-code 100 'cl-mpm/particle::particle))
-(cl-store:defstore-cl-store (obj cl-mpm/particle::particle stream)
-  (cl-store:output-type-code *particle-code* stream)
-  (loop for slot in (cl-store:serializable-slots obj)
-        do
-           (cond
-             ((eq 'cl-mpm/particle::cached-nodes (sb-mop:slot-definition-name slot))
-              nil)
-             (t
-              (cl-store:store-object (sb-mop:slot-value-using-class 'cl-mpm/mesh::particle obj slot) stream)))))
+(defmethod cl-store:serializable-slots-using-class ((object t) (class cl-mpm/particle::particle))
+  (let ((slots-list (call-next-method)))
+    (declare (list slots-list))
+    (setf slots-list (delete 'cl-mpm/particle::cached-nodes slots-list :key 'c2mop:slot-definition-name))))
 
-(cl-store:defrestore-cl-store (cl-mpm/particle::particle stream)
-  (let ((obj (make-instance 'cl-mpm/particle::particle)))
-    (loop for slot in (cl-store:serializable-slots obj)
-          do
-             (cond
-               ((eq 'cl-mpm/particle::cached-nodes (sb-mop:slot-definition-name slot))
-                (setf (cl-mpm/particle::mp-cached-nodes obj) (make-array 8 :fill-pointer 0 :element-type 'cl-mpm/particle::node-cache :initial-element (cl-mpm/particle::make-empty-node-cache)))
-                )
-               (t
-                (setf (sb-mop:slot-value-using-class 'cl-mpm/particle::particle obj slot) (cl-store:restore-object stream)))))
-    obj))
+;; (defvar *particle-code* (cl-store:register-code 100 'cl-mpm/particle::particle))
+;; (cl-store:defstore-cl-store (obj cl-mpm/particle::particle stream)
+;;   (cl-store:output-type-code *particle-code* stream)
+;;   (loop for slot in (cl-store:serializable-slots obj)
+;;         do
+;;            (cond
+;;              ((eq 'cl-mpm/particle::cached-nodes (sb-mop:slot-definition-name slot))
+;;               nil)
+;;              (t
+;;               (cl-store:store-object (sb-mop:slot-value-using-class 'cl-mpm/mesh::particle obj slot) stream)))))
+
+;; (cl-store:defrestore-cl-store (cl-mpm/particle::particle stream)
+;;   (let ((obj (make-instance 'cl-mpm/particle::particle)))
+;;     (loop for slot in (cl-store:serializable-slots obj)
+;;           do
+;;              (cond
+;;                ((eq 'cl-mpm/particle::cached-nodes (sb-mop:slot-definition-name slot))
+;;                 (setf (cl-mpm/particle::mp-cached-nodes obj) (make-array 8 :fill-pointer 0 :element-type 'cl-mpm/particle::node-cache :initial-element (cl-mpm/particle::make-empty-node-cache)))
+;;                 )
+;;                (t
+;;                 (setf (sb-mop:slot-value-using-class 'cl-mpm/particle::particle obj slot) (cl-store:restore-object stream)))))
+;;     obj))
 
 ;; (defvar *node-cache-code* (cl-store:register-code 113 'cl-mpm/particle::node-cache))
 ;; (cl-store:defstore-cl-store (obj cl-mpm/particle::node-cache stream)
