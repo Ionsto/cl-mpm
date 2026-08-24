@@ -830,7 +830,7 @@
                                 undamaged-stress
                                 (/ 1d0 j)))
              (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
-             (pressure (* 1d0 pressure damage))
+             (pressure (* pressure damage))
              ;; (pind (- p pressure))
              (pind p)
              (p-deg 0d0)

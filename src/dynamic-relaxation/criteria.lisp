@@ -1232,7 +1232,9 @@
              (setf e-d (* 0.5d0 volume j (cl-mpm/fastmaths:dot stress strain)))
              (setf damage-n1 (cl-mpm/particle::mp-damage mp))
              ;; (format t "~E ~E - ~E ~E~%" damage-n damage-n1 e-d e-d-n)
-             (abs (/ (abs (- e-d e-d-n)) e-d))))
+             (if (> e-d 0d0)
+                 (abs (/ (abs (- e-d e-d-n)) e-d))
+                 0d0)))
          0d0))))
 
 
