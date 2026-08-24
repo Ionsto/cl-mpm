@@ -491,7 +491,7 @@
           do
              (cond
                ((eq 'cl-mpm/particle::cached-nodes (sb-mop:slot-definition-name slot))
-                (make-array 8 :fill-pointer 0 :element-type 'cl-mpm/particle::node-cache :initial-element (cl-mpm/particle::make-empty-node-cache))
+                (setf (cl-mpm/particle::mp-cached-nodes obj) (make-array 8 :fill-pointer 0 :element-type 'cl-mpm/particle::node-cache :initial-element (cl-mpm/particle::make-empty-node-cache)))
                 )
                (t
                 (setf (sb-mop:slot-value-using-class 'cl-mpm/mesh::node obj slot) (cl-store:restore-object stream)))))
