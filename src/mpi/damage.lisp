@@ -1,4 +1,5 @@
 (in-package :cl-mpm/mpi)
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
 ;; (defparameter *damage-mp-send-cache* (make-array 0 :element-type 'cl-mpm::particle :adjustable t :fill-pointer 0))
 (declaim (notinline mpi-sync-damage-mps))

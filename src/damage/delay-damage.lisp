@@ -1,191 +1,22 @@
 (in-package :cl-mpm/damage)
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
-;; (defun deriv-partial (k y k0 tau n)
-;;   (if (and (>= y k0) (>= y k))
-;;       (/
-;;        (* k0
-;;           (expt
-;;            (/ (the double-float (max 0d0 (- y k)))
-;;               k0) n))
-;;        tau)
-;;       0d0))
-
-;; (defun deriv-grad-partial (k y k0 tau n)
-;;   (if (and (>= y k0) (>= y k))
-;;       (* 1d0
-;;          (/
-;;           (* n
-;;              (if nil;(= 0d0 (max 0d0 (- y k)))
-;;                  1d0
-;;                  (expt
-;;                   (/ (the double-float (max 1d-15 (- y k)))
-;;                      k0) (- n 1))))
-;;           tau))
-;;       1d-15))
-
-;; (defun backwards-integration (k y-0 y-1 k0 tau n dt)
-;;   (let* ((r y-1)
-;;          (dr 0d0)
-;;          (f-tol 1d-10)
-;;          (f f-tol)
-;;          ;; (grad (deriv-grad-partial k y-0 y-1 k0 tau n dt))
-;;          (grad 0d0)
-;;          (flow 0d0)
-;;          (alpha 1d0)
-;;          (r-alpha k)
-;;          (y-alpha (+ y-0))
-;;          )
-;;     (if (>= y-1 k0)
-;;         (loop for i from 0 to 10
-;;               while (>= (abs f) f-tol)
-;;               do
-;;                  (progn
-;;                    ;; (setf f (+ (- r)
-;;                    ;;            k
-;;                    ;;            (* dt
-;;                    ;;               (deriv-partial r y-1 k0 tau n))
-;;                    ;;            ))
-;;                    ;; (setf
-;;                    ;;  flow
-;;                    ;;  (deriv-partial r y-1 k0 tau n)
-;;                    ;;  grad
-;;                    ;;  (deriv-grad-partial r y-1 k0 tau n)
-;;                    ;;  )
-;;                    ;; (format t "Step ~D - R ~E - f ~E - grad ~E - flow ~E~%" i r f grad flow)
-;;                    (setf r
-;;                          (+
-;;                           r
-;;                           (/
-;;                            (-
-;;                             (+ k
-;;                                (* dt
-;;                                   (deriv-partial r y-1 k0 tau n)))
-;;                             r
-;;                             )
-;;                            (+ 1d0 (* dt (deriv-grad-partial r y-1 k0 tau n)))
-;;                            ))
-;;                          )
-;;                    ;; (setf y-alpha (deriv-partial dr y-1 k0 tau n))
-;;                    ;; (setf r (max r k))
-;;                    (setf f (+ (- r)
-;;                               k
-;;                               (* dt
-;;                                  (deriv-partial r y-1 k0 tau n))
-;;                               ))
-
-;;                    ;; (format t "Step ~D - R ~E - f ~E - grad ~E~%" i r f dr)
-;;                    )
-;;               )
-;;         (progn
-;;           (setf f 0d0
-;;                 r k
-;;                 ))
-;;         )
-;;     ;; (when )
-;;     (when (> (abs f) f-tol)
-;;       (error "non-convergence"))
-;;     r))
-;; (defun midpoint-integration (k y-0 y-1 k0 tau n dt)
-;;   (let* ((r y-1)
-;;          (dr 0d0)
-;;          (f-tol 1d-10)
-;;          (f f-tol)
-;;          ;; (grad (deriv-grad-partial k y-0 y-1 k0 tau n dt))
-;;          (grad 0d0)
-;;          (flow 0d0)
-;;          (alpha 0.5d0)
-;;          (r-1 k)
-;;          (y (+ (* (- 1d0 alpha) y-0)
-;;                (* alpha y-1)))
-;;          )
-;;     (if (or (>= y-1 k0) (>= y-0 k0))
-;;         (loop for i from 0 to 10
-;;               while (>= (abs f) f-tol)
-;;               do
-;;                  (progn
-;;                    ;; (setf
-;;                    ;;  r
-;;                    ;;  (+ (* (- 1d0 alpha) k)
-;;                    ;;     (* alpha r-1))
-;;                    ;;  )
-;;                    ;; (setf f (+ (- r)
-;;                    ;;            k
-;;                    ;;            (* dt
-;;                    ;;               (deriv-partial r y k0 tau n))
-;;                    ;;            ))
-;;                    ;; (setf
-;;                    ;;  flow
-;;                    ;;  (deriv-partial r y k0 tau n)
-;;                    ;;  grad
-;;                    ;;  (deriv-grad-partial r y k0 tau n)
-;;                    ;;  )
-;;                    ;; (format t "Step ~D - R ~E - f ~E - grad ~E - flow ~E~%" i r f grad flow)
-;;                    (setf r
-;;                          (+
-;;                           r
-;;                           (/
-;;                            (-
-;;                             (+ k
-;;                                (* dt
-;;                                   alpha
-;;                                   (deriv-partial r y k0 tau n)))
-;;                             r
-;;                             )
-;;                            (+ 1d0 (* dt alpha (deriv-grad-partial r y k0 tau n)))
-;;                            )))
-;;                    (setf f (+ (- r)
-;;                               k
-;;                               (* dt
-;;                                  alpha
-;;                                  (deriv-partial r y k0 tau n))
-;;                               ))
-;;                    )
-;;               )
-;;         (progn
-;;           (setf f 0d0
-;;                 r k
-;;                 )))
-;;     (setf r
-;;           (+
-;;            k
-;;            (* dt
-;;               (deriv-partial r y k0 tau n))))
-;;     ;; (when )
-;;     (when (> (abs f) f-tol)
-;;       (error "non-convergence"))
-;;     r))
-
-;; (defun huen-integration (k y-0 y-1 k0 tau n dt)
-;;   (let* ((dk-0 (deriv-partial k y-0 k0 tau n))
-;;          (dk-1 (deriv-partial (+ k (* dt dk-0)) y-1 k0 tau n)))
-;;     (+ k (* (/ dt 2) (+ dk-0 dk-1)))))
 
 
 (defun deriv-partial (k y k0 tau n)
   (declare (double-float k y k0 tau n))
-  (if t;(>= y k0)
-      (/
-       (* k0
-          (the double-float
-               (expt
-                (/
-                 (the double-float (max 0d0 (- y (max k k0))))
-                 ;; (the double-float (max 0d0 (- y k)))
-                 (max
-                  k0
-                  k
-                  )) n)))
-       tau)
-      0d0)
-  ;; (if t;(> y k0)
-  ;;     (/
-  ;;      (* k0
-  ;;         (expt
-  ;;          (/ (the double-float (max 0d0 (- y k)))
-  ;;             k0) n))
-  ;;      tau)
-  ;;     0d0)
-  )
+  (/
+   (* k0
+      (the double-float
+           (expt
+            (/
+             (the double-float (max 0d0 (- y (max k k0))))
+             ;; (the double-float (max 0d0 (- y k)))
+             (max
+              k0
+              k
+              )) n)))
+   tau))
 
 (defun huen-integration (k y-0 y-1 k0 tau n dt)
   (declare (double-float k y-0 y-1 k0 tau n dt))
@@ -202,7 +33,8 @@
 (defun integrate-substep (k y-0 y-1 dt iters function)
   (declare (double-float k y-0 y-1 dt)
            (function function)
-           ((integer 1 1000000) iters))
+           ;; ((integer 1 1000000) iters)
+           )
   (let ((kprev k)
         (yprev y-0)
         (ycurrent y-0)

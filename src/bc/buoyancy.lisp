@@ -1108,7 +1108,7 @@
                         (lambda (pos)
                           (*
                            (if (< (varef pos 1) datum) 1d0 0d0)
-                           damage
+                           (expt damage 1)
                            ;; rho
                            (- rho (/ mp-mass mp-volume-0))
                            ;; (- rho (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp)))

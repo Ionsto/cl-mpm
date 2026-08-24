@@ -344,8 +344,27 @@
       (lambda (mp)
         (not (= rank (cl-mpm/particle::mp-mpi-index mp)))))))
 
+(defparameter *debug-mux-slots* (sb-thread:make-mutex))
+(defun test-slot-types (object)
+  (let ((slotlist (sb-mop:class-slots (class-of object))))
+    (dolist (s slotlist)
+      (let ((slot (sb-mop:slot-definition-name s)))
+        (when (slot-boundp object slot)
+          (let ((value (slot-value object slot))) 
+            (unless (typep value (sb-mop:slot-definition-type s))
+              (sb-thread:with-mutex (*debug-mux-slots*)
+                (format t "Slot ~A has a ~A - ~A~%" slot (type-of value) value)))))))))
+
+(defun test-mp-slots (mps)
+  (format t "Testing slots~%")
+  (cl-mpm::iterate-over-mps
+   mps
+   #'test-slot-types))
 
 (defun serialise-mps (mps)
+  (cl-mpm::iterate-over-mps-serial
+   mps
+   #'test-slot-types)
   (cl-store-encoder mps))
 
 (defun cl-store-decoder (x)
@@ -392,6 +411,7 @@
                             (* 2 (cl-mpm/mesh:mesh-resolution mesh))))
             (nd (cl-mpm/mesh:mesh-nd mesh))
             )
+        (test-mp-slots (cl-mpm:sim-mps sim))
         (loop for i from 0 below nd
               do
                  (let ((id-delta (list 0 0 0)))
@@ -474,6 +494,12 @@
 (cl-store:defrestore-cl-store (sb-thread:mutex stream)
    (sb-thread:make-mutex))
 
+
+(defmethod serializable-slots-using-class ((object t) (class cl-mpm/particle::particle))
+  (let ((slots-list (call-next-method)))
+    (declare (list slots-list))
+    (setf slots-list (delete 'cl-mpm/particle::cached-nodes slots-list :key 'c2mop:slot-definition-name))
+    slots-list))
 
 (defmethod cl-store:serializable-slots-using-class ((object t) (class cl-mpm/particle::particle))
   (let ((slots-list (call-next-method)))

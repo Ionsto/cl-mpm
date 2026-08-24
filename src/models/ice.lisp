@@ -213,7 +213,6 @@
                     (+
                      coheasion
                      (*
-                      ;; 1d0
                       0d0
                       pressure
                       damage-pressure))))
@@ -641,7 +640,6 @@
 
 (defmethod compute-damage ((mp cl-mpm/particle::particle-ice-brittle))
   (with-accessors ((k cl-mpm/particle::mp-history-stress)
-                   (k-n cl-mpm/particle::mp-history-stress-n)
                    (E cl-mpm/particle::mp-e)
                    (damage cl-mpm/particle:mp-damage)
                    (init-stress cl-mpm/particle::mp-initiation-stress)
@@ -654,7 +652,7 @@
                    (kt-r cl-mpm/particle::mp-k-tensile-residual-ratio)
                    (g-r cl-mpm/particle::mp-shear-residual-ratio))
       mp
-    (declare (double-float kt-r kc-r g-r damage k k-n))
+    (declare (double-float kt-r kc-r g-r damage k))
     ;; Directly compute the damage from K
     (let ()
       ;; (setf damage (damage-response-exponential k E init-stress ductility))
@@ -780,7 +778,7 @@
                                                       tau
                                                       tau-exp
                                                       s-dt))
-                   :tol 1d-1)
+                   :tol 1d-2)
                   ;; (cl-mpm/damage::secant-solver
                   ;;  k-n
                   ;;  ybar-prev
@@ -823,13 +821,15 @@
       mp
     (declare (double-float damage damage-t damage-c damage-s j pressure))
     (when (and
+           t
            ;; enable-damage
-           (> damage 0.0d0))
+           ;; (> damage 0.0d0)
+           )
       (let* ((undamaged-stress (cl-mpm/fastmaths:fast-scale-voigt
                                 (cl-mpm/constitutive::linear-elastic-mat strain de)
                                 (/ 1d0 j)))
              (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
-             (pressure (* pressure damage))
+             (pressure (* 1d0 pressure damage))
              ;; (pind (- p pressure))
              (pind p)
              (p-deg 0d0)
@@ -856,14 +856,7 @@
           (setf p-mod
                 (max
                  (* 1d-6 P-0)
-                 ;; p-mod
-                 (* (max 1d-6 (expt (/ (+ K (* 4/3 G)) P-0) 1)) p-mod)
-                 ;; (max (* p-mod p-deg)
-                 ;;      (+ K (* 4/3 G)))
-                 ))
-          ;; (setf (cl-mpm/particle::mp-p-modulus mp) (cl-mpm/particle::estimate-stiffness mp))
-          )
-        ))))
+                 (* (max 1d-6 (expt (/ (+ K (* 4/3 G)) P-0) 1)) p-mod))))))))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-brittle) dt)
   (with-accessors ((p cl-mpm/particle::mp-pressure)
