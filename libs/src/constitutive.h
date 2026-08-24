@@ -293,14 +293,23 @@ namespace constitutive{
                                                                               epsE[0],
                                                                               epsE[1],
                                                                               epsE[2],
-                                                                              0.0,0.0,0.0).finished()));
+                                                                                           0.0,0.0,0.0).finished()));
         double pmod_0 = (((1-nu)*E)/((1 + nu) * (1 - (2 * nu))));
         double pmod = pmod_0*1e-6;
-        for(int i = 0;i < 3;++i){
-          Eigen::Matrix<double,6,1> n = Eigen::Matrix<double,6,1>::Zero();
-          n(i) = 1.0;
-          pmod = std::max(pmod,(n.transpose() * dep * n)(0,0));
-        }
+
+        Eigen::Matrix<double,6,1> n = Eigen::Matrix<double,6,1>::Zero();
+        n(0) = 1.0;
+        double pmod_x = (n.transpose() * dep * n)(0,0);
+        n(0) = 0.0;
+        n(1) = 1.0;
+        double pmod_y = (n.transpose() * dep * n)(0,0);
+        // pmod = std::max(pmod,std::sqrt(pmod_x * pmod_y));
+        pmod = std::max(pmod,std::max(pmod_x, pmod_y));
+        // for(int i = 0;i < 2;++i){
+        //   Eigen::Matrix<double,6,1> n = Eigen::Matrix<double,6,1>::Zero();
+        //   n(i) = 1.0;
+        //   pmod = std::max(pmod,(n.transpose() * dep * n)(0,0));
+        // }
         //Eigen::Matrix<double,6,1> n = Eigen::Matrix<double,6,1>::Zero();
         //n(0) = 1.0;
         //pmod = std::max(pmod,(n.transpose() * dep * n)(0,0));

@@ -147,7 +147,7 @@
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static
                                                :args-list
                                                (list
-                                                :enable-fbar nil
+                                                :enable-fbar t
                                                 :enable-aggregate t
                                                 :split-factor (* 1.2d0 (sqrt 2) (/ 1d0 mps))
                                                 :enable-split nil
@@ -229,8 +229,8 @@
              (+ offset
                 (* alpha end-height)
                 (* (- 1d0 alpha) start-height))))
-         :k-x 1d0
-         :k-z 1d0
+         ;; :k-x 1d0
+         ;; :k-z 1d0
          ))
 
       (unless (= start-height end-height)
@@ -345,13 +345,14 @@
   (if (> (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
       (progn
         (pprint "Check velocity")
-        (cl-mpm/dynamic-relaxation::check-max-velocity sim :max-velocity 1d0)
+        (cl-mpm/dynamic-relaxation::check-max-velocity sim :max-velocity 1d-4)
         t)
       t))
 
 (defmethod cl-mpm/dynamic-relaxation::damage-increment-criteria ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
-  (cl-mpm/dynamic-relaxation::damage-increment-criteria-mp sim)
+  ;; (cl-mpm/dynamic-relaxation::damage-increment-criteria-mp sim)
   ;; (cl-mpm/dynamic-relaxation::compute-max-damage-energy-crit sim)
+  (cl-mpm/dynamic-relaxation::compute-max-damage-energy-crit-mp sim)
   )
 
 (defun stability-qt-test ()
@@ -382,14 +383,14 @@
                             (format t "Problem ~f ~f~%" height flotation)
                             (defparameter *length-scaler* 2d0)
                             (defparameter *length-scale* 10d0)
-                            (setup :refine 2d0
+                            (setup :refine 1d0
                                    :multigrid-refines 0
                                    :friction 0d0
                                    :ice-height height
                                    :mps mps
                                    :hydro-static nil
                                    :cryo-static t
-                                   :aspect 1d0
+                                   :aspect 0.5d0
                                    :slope 0d0
                                    ;; :bench-length (* 1d0 height)
                                    :floatation-ratio flotation
@@ -423,6 +424,7 @@
                                         :adaption-constant 4
                                         :max-damage-inc 0.9d0
                                         :max-plastic-inc nil
+                                        :max-deformation-gradient 4d0
                                         :save-vtk-dr t
                                         :save-vtk-loadstep t
                                         :enable-damage t

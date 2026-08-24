@@ -826,11 +826,11 @@ Calls the function with the mesh mp and node"
       (setf damage-inc (/ damage-inc mass-total)))
     damage-inc))
 
-(declaim (notinline length-localisation))
+;; (declaim (notinline length-localisation))
 (defun length-localisation (local-length local-length-damaged damage)
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  (* local-length (max (- 1d0 damage) 1d-10))
-  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  ;; (* local-length (max (- 1d0 damage) 1d-10))
+  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
   ;; (* local-length (max (expt (- 1d0 damage) 2) 1d-10))
   ;; (* local-length (max (- 1d0 damage) 1d-10))
   ;; local-length

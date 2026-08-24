@@ -1200,6 +1200,34 @@
         (/ energy undamaged-energy)
         0d0)))
 
+(defmethod compute-max-damage-energy-crit-mp ((sim cl-mpm:mpm-sim))
+  (cl-mpm::reduce-over-global-mps-max
+   sim
+   (lambda (mp)
+     (if (typep mp 'cl-mpm/particle::particle-damage)
+         (with-accessors ((volume cl-mpm/particle::mp-volume)
+                          (stress cl-mpm/particle::mp-stress)
+                          (strain cl-mpm/particle::mp-strain)
+                          (damage-inc cl-mpm/particle::mp-damage-increment)
+                          (j cl-mpm/particle::mp-deformation-jacobian-strain)
+                          (k cl-mpm/particle::mp-history-stress)
+                          (k-n cl-mpm/particle::mp-history-stress-n))
+             mp
+           (let ((k-temp k)
+                 (e-d-n 0d0)
+                 (e-d 0d0))
+             (declare (double-float volume j))
+             (setf k k-n)
+             (cl-mpm/damage::compute-damage mp)
+             (cl-mpm/particle::post-damage-step mp (cl-mpm:sim-dt sim))
+             (setf e-d-n (* 0.5d0 volume j (cl-mpm/fastmaths:dot stress strain)))
+             (setf k k-temp)
+             (cl-mpm/damage::compute-damage mp)
+             (cl-mpm/particle::post-damage-step mp (cl-mpm:sim-dt sim))
+             (setf e-d (* 0.5d0 volume j (cl-mpm/fastmaths:dot stress strain)))
+             (/ (abs (- e-d e-d-n)) e-d)))
+         0d0))))
+
 
 (defgeneric plastic-increment-criteria (sim)
   (:documentation "Plastic criteria")
