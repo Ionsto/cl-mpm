@@ -109,6 +109,7 @@
                 (pressure-condition t)
                 (cryo-static t)
                 (hydro-static nil)
+                (elastic-static nil)
                 (friction 0d0)
                 (ice-height 800d0)
                 (bench-length 0d0)
