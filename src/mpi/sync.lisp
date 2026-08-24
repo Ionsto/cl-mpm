@@ -1,4 +1,5 @@
 (in-package :cl-mpm/mpi)
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
 
 ;; (defparameter *exception-comm* (cl-mpi::mpi-comm-dup))
@@ -477,7 +478,8 @@
 (defmethod cl-store:serializable-slots-using-class ((object t) (class cl-mpm/particle::particle))
   (let ((slots-list (call-next-method)))
     (declare (list slots-list))
-    (setf slots-list (delete 'cl-mpm/particle::cached-nodes slots-list :key 'c2mop:slot-definition-name))))
+    (setf slots-list (delete 'cl-mpm/particle::cached-nodes slots-list :key 'c2mop:slot-definition-name))
+    slots-list))
 
 ;; (defvar *particle-code* (cl-store:register-code 100 'cl-mpm/particle::particle))
 ;; (cl-store:defstore-cl-store (obj cl-mpm/particle::particle stream)

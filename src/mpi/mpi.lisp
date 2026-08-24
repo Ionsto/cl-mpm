@@ -1,4 +1,5 @@
 (in-package :cl-mpm/mpi)
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
 (defmethod sim-add-mp ((sim mpm-sim-mpi) mp)
   (with-accessors ((uid-counter cl-mpm::sim-unique-index-counter)

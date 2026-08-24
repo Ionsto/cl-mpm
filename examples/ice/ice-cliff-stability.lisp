@@ -67,6 +67,7 @@
                (cl-mpm/fastmaths:fast-.+
                 undamaged-stress
                 (cl-mpm/utils:voigt-eye (*
+                                         0d0
                                          j
                                          (/ (- pressure) 3)
                                          )))))
@@ -75,7 +76,8 @@
                (+
                 (if pd-inc ps-y 0d0)
                 ;; (cl-mpm/damage::tensile-energy-norm strain e de)
-                (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure angle)
+                ;; (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure angle)
+                (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress-pressure angle)
                 ;; (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress angle)
                 )))))))
 
@@ -229,9 +231,20 @@
              (+ offset
                 (* alpha end-height)
                 (* (- 1d0 alpha) start-height))))
-         ;; :k-x 1d0
-         ;; :k-z 1d0
+         :k-x 1d0
+         :k-z 1d0
          ))
+      (when elastic-static
+        (cl-mpm/setup::initialise-stress-self-weight-vardatum
+         *sim*
+         (lambda (pos)
+           (let ((alpha (- 1d0 (/ (abs (-
+                                        ice-length
+                                        (cl-mpm/utils::varef pos 0))) ice-length))))
+             (+ offset
+                (* alpha end-height)
+                (* (- 1d0 alpha) start-height))))
+         :index 0))
 
       (unless (= start-height end-height)
         (cl-mpm/setup::remove-sdf *sim*
@@ -326,7 +339,8 @@
     ;;  *bc-erode*
     ;;  )
     (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
-    ))
+    )
+  (cl-mpm/output:add-mp-output *sim* :SCALAR "water-pressure" #'cl-mpm/particle::mp-pressure))
 
 (defun save-stabilty-data (output-dir sim stable height floatation notch)
   (let ((filename (merge-pathnames (format nil "data_~A_~A_~A.json" height floatation notch) output-dir)))
@@ -357,12 +371,12 @@
 
 (defun stability-qt-test ()
   (cl-mpm/utils:set-workers 8)
-  (let* ((heights (list 1000d0))
+  (let* ((heights (list 500d0))
          (floatations (list
                        ;;0d0
                        ;; 0.25d0
-                       ;; 0.5d0
-                       1d0
+                       0.5d0
+                       ;; 1d0
                        ;; 1d0
                             )))
     (defparameter *stability* (make-array (list (length heights) (length floatations)) :initial-element nil
@@ -382,7 +396,7 @@
                                  (output-dir (format nil "./output-~f-~f/" height flotation)))
                             (format t "Problem ~f ~f~%" height flotation)
                             (defparameter *length-scaler* 2d0)
-                            (defparameter *length-scale* 10d0)
+                            (defparameter *length-scale* 20d0)
                             (setup :refine 1d0
                                    :multigrid-refines 0
                                    :friction 0d0
@@ -390,7 +404,7 @@
                                    :mps mps
                                    :hydro-static nil
                                    :cryo-static t
-                                   :aspect 0.5d0
+                                   :aspect 2d0
                                    :slope 0d0
                                    ;; :bench-length (* 1d0 height)
                                    :floatation-ratio flotation
