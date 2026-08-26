@@ -50,29 +50,40 @@
              (setf yprev ycurrent))
     kprev))
 
+(defun analytic-trim (k y-0 y-1 k0 dt function)
+  (if (and (< y-0 k0)
+           (> y-1 y-0))
+      (let* ((ratio (/ (- y-1 k0)
+                       (- y-1 y-0))))
+        (funcall function k k0 y-1 (* dt ratio)))
+      (funcall function k y-0 y-1 dt)))
+
 (defun auto-refine-substepper (k y-0 y-1 dt function &key (tol 1d-3))
   (declare (double-float k y-0 y-1 dt)
-           (function function)
-           )
+           (function function))
   (let* ((r 0)
          (kn0 (integrate-substep k y-0 y-1 dt (expt 2 r) function))
          (kn1 (integrate-substep k y-0 y-1 dt (expt 2 (1+ r)) function))
          (err tol))
+    (incf r 1)
     (when (> (max kn0 kn1) 0d0)
       (loop for i from 0 to 100
             while
             (and
-             (> (max kn0 kn1) 0d0)
+             ;; (> (max kn0 kn1) 0d0)
+             (> (max kn1) 0d0)
              (>= err tol))
             do
                (progn
                  ;; (format t "~D ~E ~E - ~E~%" i kn0 kn1 err)
                  (incf r 1)
+                 (setf kn0 kn1)
                  (setf
-                  kn0 kn1
                   ;; (integrate-substep k y-0 y-1 dt (expt 2 r) function)
                   kn1 (integrate-substep k y-0 y-1 dt (expt 2 (1+ r)) function))
-                 (setf err (/ (abs (- kn0 kn1)) (max kn0 kn1)))))
+                 ;; (setf err (/ (abs (- kn0 kn1)) (max kn0 kn1)))
+                 (setf err (/ (abs (- kn0 kn1)) (max kn1)))
+                 ))
       (when (> err tol)
         (format t "Damage integration failed to hit bounds ~E ~E~%" err tol)))
     kn1))
@@ -123,67 +134,133 @@
         (fkn kn)))))
 
 
-;; (let ((k 5d0)
-;;       (y0 0d0)
-;;       (y1 100d0)
-;;       (n 2d0)
-;;       (tau 1d0)
-;;       (dt 100d0)
-;;       (k0 1d0)
-;;       )
-;;   ;; (pprint (forwards-integration k y0 y1 k0 tau n dt))
-;;   (pprint (huen-integration k y0 y1 k0 tau n dt))
-;;   (pprint (cl-mpm/damage::integrate-substep
-;;            k
-;;            y0
-;;            y1
-;;            dt
-;;            1000
-;;            (lambda (k y0 y1 s-dt)
-;;              (cl-mpm/damage::huen-integration k
-;;                                               y0
-;;                                               y1
-;;                                               k0
-;;                                               tau
-;;                                               n
-;;                                               s-dt))
-;;            ))
-;;   (pprint (cl-mpm/damage::auto-refine-substepper
-;;            k
-;;            y0
-;;            y1
-;;            dt
-;;            (lambda (k y0 y1 s-dt)
-;;              (cl-mpm/damage::huen-integration k
-;;                                               y0
-;;                                               y1
-;;                                               k0
-;;                                               tau
-;;                                               n
-;;                                               s-dt))
-;;            ))
-;;   ;; (time 
-;;   ;;  (pprint (cl-mpm/damage::integrate-substep
-;;   ;;           k
-;;   ;;           y0
-;;   ;;           y1
-;;   ;;           dt
-;;   ;;           100
-;;   ;;           (lambda (k y0 y1 s-dt)
-;;   ;;             (cl-mpm/damage::huen-integration k
-;;   ;;                                              y0
-;;   ;;                                              y1
-;;   ;;                                              k0
-;;   ;;                                              tau
-;;   ;;                                              n
-;;   ;;                                              s-dt))
-;;   ;;           )))
 
-;;   ;; (pprint (integrate-substep k y0 y1 k0 tau n dt 10000
+(defun integration-test ()
+  (let ((k 0d0)
+        (k0 5d0)
+        (y0 4.2d0)
+        (y1 8d0)
+        (dt 0.1d0)
+        (tau 1d0)
+        (tau-exp 6d0)
+        (substeps 2))
+    (format t "~%")
+    (format t "auto-refine ~E~%"
+            (cl-mpm/damage::auto-refine-substepper
+             k
+             y0
+             y1
+             dt
+             (lambda (k y0 y1 s-dt)
+               (cl-mpm/damage::huen-integration k
+                                                y0
+                                                y1
+                                                k0
+                                                tau
+                                                tau-exp
+                                                s-dt))
+             :tol 0.5d-4))
+    (time (dotimes (i 100000)
+            (cl-mpm/damage::analytic-trim
+             k
+             y0
+             y1
+             k0
+             dt
+             (lambda (k y0 y1 dt)
+               (cl-mpm/damage::auto-refine-substepper
+                k
+                y0
+                y1
+                dt
+                (lambda (k y0 y1 s-dt)
+                  (cl-mpm/damage::huen-integration k
+                                                   y0
+                                                   y1
+                                                   k0
+                                                   tau
+                                                   tau-exp
+                                                   s-dt))
+                :tol 0.5d-4)))))
+    (format t "trim auto-refine ~E~%"
+            (cl-mpm/damage::analytic-trim
+             k
+             y0
+             y1
+             k0
+             dt
+             (lambda (k y0 y1 dt)
+               (cl-mpm/damage::auto-refine-substepper
+                k
+                y0
+                y1
+                dt
+                (lambda (k y0 y1 s-dt)
+                  (cl-mpm/damage::huen-integration k
+                                                   y0
+                                                   y1
+                                                   k0
+                                                   tau
+                                                   tau-exp
+                                                   s-dt))
+                :tol 0.5d-4))))
+    (time (dotimes (i 100000)
+            (cl-mpm/damage::analytic-trim
+             k
+             y0
+             y1
+             k0
+             dt
+             (lambda (k y0 y1 dt)
+               (cl-mpm/damage::secant-solver
+                k
+                y0
+                y1
+                dt
+                (lambda (kmid ymid)
+                  (cl-mpm/damage::deriv-partial
+                   kmid
+                   ymid
+                   k0
+                   tau
+                   tau-exp)))))))
+    (format t "substeps ~D ~E~%" substeps
+            (cl-mpm/damage::integrate-substep
+             k
+             y0
+             y1
+             dt
+             substeps
+             (lambda (k y0 y1 s-dt)
+               (cl-mpm/damage::huen-integration k
+                                                y0
+                                                y1
+                                                k0
+                                                tau
+                                                tau-exp
+                                                s-dt))))
+    (format t "analytic substeps ~D ~E~%"
+            substeps
+            (cl-mpm/damage::analytic-trim
+             k
+             y0
+             y1
+             k0
+             dt
+             (lambda (k y0 y1 dt)
+               (cl-mpm/damage::integrate-substep
+                k
+                y0
+                y1
+                dt
+                substeps
+                (lambda (k y0 y1 s-dt)
+                  (cl-mpm/damage::huen-integration k
+                                                   y0
+                                                   y1
+                                                   k0
+                                                   tau
+                                                   tau-exp
+                                                   s-dt))))))
 
-;;   ;;                            ))
-
-;;   ;; (pprint (secant-solver k y0 y1 dt
-;;   ;;                        (lambda (k y)
-;;   ;;                          (deriv-partial k y k0 tau n))))
-;;   )
+    ))

@@ -95,7 +95,12 @@
    (material-damping
     :accessor mp-material-damping
     :initarg :material-damping
-    :initform 0d0))
+    :initform 0d0)
+   (biot-coefficent
+    :accessor mp-biot-coefficent
+    :initarg :biot-coeff
+    :initform 1d0))
+
   (:default-initargs
    :enable-viscosity nil
    :viscosity 1d13)
@@ -116,6 +121,23 @@
 (defclass particle-glen-damage (particle-glen particle-damage)
   ()
   (:documentation "A weakly compressible glen flow mp with damage mechanics"))
+
+(defun update-tcs (mp)
+  (with-accessors ((ductility cl-mpm/particle::mp-ductility)
+                   (angle cl-mpm/particle::mp-friction-angle)
+                   (angle-r cl-mpm/particle::mp-residual-friction)
+                   (rc mp-k-compressive-residual-ratio)
+                   (init-stress mp-initiation-stress)
+                   (oversize mp-oversize-scale))
+      mp
+    (let* ((c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (rad-to-deg angle)))
+           (rs (cl-mpm/damage::est-shear-from-angle (rad-to-deg angle) (rad-to-deg angle-r) rc))
+           (residual-strength (cl-mpm/particle::mp-residual-strength mp))
+           (oversize-ratio (cl-mpm/damage::compute-oversize-factor oversize ductility)))
+      (setf
+       (cl-mpm/particle::mp-phi mp) angle
+       (mp-c mp) (* oversize-ratio c)
+       (mp-shear-residual-ratio mp) rs))))
 
 (defmethod initialize-instance :after ((mp particle-ice-brittle) &key)
   (with-accessors ((ductility cl-mpm/particle::mp-ductility)
@@ -765,6 +787,21 @@
                 (max
                  k-n
                  (+
+                  
+                  ;; (cl-mpm/damage::integrate-substep
+                  ;;  k-n
+                  ;;  ybar-prev
+                  ;;  ybar
+                  ;;  dt
+                  ;;  100
+                  ;;  (lambda (k y0 y1 s-dt)
+                  ;;    (cl-mpm/damage::huen-integration k
+                  ;;                                     y0
+                  ;;                                     y1
+                  ;;                                     k0
+                  ;;                                     tau
+                  ;;                                     tau-exp
+                  ;;                                     s-dt)))
                   (cl-mpm/damage::auto-refine-substepper
                    k-n
                    ybar-prev
@@ -778,7 +815,26 @@
                                                       tau
                                                       tau-exp
                                                       s-dt))
-                   :tol 1d-2)
+                   :tol 0.5d-1)
+                  ;; (cl-mpm/damage::auto-refine-substepper
+                  ;;  k-n
+                  ;;  ybar-prev
+                  ;;  ybar
+                  ;;  dt
+                  ;;  (lambda (k y0 y1 s-dt)
+                  ;;    (cl-mpm/damage::secant-solver
+                  ;;     k
+                  ;;     y0
+                  ;;     y1
+                  ;;     s-dt
+                  ;;     (lambda (kmid ymid)
+                  ;;       (cl-mpm/damage::deriv-partial
+                  ;;        kmid
+                  ;;        ymid
+                  ;;        k0
+                  ;;        tau
+                  ;;        tau-exp))))
+                  ;;  :tol 1d-3)
                   ;; (cl-mpm/damage::secant-solver
                   ;;  k-n
                   ;;  ybar-prev
@@ -791,7 +847,25 @@
                   ;;     k0
                   ;;     tau
                   ;;     tau-exp)))
-                  )))
+                  (cl-mpm/damage::analytic-trim
+                   k-n
+                   ybar-prev
+                   ybar
+                   k0
+                   dt
+                   (lambda (k y0 y1 dt)
+                     (cl-mpm/damage::secant-solver
+                      k
+                      y0
+                      y1
+                      dt
+                      (lambda (kmid ymid)
+                        (cl-mpm/damage::deriv-partial
+                         kmid
+                         ymid
+                         k0
+                         tau
+                         tau-exp))))))))
           )
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))
@@ -826,8 +900,8 @@
            ;; (> damage 0.0d0)
            )
       (let* ((undamaged-stress (cl-mpm/fastmaths:fast-scale-voigt
-                                ;; (cl-mpm/constitutive::linear-elastic-mat strain de)
-                                undamaged-stress
+                                (cl-mpm/constitutive::linear-elastic-mat strain de)
+                                ;; undamaged-stress
                                 (/ 1d0 j)))
              (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
              (pressure (* pressure damage))
@@ -872,8 +946,10 @@
     (apply-vol-pressure-degredation
      mp
      dt
-     (* -1d0
-        (/ p 1)))
+     (*
+      -1d0
+      (cl-mpm/particle::mp-biot-coefficent mp)
+      (/ p 1)))
     ;; (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
     ;;       (* (varef (cl-mpm/particle::mp-body-force mp) 1)
     ;;          damage))

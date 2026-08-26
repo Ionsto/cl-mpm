@@ -1101,19 +1101,23 @@
                (setf (varef (cl-mpm/particle::mp-body-force mp) 1) 0d0)
                (when (and (typep mp 'cl-mpm/particle::particle-damage)
                           (> damage 0d0))
-                 (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
-                       (calculate-val-scalar-mp-gimp
-                        mesh
-                        mp
-                        (lambda (pos)
-                          (*
-                           (if (< (varef pos 1) datum) 1d0 0d0)
-                           (expt damage 1)
-                           ;; rho
-                           (- rho (/ mp-mass mp-volume-0))
-                           ;; (- rho (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp)))
-                           ;; (- rho 918d0)
-                           gravity)))))
+                 (let ((biot 1d0))
+                   (when (slot-exists-p mp 'cl-mpm/particle::biot-coefficent)
+                     (setf biot (cl-mpm/particle::mp-biot-coefficent mp)))
+                   (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
+                         (calculate-val-scalar-mp-gimp
+                          mesh
+                          mp
+                          (lambda (pos)
+                            (*
+                             (if (< (varef pos 1) datum) 1d0 0d0)
+                             biot
+                             (expt damage 1)
+                             ;; rho
+                             (- rho (/ mp-mass mp-volume-0))
+                             ;; (- rho (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp)))
+                             ;; (- rho 918d0)
+                             gravity))))))
                (cl-mpm::iterate-over-neighbours
                 mesh mp
                 (lambda (node svp grads fsvp fgrad)

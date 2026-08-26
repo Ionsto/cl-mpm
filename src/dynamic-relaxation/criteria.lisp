@@ -1175,9 +1175,7 @@
                       (cl-mpm/damage::compute-damage mp)
                       (cl-mpm/particle::post-damage-step mp (cl-mpm:sim-dt sim))
                       (setf e-d (* 0.5d0 volume j (cl-mpm/fastmaths:dot stress strain)))
-                      (expt (- e-d e-d-n) 2))
-                    ;; (* 0.5d0 volume damage-inc (cl-mpm/fastmaths:dot stress strain))
-                    )
+                      (expt (- e-d e-d-n) 2)))
                   0d0))))
          (undamaged-energy
            (cl-mpm::reduce-over-global-mps-sum
@@ -1195,9 +1193,8 @@
                     (expt (* 0.5d0 volume j (cl-mpm/fastmaths:dot stress strain)) 2))
                   0d0)))))
     (declare (double-float undamaged-energy energy))
-    ;; (format t "Energy reduction ~E - undamaged energy ~E ~%" energy undamaged-energy)
     (if (> undamaged-energy 0d0)
-        (/ energy undamaged-energy)
+        (sqrt (/ energy undamaged-energy))
         0d0)))
 
 (defmethod compute-max-damage-energy-crit-mp ((sim cl-mpm:mpm-sim))
@@ -1218,8 +1215,7 @@
                  (e-d-n 0d0)
                  (e-d 0d0)
                  (damage-n 0d0)
-                 (damage-n1 0d0)
-                 )
+                 (damage-n1 0d0))
              (declare (double-float volume j))
              (setf k k-n)
              (cl-mpm/damage::compute-damage mp)
@@ -1303,13 +1299,14 @@
               :inertia-norm true-intertia)))))
 
 (defmethod check-max-velocity (sim &key (max-velocity 1d0))
-  (let ((velocity (max-velocity-criteria sim (sim-dt-loadstep sim))))
-    (cl-mpm:sim-format sim t "Max velocity ~E~%" velocity)
-    (when (> velocity max-velocity)
-      (cl-mpm:sim-format sim t "Velocity criteria exceeded~%")
-      (error (make-instance 'error-velocity-criteria
-                            :text "Velocity exceeded"
-                            :velocity velocity)))))
+  (when (> (sim-dt-loadstep sim) 0d0)
+    (let ((velocity (max-velocity-criteria sim (sim-dt-loadstep sim))))
+      (cl-mpm:sim-format sim t "Max velocity ~E~%" velocity)
+      (when (> velocity max-velocity)
+        (cl-mpm:sim-format sim t "Velocity criteria exceeded~%")
+        (error (make-instance 'error-velocity-criteria
+                              :text "Velocity exceeded"
+                              :velocity velocity))))))
 (defmethod check-damage-increment ((sim cl-mpm::mpm-sim) &key (max-damage-inc 0.1d0))
   (when (cl-mpm:sim-enable-damage sim)
     (when max-damage-inc

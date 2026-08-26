@@ -3,12 +3,33 @@
    :cl-mpm/example))
 (in-package :cl-mpm/examples/ice/cliff-stability)
 
-;; (sb-ext:restrict-compiler-policy 'speed  0 0)
-;; (sb-ext:restrict-compiler-policy 'debug  3 3)
-;; (sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
 ;; (sb-ext:restrict-compiler-policy 'speed  3 3)
 ;; (sb-ext:restrict-compiler-policy 'debug  0 0)
 ;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+
+(defparameter *angle* 38d0)
+(defparameter *angle-r* 18d0)
+(defparameter *angle-psi* 0d0)
+(defparameter *rt* 1d0)
+(defparameter *rc* 0d0)
+(defparameter *enable-plastic-damage* nil)
+(defparameter *delay-time* 1d4)
+(defparameter *delay-exponent* 2d0)
+(defparameter *enable-viscosity* nil)
+(defparameter *viscosity* 1d13)
+(defparameter *gf* 10000d0)
+(defparameter *pd-oversize* 1d-6)
+
+(defparameter *length-scaler* 2d0)
+(defparameter *length-scale* nil)
+
+(defparameter *ductility* 100d0)
+;; (defparameter *tensile-strength* 0.1185d6)
+(defparameter *tensile-strength* 0.1d6)
+
 
 (defun est-shear-from-angle (angle angle-r rc)
   (let* ((angle-plastic (* angle (/ pi 180)))
@@ -65,11 +86,12 @@
              (stress (cl-mpm/constitutive:linear-elastic-mat strain de))
              (stress-pressure
                (cl-mpm/fastmaths:fast-.+
-                undamaged-stress
+                ;; undamaged-stress
+                stress
                 (cl-mpm/utils:voigt-eye (*
                                          0d0
                                          j
-                                         (/ (- pressure) 3)
+                                         (- pressure)
                                          )))))
         (setf y
               (*
@@ -82,26 +104,6 @@
                 )))))))
 
 
-
-(defparameter *angle* 40d0)
-(defparameter *angle-r* 10d0)
-(defparameter *angle-psi* 0d0)
-(defparameter *rt* 1d0)
-(defparameter *rc* 0d0)
-(defparameter *enable-plastic-damage* nil)
-(defparameter *delay-time* 1d5)
-(defparameter *delay-exponent* 2d0)
-(defparameter *enable-viscosity* nil)
-(defparameter *viscosity* 1d13)
-(defparameter *gf* 10000d0)
-(defparameter *pd-oversize* 1d-4)
-
-(defparameter *length-scaler* 2d0)
-(defparameter *length-scale* nil)
-
-(defparameter *ductility* 10d0)
-;; (defparameter *tensile-strength* 0.1185d6)
-(defparameter *tensile-strength* 0.1d6)
 
 (defparameter *penalty-epsilon-scale* 1d-2)
 
@@ -146,7 +148,8 @@
     (defparameter *ice-length* ice-length)
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
                                                :sim-type
-                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static
                                                :args-list
                                                (list
@@ -192,6 +195,7 @@
           (mapcar (lambda (e) (* (/ e mesh-resolution) mps)) block-size)
           density
           'cl-mpm/particle::particle-ice-delayed
+          ;; 'cl-mpm/particle::particle-ice-brittle
           :E E
           :nu 0.24d0
           :kt-res-ratio rt
@@ -211,6 +215,7 @@
           :enable-plasticity t
           :enable-damage t
           :residual-strength 1d0
+          :biot-coeff 0d0
 
           :enable-viscosity nil
           :viscosity *viscosity*
@@ -360,25 +365,184 @@
   (if (> (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
       (progn
         (pprint "Check velocity")
-        (cl-mpm/dynamic-relaxation::check-max-velocity sim :max-velocity 1d-4)
+        (cl-mpm/dynamic-relaxation::check-max-velocity sim :max-velocity 1d0)
         t)
       t))
 
 (defmethod cl-mpm/dynamic-relaxation::damage-increment-criteria ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
-  ;; (cl-mpm/dynamic-relaxation::damage-increment-criteria-mp sim)
+  (cl-mpm/dynamic-relaxation::damage-increment-criteria-mp sim)
   ;; (cl-mpm/dynamic-relaxation::compute-max-damage-energy-crit sim)
-  (cl-mpm/dynamic-relaxation::compute-max-damage-energy-crit-mp sim)
+  ;; (cl-mpm/dynamic-relaxation::compute-max-damage-energy-crit-mp sim)
   )
+(defun compute-energy-release (sim mp)
+  (if (typep mp 'cl-mpm/particle::particle-damage)
+      (with-accessors ((volume cl-mpm/particle::mp-volume)
+                       (stress cl-mpm/particle::mp-stress)
+                       (stress-u cl-mpm/particle::mp-undamaged-stress)
+                       (strain cl-mpm/particle::mp-strain)
+                       (damage-inc cl-mpm/particle::mp-damage-increment)
+                       (j cl-mpm/particle::mp-deformation-jacobian-strain)
+                       (k cl-mpm/particle::mp-history-stress)
+                       (k-n cl-mpm/particle::mp-history-stress-n))
+          mp
+        (let ((k-temp k)
+              (e-d-n 0d0)
+              (e-d 0d0)
+              (damage-n 0d0)
+              (damage-n1 0d0)
+              )
+          (declare (double-float volume j))
+          (setf k k-n)
+          (cl-mpm/damage::compute-damage mp)
+          (cl-mpm/particle::post-damage-step mp (cl-mpm:sim-dt sim))
+          (setf e-d-n (* 0.5d0 volume j (cl-mpm/fastmaths:dot stress strain)))
+          (setf damage-n (cl-mpm/particle::mp-damage mp))
+          (setf k k-temp)
+          (cl-mpm/damage::compute-damage mp)
+          (cl-mpm/particle::post-damage-step mp (cl-mpm:sim-dt sim))
+          (setf e-d (* 0.5d0 volume j (cl-mpm/fastmaths:dot stress strain)))
+          (setf damage-n1 (cl-mpm/particle::mp-damage mp))
+          ;; (format t "~E ~E - ~E ~E~%" damage-n damage-n1 e-d e-d-n)
+          (if (> e-d 0d0)
+              (abs (/ (abs (- e-d e-d-n)) e-d))
+              0d0)))
+      0d0))
 
 (defun stability-qt-test ()
+  (cl-mpm/utils:set-workers 16)
+  (let* ((heights (list
+                   50d0
+                   100d0
+                   150d0
+                   200d0
+                   250d0
+                   300d0
+                   350d0
+                   400d0
+                   450d0
+                   500d0
+                   600d0
+                   700d0
+                   800d0
+                   900d0
+                   1000d0
+                   ))
+         (floatations (list
+                       ;; 1d0
+                       ;; 0d0
+                       ;; 1d0
+                       ;; 0.9d0
+                       ;; 1d0
+                       ;; 1d0
+                       ))
+
+
+         (cliff-step 10d0)
+         (density 918d0)
+         (water-density 1028d0)
+         )
+    (defparameter *stability* (make-array (list (length heights) (length floatations)) :initial-element nil
+                                                                                       :element-type t))
+    (let ((stability-dir (merge-pathnames (format nil "./analysis_scripts/ice/ice-cliff-stability/data-cliff-stability/"))))
+      (ensure-directories-exist stability-dir)
+      (defparameter *heights* heights)
+      (defparameter *floatations* floatations)
+      (loop for hi from 0
+            for height in heights
+            do
+               (let* ((res t)
+                      (floating-point (/ density water-density))
+                      (floating-cliff (- height (* height floating-point))))
+                 (loop for fi from 0
+                       ;; for flotation in floatations
+                       for i from 0 to (ceiling (- height floating-cliff) cliff-step)
+                       do
+                          (let* ((cliff-size (min height (+ floating-cliff (* i cliff-step))))
+                                 ;; (cliff-size (min height 100d0))
+                                 (flotation (/ (- height cliff-size) (* floating-point height)))
+                                 (mps 3)
+                                 (output-dir (format nil "./output-~f-~f/" height flotation)))
+                            (format t "Problem ~f ~f~%" height flotation)
+                            (defparameter *length-scaler* 1d0)
+                            ;; (defparameter *length-scale* 20d0)
+                            (setup :refine 1d0
+                                   :multigrid-refines 0
+                                   :friction 0d0
+                                   :ice-height height
+                                   :mps mps
+                                   :hydro-static nil
+                                   :cryo-static nil
+                                   :elastic-static t
+                                   :aspect 2d0
+                                   :slope 0d0
+                                   ;; :bench-length (* 1d0 height)
+                                   :floatation-ratio flotation
+                                   :use-penalty nil
+                                   :stick-base nil)
+                            (cl-mpm::domain-sort-mps *sim*)
+
+                            ;; (cl-mpm/output:add-mp-output *sim* :SCALAR "energy-release" (lambda (mp)
+                            ;;                                                               (compute-energy-release *sim* mp)))
+                            (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree)
+                              (setf (cl-mpm/dynamic-relaxation::sim-intra-mesh-aggregation *sim*) t)
+                              (setf (cl-mpm/dynamic-relaxation::sim-octree-refinement-criteria *sim*)
+                                    (lambda (sim mesh c)
+                                      (multiple-value-bind (damage damage-y length)
+                                          (cl-mpm/dynamic-relaxation::damage-refinement-criteria sim mesh c)
+                                        (> damage 0d0)))))
+                            (plot-domain)
+                            (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
+                            (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+                            (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
+                                  (cl-mpm::sim-ghost-factor *sim*) nil
+                                  (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND)
+                            (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
+                            (time
+                             (let* ((dt-0 1d3)
+                                    (dt-start 1d3)
+                                    (adaptive-constant 2)
+                                    (max-adaptive (round (log (/ dt-start dt-0) adaptive-constant)))
+                                    (res (cl-mpm/dynamic-relaxation::run-quasi-time
+                                          *sim*
+                                          :output-dir output-dir
+                                          :dt (* dt-0 (expt adaptive-constant max-adaptive))
+                                          :total-time 1d7
+                                          ;; :steps 1000
+                                          :dt-scale 0.9d0
+                                          :conv-criteria 1d-3
+                                          :substeps (max 5 (* 1 (round (/ height (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*))) 1)))
+                                          :sub-conv-steps 10
+                                          :min-adaptive-steps -20
+                                          :max-adaptive-steps max-adaptive
+                                          :adaption-constant adaptive-constant
+                                          :max-damage-inc 0.90d0
+                                          :max-plastic-inc nil
+                                          :max-deformation-gradient 8d0
+                                          :save-vtk-dr t
+                                          :save-vtk-loadstep t
+                                          :enable-damage t
+                                          :enable-plastic t
+                                          ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
+                                          ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
+                                          :plotter (lambda (sim) (plot-domain))
+                                          :post-conv-step (lambda (sim) (plot-domain)))))
+                               (cl-mpm/dynamic-relaxation::save-vtks *sim* output-dir 1)
+                               ;; (setf (aref *stability* hi fi) (if res 1 0))
+                               ;; (unless res
+                               ;;   (loop for j from fi below (length floatations)
+                               ;;         do (setf (aref *stability* hi j) 0)))
+                               (format t "Stability: ~A~%" res)
+                               ;; (print-stab)
+                               (save-stabilty-data stability-dir *sim* res height flotation 0d0)
+                               (unless res
+                                 (loop-finish))))
+                            )))))))
+
+(defun stability-ssr-test ()
   (cl-mpm/utils:set-workers 8)
   (let* ((heights (list 500d0))
          (floatations (list
-                       ;;0d0
-                       ;; 0.25d0
-                       0.5d0
-                       ;; 1d0
-                       ;; 1d0
+                       0.8d0
                             )))
     (defparameter *stability* (make-array (list (length heights) (length floatations)) :initial-element nil
                                                                                        :element-type t))
@@ -393,71 +557,77 @@
                  (loop for fi from 0
                        for flotation in floatations
                        do
-                          (let* ((mps 2)
+                          (let* ((mps 3)
                                  (output-dir (format nil "./output-~f-~f/" height flotation)))
                             (format t "Problem ~f ~f~%" height flotation)
                             (defparameter *length-scaler* 2d0)
                             (defparameter *length-scale* 20d0)
-                            (setup :refine 1d0
+                            (setup :refine 0.5d0
                                    :multigrid-refines 0
                                    :friction 0d0
                                    :ice-height height
                                    :mps mps
                                    :hydro-static nil
-                                   :cryo-static t
-                                   :aspect 2d0
+                                   :cryo-static nil
+                                   :aspect 6d0
                                    :slope 0d0
                                    ;; :bench-length (* 1d0 height)
                                    :floatation-ratio flotation
                                    :use-penalty nil
                                    :stick-base nil)
                             (cl-mpm::domain-sort-mps *sim*)
-                            (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree)
-                              (setf (cl-mpm/dynamic-relaxation::sim-intra-mesh-aggregation *sim*) t)
-                              (setf (cl-mpm/dynamic-relaxation::sim-octree-refinement-criteria *sim*)
-                                    (lambda (sim mesh c)
-                                      (multiple-value-bind (damage damage-y length)
-                                          (cl-mpm/dynamic-relaxation::damage-refinement-criteria sim mesh c)
-                                        (> damage 0d0)))))
                             (plot-domain)
                             (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
                             (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
                             (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
                                   (cl-mpm::sim-ghost-factor *sim*) nil)
+                            (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep *sim*) 0d0)
                             (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
-                            (let ((res (cl-mpm/dynamic-relaxation::run-quasi-time
-                                        *sim*
-                                        :output-dir output-dir
-                                        :dt 1d4
-                                        :total-time 1d6
-                                        ;; :steps 1000
-                                        :dt-scale 0.9d0
-                                        :conv-criteria 1d-3
-                                        :substeps (* 20 (round height 100))
-                                        :min-adaptive-steps -8
-                                        :max-adaptive-steps 8
-                                        :adaption-constant 4
-                                        :max-damage-inc 0.9d0
-                                        :max-plastic-inc nil
-                                        :max-deformation-gradient 4d0
-                                        :save-vtk-dr t
-                                        :save-vtk-loadstep t
-                                        :enable-damage t
-                                        :enable-plastic t
-                                        ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
-                                        ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
-                                        :plotter (lambda (sim) (plot-domain))
-                                        :post-conv-step (lambda (sim) (plot-domain)))))
-                              (cl-mpm/dynamic-relaxation::save-vtks *sim* output-dir 1)
-                              (setf (aref *stability* hi fi) (if res 1 0))
-                              (unless res
-                                (loop for j from fi below (length floatations)
-                                      do (setf (aref *stability* hi j) 0)))
-                              (format t "Stability:~%")
-                              (print-stab)
-                              (save-stabilty-data stability-dir *sim* res height flotation 0d0)
-                              (unless res
-                                (loop-finish)))
+                            (let ((tensile-max 1d6)
+                                  (tensile-min 0.1d6))
+                              (let ((res (cl-mpm/dynamic-relaxation::run-adaptive-load-control
+                                          *sim*
+                                          :output-dir output-dir
+                                          :dt-scale 0.9d0
+                                          :criteria 1d-3
+                                          :substeps (* 5 (round height 100))
+                                          :sub-conv-steps 200
+                                          :loading-function
+                                          (lambda (load)
+                                            (let ((strength (- tensile-max
+                                                               (* (- tensile-max tensile-min) load))))
+                                              (format t "Trial strength ~E~%" strength)
+                                              (cl-mpm:iterate-over-mps
+                                               (cl-mpm:sim-mps *sim*)
+                                               (lambda (mp)
+                                                 (setf (cl-mpm/particle::mp-initiation-stress mp)
+                                                       strength)
+                                                 (cl-mpm/particle::update-tcs mp)
+                                                 (cl-mpm/damage::compute-damage mp)))))
+                                          ;; :min-adaptive-steps -8
+                                          ;; :max-adaptive-steps 8
+                                          ;; :adaption-constant 4
+                                          :max-damage-inc 1.10d0
+                                          :max-plastic-inc nil
+                                          :max-deformation-gradient 4d0
+                                          :save-vtk-dr t
+                                          :save-vtk-loadstep t
+                                          :enable-damage t
+                                          :enable-plastic t
+                                          :stagger-damage nil
+                                          :load-steps 10
+                                          :plotter (lambda (sim) (plot-domain))
+                                          :post-conv-step (lambda (sim) (plot-domain)))))
+                                (cl-mpm/dynamic-relaxation::save-vtks *sim* output-dir 1)
+                                (setf (aref *stability* hi fi) (if res 1 0))
+                                (unless res
+                                  (loop for j from fi below (length floatations)
+                                        do (setf (aref *stability* hi j) 0)))
+                                (format t "Stability:~%")
+                                (print-stab)
+                                (save-stabilty-data stability-dir *sim* res height flotation 0d0)
+                                (unless res
+                                  (loop-finish))))
                             )))))))
 
 (declaim (notinline print-stab))
@@ -478,3 +648,5 @@
                     (format t "~A - " (aref *stability* hi fi)))
            (format t "~%")
         ))
+
+
