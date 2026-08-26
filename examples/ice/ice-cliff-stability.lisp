@@ -153,7 +153,7 @@
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static
                                                :args-list
                                                (list
-                                                :enable-fbar t
+                                                :enable-fbar nil
                                                 :enable-aggregate t
                                                 :split-factor (* 1.2d0 (sqrt 2) (/ 1d0 mps))
                                                 :enable-split nil
@@ -361,11 +361,24 @@
        :notch notch
        )))))
 
+(defparameter *early-exit-flag* nil)
+
+(define-condition early-exit-condition (error)
+  ())
+
 (defmethod cl-mpm/dynamic-relaxation::convergence-check ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
   (if (> (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
       (progn
         (pprint "Check velocity")
         (cl-mpm/dynamic-relaxation::check-max-velocity sim :max-velocity 1d0)
+        (let ((y (cl-mpm::reduce-over-global-mps-max
+                  sim
+                  #'cl-mpm/particle::mp-damage-ybar)))
+          (when (> y 0d0)
+            (when (< y *tensile-strength*)
+              (defparameter *early-exit-flag* t)
+              (format t  "Maximum global value of y-bar is ~E - yield strength is ~E~%" y *tensile-strength*)
+              (error (make-instance 'early-exit-condition)))))
         t)
       t))
 
@@ -411,21 +424,25 @@
 (defun stability-qt-test ()
   (cl-mpm/utils:set-workers 16)
   (let* ((heights (list
-                   50d0
-                   100d0
-                   150d0
+                   ;; 50d0
+                   ;; 100d0
+                   ;; 125d0
+                   ;; 150d0
+                   ;; 175d0
                    200d0
+                   ;; 225d0
                    250d0
+                   ;; 275d0
                    300d0
-                   350d0
-                   400d0
-                   450d0
-                   500d0
-                   600d0
-                   700d0
-                   800d0
-                   900d0
-                   1000d0
+                   ;; 350d0
+                   ;; 400d0
+                   ;; 450d0
+                   ;; 500d0
+                   ;; 600d0
+                   ;; 700d0
+                   ;; 800d0
+                   ;; 900d0
+                   ;; 1000d0
                    ))
          (floatations (list
                        ;; 1d0
@@ -437,7 +454,7 @@
                        ))
 
 
-         (cliff-step 10d0)
+         (cliff-step 5d0)
          (density 918d0)
          (water-density 1028d0)
          )
@@ -465,6 +482,7 @@
                             (format t "Problem ~f ~f~%" height flotation)
                             (defparameter *length-scaler* 1d0)
                             ;; (defparameter *length-scale* 20d0)
+                            (defparameter *early-exit-flag* nil)
                             (setup :refine 1d0
                                    :multigrid-refines 0
                                    :friction 0d0
@@ -500,32 +518,39 @@
                             (time
                              (let* ((dt-0 1d3)
                                     (dt-start 1d3)
+                                    (max-time 1d7)
                                     (adaptive-constant 2)
                                     (max-adaptive (round (log (/ dt-start dt-0) adaptive-constant)))
-                                    (res (cl-mpm/dynamic-relaxation::run-quasi-time
-                                          *sim*
-                                          :output-dir output-dir
-                                          :dt (* dt-0 (expt adaptive-constant max-adaptive))
-                                          :total-time 1d7
-                                          ;; :steps 1000
-                                          :dt-scale 0.9d0
-                                          :conv-criteria 1d-3
-                                          :substeps (max 5 (* 1 (round (/ height (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*))) 1)))
-                                          :sub-conv-steps 10
-                                          :min-adaptive-steps -20
-                                          :max-adaptive-steps max-adaptive
-                                          :adaption-constant adaptive-constant
-                                          :max-damage-inc 0.90d0
-                                          :max-plastic-inc nil
-                                          :max-deformation-gradient 8d0
-                                          :save-vtk-dr t
-                                          :save-vtk-loadstep t
-                                          :enable-damage t
-                                          :enable-plastic t
-                                          ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
-                                          ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
-                                          :plotter (lambda (sim) (plot-domain))
-                                          :post-conv-step (lambda (sim) (plot-domain)))))
+                                    (res t))
+                               (handler-case
+                                   (setf res (cl-mpm/dynamic-relaxation::run-quasi-time
+                                              *sim*
+                                              :output-dir output-dir
+                                              :dt (* dt-0 (expt adaptive-constant max-adaptive))
+                                              :total-time max-time
+                                              ;; :steps 1000
+                                              :dt-scale 0.9d0
+                                              :conv-criteria 1d-3
+                                              :substeps (max 5 (* 1 (round (/ height (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*))) 1)))
+                                              :sub-conv-steps 10
+                                              :min-adaptive-steps -20
+                                              :max-adaptive-steps max-adaptive
+                                              :adaption-constant adaptive-constant
+                                              :max-damage-inc 0.90d0
+                                              :max-plastic-inc nil
+                                              :max-deformation-gradient 4d0
+                                              :save-vtk-dr nil
+                                              :save-vtk-loadstep t
+                                              :enable-damage t
+                                              :enable-plastic t
+                                              ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
+                                              ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
+                                              :plotter (lambda (sim) (plot-domain))
+                                              :post-conv-step (lambda (sim) (plot-domain))))
+                                   (early-exit-condition (c)
+                                     (setf res t)
+                                     (setf (cl-mpm:sim-time *sim*) max-time)
+                                     (format t "Early exit~%")))
                                (cl-mpm/dynamic-relaxation::save-vtks *sim* output-dir 1)
                                ;; (setf (aref *stability* hi fi) (if res 1 0))
                                ;; (unless res
@@ -585,39 +610,45 @@
                             (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
                             (let ((tensile-max 1d6)
                                   (tensile-min 0.1d6))
-                              (let ((res (cl-mpm/dynamic-relaxation::run-adaptive-load-control
-                                          *sim*
-                                          :output-dir output-dir
-                                          :dt-scale 0.9d0
-                                          :criteria 1d-3
-                                          :substeps (* 5 (round height 100))
-                                          :sub-conv-steps 200
-                                          :loading-function
-                                          (lambda (load)
-                                            (let ((strength (- tensile-max
-                                                               (* (- tensile-max tensile-min) load))))
-                                              (format t "Trial strength ~E~%" strength)
-                                              (cl-mpm:iterate-over-mps
-                                               (cl-mpm:sim-mps *sim*)
-                                               (lambda (mp)
-                                                 (setf (cl-mpm/particle::mp-initiation-stress mp)
-                                                       strength)
-                                                 (cl-mpm/particle::update-tcs mp)
-                                                 (cl-mpm/damage::compute-damage mp)))))
-                                          ;; :min-adaptive-steps -8
-                                          ;; :max-adaptive-steps 8
-                                          ;; :adaption-constant 4
-                                          :max-damage-inc 1.10d0
-                                          :max-plastic-inc nil
-                                          :max-deformation-gradient 4d0
-                                          :save-vtk-dr t
-                                          :save-vtk-loadstep t
-                                          :enable-damage t
-                                          :enable-plastic t
-                                          :stagger-damage nil
-                                          :load-steps 10
-                                          :plotter (lambda (sim) (plot-domain))
-                                          :post-conv-step (lambda (sim) (plot-domain)))))
+                              (let ((res nil))
+                                (handler-case
+                                    (setf res
+                                          (cl-mpm/dynamic-relaxation::run-adaptive-load-control
+                                           *sim*
+                                           :output-dir output-dir
+                                           :dt-scale 0.9d0
+                                           :criteria 1d-3
+                                           :substeps (* 5 (round height 100))
+                                           :sub-conv-steps 200
+                                           :loading-function
+                                           (lambda (load)
+                                             (let ((strength (- tensile-max
+                                                                (* (- tensile-max tensile-min) load))))
+                                               (format t "Trial strength ~E~%" strength)
+                                               (cl-mpm:iterate-over-mps
+                                                (cl-mpm:sim-mps *sim*)
+                                                (lambda (mp)
+                                                  (setf (cl-mpm/particle::mp-initiation-stress mp)
+                                                        strength)
+                                                  (cl-mpm/particle::update-tcs mp)
+                                                  (cl-mpm/damage::compute-damage mp)))))
+                                           ;; :min-adaptive-steps -8
+                                           ;; :max-adaptive-steps 8
+                                           ;; :adaption-constant 4
+                                           :max-damage-inc 1.10d0
+                                           :max-plastic-inc nil
+                                           :max-deformation-gradient 4d0
+                                           :save-vtk-dr t
+                                           :save-vtk-loadstep t
+                                           :enable-damage t
+                                           :enable-plastic t
+                                           :stagger-damage nil
+                                           :load-steps 10
+                                           :plotter (lambda (sim) (plot-domain))
+                                           :post-conv-step (lambda (sim) (plot-domain))))
+                                  (early-exit-condition (c)
+                                    (setf res t)
+                                    (format t "Early exit~%")))
                                 (cl-mpm/dynamic-relaxation::save-vtks *sim* output-dir 1)
                                 (setf (aref *stability* hi fi) (if res 1 0))
                                 (unless res
