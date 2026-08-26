@@ -10,7 +10,8 @@
       (the double-float
            (expt
             (/
-             (the double-float (max 0d0 (- y (max k k0))))
+             ;; (the double-float (max 0d0 (- y (max k k0))))
+             (the double-float (max 0d0 (- y (max k))))
              ;; (the double-float (max 0d0 (- y k)))
              (max
               k0
@@ -48,6 +49,62 @@
                             ycurrent
                             (/ dt iters)))
              (setf yprev ycurrent))
+    kprev))
+
+(defun adaptive-huen-integration (k y-0 y-1 k0 tau n dt)
+  (declare (double-float k y-0 y-1 k0 tau n dt))
+  (let* ((dk-0 (deriv-partial k y-0 k0 tau n))
+         (dk-1 (deriv-partial (+ k (* dt dk-0)) y-1 k0 tau n)))
+    (declare (double-float dk-0 dk-1))
+    (values
+     (+ k (* dt dk-0))
+     (+ k (* dt dk-1))
+     (the double-float (+ k (* (/ dt 2) (+ dk-0 dk-1)))))))
+
+(defun adaptive-dt (k y-0 y-1 dt
+                    k0 tau tau-exp
+                    &key (tol 1d-1)
+                      (max-refine 10))
+  (declare (double-float k y-0 y-1 dt))
+  (let ((kprev k)
+        (yprev y-0)
+        (ycurrent y-1)
+        ;; (yinc (/ (- y-1 y-0) iters))
+        (max-iters (expt 2 max-refine))
+        (dt-n dt)
+        (accumulator 0d0))
+    (loop for s from 0 below max-iters
+          while (< accumulator dt)
+          do
+             (progn
+               (let ((err tol)
+                     (kn1 0d0))
+                 (loop for ref from 0 below max-refine
+                       while (>= err tol)
+                       do
+                          (progn
+                            (when (> ref 0)
+                              (setf dt-n (/ dt-n 2)))
+                            (let ((ratio (/ (- dt (+ accumulator dt-n)) dt)))
+                              (setf ycurrent
+                                    (+
+                                     (* ratio y-0)
+                                     (* (- 1d0 ratio) y-1))))
+                            (multiple-value-bind (fe be khuen)
+                                (adaptive-huen-integration kprev yprev ycurrent k0 tau tau-exp dt-n)
+                              (setf kn1 khuen)
+                              (setf err (if (> khuen 0d0)
+                                            (/ (abs (- (max fe be) khuen)) khuen)
+                                            0d0))
+                              ;; (format t "Step ~D - refine ~D - error ~E - ~E ~E ~E~%" s ref err khuen fe be)
+                              )))
+                 (setf yprev ycurrent
+                       kprev kn1)
+                 (incf accumulator dt-n)
+                 (setf accumulator (min accumulator dt))
+                 (when (< err (* tol err))
+                   ;; (format t "Derefine ~%")
+                   (setf dt-n (* dt-n))))))
     kprev))
 
 (defun analytic-trim (k y-0 y-1 k0 dt function)
@@ -162,28 +219,41 @@
      k0
      tau
      tau-exp)
-  (cl-mpm/damage::analytic-trim
+  ;; (cl-mpm/damage::analytic-trim
+  ;;  k
+  ;;  y0
+  ;;  y1
+  ;;  k0
+  ;;  dt
+  ;;  (lambda (k y0 y1 dt)
+  ;;    (cl-mpm/damage::auto-refine-substepper
+  ;;     k
+  ;;     y0
+  ;;     y1
+  ;;     dt
+  ;;     (lambda (k y0 y1 s-dt)
+  ;;       (cl-mpm/damage::huen-integration k
+  ;;                                        y0
+  ;;                                        y1
+  ;;                                        k0
+  ;;                                        tau
+  ;;                                        tau-exp
+  ;;                                        s-dt))
+  ;;     :tol 0.01d0)))
+  (cl-mpm/damage::auto-refine-substepper
    k
    y0
    y1
-   k0
    dt
-   (lambda (k y0 y1 dt)
-     (cl-mpm/damage::auto-refine-substepper
-      k
-      y0
-      y1
-      dt
-      (lambda (k y0 y1 s-dt)
-        (cl-mpm/damage::huen-integration k
-                                         y0
-                                         y1
-                                         k0
-                                         tau
-                                         tau-exp
-                                         s-dt))
-      :tol 0.01d0)))
-  )
+   (lambda (k y0 y1 s-dt)
+     (cl-mpm/damage::huen-integration k
+                                      y0
+                                      y1
+                                      k0
+                                      tau
+                                      tau-exp
+                                      s-dt))
+   :tol 0.01d0))
 
 (defun delay-integrate (k
                         y0
@@ -222,13 +292,13 @@
 
 
 (defun integration-test ()
-  (let ((k 0.5d0)
-        (k0 0.1d6)
-        (y0 0.05d6)
-        (y1 1.1231d8)
-        (dt 1d2)
-        (tau 1d4)
-        (tau-exp 12d0)
+  (let ((k 10d0)
+        (k0 15d0)
+        (y0 1d0)
+        (y1 20d0)
+        (dt 1d0)
+        (tau 1d0)
+        (tau-exp 4d0)
         (substeps 2))
     (format t "~%")
     (format t "auto-refine ~E~%"
@@ -245,41 +315,39 @@
                                                 tau
                                                 tau-exp
                                                 s-dt))
-             :tol 1d-9))
-    ;; (format t "trim auto-refine ~E~%"
-    ;;         (cl-mpm/damage::analytic-trim
-    ;;          k
-    ;;          y0
-    ;;          y1
-    ;;          k0
-    ;;          dt
-    ;;          (lambda (k y0 y1 dt)
-    ;;            (cl-mpm/damage::auto-refine-substepper
-    ;;             k
-    ;;             y0
-    ;;             y1
-    ;;             dt
-    ;;             (lambda (k y0 y1 s-dt)
-    ;;               (cl-mpm/damage::huen-integration k
-    ;;                                                y0
-    ;;                                                y1
-    ;;                                                k0
-    ;;                                                tau
-    ;;                                                tau-exp
-    ;;                                                s-dt))
-    ;;             :tol 0.5d-4))))
+             :tol 1d-12))
     (format t "Secant ~E ~%"
             (delay-integrate k y0 y1 dt k0 tau tau-exp))
     (format t "Huen ~E ~%"
             (delay-integrate-explicit k y0 y1 dt k0 tau tau-exp))
-    (time (dotimes (i 1000)
-            (delay-integrate k y0 y1 dt k0
-                             tau
-                             tau-exp)))
-    (time (dotimes (i 1000)
-            (delay-integrate-explicit k y0 y1 dt k0
-                                      tau
-                                      tau-exp)))
+    (format t "Stepper ~E ~%"
+            (cl-mpm/damage::analytic-trim
+             k
+             y0
+             y1
+             k0
+             dt
+             (lambda (k y0 y1 dt)
+               (adaptive-dt k y0 y1 dt k0 tau tau-exp))))
+    (let ((iters 10000))
+      (time (dotimes (i iters)
+              (delay-integrate k y0 y1 dt k0
+                               tau
+                               tau-exp)))
+      (time (dotimes (i iters)
+              (delay-integrate-explicit k y0 y1 dt k0
+                                        tau
+                                        tau-exp)))
+      (time (dotimes (i iters)
+              (cl-mpm/damage::analytic-trim
+               k
+               y0
+               y1
+               k0
+               dt
+               (lambda (k y0 y1 dt)
+                 (adaptive-dt k y0 y1 dt k0 tau tau-exp))
+               :tol 1d-6))))
     ;; (format t "Secant ~E~%"
     ;;         (cl-mpm/damage::analytic-trim
     ;;          k
