@@ -17,7 +17,7 @@
 (defparameter *rc* 0d0)
 (defparameter *enable-plastic-damage* nil)
 (defparameter *delay-time* 1d4)
-(defparameter *delay-exponent* 2d0)
+(defparameter *delay-exponent* 4d0)
 (defparameter *enable-viscosity* nil)
 (defparameter *viscosity* 1d13)
 (defparameter *gf* 10000d0)
@@ -418,13 +418,26 @@
 (defparameter *early-exit-flag* nil)
 
 (define-condition early-exit-condition (error)
-  ())
+  ((stable
+    :initform t
+    :accessor stable
+    :initarg :stable)))
 
 (defmethod cl-mpm/dynamic-relaxation::convergence-check ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
   (if (> (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
       (progn
-        (pprint "Check velocity")
+        ;; (pprint "Check velocity")
         (cl-mpm/dynamic-relaxation::check-max-velocity sim :max-velocity 1d0)
+        (let ((d (cl-mpm::reduce-over-global-mps-max
+                  sim
+                  (lambda (mp)
+                    (cl-mpm/fastmaths:mag
+                      (cl-mpm/particle::mp-displacement mp))))))
+          (format t  "Max disp: ~E~%" d)
+          (when (> d 1d0)
+            (format t  "Maximum global displacement reached ~E~%" d)
+            (error (make-instance 'early-exit-condition
+                                  :stable nil))))
         (let ((y (cl-mpm::reduce-over-global-mps-max
                   sim
                   #'cl-mpm/particle::mp-damage-ybar)))
@@ -432,7 +445,8 @@
             (when (< y *tensile-strength*)
               (defparameter *early-exit-flag* t)
               (format t  "Maximum global value of y-bar is ~E - yield strength is ~E~%" y *tensile-strength*)
-              (error (make-instance 'early-exit-condition)))))
+              (error (make-instance 'early-exit-condition
+                                    :stable nil)))))
         t)
       t))
 
@@ -484,14 +498,14 @@
                    400d0
                    ))
          (floatations (list
-                       ;; 1d0
+                       ;; 0d0
                        ;; 0d0
                        ;; 0d0
                        ;; 0.9d0
                        ;; 1d0
                        ;; 1d0
                        ))
-         (cliff-step 10d0)
+         (cliff-step 20d0)
          (density 918d0)
          (water-density 1028d0)
          )
@@ -507,12 +521,12 @@
                (let* ((res t)
                       (floating-point (/ density water-density))
                       (floating-cliff (- height (* height floating-point))))
-                 (loop for fi from 0
+                 (loop for fi from 0 to 0
                        ;; for flotation in floatations
-                       for i from 0 to (ceiling (- height floating-cliff) cliff-step)
+                       ;; for i from 0 to (ceiling (- height floating-cliff) cliff-step)
                        do
-                          (let* ((cliff-size (min height (+ floating-cliff (* i cliff-step))))
-                                 ;; (cliff-size (min height 100d0))
+                          (let* (;(cliff-size (min height (+ floating-cliff (* i cliff-step))))
+                                 (cliff-size (min height 100d0))
                                  (flotation (/ (- height cliff-size) (* floating-point height)))
                                  (mps 3)
                                  (output-dir (format nil "./output-~f-~f/" height flotation)))
@@ -557,7 +571,7 @@
                             (time
                              (let* ((dt-0 1d3)
                                     (dt-start 1d3)
-                                    (max-time 1d7)
+                                    (max-time 1d8)
                                     (adaptive-constant 2)
                                     (max-adaptive (round (log (/ dt-start dt-0) adaptive-constant)))
                                     (res t))
@@ -571,24 +585,31 @@
                                               :dt-scale 0.9d0
                                               :conv-criteria 1d-3
                                               :substeps (max 5 (* 1 (round (/ height (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*))) 1)))
-                                              :sub-conv-steps 10
+                                              :sub-conv-steps 50
                                               :min-adaptive-steps -20
                                               :max-adaptive-steps max-adaptive
                                               :adaption-constant adaptive-constant
                                               :max-damage-inc 0.90d0
                                               :max-plastic-inc nil
                                               :max-deformation-gradient 4d0
-                                              :save-vtk-dr t
+                                              :save-vtk-dr nil
                                               :save-vtk-loadstep t
                                               :enable-damage t
                                               :enable-plastic t
                                               ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                                               ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
                                               :plotter (lambda (sim) (plot-domain))
-                                              :post-conv-step (lambda (sim) (plot-domain))))
+                                              :post-conv-step (lambda (sim)
+                                                                (cl-mpm:iterate-over-mps
+                                                                 (cl-mpm:sim-mps *sim*)
+                                                                 (lambda (mp)
+                                                                   (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-displacement mp))))
+                                                                (plot-domain)
+                                                                )))
                                    (early-exit-condition (c)
-                                     (setf res t)
-                                     (setf (cl-mpm:sim-time *sim*) max-time)
+                                     (setf res (stable c))
+                                     (when res
+                                       (setf (cl-mpm:sim-time *sim*) max-time))
                                      (format t "Early exit~%")))
                                (cl-mpm/dynamic-relaxation::save-vtks *sim* output-dir 1)
                                ;; (setf (aref *stability* hi fi) (if res 1 0))
