@@ -787,7 +787,7 @@
                 (max
                  k-n
                  (+
-                  (cl-mpm/damage::delay-integrate
+                  (cl-mpm/damage::delay-integrate-explicit
                    k-n
                    ybar-prev
                    ybar
