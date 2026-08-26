@@ -10,7 +10,7 @@
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 
-(defparameter *angle* 38d0)
+(defparameter *angle* 30d0)
 (defparameter *angle-r* 10d0)
 (defparameter *angle-psi* 0d0)
 (defparameter *rt* 1d0)
@@ -149,9 +149,9 @@
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
                                                :sim-type
                                                ;; Took [TODO] seconds
-                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
                                                ;; Took 57 seconds
-                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic
+                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static
                                                :args-list
                                                (list
@@ -427,7 +427,13 @@
   (if (> (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
       (progn
         ;; (pprint "Check velocity")
-        (cl-mpm/dynamic-relaxation::check-max-velocity sim :max-velocity 1d0)
+        ;; (cl-mpm/dynamic-relaxation::check-max-velocity sim :max-velocity 1d0)
+        (let ((v (cl-mpm/dynamic-relaxation::max-velocity-criteria sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))))
+          (format t "Max velocity ~E~%" v)
+          (when (> v 1d-3)
+            (format t "Maximum velocity error~%")
+            (error (make-instance 'early-exit-condition
+                                  :stable nil))))
         (let ((d (cl-mpm::reduce-over-global-mps-max
                   sim
                   (lambda (mp)
@@ -446,7 +452,7 @@
               (defparameter *early-exit-flag* t)
               (format t  "Maximum global value of y-bar is ~E - yield strength is ~E~%" y *tensile-strength*)
               (error (make-instance 'early-exit-condition
-                                    :stable nil)))))
+                                    :stable t)))))
         t)
       t))
 
@@ -496,6 +502,8 @@
                    200d0
                    300d0
                    400d0
+                   500d0
+                   600d0
                    ))
          (floatations (list
                        ;; 0d0
@@ -503,7 +511,7 @@
                        ;; 0d0
                        ;; 0.9d0
                        ;; 1d0
-                       ;; 1d0
+                       1d0
                        ))
          (cliff-step 20d0)
          (density 918d0)
@@ -521,13 +529,13 @@
                (let* ((res t)
                       (floating-point (/ density water-density))
                       (floating-cliff (- height (* height floating-point))))
-                 (loop for fi from 0 to 0
-                       ;; for flotation in floatations
+                 (loop for fi from 0
+                       for flotation in floatations
                        ;; for i from 0 to (ceiling (- height floating-cliff) cliff-step)
                        do
                           (let* (;(cliff-size (min height (+ floating-cliff (* i cliff-step))))
-                                 (cliff-size (min height 100d0))
-                                 (flotation (/ (- height cliff-size) (* floating-point height)))
+                                 ;; (cliff-size (min height 100d0))
+                                 ;; (flotation (/ (- height cliff-size) (* floating-point height)))
                                  (mps 3)
                                  (output-dir (format nil "./output-~f-~f/" height flotation)))
                             (format t "Problem ~f ~f~%" height flotation)
@@ -536,7 +544,7 @@
                             (defparameter *early-exit-flag* nil)
                             (setup :refine 1d0
                                    :multigrid-refines 0
-                                   :friction 0.5d0
+                                   :friction 0d0
                                    :ice-height height
                                    :mps mps
                                    :hydro-static nil
@@ -564,8 +572,8 @@
                             (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
                             (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
                                   (cl-mpm::sim-ghost-factor *sim*) nil
-                                  (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND
-                                  ;; (cl-mpm::sim-velocity-algorithm *sim*) :QUASI-STATIC
+                                  ;; (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND
+                                  (cl-mpm::sim-velocity-algorithm *sim*) :QUASI-STATIC
                                   )
                             (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
                             (time
@@ -592,7 +600,7 @@
                                               :max-damage-inc 0.90d0
                                               :max-plastic-inc nil
                                               :max-deformation-gradient 4d0
-                                              :save-vtk-dr nil
+                                              :save-vtk-dr t
                                               :save-vtk-loadstep t
                                               :enable-damage t
                                               :enable-plastic t
