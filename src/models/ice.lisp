@@ -787,6 +787,14 @@
                 (max
                  k-n
                  (+
+                  (cl-mpm/damage::delay-integrate
+                   k-n
+                   ybar-prev
+                   ybar
+                   dt
+                   k0
+                   tau
+                   tau-exp)
                   ;; (cl-mpm/damage::integrate-substep
                   ;;  k-n
                   ;;  ybar-prev
@@ -846,25 +854,27 @@
                   ;;     k0
                   ;;     tau
                   ;;     tau-exp)))
-                  (cl-mpm/damage::analytic-trim
-                   k-n
-                   ybar-prev
-                   ybar
-                   k0
-                   dt
-                   (lambda (k y0 y1 dt)
-                     (cl-mpm/damage::secant-solver
-                      k
-                      y0
-                      y1
-                      dt
-                      (lambda (kmid ymid)
-                        (cl-mpm/damage::deriv-partial
-                         kmid
-                         ymid
-                         k0
-                         tau
-                         tau-exp))))))))
+
+                  ;; (cl-mpm/damage::analytic-trim
+                  ;;  k-n
+                  ;;  ybar-prev
+                  ;;  ybar
+                  ;;  k0
+                  ;;  dt
+                  ;;  (lambda (k y0 y1 dt)
+                  ;;    (cl-mpm/damage::secant-solver
+                  ;;     k
+                  ;;     y0
+                  ;;     y1
+                  ;;     dt
+                  ;;     (lambda (kmid ymid)
+                  ;;       (cl-mpm/damage::deriv-partial
+                  ;;        kmid
+                  ;;        ymid
+                  ;;        k0
+                  ;;        tau
+                  ;;        tau-exp)))))
+                  )))
           )
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))
