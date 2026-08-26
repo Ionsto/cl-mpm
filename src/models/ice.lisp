@@ -787,7 +787,6 @@
                 (max
                  k-n
                  (+
-                  
                   ;; (cl-mpm/damage::integrate-substep
                   ;;  k-n
                   ;;  ybar-prev
@@ -802,20 +801,20 @@
                   ;;                                     tau
                   ;;                                     tau-exp
                   ;;                                     s-dt)))
-                  (cl-mpm/damage::auto-refine-substepper
-                   k-n
-                   ybar-prev
-                   ybar
-                   dt
-                   (lambda (k y0 y1 s-dt)
-                     (cl-mpm/damage::huen-integration k
-                                                      y0
-                                                      y1
-                                                      k0
-                                                      tau
-                                                      tau-exp
-                                                      s-dt))
-                   :tol 0.5d-1)
+                  ;; (cl-mpm/damage::auto-refine-substepper
+                  ;;  k-n
+                  ;;  ybar-prev
+                  ;;  ybar
+                  ;;  dt
+                  ;;  (lambda (k y0 y1 s-dt)
+                  ;;    (cl-mpm/damage::huen-integration k
+                  ;;                                     y0
+                  ;;                                     y1
+                  ;;                                     k0
+                  ;;                                     tau
+                  ;;                                     tau-exp
+                  ;;                                     s-dt))
+                  ;;  :tol 0.5d-1)
                   ;; (cl-mpm/damage::auto-refine-substepper
                   ;;  k-n
                   ;;  ybar-prev
@@ -900,8 +899,8 @@
            ;; (> damage 0.0d0)
            )
       (let* ((undamaged-stress (cl-mpm/fastmaths:fast-scale-voigt
-                                (cl-mpm/constitutive::linear-elastic-mat strain de)
-                                ;; undamaged-stress
+                                ;; (cl-mpm/constitutive::linear-elastic-mat strain de)
+                                undamaged-stress
                                 (/ 1d0 j)))
              (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
              (pressure (* pressure damage))
