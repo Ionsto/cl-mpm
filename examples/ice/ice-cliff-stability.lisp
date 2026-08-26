@@ -3,15 +3,15 @@
    :cl-mpm/example))
 (in-package :cl-mpm/examples/ice/cliff-stability)
 
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
 
 (defparameter *angle* 38d0)
-(defparameter *angle-r* 18d0)
+(defparameter *angle-r* 10d0)
 (defparameter *angle-psi* 0d0)
 (defparameter *rt* 1d0)
 (defparameter *rc* 0d0)
@@ -21,12 +21,12 @@
 (defparameter *enable-viscosity* nil)
 (defparameter *viscosity* 1d13)
 (defparameter *gf* 10000d0)
-(defparameter *pd-oversize* 1d-6)
+(defparameter *pd-oversize* 1d-3)
 
 (defparameter *length-scaler* 2d0)
 (defparameter *length-scale* nil)
 
-(defparameter *ductility* 100d0)
+(defparameter *ductility* 10d0)
 ;; (defparameter *tensile-strength* 0.1185d6)
 (defparameter *tensile-strength* 0.1d6)
 
@@ -83,11 +83,11 @@
     (declare (double-float E ps-vm angle pressure))
     (progn
       (let* ((ps-y (sqrt (* E (expt ps-vm 2))))
-             (stress (cl-mpm/constitutive:linear-elastic-mat strain de))
+             ;; (stress (cl-mpm/constitutive:linear-elastic-mat strain de))
              (stress-pressure
                (cl-mpm/fastmaths:fast-.+
-                ;; undamaged-stress
-                stress
+                undamaged-stress
+                ;; stress
                 (cl-mpm/utils:voigt-eye (*
                                          0d0
                                          j
@@ -98,14 +98,14 @@
                (+
                 (if pd-inc ps-y 0d0)
                 ;; (cl-mpm/damage::tensile-energy-norm strain e de)
-                ;; (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure angle)
-                (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress-pressure angle)
+                (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure angle)
+                ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress-pressure angle)
                 ;; (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress angle)
                 )))))))
 
 
 
-(defparameter *penalty-epsilon-scale* 1d-2)
+(defparameter *penalty-epsilon-scale* 1d0)
 
 (defun setup (&key (refine 1) (mps 2)
                 (pressure-condition t)
@@ -148,12 +148,14 @@
     (defparameter *ice-length* ice-length)
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
                                                :sim-type
+                                               ;; Took [TODO] seconds
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+                                               ;; Took 57 seconds
                                                'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static
                                                :args-list
                                                (list
-                                                :enable-fbar nil
+                                                :enable-fbar t
                                                 :enable-aggregate t
                                                 :split-factor (* 1.2d0 (sqrt 2) (/ 1d0 mps))
                                                 :enable-split nil
@@ -175,6 +177,7 @@
            ;; (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
            ;; (ductility 10d0)
            (ductility *ductility*)
+           (oversize-ratio (cl-mpm/damage::compute-oversize-factor (- 1d0 *pd-oversize*) ductility))
            )
       (format t "Ice length ~F~%" ice-length)
       (format t "Water height ~F~%" water-level)
@@ -184,6 +187,7 @@
       (format t "Mesh size ~F~%" mesh-resolution)
       (format t "Estimated lc ~E~%" length-scale)
       (format t "Estimated ductility ~E~%" ductility)
+      (format t "Estimated oversize factor ~E~%" oversize-ratio)
       (format t "Init stress ~E~%" init-stress)
       (let* ((rt *rt*)
              (rc *rc*))
@@ -204,7 +208,7 @@
           :friction-angle (cl-mpm/utils:deg-to-rad angle)
           :residual-friction (cl-mpm/utils:deg-to-rad *angle-r*)
 
-          :psi (cl-mpm/utils::deg-to-rad 0d0)
+          :psi (cl-mpm/utils::deg-to-rad *angle-psi*)
 
           :ductility ductility
 
@@ -346,7 +350,57 @@
     ;;  )
     (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
     )
-  (cl-mpm/output:add-mp-output *sim* :SCALAR "water-pressure" #'cl-mpm/particle::mp-pressure))
+  (cl-mpm/output:add-mp-output *sim* :SCALAR "water-pressure" #'cl-mpm/particle::mp-pressure)
+  (cl-mpm/output::add-mp-output
+   *sim* :SCALAR "damage-increment-error"
+   (lambda (mp)
+     (if (typep mp 'cl-mpm/particle::particle-damage)
+         (with-accessors ((damage cl-mpm/particle::mp-damage)
+                          (damage-prev cl-mpm/particle::mp-damage-prev-trial)
+                          (inc cl-mpm/particle::mp-damage-increment)
+                          (mass cl-mpm/particle::mp-mass))
+             mp
+           (- damage damage-prev))
+         0d0)))
+
+  (cl-mpm/output:add-mp-output
+     *sim*
+     :SCALAR
+     "damage-tcs-c"
+     #'cl-mpm/particle::mp-damage-compression)
+    (cl-mpm/output:add-mp-output
+     *sim*
+     :SCALAR
+     "damage-tcs-t"
+     #'cl-mpm/particle::mp-damage-tension)
+    (cl-mpm/output:add-mp-output
+     *sim*
+     :SCALAR
+     "damage-tcs-s"
+     #'cl-mpm/particle::mp-damage-shear)
+    (cl-mpm/output:add-mp-output
+     *sim*
+     :SCALAR
+     "current-effective-angle"
+     (lambda (mp)
+       (if (typep mp 'cl-mpm/particle::particle-ice-brittle)
+           (* (/ 180 pi) (atan (* (/ (- 1d0 (cl-mpm/particle::mp-damage-shear mp))
+                                     (- 1d0 (cl-mpm/particle::mp-damage-compression mp)))
+                                  (tan (cl-mpm/particle::mp-phi mp)))))
+           0d0)))
+    (cl-mpm/output:add-mp-output
+     *sim*
+     :SCALAR
+     "current-cohesion"
+     (lambda (mp)
+       (if (typep mp 'cl-mpm/particle::particle-ice-brittle)
+           (*
+            (if (> (cl-mpm/constitutive::voight-trace (cl-mpm/particle::mp-stress mp)) 0d0)
+                (- 1d0 (cl-mpm/particle::mp-damage-tension mp))
+                (- 1d0 (cl-mpm/particle::mp-damage-compression mp)))
+            (max 0d0 (cl-mpm/particle::mp-c mp)))
+           0d0)))
+  )
 
 (defun save-stabilty-data (output-dir sim stable height floatation notch)
   (let ((filename (merge-pathnames (format nil "data_~A_~A_~A.json" height floatation notch) output-dir)))
@@ -424,37 +478,20 @@
 (defun stability-qt-test ()
   (cl-mpm/utils:set-workers 16)
   (let* ((heights (list
-                   ;; 50d0
-                   ;; 100d0
-                   ;; 125d0
-                   ;; 150d0
-                   ;; 175d0
+                   100d0
                    200d0
-                   ;; 225d0
-                   250d0
-                   ;; 275d0
                    300d0
-                   ;; 350d0
-                   ;; 400d0
-                   ;; 450d0
-                   ;; 500d0
-                   ;; 600d0
-                   ;; 700d0
-                   ;; 800d0
-                   ;; 900d0
-                   ;; 1000d0
+                   400d0
                    ))
          (floatations (list
                        ;; 1d0
                        ;; 0d0
-                       ;; 1d0
+                       ;; 0d0
                        ;; 0.9d0
                        ;; 1d0
                        ;; 1d0
                        ))
-
-
-         (cliff-step 5d0)
+         (cliff-step 10d0)
          (density 918d0)
          (water-density 1028d0)
          )
@@ -485,7 +522,7 @@
                             (defparameter *early-exit-flag* nil)
                             (setup :refine 1d0
                                    :multigrid-refines 0
-                                   :friction 0d0
+                                   :friction 0.5d0
                                    :ice-height height
                                    :mps mps
                                    :hydro-static nil
@@ -495,7 +532,7 @@
                                    :slope 0d0
                                    ;; :bench-length (* 1d0 height)
                                    :floatation-ratio flotation
-                                   :use-penalty nil
+                                   :use-penalty t
                                    :stick-base nil)
                             (cl-mpm::domain-sort-mps *sim*)
 
@@ -513,7 +550,9 @@
                             (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
                             (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
                                   (cl-mpm::sim-ghost-factor *sim*) nil
-                                  (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND)
+                                  (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND
+                                  ;; (cl-mpm::sim-velocity-algorithm *sim*) :QUASI-STATIC
+                                  )
                             (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
                             (time
                              (let* ((dt-0 1d3)
@@ -539,7 +578,7 @@
                                               :max-damage-inc 0.90d0
                                               :max-plastic-inc nil
                                               :max-deformation-gradient 4d0
-                                              :save-vtk-dr nil
+                                              :save-vtk-dr t
                                               :save-vtk-loadstep t
                                               :enable-damage t
                                               :enable-plastic t
