@@ -215,7 +215,17 @@
       ((:file "solvers/quasi-static")
        (:file "solvers/dynamic")
        (:file "solvers/multigrid")
-       (:file "algorithms")))))))
+       ;; (:file "algorithms")
+       (:module "algorithms"
+        :serial t
+        :components
+        ((:file "common")
+         (:file "elastic")
+         (:file "load-control")
+         (:file "quasi-time")
+         (:file "real-time")
+         (:file "multi-stage")
+         ))))))))
 
 
 #+asdf-system-connections
