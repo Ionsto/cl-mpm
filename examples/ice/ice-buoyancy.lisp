@@ -675,7 +675,7 @@
        :elastic-dt-margin 1d2
        :explicit-mass-scaling nil
        :explicit-damping-factor 1d-4
-       :explicit-dt-scale 0.5d0
+       :explicit-dt-scale 0.45d0
        :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
        ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-usf
        ;; :elastic-dt-margin 1d4
