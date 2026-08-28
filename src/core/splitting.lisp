@@ -256,17 +256,16 @@
            (mps-to-split (remove-if-not (lambda (mp)
                                           (and
                                            (< (cl-mpm/particle::mp-split-depth mp) max-split-depth)
-                                           (or
-                                            (split-criteria-variable mp h split-factor nd)))) mps))
+                                           (split-criteria-variable mp h split-factor nd))) mps))
            (split-direction (map 'list (lambda (mp) (split-criteria-variable mp h split-factor nd)) mps-to-split)))
       (remove-mps-func sim (lambda (mp)
                              (and
-                              ;; (not
-                              ;;  (and
-                              ;;   remove-on-oversplit
-                              ;;   (< (cl-mpm/particle::mp-split-depth mp) max-split-depth)))
-                              (<= (cl-mpm/particle::mp-split-depth mp) max-split-depth)
-                              (split-criteria-variable mp h split-factor nd))))
+                              (split-criteria-variable mp h split-factor nd)
+                              (if remove-on-oversplit
+                                   (<= (cl-mpm/particle::mp-split-depth mp) max-split-depth)
+                                   (< (cl-mpm/particle::mp-split-depth mp) max-split-depth)
+                                  ))
+                             ))
       (loop for mp across mps-to-split
             for direction in split-direction
             do (loop for new-mp in (split-mp mp h direction)
@@ -331,13 +330,27 @@
   "Split mps that fail an arbritary criteria"
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
+                   (remove-on-oversplit cl-mpm::sim-remove-on-oversplit)
                    (max-split-depth cl-mpm::sim-max-split-depth))
       sim
     (let* ((split-directions (lparallel:pmap '(vector t *) criteria mps))
-           (mps-to-delete (delete-if-not #'identity (lparallel:pmap '(vector t *)
-                                                                   (lambda (mp crit)
-                                                                     (if crit mp nil)) mps split-directions)))
-           (mps-to-split (remove-if-not (lambda (mp) (< (cl-mpm/particle::mp-split-depth mp) max-split-depth)) mps-to-delete)))
+           (mps-to-delete (delete-if-not
+                           #'identity
+                           (lparallel:pmap '(vector t *)
+                                           (lambda (mp crit)
+                                             (if (and
+                                                  crit
+                                                  (if remove-on-oversplit
+                                                      (<= (cl-mpm/particle::mp-split-depth mp) max-split-depth)
+                                                      (< (cl-mpm/particle::mp-split-depth mp) max-split-depth)))
+                                                 mp
+                                                 nil))
+                                           mps
+                                           split-directions)))
+           (mps-to-split (remove-if-not
+                          (lambda (mp)
+                            (< (cl-mpm/particle::mp-split-depth mp)
+                               max-split-depth)) mps-to-delete)))
       (remove-mps-func sim (lambda (mp) (position mp mps-to-delete)))
       (loop for mp across mps-to-split
             do (loop for new-mp in (split-vector mp (funcall criteria mp))
