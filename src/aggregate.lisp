@@ -341,8 +341,13 @@
                         (nodes cl-mpm/mesh::cell-nodes)
                         (agg cl-mpm/mesh::cell-agg)
                         (neighbours cl-mpm/mesh::cell-cartesian-neighbours)
+                        (volume cl-mpm/mesh::cell-volume)
                         (active cl-mpm/mesh::cell-active))
            cell
+         (let ((volume-ratio-min 0.25d0)
+               (volume-t (expt (cl-mpm/mesh::mesh-resolution mesh) (cl-mpm/mesh:mesh-nd mesh))))
+           (when (< volume (* volume-t volume-ratio-min))
+             (setf agg t)))
          (when (and active partial)
            (setf agg t)
            ;;Set all our neighbours to also be aggregate
