@@ -196,9 +196,14 @@
      mesh
      mp
      (lambda (c)
-       (let ((pos (compute-corner-displaced mesh c)))
-         (incf val (funcall func pos))
-         (incf count))))
+       (let ((c (cl-mpm/fastmaths::fast-scale!
+                 (cl-mpm/fastmaths::fast-.+
+                  (cl-mpm/particle::mp-position mp)
+                  c)
+                 0.5d0)))
+         (let ((pos (compute-corner-displaced mesh c)))
+           (incf val (funcall func pos))
+           (incf count)))))
     (setf val (/ val count))
     val))
 
@@ -209,12 +214,17 @@
      mesh
      mp
      (lambda (c)
-       (let ((pos
-               ;; c
-               (compute-corner-displaced mesh c)
-               ))
-         (cl-mpm/fastmaths::fast-.+ val (funcall func pos) val)
-         (incf count))))
+       (let ((c (cl-mpm/fastmaths::fast-scale!
+                 (cl-mpm/fastmaths::fast-.+
+                  (cl-mpm/particle::mp-position mp)
+                  c)
+                 0.5d0)))
+         (let ((pos
+                 ;; c
+                 (compute-corner-displaced mesh c)
+                 ))
+           (cl-mpm/fastmaths::fast-.+ val (funcall func pos) val)
+           (incf count)))))
     (cl-mpm/fastmaths::fast-scale! val (/ 1d0 count))
     val))
 
@@ -225,12 +235,17 @@
      mesh
      mp
      (lambda (c)
-       (let ((pos
-               ;; c
-               (compute-corner-displaced mesh c)
-                  ))
-         (cl-mpm/fastmaths::fast-.+ val (funcall func pos) val)
-         (incf count))))
+       (let ((c (cl-mpm/fastmaths::fast-scale!
+                 (cl-mpm/fastmaths::fast-.+
+                  (cl-mpm/particle::mp-position mp)
+                  c)
+                 0.5d0)))
+         (let ((pos
+                 ;; c
+                 (compute-corner-displaced mesh c)
+                 ))
+           (cl-mpm/fastmaths::fast-.+ val (funcall func pos) val)
+           (incf count)))))
     (cl-mpm/fastmaths::fast-scale! val (/ 1d0 count))
     val))
 
@@ -941,7 +956,7 @@
        (lambda (pos) (funcall clip-function pos datum))
        ;; (lambda (mp) (calculate-val-mp-gimp mesh mp #'melt-rate))
        :scalar
-       (lambda (mp) (calculate-scalar-val-mp-datum-proportional mp #'melt-rate datum))
+       (lambda (mp) (calculate-val-scalar-mp-gimp mesh mp #'melt-rate))
        :damage-volume nil)
       ;; (apply-force-cells-3d
       ;;  sim
@@ -952,17 +967,12 @@
       (cl-mpm:iterate-over-nodes
        mesh
        (lambda (node)
-         (when t;(> (cl-mpm/mesh::node-volume node) 0d0)
+         ;; (> (cl-mpm/mesh::node-volume node) 0d0)
+         (when t
+           (when (cl-mpm/mesh::node-bcs node)
+             (cl-mpm/fastmaths::fast-.* (cl-mpm/mesh::node-bcs node) (cl-mpm/mesh::node-boundary-vec node) (cl-mpm/mesh::node-boundary-vec node)))
            (setf (cl-mpm/mesh::node-boundary-scalar node)
-                 (max 0d0 (cl-mpm/fastmaths:mag (cl-mpm/mesh::node-boundary-vec node)))
-                 ;; (max 0d0 (- (cl-mpm/mesh::node-boundary-scalar node)))
-                 ;; (/
-                 ;;  ;; (cl-mpm/mesh::node-boundary-scalar node)
-                 ;;  (max 0d0 (cl-mpm/fastmaths:mag (cl-mpm/mesh::node-boundary-vec node)))
-                 ;;  1d0
-                 ;;  ;; (cl-mpm/mesh::node-volume node)
-                 ;;  )
-                 )))))))
+                 (max 0d0 (cl-mpm/fastmaths:mag (cl-mpm/mesh::node-boundary-vec node))))))))))
 
 
 (in-package :cl-mpm/mpi)
@@ -1104,6 +1114,7 @@
                  (let ((biot 1d0))
                    (when (slot-exists-p mp 'cl-mpm/particle::biot-coefficent)
                      (setf biot (cl-mpm/particle::mp-biot-coefficent mp)))
+                   ;; (pprint biot)
                    (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
                          (calculate-val-scalar-mp-gimp
                           mesh
@@ -1247,8 +1258,9 @@
                                (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar))
                   node
                 (declare (double-float volume svp))
-                (let ((grads (cl-mpm::gradient-push-forwards grads df))
-                      (volume (* volume (cl-mpm/fastmaths::det-3x3 df))))
+                (let (;(grads (cl-mpm::gradient-push-forwards grads df))
+                      ;(volume (* volume (cl-mpm/fastmaths::det-3x3 df)))
+                      )
                   (cl-mpm/fastmaths:fast-zero f-stress)
                   (cl-mpm/forces::det-stress-force-unrolled cell-stress grads (- volume) f-stress)
                   (cl-mpm/fastmaths:fast-scale-vector
@@ -1260,12 +1272,9 @@
                              (funcall clip-func node-pos)
                              )
                     ;;Lock node
-                    ;; (pprint f-stress)
-                    ;; (pprint f-div)
-                    ;; (break)
                     (sb-thread:with-mutex (node-lock)
-                      ;; (cl-mpm/fastmaths:fast-.- node-force-ext f-stress node-force-ext)
-                      ;; (cl-mpm/fastmaths:fast-.- node-force-ext f-div    node-force-ext)
+                      (cl-mpm/fastmaths:fast-.- node-force-ext f-stress node-force-ext)
+                      (cl-mpm/fastmaths:fast-.- node-force-ext f-div    node-force-ext)
                       ;; (incf node-boundary-scalar
                       ;;       (* 1d0
                       ;;          volume
@@ -1391,14 +1400,9 @@
      scalar-func
      (lambda (pos)
        (and
-        ;; (cell-clipping pos datum)
-        ;; t
-        (funcall clip-func pos)
-        ))
+        (funcall clip-func pos)))
      datum
-     :damage-volume damage-volume
-     )
-    ))
+     :damage-volume damage-volume)))
 
 (defun apply-scalar (sim func-scalar clip-function datum &key (damage-volume nil))
   (with-accessors ((mesh cl-mpm:sim-mesh)
@@ -1406,29 +1410,26 @@
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
-      ;; (locate-mps-cells sim clip-function)
-      ;; (populate-cells-volume mesh clip-function)
-      ;; (locate-mps-cells sim clip-function)
-      ;; (populate-nodes-volume mesh clip-function)
-      ;; (populate-nodes-volume-damage mesh clip-function)
-      ;; (populate-nodes-domain mesh clip-function)
       (cl-mpm::iterate-over-nodes
        mesh
        (lambda (n)
          (when (cl-mpm/mesh:node-active n)
+           (cl-mpm/fastmaths::fast-zero (cl-mpm/mesh::node-boundary-vec n))
            (setf (cl-mpm/mesh::node-boundary-scalar n) 0d0))))
       (apply-scalar-mps-3d
        mesh
        mps
        (lambda (mp)
-         (calculate-val-mp mp func-scalar))
+         (calculate-val-scalar-mp-gimp mesh mp func-scalar))
        clip-function
        :damage-volume damage-volume)
-      (apply-scalar-cells-3d
+      (cl-mpm:iterate-over-nodes
        mesh
-       func-scalar
-       clip-function)
-      )))
+       (lambda (node)
+         (when (cl-mpm/mesh::node-bcs node)
+           (cl-mpm/fastmaths::fast-.* (cl-mpm/mesh::node-bcs node) (cl-mpm/mesh::node-boundary-vec node) (cl-mpm/mesh::node-boundary-vec node)))
+         (setf (cl-mpm/mesh::node-boundary-scalar node)
+               (max 0d0 (cl-mpm/fastmaths:mag (cl-mpm/mesh::node-boundary-vec node)))))))))
 
 
 
@@ -1467,16 +1468,18 @@
 
 (defun apply-scalar-mps-3d (mesh mps func-scalar clip-func &key (damage-volume nil))
   "Update force on nodes, with virtual stress field from mps"
-  (declare (function func-scalar))
+  (declare (function func-scalar clip-func))
   (cl-mpm::iterate-over-mps
    mps
    (lambda (mp)
      (when t;(funcall clip)
-       (with-accessors ((volume cl-mpm/particle::mp-volume-n)
+       (with-accessors ((volume cl-mpm/particle::mp-volume)
                         (pos cl-mpm/particle::mp-position)
+                        (df-inv cl-mpm/particle::mp-deformation-gradient-increment-inverse)
                         (damage cl-mpm/particle::mp-damage))
            mp
-         (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))
+         (declare (double-float volume damage))
+         (let ()
            ;;Iterate over neighbour nodes
            (cl-mpm::iterate-over-neighbours
             mesh mp
@@ -1492,9 +1495,23 @@
                 (when (and node-active
                            node-boundary
                            (funcall clip-func node-pos))
-                  (sb-thread:with-mutex (node-lock)
-                    (incf node-boundary-scalar (* (if damage-volume (- 1d0 damage) 1d0)
-                                                  volume svp (funcall func-scalar mp))))))))))))))
+                  (let ((grads
+                          (cl-mpm::gradient-push-forwards-cached grads df-inv)))
+                    (sb-thread:with-mutex (node-lock)
+                      (cl-mpm/fastmaths::fast-.+
+                       (cl-mpm/fastmaths::fast-scale!
+                        (cl-mpm/utils::vector-from-list
+                         (list (cl-mpm/utils::gradients-dx grads)
+                               (cl-mpm/utils::gradients-dy grads)
+                               (cl-mpm/utils::gradients-dz grads)))
+                        (* -1d0
+                           (if damage-volume (- 1d0 damage) 1d0)
+                           volume (funcall func-scalar mp)))
+                       (cl-mpm/mesh::node-boundary-vec node)
+                       (cl-mpm/mesh::node-boundary-vec node))
+                      ;; (incf node-boundary-scalar (* (if damage-volume (- 1d0 damage) 1d0)
+                      ;;                               volume svp (funcall func-scalar mp)))
+                      ))))))))))))
 
 (defclass bc-buoyancy-body (bc-buoyancy)
   ()
