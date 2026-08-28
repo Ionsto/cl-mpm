@@ -343,6 +343,8 @@
             (setf pmod p-mod-elastic)
             (loop for d from 0 below 2
                   do (progn
+                       (cl-mpm/fastmaths::fast-zero probe-vec)
+                       (setf (varef probe-vec d) 1d0)
                        (setf p-mod
                              (max p-mod
                                   (cl-mpm/utils:varef (cl-mpm/fastmaths::fast-@-tensor-voigt dep probe-vec)

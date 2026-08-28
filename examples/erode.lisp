@@ -1,54 +1,7 @@
 (defpackage :cl-mpm/examples/erode
   (:use :cl
         :cl-mpm/example))
-(in-package :cl-mpm/particle)
-
-
-(defclass particle-erosion (particle-elastic-damage)
-  ((eroded-volume
-    :initform 0d0
-    :accessor mp-eroded-volume)))
 (in-package :cl-mpm/examples/erode)
-
-(defmethod cl-mpm/output::save-vtk (filename (sim cl-mpm::mpm-sim-usf))
-  (with-accessors ((mps cl-mpm:sim-mps)
-                   (mesh cl-mpm:sim-mesh)) sim
-    (with-open-file (fs filename :direction :output :if-exists :supersede)
-      (format fs "# vtk DataFile Version 2.0~%")
-      (format fs "Lisp generated vtk file, SJVS~%")
-      (format fs "ASCII~%")
-      (format fs "DATASET UNSTRUCTURED_GRID~%")
-      (format fs "POINTS ~d double~%" (length mps))
-      (loop for mp across mps
-            do (format fs "~E ~E ~E ~%"
-                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) 'single-float)
-                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) 'single-float)
-                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 2 0) 'single-float)
-                       ))
-      (format fs "~%")
-      (let ((id 1)
-            (nd (cl-mpm/mesh:mesh-nd mesh)))
-        (declare (special id))
-        (format fs "POINT_DATA ~d~%" (length mps))
-        (cl-mpm/output::save-parameter "mass" (cl-mpm/particle:mp-mass mp))
-
-        (cl-mpm/output::save-parameter "density" (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)))
-        (cl-mpm/output::save-parameter "volume" (cl-mpm/particle::mp-volume mp))
-
-        (cl-mpm/output::save-parameter "boundary" (cl-mpm/particle::mp-boundary mp))
-        (cl-mpm/output::save-parameter "erode" (cl-mpm/particle::mp-eroded-volume mp))
-        (cl-mpm/output::save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
-        (cl-mpm/output::save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
-        (when (= 3 nd)
-          (cl-mpm/output::save-parameter "size_z" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 2 0)))
-
-        (cl-mpm/output::save-parameter "damage"
-                                       (if (slot-exists-p mp 'cl-mpm/particle::damage)
-                                           (cl-mpm/particle:mp-damage mp)
-                                           0d0))
-
-        )
-      )))
 
 (defun plot-domain ()
   (when *sim*
@@ -83,8 +36,12 @@
          (element-count (mapcar (lambda (x) (round x mesh-resolution)) domain-size))
          (block-size (list 10d0 10d0)))
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
-                                               :sim-type 'cl-mpm::mpm-sim-usf
+                                               :sim-type 'cl-mpm/aggregate::mpm-sim-agg-usf
                                                ;:sim-type 'cl-mpm/damage:mpm-sim-damage
+                                               :args-list
+                                               (list
+                                                ;; :enable-aggregate t
+                                                :gravity 0d0)
                                                ))
     (cl-mpm:add-mps
      *sim*
@@ -97,7 +54,9 @@
       :E 1d6
       :nu 0.3d0))
     (setf (cl-mpm:sim-dt *sim*)
-          (* 0.5d0 (cl-mpm/setup:estimate-elastic-dt *sim*)))
+          (* 0.9d0 (cl-mpm/setup:estimate-elastic-dt *sim*)))
+    (setf (cl-mpm:sim-damping-factor *sim*)
+          (* 0.1d0 (cl-mpm/setup::estimate-critical-damping *sim*)))
     ;; (setf (cl-mpm::sim-enable-damage *sim*) t)
     (setf *run-sim* t)
     (cl-mpm:add-bcs-force-list
@@ -116,7 +75,7 @@
           while *run-sim*
           do
           (format t "Step ~D~%" step)
-          (time 
+          (time
            (dotimes (i substeps)
              (cl-mpm:update-sim *sim*)))
           (cl-mpm/output:save-vtk (uiop:merge-pathnames* output-dir (format nil "sim_~5,'0d.vtk" step)) *sim* )
@@ -125,6 +84,7 @@
           (swank.live:update-swank))))
 
 (defun conv-test ()
+  (cl-mpm/utils:set-workers 8)
   (dolist (refine (list 1 2))
     (dolist (mps (list 2 4))
       (setup :refine refine :mps mps)

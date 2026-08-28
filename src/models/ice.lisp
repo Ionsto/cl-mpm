@@ -147,12 +147,16 @@
                    (init-stress mp-initiation-stress)
                    (oversize mp-oversize-scale))
       mp
-    (let* ((c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (rad-to-deg angle)))
-           (rs (cl-mpm/damage::est-shear-from-angle (rad-to-deg angle) (rad-to-deg angle-r) rc))
+    (let* ((pang
+             angle
+             ;; (cl-mpm/utils:deg-to-rad 50d0)
+                 )
+           (c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (rad-to-deg angle)))
+           (rs (cl-mpm/damage::est-shear-from-angle (rad-to-deg pang) (rad-to-deg angle-r) rc))
            (residual-strength (cl-mpm/particle::mp-residual-strength mp))
            (oversize-ratio (cl-mpm/damage::compute-oversize-factor oversize ductility)))
       (setf
-       (cl-mpm/particle::mp-phi mp) angle
+       (cl-mpm/particle::mp-phi mp) pang
        (mp-c mp) (* oversize-ratio c)
        (mp-shear-residual-ratio mp) rs)
       ;; (setf (mp-shear-residual-ratio mp) (min (mp-shear-residual-ratio mp) residual-strength)
@@ -203,7 +207,6 @@
     (when (and (cl-mpm/particle::mp-enable-viscosity mp)
                (> dt 0d0))
       (multiple-value-bind (eps pmod) (cl-mpm/ext::constitutive-viscoelastic stress-u strain de e nu dt (cl-mpm/particle::mp-viscosity mp))
-        ;; (pprint pmod)
         (setf p-wave pmod)))
     (cl-mpm/utils:voigt-copy-into strain trial-elastic-strain)
     (when enable-plasticity
@@ -214,14 +217,30 @@
                )
           (setf
            damage-pressure
-           (- 1d0 damage)
-           ;; (if (> p 0d0)
-           ;;     (- 1d0 damage-t)
-           ;;     (- 1d0 damage-c))
-           )
+           (- 1d0 damage))
+          ;; (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm-tangent
+          ;;                                              stress-u
+          ;;                                              strain
+          ;;                                              de
+          ;;                                              e nu
+          ;;                                              coheasion
+          ;;                                              (cl-mpm/particle::mp-tangent-stiffness mp))
+          ;;   (setf stress-u sig yield-func f)
+          ;;   (let ((probe-vec (cl-mpm/utils::voigt-zeros))
+          ;;         (dep (cl-mpm/particle::mp-tangent-stiffness mp)))
+          ;;     (setf p-wave 0d0)
+          ;;     (loop for d from 0 below 2
+          ;;           do (progn
+          ;;                (cl-mpm/fastmaths::fast-zero probe-vec)
+          ;;                (setf (varef probe-vec d) 1d0)
+          ;;                (setf p-wave
+          ;;                      (max p-wave
+          ;;                           (cl-mpm/utils:varef (cl-mpm/fastmaths::fast-@-tensor-voigt dep probe-vec)
+          ;;                                               d))))))
+          ;;   (setf ps-vm-inc inc)
+          ;;   (setf strain eps-e)
+          ;;   (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
 
-          ;; (cl-mpm/fastmaths:fast-.- strain pressure-strain strain)
-          ;; (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
           (multiple-value-bind (sig eps-e f inc pmod)
               (cl-mpm/ext::constitutive-mohr-coulomb
                stress-u
@@ -238,58 +257,20 @@
                       0d0
                       pressure
                       damage-pressure))))
-            ;; (cl-mpm/ext::constitutive-drucker-prager
-            ;;  stress-u
-            ;;  strain
-            ;;  de
-            ;;  E
-            ;;  nu
-            ;;  phi
-            ;;  psi
-            ;;  (max 0d0
-            ;;       (+
-            ;;        coheasion
-            ;;        (* pressure
-            ;;           damage-pressure))))
-              ;; (cl-mpm/constitutive::vm-plastic stress-u
-              ;;                                  de
-              ;;                                  strain
-              ;;                                  coheasion
-              ;;                                  e nu
-              ;;                                  )
-              ;; (cl-mpm/constitutive::mc-plastic stress-u
-              ;;                                  de
-              ;;                                  strain
-              ;;                                  E
-              ;;                                  nu
-              ;;                                  phi
-              ;;                                  psi
-              ;;                                  coheasion)
-            ;; (cl-mpm/fastmaths:fast-.+ eps-e pressure-strain eps-e)
-            ;; (setf sig (cl-mpm/constitutive::linear-elastic-mat eps-e de sig))
             (setf
              stress-u sig
              strain eps-e
              yield-func f
              ;; p-wave (* 1.0d0 pmod)
              )
-            (when t;(> inc 0d0)
+            (when t
               (setf p-wave (* 1.0d0 pmod)))
-            (let (;; (inc (expt (* 1/3 (max 0d0
-                  ;;                        (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
-                  ;;                           (cl-mpm/utils::trace-voigt strain)))) 1))
-                  )
+            (let ((inc (expt (* 1 (max 0d0
+                                         (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
+                                            (cl-mpm/utils::trace-voigt strain)))) 1)))
               (setf ps-vm (+ ps-vm-1 inc))
-              (setf ps-vm-inc inc))
-            ;; (cl-mpm/fastmaths:fast-.+ plastic-strain
-            ;;                           (cl-mpm/fastmaths:fast-.- trial-elastic-strain strain)
-            ;;                           plastic-strain)
-            ;; (cl-mpm/fastmaths:fast-.- trial-elastic-strain strain plastic-strain)
-            ;; (setf inc (cl-mpm/utils:trace-voigt plastic-strain))
-            ;; (let ()
-            ;;   (incf ps-vm inc)
-            ;;   (setf ps-vm-inc inc))
-            )))
+              (setf ps-vm-inc inc)))
+          ))
     (cl-mpm/utils:voigt-copy-into stress-u stress)
     stress))
 
