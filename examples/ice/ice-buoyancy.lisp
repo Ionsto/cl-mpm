@@ -360,7 +360,7 @@
      *water-bc*)
     (let ((domain-half (* 0.5d0 (first domain-size)))
           (friction friction)
-          (epsilon-scale 1d-1)
+          (epsilon-scale 1d-2)
           (penalty-damping 0d0)
           )
       (defparameter *floor-bc*
@@ -415,9 +415,9 @@
            ;; :back '(0 0 0)
            )
           ))
-    ;; (cl-mpm:add-bcs-force-list
-    ;;  *sim*
-    ;;  *bc-erode*)
+    (cl-mpm:add-bcs-force-list
+     *sim*
+     *bc-erode*)
     (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
     (cl-mpm/output:add-mp-output
      *sim*
@@ -597,7 +597,7 @@
     (plot-domain)
 
     (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 1d0)
-    (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
+    (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
           (cl-mpm::sim-ghost-factor *sim*) nil)
 
     (setf (cl-mpm::sim-allow-mp-damage-removal *sim*) nil)
