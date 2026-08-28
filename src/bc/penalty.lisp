@@ -762,11 +762,6 @@
                           :contact-area contact-area
                           :stiffness (*
                                       0.5d0
-                                      ;; epsilon
-                                      ;; (sqrt (+
-                                      ;;        (expt epsilon 2)
-                                      ;;        (expt (* friction epsilon) 2)
-                                      ;;        ))
                                       (+
                                        epsilon
                                        (if (> dt 0d0)

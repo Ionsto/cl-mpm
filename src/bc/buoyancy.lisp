@@ -1130,6 +1130,7 @@
                              (if (< (varef pos 1) datum) 1d0 0d0)
                              biot
                              damage
+                             ;; (cl-mpm/particle::get-volumetric-damage mp)
                              ;; rho
                              (- rho (/ mp-mass mp-volume-0))
                              ;; (- rho (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp)))
