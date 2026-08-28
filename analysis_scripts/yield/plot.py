@@ -1,19 +1,27 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-
-
 def damage(k,beta,e0):
     return peerlings(k,beta,e0,0)
 def peerlings(k,beta,e0,alpha):
     return 1 - (e0 / k)* ((1-alpha) + alpha * np.exp(-1 * beta * max(0,k-e0)))
-def damage(p,q,damage,rt,rc,rs):
+#def damage(p,q,damage,rt,rc,rs):
+#    pr = 0
+#    pr = np.copy(p)
+#    pr[p>0] = p[p>0] * (1 - (damage * rc))
+#    pr[p<=0] = p[p<=0] * (1 - (damage * rt))
+#    qr = q * (1 - (damage * rs))
+#    return pr,qr
+
+def damage_peer(p,q,k,rt,rc,rs):
+    beta = 0.1
+    e0 = 1
     pr = 0
     pr = np.copy(p)
-    pr[p>0] = p[p>0] * (1 - (damage * rc))
-    pr[p<=0] = p[p<=0] * (1 - (damage * rt))
-    qr = q * (1 - (damage * rs))
-    return pr,qr
+    pr[p>0] = p[p>0] * (1 - peerlings(k,beta,e0,rc))
+    pr[p<=0] = p[p<=0] * (1 - peerlings(k,beta,e0,rs))
+    qr = q * (1 - peerlings(k,beta,e0,rs))
+    return pr,qr,peerlings(k,beta,e0,1)
 
 xmin, xmax, ymin, ymax = -2, 5, 0, 5
 ticks_frequency = 1
@@ -24,20 +32,59 @@ p = np.linspace(0,100,100) - A
 q = np.linspace(0,100,100) * B
 
 
-plt.plot(p, q,label="Undamaged yield surface")
-for d in [0.25,0.5,0.9,0.99,0.99999999]:
-    p_damaged,q_damaged = damage(p,q,d,1,0.5,0.9)
-    plt.plot(p_damaged, q_damaged,label="d = {}".format(d))
-plt.legend()
-ax = plt.gca()
-ax.set(xlim=(xmin-1, xmax+1), ylim=(ymin, ymax+1), aspect='equal')
-#ax.set(aspect='equal')
-ax.spines['bottom'].set_position('zero')
-ax.spines['left'].set_position('zero')
-ax.spines['top'].set_visible(False)
-ax.spines['right'].set_visible(False)
-ax.set_xlabel('$x$', size=14, labelpad=-24, x=1.02)
-ax.set_ylabel('$y$', size=14, labelpad=-21, y=1.02, rotation=0)
-ax.grid(which='both', color='grey', linewidth=1, linestyle='-', alpha=0.2)
+A_p = 2
+B_p = 2
+p_p = np.linspace(0,100,100) - A_p
+q_p = np.linspace(0,100,100) * B_p
 
-plt.show()
+
+r_tensile = 1
+r_compression = 0
+r_shear = 0.5
+
+plt.ion()
+#plt.plot(p, q,label="Undamaged yield surface")
+#for d in [0.25,0.5,0.9,0.99,0.99999999]:
+#    p_damaged,q_damaged = damage(p,q,d,1,0.5,0.9)
+#    plt.plot(p_damaged, q_damaged,label="d = {}".format(d))
+#plt.legend()
+#ax = plt.gca()
+#ax.set(xlim=(xmin-1, xmax+1), ylim=(ymin, ymax+1), aspect='equal')
+##ax.set(aspect='equal')
+#ax.spines['bottom'].set_position('zero')
+#ax.spines['left'].set_position('zero')
+#ax.spines['top'].set_visible(False)
+#ax.spines['right'].set_visible(False)
+#ax.set_xlabel('$x$', size=14, labelpad=-24, x=1.02)
+#ax.set_ylabel('$y$', size=14, labelpad=-21, y=1.02, rotation=0)
+#ax.grid(which='both', color='grey', linewidth=1, linestyle='-', alpha=0.2)
+
+#plt.show()
+
+def plot(k):
+    plt.figure(2)
+    plt.cla()
+    ax = plt.gca()
+    ax.set(xlim=(xmin-1, xmax+1), ylim=(ymin, ymax+1), aspect='equal')
+    #ax.set(aspect='equal')
+    ax.spines['bottom'].set_position('zero')
+    ax.spines['left'].set_position('zero')
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.set_xlabel('$x$', size=14, labelpad=-24, x=1.02)
+    ax.set_ylabel('$y$', size=14, labelpad=-21, y=1.02, rotation=0)
+    ax.grid(which='both', color='grey', linewidth=1, linestyle='-', alpha=0.2)
+    p_damaged,q_damaged,d = damage_peer(p,q,k,r_tensile,r_compression,r_shear)
+    #plt.plot(p, q,label="Undamaged yield surface")
+    plt.plot(p, q,label="damage d = {}".format(d))
+
+    p_damaged,q_damaged,d = damage_peer(p_p,q_p,k,r_tensile,r_compression,r_shear)
+    plt.plot(p_damaged, q_damaged,label="plastic d = {}".format(d))
+    plt.legend()
+
+
+def multiplot():
+    for k in [1,1.2,2,4,5,10,50]:
+        plot(k)
+        plt.pause(0.5)
+multiplot()
