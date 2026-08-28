@@ -192,60 +192,67 @@
 (defun calculate-val-scalar-mp-gimp (mesh mp func)
   (let ((val 0d0)
         (count 0))
-    (cl-mpm::iterate-over-corners
-     mesh
-     mp
-     (lambda (c)
-       (let ((c (cl-mpm/fastmaths::fast-scale!
-                 (cl-mpm/fastmaths::fast-.+
-                  (cl-mpm/particle::mp-position mp)
-                  c)
-                 0.5d0)))
-         (let ((pos (compute-corner-displaced mesh c)))
-           (incf val (funcall func pos))
-           (incf count)))))
+    (let ((pos (cl-mpm/particle::mp-position-trial mp)))
+      (incf val (funcall func pos))
+      (incf count))
+    ;; (cl-mpm::iterate-over-corners
+    ;;  mesh
+    ;;  mp
+    ;;  (lambda (c)
+    ;;    (let ((c (cl-mpm/fastmaths::fast-scale!
+    ;;              (cl-mpm/fastmaths::fast-.+
+    ;;               (cl-mpm/particle::mp-position mp)
+    ;;               c)
+    ;;              0.5d0)))
+    ;;      (let ((pos (compute-corner-displaced mesh c)))
+    ;;        (incf val (funcall func pos))
+    ;;        (incf count)))))
     (setf val (/ val count))
     val))
 
 (defun calculate-val-stress-mp-gimp (mesh mp func)
   (let ((val (cl-mpm/utils::voigt-zeros))
         (count 0))
-    (cl-mpm::iterate-over-corners
-     mesh
-     mp
-     (lambda (c)
-       (let ((c (cl-mpm/fastmaths::fast-scale!
-                 (cl-mpm/fastmaths::fast-.+
-                  (cl-mpm/particle::mp-position mp)
-                  c)
-                 0.5d0)))
-         (let ((pos
-                 ;; c
-                 (compute-corner-displaced mesh c)
-                 ))
-           (cl-mpm/fastmaths::fast-.+ val (funcall func pos) val)
-           (incf count)))))
+    (let ((pos (cl-mpm/particle::mp-position-trial mp)))
+      (cl-mpm/fastmaths::fast-.+ val (funcall func pos) val)
+      (incf count))
+    ;; (cl-mpm::iterate-over-corners
+    ;;  mesh
+    ;;  mp
+    ;;  (lambda (c)
+    ;;    (let ((c (cl-mpm/fastmaths::fast-scale!
+    ;;              (cl-mpm/fastmaths::fast-.+
+    ;;               (cl-mpm/particle::mp-position mp)
+    ;;               c)
+    ;;              0.5d0)))
+    ;;      (let ((pos
+    ;;              (compute-corner-displaced mesh c)))
+    ;;        (cl-mpm/fastmaths::fast-.+ val (funcall func pos) val)
+    ;;        (incf count)))))
     (cl-mpm/fastmaths::fast-scale! val (/ 1d0 count))
     val))
 
 (defun calculate-val-force-mp-gimp (mesh mp func)
   (let ((val (cl-mpm/utils::vector-zeros))
         (count 0))
-    (cl-mpm::iterate-over-corners
-     mesh
-     mp
-     (lambda (c)
-       (let ((c (cl-mpm/fastmaths::fast-scale!
-                 (cl-mpm/fastmaths::fast-.+
-                  (cl-mpm/particle::mp-position mp)
-                  c)
-                 0.5d0)))
-         (let ((pos
-                 ;; c
-                 (compute-corner-displaced mesh c)
-                 ))
-           (cl-mpm/fastmaths::fast-.+ val (funcall func pos) val)
-           (incf count)))))
+    (let ((pos (cl-mpm/particle::mp-position-trial mp)))
+      (cl-mpm/fastmaths::fast-.+ val (funcall func pos) val)
+      (incf count))
+    ;; (cl-mpm::iterate-over-corners
+    ;;  mesh
+    ;;  mp
+    ;;  (lambda (c)
+    ;;    (let ((c (cl-mpm/fastmaths::fast-scale!
+    ;;              (cl-mpm/fastmaths::fast-.+
+    ;;               (cl-mpm/particle::mp-position mp)
+    ;;               c)
+    ;;              0.5d0)))
+    ;;      (let ((pos
+    ;;              ;; c
+    ;;              (compute-corner-displaced mesh c)
+    ;;              ))
+    ;;        (cl-mpm/fastmaths::fast-.+ val (funcall func pos) val)
+    ;;        (incf count)))))
     (cl-mpm/fastmaths::fast-scale! val (/ 1d0 count))
     val))
 
@@ -719,11 +726,11 @@
                        (lambda (mp) (calculate-val-mp mp func-div))
                        clip-function
                        )
-      (apply-force-cells-3d sim
-                         func-stress
-                         func-div
-                         clip-function
-                         )
+      ;; (apply-force-cells-3d sim
+      ;;                    func-stress
+      ;;                    func-div
+      ;;                    clip-function
+      ;;                    )
       )))
 
 (defclass bc-non-conforming-neumann (bc)
@@ -1108,7 +1115,6 @@
                     datum
                     rho
                     (cl-mpm:sim-gravity sim)))))
-               (setf (varef (cl-mpm/particle::mp-body-force mp) 1) 0d0)
                (when (and (typep mp 'cl-mpm/particle::particle-damage)
                           (> damage 0d0))
                  (let ((biot 1d0))
@@ -1123,7 +1129,7 @@
                             (*
                              (if (< (varef pos 1) datum) 1d0 0d0)
                              biot
-                             (expt damage 1)
+                             damage
                              ;; rho
                              (- rho (/ mp-mass mp-volume-0))
                              ;; (- rho (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp)))

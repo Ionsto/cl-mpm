@@ -662,8 +662,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (iterate-over-mps
      mps
      (lambda (mp)
-       (update-particle mesh mp dt)
-       (cl-mpm/particle::new-loadstep-mp mp)))))
+       (update-particle mesh mp dt)))))
 
 
 
@@ -1135,10 +1134,10 @@ This modifies the dt of the simulation in the process
 
 (defmethod new-loadstep ((sim mpm-sim))
   (update-particles sim)
-  ;; (cl-mpm::iterate-over-mps
-  ;;  (cl-mpm:sim-mps sim)
-  ;;  (lambda (mp)
-  ;;    (cl-mpm/particle::new-loadstep-mp mp)))
+  (cl-mpm::iterate-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (cl-mpm/particle::new-loadstep-mp mp)))
   (when (cl-mpm::sim-allow-mp-split sim)
     (split-mps sim))
   (check-mps sim)

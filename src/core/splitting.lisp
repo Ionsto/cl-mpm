@@ -263,9 +263,7 @@
                               (split-criteria-variable mp h split-factor nd)
                               (if remove-on-oversplit
                                    (<= (cl-mpm/particle::mp-split-depth mp) max-split-depth)
-                                   (< (cl-mpm/particle::mp-split-depth mp) max-split-depth)
-                                  ))
-                             ))
+                                   (< (cl-mpm/particle::mp-split-depth mp) max-split-depth)))))
       (loop for mp across mps-to-split
             for direction in split-direction
             do (loop for new-mp in (split-mp mp h direction)

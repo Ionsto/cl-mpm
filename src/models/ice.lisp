@@ -411,6 +411,7 @@
                    (visc-factor mp-visc-factor)
                    (visc-power mp-visc-power)
                    (true-visc mp-true-visc)
+                   (j mp-deformation-jacobian-strain)
                    )
       mp
     (declare (function calc-pressure)
@@ -445,7 +446,7 @@
                             ))
             (setf strain (magicl:linear-solve de stress-u)))))
 
-    ;; (let ((pressure (* pressure (expt damage 1) (magicl:det def))))
+    ;; (let ((pressure (* pressure (expt damage 1) j)))
     ;;   (cl-mpm/fastmaths::fast-.+ stress-u
     ;;                             (cl-mpm/utils::voigt-eye (/ pressure 3d0)))
     ;;   (setf strain (magicl:linear-solve de stress-u)))
@@ -494,7 +495,7 @@
 
     (when (and enable-damage
                (> damage 0.0d0))
-      (let* ((d-p (* pressure damage 0d0 (magicl:det def))))
+      (let* ((d-p (* pressure damage 0d0 j)))
         (declare (double-float damage))
         (let* ((p (+ (/ (cl-mpm/constitutive::voight-trace stress) 3d0) d-p))
                (s (cl-mpm/constitutive::deviatoric-voigt stress))
@@ -512,9 +513,7 @@
            (magicl:scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) ex))
            stress))))
 
-    (let ((pressure (* pressure (expt damage 1)
-                       (magicl:det def)
-                       )))
+    (let ((pressure (* pressure (expt damage 1) j)))
       (cl-mpm/fastmaths::fast-.+ stress
                                 (cl-mpm/utils::voigt-eye pressure)
                                 stress))
@@ -895,8 +894,8 @@
                                 (/ 1d0 j)))
              (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
              (pressure (* pressure damage))
-             ;; (pind (- p pressure))
-             (pind p)
+             (pind (- p pressure))
+             ;; (pind p)
              (p-deg 0d0)
              (s (cl-mpm/constitutive::deviatoric-voigt undamaged-stress)))
         (declare (double-float damage-t damage-c damage-s p-deg))

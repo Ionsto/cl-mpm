@@ -128,7 +128,6 @@
                             (cl-mpm/fastmaths::matrix-reset-identity result-strain)
                             (cl-mpm/utils:matrix-eye 1d0))))
         (cl-mpm/fastmaths::fast-.+-matrix df stretch-tensor df)
-        ;; (setf dJ (cl-mpm/fastmaths:det-3x3 df))
         (when (< (cl-mpm/fastmaths:det-3x3 df) 0d0)
           (error 'cl-mpm/errors:error-dF-negative))
         (cl-mpm/utils:matrix-copy-into df df-strain)
@@ -137,10 +136,7 @@
           (if nil;;t exp: nil Coobs
               (progn
                 (let ((j-inc (cl-mpm/fastmaths:det-3x3 df))
-                      (j-n
-                        1d0
-                        ;; (cl-mpm/fastmaths:det-3x3 def)
-                        )
+                      (j-n 1d0)
                       (gather-j 0d0)
                       (nd (cl-mpm/mesh::mesh-nd mesh))
                       (svp-sum 0d0)
@@ -218,6 +214,8 @@
                    (def-0    cl-mpm/particle::mp-deformation-gradient-0)
                    (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
                    (df-inc-inv    cl-mpm/particle::mp-deformation-gradient-increment-inverse)
+                   (j-n cl-mpm/particle::mp-deformation-jacobian-strain-n)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    (strain-rate cl-mpm/particle:mp-strain-rate))
       mp
@@ -230,6 +228,7 @@
          strain-n
          (cl-mpm/utils::stretch-to-sym stretch-tensor)
          strain)
+        (setf j (* (cl-mpm/fastmaths::det-3x3 df-strain) j-n))
         (setf volume (* volume-n (the double-float (cl-mpm/fastmaths:det-3x3 df))))
         (setf df-inc-inv (cl-mpm/fastmaths::fast-inv-3x3 df-inc))
         (when (<= volume 0d0)

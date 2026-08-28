@@ -121,8 +121,7 @@
         (update-dynamic-stats sim)
         ;; Also updates mps inline
         (g2p mesh mps dt damping vel-algo)
-        ;; (new-loadstep sim)
-        (update-particles sim)
+        (new-loadstep sim)
         (when (cl-mpm::sim-allow-mp-split sim)
           (split-mps sim)))
       (incf time dt))))
