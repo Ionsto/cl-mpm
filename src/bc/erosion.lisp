@@ -67,8 +67,7 @@
          (and
           (funcall clip-func pos)))
        datum
-       :damage-volume nil;damage-volume
-       )
+       :damage-volume nil)
       (cl-mpm:iterate-over-mps
        (cl-mpm:sim-mps sim)
        (lambda (mp)
@@ -79,8 +78,9 @@
                             (erode-n cl-mpm/particle::mp-eroded-volume-n)
                             (erosion-modulus cl-mpm/particle::mp-erosion-modulus))
                mp
-             (declare (double-float volume mass erode erosion-modulus))
+             (declare (double-float volume mass erode erosion-modulus erode erode-n))
              (let ((weathering 0d0))
+               (declare (double-float weathering))
                (cl-mpm:iterate-over-neighbours
                 mesh
                 mp
@@ -91,37 +91,22 @@
                                    (node-active cl-mpm/mesh::node-active))
                       node
                     (when (and node-active
-                               boundary-node)
-                      (incf weathering (* svp (/ node-boundary-scalar node-volume)))))))
+                               boundary-node
+                               )
+                                        ;(incf weathering (* svp (/ node-boundary-scalar node-volume)))
+                      (incf weathering (* svp (/ node-boundary-scalar node-volume)))
+                      ;; (when (> node-boundary-scalar 0d0)
+                      ;;   )
+                      ;; (format t "~E ~%" weathering)
+                      ))))
 
-               (setf weathering (min weathering 0d0))
-               (setf weathering (* rate (min weathering 0d0) volume))
+               (setf weathering (max weathering 0d0))
+               (setf weathering (* rate (* weathering volume)))
                (setf weathering (* weathering (mp-erosion-enhancment mp)))
-               ;; (setf weathering (- (sqrt (abs weathering))))
-                                        ;(setf weathering (* weathering (+ 1d0 (* 8 (cl-mpm/particle:mp-damage mp)))))
-                                        ;(setf weathering (* weathering (+ 1d0 (* 10 (cl-mpm/particle::mp-strain-plastic-vm mp)))))
-               ;; (setf weathering (* weathering (+ 1d0 (* 10 (cl-mpm/particle::mp-strain-plastic-vm mp)))))
-
-               (setf weathering (* (/ (- weathering) erosion-modulus) dt))
+               (setf weathering (* (/ weathering erosion-modulus) dt))
                (setf (cl-mpm/particle::mp-boundary mp) weathering)
                (setf erode (+ erode-n weathering))
-               ;; (pprint erode)
-               ;; (let ((density (/ mass volume)))
-               ;;   (setf
-               ;;    mass
-               ;;    (max
-               ;;     0d0
-               ;;     (-
-               ;;      mass
-               ;;      weathering
-               ;;      )))
-               ;;   (setf volume (/ mass density))
-               )))))
-
-      ;; (cl-mpm::remove-mps-func sim (lambda (mp) (>= (cl-mpm/particle::mp-eroded-volume mp)
-      ;;                                               (cl-mpm/particle::mp-mass mp))))
-      ))
-  )
+               ))))))))
 
 (defmethod cl-mpm/bc::apply-sim-bc (sim (bc bc-erode) dt)
   (apply-erosion bc (cl-mpm:sim-mesh sim) dt))
