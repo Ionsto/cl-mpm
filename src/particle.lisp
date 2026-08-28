@@ -31,7 +31,8 @@
 
 (in-package :cl-mpm/particle)
 
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
 (declaim (inline make-node-cache))
 (defstruct (node-cache
@@ -46,6 +47,18 @@
   (grads (cl-mpm/utils::make-gradients 0d0 0d0 0d0) :type cl-mpm/utils::gradients)
   (weight-fbar 0d0 :type double-float)
   (grads-fbar (cl-mpm/utils::make-gradients 0d0 0d0 0d0) :type cl-mpm/utils::gradients))
+
+
+(defstruct corner
+  (contact nil)
+  (offset (cl-mpm/utils::vector-zeros))
+  (position (cl-mpm/utils::vector-zeros))
+  (trial-position (cl-mpm/utils::vector-zeros))
+  (penalty-normal-force 0d0)
+  (penalty-frictional-force (cl-mpm/utils::vector-zeros))
+  (penalty-frictional-force-prev (cl-mpm/utils::vector-zeros)))
+
+
 
 (defun make-empty-node-cache ()
   (make-node-cache nil 0d0 (cl-mpm/utils::make-gradients 0d0 0d0 0d0) 0d0 (cl-mpm/utils::make-gradients 0d0 0d0 0d0)))
@@ -221,7 +234,6 @@
        :accessor mp-deformation-gradient-increment-inverse
        :type MAGICL:MATRIX/DOUBLE-FLOAT
        :initform (cl-mpm/utils:matrix-eye 1d0))
-
    (deformation-jacobian-strain-n
        :accessor mp-deformation-jacobian-strain-n
        :type double-float
@@ -288,6 +300,10 @@
     :accessor mp-cached-nodes
     :initarg :nc
     :initform (make-array 8 :fill-pointer 0 :element-type 'node-cache :initial-element (make-empty-node-cache)))
+   (corners
+    :accessor mp-corners
+    :initarg :corners
+    :initform (make-array 8 :fill-pointer 8 :element-type 'corner :initial-element (make-corner)))
    (p-modulus
     :accessor mp-p-modulus
     :initform 1d0
@@ -461,7 +477,8 @@
                    (domain-true mp-true-domain)
                    (position mp-position)
                    (position-trial mp-position-trial)
-                   (gravity-axis mp-gravity-axis))
+                   (gravity-axis mp-gravity-axis)
+                   (corners mp-corners))
       p
     ;;(cl-mpm/utils:matrix-copy-into position position-trial)
     (setf position-trial (cl-mpm/utils:vector-copy position))
@@ -469,10 +486,64 @@
     (unless domain-true
       (setf domain-true (cl-mpm/utils::matrix-eye 1d0))
       (setf
-       (magicl:tref domain-true 0 0) (varef domain 0)
-       (magicl:tref domain-true 1 1) (varef domain 1)
-       (magicl:tref domain-true 2 2) (varef domain 2))
-      )))
+       (mtref domain-true 0 0) (varef domain 0)
+       (mtref domain-true 1 1) (varef domain 1)
+       (mtref domain-true 2 2) (varef domain 2)))
+    (let ((i 0))
+      (loop for z from -1d0 to 1d0 by 2d0
+            do (loop for y from -1d0 to 1d0 by 2d0
+                     do (loop for x from -1d0 to 1d0 by 2d0
+                              do (let ((corner (cl-mpm/utils:vector-zeros)))
+                                   ;; (cl-mpm/fastmaths::fast-.+-vector
+                                   ;;  position
+                                   ;;  (cl-mpm/fastmaths::fast-scale!
+                                   ;;   (cl-mpm/fastmaths:fast-.*
+                                   ;;    (vector-from-list (list x y z))
+                                   ;;    domain) 0.5d0) corner)
+                                   (setf
+                                    (aref corners i)
+                                    (make-corner
+                                     :offset (vector-from-list (list x y z))))
+                                   (incf i))))))))
+
+
+
+(defun iterate-over-mp-corners (mesh mp func)
+  (declare (particle mp) (function func))
+  (let* ((nd (cl-mpm/mesh::mesh-nd mesh))
+         (max-iter (the fixnum (expt 2 nd))))
+    (declare (fixnum nd max-iter))
+    (dotimes (i max-iter)
+      (funcall func (aref (mp-corners mp) i)))))
+
+(defun reset-corners (mp)
+  (dotimes (i (length (mp-corners mp)))
+    (let ((corner (aref (mp-corners mp) i)))
+      (setf (corner-contact corner) nil)
+      (cl-mpm/utils:vector-copy-into
+       (corner-penalty-frictional-force-prev corner)
+       (corner-penalty-frictional-force corner)))))
+
+(defun finalise-corners (mesh mp)
+  (cl-mpm/fastmaths::fast-zero (mp-penalty-frictional-force mp))
+  (setf (mp-penalty-normal-force mp) 0d0)
+  (iterate-over-mp-corners
+   mesh
+   mp
+   (lambda (corner)
+     (unless (corner-contact corner)
+       (cl-mpm/fastmaths:fast-zero (corner-penalty-frictional-force corner))
+       (cl-mpm/fastmaths:fast-zero (corner-penalty-frictional-force-prev corner))
+       (setf (corner-penalty-normal-force corner) 0d0))
+     (setf (corner-contact corner) nil)
+     (incf (mp-penalty-normal-force mp) (corner-penalty-normal-force corner))
+     ;; (pprint (corner-penalty-frictional-force corner))
+     (cl-mpm/fastmaths::fast-.+
+      (corner-penalty-frictional-force corner)
+      (mp-penalty-frictional-force mp)
+      (mp-penalty-frictional-force mp)
+      ))))
+
 
 (defmethod reinitialize-instance :after ((p particle) &rest initargs &key)
   (with-accessors ((domain mp-domain-size)
@@ -1071,6 +1142,7 @@
     (cl-mpm/utils:voigt-copy-into strain-n strain)
     (cl-mpm/utils:vector-copy-into position position-trial)
     (cl-mpm/utils:vector-copy-into fric-force-n fric-force)
+    (cl-mpm/particle::reset-corners mp)
     (setf volume volume-n)
     (setf j j-n)
     ))

@@ -635,10 +635,11 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (cl-mpm/fastmaths::fast-zero disp-inc)
     (cl-mpm/utils::vector-copy-into pos pos-trial)
     (setf contact-step contact)
-    (unless contact
-      (cl-mpm/fastmaths:fast-zero friction-force)
-      (cl-mpm/fastmaths:fast-zero friction-force-prev)
-      (setf normal-force 0d0))
+    (cl-mpm/particle::finalise-corners mesh mp)
+    ;; (unless contact
+    ;;   (cl-mpm/fastmaths:fast-zero friction-force)
+    ;;   (cl-mpm/fastmaths:fast-zero friction-force-prev)
+    ;;   (setf normal-force 0d0))
     (setf (cl-mpm/particle::mp-penalty-stiffness mp) 0d0)
     (setf contact nil)))
 
@@ -661,7 +662,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (iterate-over-mps
      mps
      (lambda (mp)
-       (update-particle mesh mp dt)))))
+       (update-particle mesh mp dt)
+       (cl-mpm/particle::new-loadstep-mp mp)))))
 
 
 
@@ -1133,10 +1135,10 @@ This modifies the dt of the simulation in the process
 
 (defmethod new-loadstep ((sim mpm-sim))
   (update-particles sim)
-  (cl-mpm::iterate-over-mps
-   (cl-mpm:sim-mps sim)
-   (lambda (mp)
-     (cl-mpm/particle::new-loadstep-mp mp)))
+  ;; (cl-mpm::iterate-over-mps
+  ;;  (cl-mpm:sim-mps sim)
+  ;;  (lambda (mp)
+  ;;    (cl-mpm/particle::new-loadstep-mp mp)))
   (when (cl-mpm::sim-allow-mp-split sim)
     (split-mps sim))
   (check-mps sim)
@@ -1330,3 +1332,40 @@ This modifies the dt of the simulation in the process
         )
       (setf (cl-mpm/mesh::mesh-active-nodes mesh)
             nodes-sorted))))
+
+(defun compute-point-displacement (mesh pos &key (result nil))
+  (let ((corner-disp (if result (cl-mpm/fastmaths:fast-zero result) (cl-mpm/utils::vector-zeros))))
+    (cl-mpm::iterate-over-neighbours-point-linear
+     mesh
+     pos
+     (lambda (mesh node svp grads)
+       (with-accessors ((node-disp cl-mpm/mesh::node-displacment)
+                        (node-active  cl-mpm/mesh:node-active))
+           node
+         (when node-active
+           (cl-mpm/fastmaths:fast-fmacc corner-disp node-disp svp)))))
+    corner-disp))
+
+(defun update-corners (mesh mp)
+  (cl-mpm/particle::iterate-over-mp-corners
+   mesh
+   mp
+   (lambda (corner)
+     ;; (pprint corner)
+     (cl-mpm/fastmaths::fast-.+
+      (cl-mpm/particle::mp-position mp)
+      (cl-mpm/fastmaths::fast-scale!
+       (cl-mpm/fastmaths::fast-.*
+        (cl-mpm/particle::mp-domain-size mp)
+        (cl-mpm/particle::corner-offset corner))
+       0.5d0)
+      (cl-mpm/particle::corner-trial-position corner)
+      )
+     (compute-point-displacement
+      mesh
+      (cl-mpm/particle::corner-trial-position corner)
+      :result (cl-mpm/particle::corner-position corner))
+     (cl-mpm/fastmaths::fast-.+
+      (cl-mpm/particle::corner-trial-position corner)
+      (cl-mpm/particle::corner-position corner)
+      (cl-mpm/particle::corner-position corner)))))
