@@ -58,6 +58,15 @@
   (penalty-frictional-force (cl-mpm/utils::vector-zeros))
   (penalty-frictional-force-prev (cl-mpm/utils::vector-zeros)))
 
+(defun safe-copy-corner (corner)
+  (make-corner
+   :contact (corner-contact corner)
+   :position (cl-mpm/utils:vector-copy (corner-position corner))
+   :trial-position (cl-mpm/utils:vector-copy (corner-trial-position corner))
+   :penalty-normal-force (corner-penalty-normal-force corner)
+   :penalty-frictional-force (cl-mpm/utils:vector-copy (corner-position corner))
+   :penalty-frictional-force-prev (cl-mpm/utils:vector-copy (corner-position corner))))
+
 
 
 (defun make-empty-node-cache ()
@@ -490,6 +499,7 @@
        (mtref domain-true 1 1) (varef domain 1)
        (mtref domain-true 2 2) (varef domain 2)))
     (let ((i 0))
+      ;; (setf corners (make-array 8 :fill-pointer 8 :element-type 'corner :initial-element (make-corner)))
       (loop for z from -1d0 to 1d0 by 2d0
             do (loop for y from -1d0 to 1d0 by 2d0
                      do (loop for x from -1d0 to 1d0 by 2d0
@@ -542,7 +552,9 @@
       (corner-penalty-frictional-force corner)
       (mp-penalty-frictional-force mp)
       (mp-penalty-frictional-force mp)
-      ))))
+      )
+     (setf (corner-penalty-normal-force corner) 0d0)
+     )))
 
 
 (defmethod reinitialize-instance :after ((p particle) &rest initargs &key)
@@ -550,12 +562,14 @@
                    (domain-true mp-true-domain)
                    (position mp-position)
                    (position-trial mp-position-trial)
-                   (gravity-axis mp-gravity-axis))
+                   (gravity-axis mp-gravity-axis)
+                   (corners mp-corners))
       p
     (setf position-trial (cl-mpm/utils:vector-copy position))
     (unless domain-true
-      (setf domain-true (cl-mpm/utils::matrix-eye 1d0))))
-  )
+      (setf domain-true (cl-mpm/utils::matrix-eye 1d0)))
+    (dotimes (i (length corners))
+      (setf (aref corners i) (safe-copy-corner (aref corners i))))))
 
 (defmethod initialize-instance :after ((p particle-elastic) &key)
   (update-elastic-matrix p)

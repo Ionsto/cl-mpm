@@ -625,8 +625,8 @@
               0d0))))))
 
 (defun apply-penalty-corner (mesh bc mp corner dt)
-  (let* ((point (cl-mpm/particle::corner-position corner))
-         (trial-point (cl-mpm/particle::corner-trial-position corner))
+  (let* ((point (cl-mpm/particle::corner-trial-position corner))
+         (trial-point (cl-mpm/particle::corner-position corner))
          (disp-inc (cl-mpm/fastmaths::fast-.- point trial-point))
          (mp-friction-n (cl-mpm/particle::corner-penalty-frictional-force-prev corner)))
     (with-accessors ((nd cl-mpm/mesh:mesh-nd)
@@ -652,8 +652,7 @@
                  (normal-force (*
                                 (max 0d0 penetration)
                                 epsilon
-                                contact-area
-                                )))
+                                contact-area)))
             (if (>= penetration 0d0)
                 (progn
                   (sb-thread:with-mutex (debug-mutex)
@@ -885,7 +884,7 @@
               mesh
               mp
               (lambda (corner)
-                (let* ((c (cl-mpm/particle::corner-position corner)))
+                (let* ((c (cl-mpm/particle::corner-trial-position corner)))
                   (let* ((penetration-dist (penetration-distance-point c datum normal)))
                     (declare (double-float penetration-dist))
                     (when (and

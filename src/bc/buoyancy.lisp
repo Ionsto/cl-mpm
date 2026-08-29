@@ -189,55 +189,55 @@
     (cl-mpm/fastmaths::fast-.+ corner corner-disp corner-disp)
     corner-disp))
 
+(defun calculate-val-gimp (mesh mp func)
+  (declare (function func))
+  (funcall func (cl-mpm/particle::mp-position-trial mp))
+  ;; (cl-mpm::iterate-over-corners
+  ;;  mesh
+  ;;  mp
+  ;;  (lambda (c)
+  ;;    (let ((c (cl-mpm/fastmaths::fast-scale!
+  ;;              (cl-mpm/fastmaths::fast-.+
+  ;;               (cl-mpm/particle::mp-position mp)
+  ;;               c)
+  ;;              0.5d0)))
+  ;;      (let ((pos (compute-corner-displaced mesh c)))
+  ;;        (funcall func pos)))))
+  )
+
 (defun calculate-val-scalar-mp-gimp (mesh mp func)
   (let ((val 0d0)
         (count 0))
-    (let ((pos (cl-mpm/particle::mp-position-trial mp)))
-      (incf val (funcall func pos))
-      (incf count))
-    ;; (cl-mpm::iterate-over-corners
-    ;;  mesh
-    ;;  mp
-    ;;  (lambda (c)
-    ;;    (let ((c (cl-mpm/fastmaths::fast-scale!
-    ;;              (cl-mpm/fastmaths::fast-.+
-    ;;               (cl-mpm/particle::mp-position mp)
-    ;;               c)
-    ;;              0.5d0)))
-    ;;      (let ((pos (compute-corner-displaced mesh c)))
-    ;;        (incf val (funcall func pos))
-    ;;        (incf count)))))
+    (calculate-val-gimp
+     mesh
+     mp
+     (lambda (pos)
+       (incf val (funcall func pos))
+       (incf count)))
     (setf val (/ val count))
     val))
 
 (defun calculate-val-stress-mp-gimp (mesh mp func)
   (let ((val (cl-mpm/utils::voigt-zeros))
         (count 0))
-    (let ((pos (cl-mpm/particle::mp-position-trial mp)))
-      (cl-mpm/fastmaths::fast-.+ val (funcall func pos) val)
-      (incf count))
-    ;; (cl-mpm::iterate-over-corners
-    ;;  mesh
-    ;;  mp
-    ;;  (lambda (c)
-    ;;    (let ((c (cl-mpm/fastmaths::fast-scale!
-    ;;              (cl-mpm/fastmaths::fast-.+
-    ;;               (cl-mpm/particle::mp-position mp)
-    ;;               c)
-    ;;              0.5d0)))
-    ;;      (let ((pos
-    ;;              (compute-corner-displaced mesh c)))
-    ;;        (cl-mpm/fastmaths::fast-.+ val (funcall func pos) val)
-    ;;        (incf count)))))
+    (calculate-val-gimp
+     mesh
+     mp
+     (lambda (pos)
+       (cl-mpm/fastmaths::fast-.+ val (funcall func pos) val)
+       (incf count)))
     (cl-mpm/fastmaths::fast-scale! val (/ 1d0 count))
     val))
 
 (defun calculate-val-force-mp-gimp (mesh mp func)
   (let ((val (cl-mpm/utils::vector-zeros))
         (count 0))
-    (let ((pos (cl-mpm/particle::mp-position-trial mp)))
-      (cl-mpm/fastmaths::fast-.+ val (funcall func pos) val)
-      (incf count))
+    (calculate-val-gimp
+     mesh
+     mp
+     (lambda (pos)
+       (cl-mpm/fastmaths::fast-.+ val (funcall func pos) val)
+       (incf count)))
     ;; (cl-mpm::iterate-over-corners
     ;;  mesh
     ;;  mp

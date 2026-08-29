@@ -1358,13 +1358,13 @@ This modifies the dt of the simulation in the process
         (cl-mpm/particle::mp-domain-size mp)
         (cl-mpm/particle::corner-offset corner))
        0.5d0)
-      (cl-mpm/particle::corner-trial-position corner)
-      )
+      (cl-mpm/particle::corner-position corner))
+
      (compute-point-displacement
       mesh
-      (cl-mpm/particle::corner-trial-position corner)
-      :result (cl-mpm/particle::corner-position corner))
-     (cl-mpm/fastmaths::fast-.+
-      (cl-mpm/particle::corner-trial-position corner)
       (cl-mpm/particle::corner-position corner)
-      (cl-mpm/particle::corner-position corner)))))
+      :result (cl-mpm/particle::corner-trial-position corner))
+     (cl-mpm/fastmaths::fast-.+
+      (cl-mpm/particle::corner-position corner)
+      (cl-mpm/particle::corner-trial-position corner)
+      (cl-mpm/particle::corner-trial-position corner)))))
