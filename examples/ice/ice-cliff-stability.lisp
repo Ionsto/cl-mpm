@@ -10,11 +10,11 @@
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 
-(defparameter *angle* 30d0)
-(defparameter *angle-r* 10d0)
+(defparameter *angle* 38d0)
+(defparameter *angle-r* 20d0)
 (defparameter *angle-psi* 0d0)
 (defparameter *rt* 1d0)
-(defparameter *rc* 0d0)
+(defparameter *rc* 0.9d0)
 (defparameter *enable-plastic-damage* nil)
 (defparameter *delay-time* 1d4)
 (defparameter *delay-exponent* 4d0)
@@ -25,6 +25,8 @@
 
 (defparameter *length-scaler* 2d0)
 (defparameter *length-scale* nil)
+
+(defparameter *biot-coefficent* 0d0)
 
 (defparameter *ductility* 10d0)
 ;; (defparameter *tensile-strength* 0.1185d6)
@@ -149,9 +151,9 @@
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
                                                :sim-type
                                                ;; Took [TODO] seconds
-                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
                                                ;; Took 57 seconds
-                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic
+                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static
                                                :args-list
                                                (list
@@ -219,7 +221,7 @@
           :enable-plasticity t
           :enable-damage t
           :residual-strength 1d0
-          :biot-coeff 0d0
+          :biot-coeff *biot-coefficent*
 
           :enable-viscosity nil
           :viscosity *viscosity*
@@ -332,8 +334,7 @@
     (when use-penalty
       (cl-mpm:add-bcs-force-list
        *sim*
-       *floor-bc*
-       ))
+       *floor-bc*))
     (unless use-penalty
       (if stick-base
           (cl-mpm/setup:setup-bcs
@@ -430,7 +431,7 @@
         ;; (cl-mpm/dynamic-relaxation::check-max-velocity sim :max-velocity 1d0)
         (let ((v (cl-mpm/dynamic-relaxation::max-velocity-criteria sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))))
           (format t "Max velocity ~E~%" v)
-          (when (> v 1d-3)
+          (when (> v 1d0)
             (format t "Maximum velocity error~%")
             (error (make-instance 'early-exit-condition
                                   :stable nil))))
@@ -498,20 +499,19 @@
 (defun stability-qt-test ()
   (cl-mpm/utils:set-workers 16)
   (let* ((heights (list
-                   100d0
-                   200d0
-                   300d0
-                   400d0
                    500d0
-                   600d0
+                   ;; 200d0
+                   ;; 300d0
+                   ;; ;; 400d0
+                   ;; 500d0
+                   ;; 600d0
                    ))
          (floatations (list
+                       0.5d0
                        ;; 0d0
-                       ;; 0d0
-                       ;; 0d0
+                       ;; 0.5d0
                        ;; 0.9d0
                        ;; 1d0
-                       1d0
                        ))
          (cliff-step 20d0)
          (density 918d0)
@@ -542,17 +542,17 @@
                             (defparameter *length-scaler* 1d0)
                             ;; (defparameter *length-scale* 20d0)
                             (defparameter *early-exit-flag* nil)
-                            (setup :refine 1d0
+                            (setup :refine 0.125d0
                                    :multigrid-refines 0
-                                   :friction 0d0
+                                   :friction 0.5d0
                                    :ice-height height
                                    :mps mps
                                    :hydro-static nil
                                    :cryo-static nil
                                    :elastic-static t
-                                   :aspect 2d0
+                                   :aspect 6d0
                                    :slope 0d0
-                                   ;; :bench-length (* 1d0 height)
+                                   :bench-length (* 1d0 height)
                                    :floatation-ratio flotation
                                    :use-penalty t
                                    :stick-base nil)
@@ -572,8 +572,8 @@
                             (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
                             (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
                                   (cl-mpm::sim-ghost-factor *sim*) nil
-                                  ;; (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND
-                                  (cl-mpm::sim-velocity-algorithm *sim*) :QUASI-STATIC
+                                  (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND
+                                  ;; (cl-mpm::sim-velocity-algorithm *sim*) :QUASI-STATIC
                                   )
                             (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
                             (time
