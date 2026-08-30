@@ -61,11 +61,12 @@
 (defun safe-copy-corner (corner)
   (make-corner
    :contact (corner-contact corner)
+   :offset (cl-mpm/utils:vector-copy (corner-offset corner))
    :position (cl-mpm/utils:vector-copy (corner-position corner))
    :trial-position (cl-mpm/utils:vector-copy (corner-trial-position corner))
    :penalty-normal-force (corner-penalty-normal-force corner)
-   :penalty-frictional-force (cl-mpm/utils:vector-copy (corner-position corner))
-   :penalty-frictional-force-prev (cl-mpm/utils:vector-copy (corner-position corner))))
+   :penalty-frictional-force (cl-mpm/utils:vector-copy (corner-penalty-frictional-force corner))
+   :penalty-frictional-force-prev (cl-mpm/utils:vector-copy (corner-penalty-frictional-force-prev corner))))
 
 
 
@@ -87,7 +88,10 @@
 ;;   )
 
 (defclass particle ()
-  ((position
+  (;; (nd
+   ;;  :accessor mp-nd
+   ;;  :initform 3)
+   (position
     :accessor mp-position
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:vector-zeros)
@@ -312,7 +316,9 @@
    (corners
     :accessor mp-corners
     :initarg :corners
-    :initform (make-array 8 :fill-pointer 8 :element-type 'corner :initial-element (make-corner)))
+    :initform nil
+    ;; (make-array 8 :fill-pointer 8 :element-type 'corner :initial-element (make-corner))
+    )
    (p-modulus
     :accessor mp-p-modulus
     :initform 1d0
@@ -498,62 +504,89 @@
        (mtref domain-true 0 0) (varef domain 0)
        (mtref domain-true 1 1) (varef domain 1)
        (mtref domain-true 2 2) (varef domain 2)))
-    (let ((i 0))
-      ;; (setf corners (make-array 8 :fill-pointer 8 :element-type 'corner :initial-element (make-corner)))
-      (loop for z from -1d0 to 1d0 by 2d0
-            do (loop for y from -1d0 to 1d0 by 2d0
-                     do (loop for x from -1d0 to 1d0 by 2d0
-                              do (let ((corner (cl-mpm/utils:vector-zeros)))
-                                   ;; (cl-mpm/fastmaths::fast-.+-vector
-                                   ;;  position
-                                   ;;  (cl-mpm/fastmaths::fast-scale!
-                                   ;;   (cl-mpm/fastmaths:fast-.*
-                                   ;;    (vector-from-list (list x y z))
-                                   ;;    domain) 0.5d0) corner)
-                                   (setf
-                                    (aref corners i)
-                                    (make-corner
-                                     :offset (vector-from-list (list x y z))))
-                                   (incf i))))))))
+    ;; (let ((i 0))
+    ;;   ;; (setf corners (make-array 8 :fill-pointer 8 :element-type 'corner :initial-element (make-corner)))
+    ;;   (loop for z in (list -1d0 1d0)
+    ;;         do (loop for y in (list -1d0 1d0)
+    ;;                  do (loop for x from (-1d0 1d0)
+    ;;                           do (let ((corner (cl-mpm/utils:vector-zeros)))
+    ;;                                ;; (cl-mpm/fastmaths::fast-.+-vector
+    ;;                                ;;  position
+    ;;                                ;;  (cl-mpm/fastmaths::fast-scale!
+    ;;                                ;;   (cl-mpm/fastmaths:fast-.*
+    ;;                                ;;    (vector-from-list (list x y z))
+    ;;                                ;;    domain) 0.5d0) corner)
+    ;;                                (setf
+    ;;                                 (aref corners i)
+    ;;                                 (make-corner
+    ;;                                  :offset (vector-from-list (list x y z))))
+    ;;                                (incf i))))))
+    ))
 
 
 
-(defun iterate-over-mp-corners (mesh mp func)
+(defun iterate-over-mp-corners (mp func)
   (declare (particle mp) (function func))
-  (let* ((nd (cl-mpm/mesh::mesh-nd mesh))
-         (max-iter (the fixnum (expt 2 nd))))
-    (declare (fixnum nd max-iter))
-    (dotimes (i max-iter)
-      (funcall func (aref (mp-corners mp) i)))))
+  (when (mp-corners mp)
+    (loop for c across (mp-corners mp)
+          do (funcall func c))))
 
 (defun reset-corners (mp)
-  (dotimes (i (length (mp-corners mp)))
-    (let ((corner (aref (mp-corners mp) i)))
-      (setf (corner-contact corner) nil)
-      (cl-mpm/utils:vector-copy-into
-       (corner-penalty-frictional-force-prev corner)
-       (corner-penalty-frictional-force corner)))))
+  (when (mp-corners mp)
+    (dotimes (i (length (mp-corners mp)))
+      (let ((corner (aref (mp-corners mp) i)))
+        (setf (corner-contact corner) nil)
+        (cl-mpm/utils:vector-copy-into
+         (corner-penalty-frictional-force-prev corner)
+         (corner-penalty-frictional-force corner))))))
+
+(defun compute-friction-force (mp)
+  (let ((f (cl-mpm/utils:vector-zeros)))
+    (iterate-over-mp-corners
+     mp
+     (lambda (corner)
+       (cl-mpm/fastmaths::fast-.+
+        (corner-penalty-frictional-force corner)
+        f
+        f)))
+    f))
+(defun compute-normal-force (mp)
+  (let ((f 0d0))
+    (iterate-over-mp-corners
+     mp
+     (lambda (corner)
+       (incf f (corner-penalty-normal-force corner))))
+    f))
+
 
 (defun finalise-corners (mesh mp)
   (cl-mpm/fastmaths::fast-zero (mp-penalty-frictional-force mp))
+  (cl-mpm/fastmaths::fast-zero (mp-penalty-frictional-force-prev mp))
   (setf (mp-penalty-normal-force mp) 0d0)
   (iterate-over-mp-corners
-   mesh
    mp
    (lambda (corner)
      (unless (corner-contact corner)
        (cl-mpm/fastmaths:fast-zero (corner-penalty-frictional-force corner))
        (cl-mpm/fastmaths:fast-zero (corner-penalty-frictional-force-prev corner))
        (setf (corner-penalty-normal-force corner) 0d0))
+
+     (cl-mpm/utils::vector-copy-into
+      (corner-penalty-frictional-force corner)
+      (corner-penalty-frictional-force-prev corner))
+
      (setf (corner-contact corner) nil)
      (incf (mp-penalty-normal-force mp) (corner-penalty-normal-force corner))
-     ;; (pprint (corner-penalty-frictional-force corner))
      (cl-mpm/fastmaths::fast-.+
       (corner-penalty-frictional-force corner)
       (mp-penalty-frictional-force mp)
-      (mp-penalty-frictional-force mp)
-      )
-     (setf (corner-penalty-normal-force corner) 0d0)
+      (mp-penalty-frictional-force mp))
+     (cl-mpm/fastmaths::fast-.+
+      (corner-penalty-frictional-force-prev corner)
+      (mp-penalty-frictional-force-prev mp)
+      (mp-penalty-frictional-force-prev mp))
+
+     ;; (setf (corner-penalty-normal-force corner) 0d0)
      )))
 
 
@@ -568,14 +601,15 @@
     (setf position-trial (cl-mpm/utils:vector-copy position))
     (unless domain-true
       (setf domain-true (cl-mpm/utils::matrix-eye 1d0)))
-    (dotimes (i (length corners))
-      (setf (aref corners i) (safe-copy-corner (aref corners i))))))
+    (when corners
+      (let ((nc (make-array (length corners) :element-type 'corner :initial-element (make-corner))))
+        (dotimes (i (length corners))
+          (setf (aref nc i) (safe-copy-corner (aref corners i))))
+        (setf corners nc)))))
 
 (defmethod initialize-instance :after ((p particle-elastic) &key)
-  (update-elastic-matrix p)
-  ;; (setf (cl-mpm/particle::mp-tangent-stiffness p) (cl-mpm/particle::mp-elastic-matrix p))
-  ;; (call-next-method)
-  )
+  (update-elastic-matrix p))
+
 (defmethod (setf mp-elastic-approximation) :after (value (p particle-elastic))
   (update-elastic-matrix p))
 
@@ -1155,7 +1189,7 @@
     (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
     (cl-mpm/utils:voigt-copy-into strain-n strain)
     (cl-mpm/utils:vector-copy-into position position-trial)
-    (cl-mpm/utils:vector-copy-into fric-force-n fric-force)
+    ;; (cl-mpm/utils:vector-copy-into fric-force-n fric-force)
     (cl-mpm/particle::reset-corners mp)
     (setf volume volume-n)
     (setf j j-n)
@@ -1184,7 +1218,7 @@
     (cl-mpm/utils:matrix-copy-into def def-0)
     (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
     (cl-mpm/utils:voigt-copy-into strain strain-n)
-    (cl-mpm/utils:vector-copy-into fric-force fric-force-n)
+    ;; (cl-mpm/utils:vector-copy-into fric-force fric-force-n)
     (cl-mpm/utils:vector-copy-into position position-trial)
     (setf p-wave (estimate-stiffness mp))
     (setf j-n j)

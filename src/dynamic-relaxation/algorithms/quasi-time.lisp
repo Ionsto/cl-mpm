@@ -227,8 +227,7 @@
            (incf *total-iter* substeps)
            (when save-vtk-conv
              (save-vtks temp-sim output-dir i "conv"))
-           (funcall plotter temp-sim)
-           ))
+           (funcall plotter temp-sim)))
         (cl-mpm::finalise-loadstep temp-sim)
         (cl-mpm::reset-grid (cl-mpm:sim-mesh temp-sim) :reset-displacement t)))
     (let ()

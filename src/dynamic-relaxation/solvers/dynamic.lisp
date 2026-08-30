@@ -406,8 +406,7 @@
     ;; (cl-mpm::update-dynamic-stats sim)
     ;; (cl-mpm::g2p mesh mps 1d0 0d0 :TRIAL)
     (cl-mpm::update-dynamic-stats sim)
-    (incf solve-count)
-    ))
+    (incf solve-count)))
 
 (defmethod cl-mpm::finalise-loadstep ((sim mpm-sim-dr-dynamic))
   ;;DR algorithm requires that finalisation is called once
@@ -500,7 +499,7 @@
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (cl-mpm::reset-node-displacement sim)
     (setf (cl-mpm::sim-damping-factor sim) 0d0)
-    ;; (midpoint-starter sim)
+    (midpoint-starter sim)
     (setf initial-setup t)))
 
 

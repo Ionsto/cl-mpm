@@ -1333,7 +1333,9 @@ This modifies the dt of the simulation in the process
             nodes-sorted))))
 
 (defun compute-point-displacement (mesh pos &key (result nil))
-  (let ((corner-disp (if result (cl-mpm/fastmaths:fast-zero result) (cl-mpm/utils::vector-zeros))))
+  (let ((corner-disp (if result
+                         (cl-mpm/fastmaths:fast-zero result)
+                         (cl-mpm/utils::vector-zeros))))
     (cl-mpm::iterate-over-neighbours-point-linear
      mesh
      pos
@@ -1345,12 +1347,47 @@ This modifies the dt of the simulation in the process
            (cl-mpm/fastmaths:fast-fmacc corner-disp node-disp svp)))))
     corner-disp))
 
+
+(defun setup-corners (mesh mp)
+  (with-accessors ((corners cl-mpm/particle::mp-corners))
+      mp
+    (let ((i 0))
+      (setf corners (make-array (expt 2 (cl-mpm/mesh::mesh-nd mesh)) :element-type 'cl-mpm/particle::corner :initial-element (cl-mpm/particle::make-corner)))
+      (case (cl-mpm/mesh::mesh-nd mesh)
+        (3
+         (loop for z in (list -1d0 1d0)
+               do (loop for y in (list -1d0 1d0)
+                        do (loop for x in (list -1d0 1d0)
+                                 do (let ()
+                                      (setf
+                                       (aref corners i)
+                                       (cl-mpm/particle::make-corner
+                                        :offset (vector-from-list (list x y z))))
+                                      (incf i))))))
+        (2
+         (loop for y in (list -1d0 1d0)
+               do (loop for x in (list -1d0 1d0)
+                        do (let ()
+                             (setf
+                              (aref corners i)
+                              (cl-mpm/particle::make-corner
+                               :offset (vector-from-list (list x y 0d0))))
+                             (incf i)))))
+        (1
+         (loop for x in (list -1d0 1d0)
+               do (let ()
+                    (setf
+                     (aref corners i)
+                     (cl-mpm/particle::make-corner
+                      :offset (vector-from-list (list x 0d0 0d0))))
+                    (incf i))))))))
+
 (defun update-corners (mesh mp)
+  (unless (cl-mpm/particle::mp-corners mp)
+    (setup-corners mesh mp))
   (cl-mpm/particle::iterate-over-mp-corners
-   mesh
    mp
    (lambda (corner)
-     ;; (pprint corner)
      (cl-mpm/fastmaths::fast-.+
       (cl-mpm/particle::mp-position mp)
       (cl-mpm/fastmaths::fast-scale!

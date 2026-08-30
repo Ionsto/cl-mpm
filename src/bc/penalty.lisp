@@ -690,7 +690,6 @@
                     ;; (setf (cl-mpm/particle::mp-penalty-friction-stick mp) nil)
                     ;; update trial frictional force
                     (when (> friction 0d0)
-                      (cl-mpm/utils:vector-copy-into mp-friction-n force-friction)
                       (when (> tang-disp-norm-squared 0d0)
                         (cl-mpm/fastmaths::fast-fmacc
                          force-friction
@@ -699,25 +698,15 @@
                             contact-area
                             *friction-epsilon-scale*
                             (/ epsilon 2d0))))
-
                       (when (> (cl-mpm/fastmaths::mag-squared force-friction) 0d0)
-                        (if (> (cl-mpm/fastmaths::mag force-friction) stick-friction)
+                        (when (> (cl-mpm/fastmaths::mag force-friction) stick-friction)
                             (progn
                               (cl-mpm/utils:vector-copy-into
                                     (cl-mpm/fastmaths:fast-scale-vector
                                      (cl-mpm/fastmaths:norm force-friction)
                                      stick-friction)
-                                    force-friction)
-                              ;; (setf (cl-mpm/particle::mp-penalty-friction-stick mp) nil)
-                              )
-                            (progn
-                              ;; (setf (cl-mpm/particle::mp-penalty-friction-stick mp) t)
-                              ))
-                        ;; (cl-mpm/fastmaths::fast-.+ force force-friction force)
-                        )
-                      ;; (setf mp-friction force-friction)
-                      ;; (pprint (cl-mpm/particle::corner-penalty-frictional-force corner))
-                      )
+                                    force-friction)))))
+
                     (setf (cl-mpm/particle::corner-penalty-normal-force corner) (- normal-force damping-force))
 
                     (cl-mpm/fastmaths::fast-fmacc force
@@ -881,7 +870,6 @@
                                  nil
                                  nil)))
              (cl-mpm/particle::iterate-over-mp-corners
-              mesh
               mp
               (lambda (corner)
                 (let* ((c (cl-mpm/particle::corner-trial-position corner)))
@@ -890,9 +878,7 @@
                     (when (and
                            (>= penetration-dist 0d0)
                            (penalty-contact-valid bc c))
-                      (apply-penalty-corner mesh bc mp corner dt))
-                    ;; (pprint (cl-mpm/particle::corner-penalty-frictional-force corner))
-                    ))))
+                      (apply-penalty-corner mesh bc mp corner dt))))))
              ;; (cl-mpm::iterate-over-corners
              ;;  ;; cl-mpm::iterate-over-midpoints
              ;;  mesh
