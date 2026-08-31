@@ -34,7 +34,7 @@
         ;;Reset nodes below our mass-filter
         (when (> mass-filter 0d0)
           (filter-grid mesh (sim-mass-filter sim)))
-        (apply-bcs mesh bcs dt)
+        (apply-essential-bcs sim)
         (filter-cells sim)
         ;;Turn momentum into velocity
         (update-node-kinematics sim)
@@ -45,7 +45,7 @@
         ;;Update our nodes after force mapping
         (update-node-forces sim)
         ;;Apply velocity bcs
-        (apply-bcs mesh bcs dt)
+        (apply-essential-bcs sim)
         (reset-node-displacement sim)
         (update-nodes sim)
         (update-dynamic-stats sim)
@@ -59,7 +59,7 @@
         (update-node-kinematics sim)
         (reset-node-displacement sim)
         (update-nodes sim)
-        (apply-bcs mesh bcs dt)
+        (apply-essential-bcs sim)
         (update-stress mesh mps dt fbar)
         (new-loadstep sim))
       (incf time dt)

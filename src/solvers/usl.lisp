@@ -34,25 +34,19 @@
         ;;Reset nodes below our mass-filter
         (when (> mass-filter 0d0)
           (filter-grid mesh (sim-mass-filter sim)))
-        (apply-bcs mesh bcs dt)
-        ;; (setf (cl-mpm:sim-dt sim)
-        ;;       (*
-        ;;        (cl-mpm::sim-dt-scale sim)
-        ;;        (cl-mpm::calculate-min-dt sim)))
+        (apply-essential-bcs sim)
         ;;Turn momentum into velocity
         (update-node-kinematics sim)
         (p2g-force sim)
-        (loop for bcs-f in bcs-force-list
-              do (apply-bcs mesh bcs-f dt))
-        ;; (apply-bcs mesh bcs-force dt)
+        (apply-force-bcs sim dt)
         ;;Update our nodes after force mapping
         (update-node-forces sim)
         ;;Apply velocity bcs
-        (apply-bcs mesh bcs dt)
+        (apply-essential-bcs sim)
         (reset-node-displacement sim)
         (update-nodes sim)
         (update-dynamic-stats sim)
-        (apply-bcs mesh bcs dt)
+        (apply-essential-bcs sim)
         ;;Grid to particle mapping
         (update-stress mesh mps dt fbar)
         (g2p mesh mps dt damping vel-algo)
