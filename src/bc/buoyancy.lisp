@@ -191,18 +191,18 @@
 
 (defun calculate-val-gimp (mesh mp func)
   (declare (function func))
-  (funcall func (cl-mpm/particle::mp-position-trial mp))
-  ;; (cl-mpm::iterate-over-corners
-  ;;  mesh
-  ;;  mp
-  ;;  (lambda (c)
-  ;;    (let ((c (cl-mpm/fastmaths::fast-scale!
-  ;;              (cl-mpm/fastmaths::fast-.+
-  ;;               (cl-mpm/particle::mp-position mp)
-  ;;               c)
-  ;;              0.5d0)))
-  ;;      (let ((pos (compute-corner-displaced mesh c)))
-  ;;        (funcall func pos)))))
+  ;; (funcall func (cl-mpm/particle::mp-position-trial mp))
+  (cl-mpm::iterate-over-corners
+   mesh
+   mp
+   (lambda (c)
+     (let ((c (cl-mpm/fastmaths::fast-scale!
+               (cl-mpm/fastmaths::fast-.+
+                (cl-mpm/particle::mp-position mp)
+                c)
+               0.5d0)))
+       (let ((pos (compute-corner-displaced mesh c)))
+         (funcall func pos)))))
   )
 
 (defun calculate-val-scalar-mp-gimp (mesh mp func)

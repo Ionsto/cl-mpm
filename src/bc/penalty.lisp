@@ -879,6 +879,7 @@
                            (>= penetration-dist 0d0)
                            (penalty-contact-valid bc c))
                       (apply-penalty-corner mesh bc mp corner dt))))))
+
              ;; (cl-mpm::iterate-over-corners
              ;;  ;; cl-mpm::iterate-over-midpoints
              ;;  mesh
