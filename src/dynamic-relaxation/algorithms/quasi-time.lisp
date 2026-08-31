@@ -6,7 +6,7 @@
                         &key (dt-scale 1d0)
                           (substeps 50)
                           (total-steps 0)
-                          (damping 1d0)
+                          (damping (sqrt 2d0))
                           (sub-conv-steps 100)
                           (conv-criteria 1d-3)
                           (conv-criteria-damage 1d-3)
@@ -255,34 +255,7 @@
                                   (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)
                                         (+ (min (- total-time sim-time) adapted-dt) 1d-15))
                                   (cl-mpm:sim-format sim t "trial step ~d, dt refine ~d - dt ~E~%" i current-adaptivity (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
-                                  (setf *trial-iter* i)
-                                  ;; (let (;; (conv-crit 1d-3)
-                                  ;;       (conv-crit 1d-3)
-                                  ;;       (residual-normaliser nil)
-                                  ;;       (substeps 20))
-                                  ;;   (setf (sim-dt-loadstep sim) (* 1d0 dt))
-                                  ;;   (generalised-staggered-solve
-                                  ;;    sim
-                                  ;;    :crit conv-crit
-                                  ;;    :substeps substeps
-                                  ;;    :sub-conv-steps 100
-                                  ;;    :dt-scale 0.9d0
-                                  ;;    :damping (sqrt 2d0)
-                                  ;;    :max-damage-inc 0.1d0
-                                  ;;    :max-plastic-inc nil;
-                                  ;;    :post-iter-step (lambda (i e o)
-                                  ;;                      (format t "Dynamic substep ~D~%" i)
-                                  ;;                      ;; (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e)
-                                  ;;                      ))
-
-
-                                  ;;   (setf (cl-mpm::sim-dt-scale sim) dt-scale)
-                                  ;;   (setf (cl-mpm::sim-dt sim) adapted-dt)
-                                  ;;   (setf (cl-mpm::sim-damping-factor sim) 0d0)
-                                  ;;   (cl-mpm::finalise-loadstep sim)
-                                  ;;   (save-timestep sim output-dir step :QUASI-STATIC)
-                                  ;;   (setf quasi-conv t))
-                                  )
+                                  (setf *trial-iter* i))
                                 (multiple-value-bind (conv inc-steps)
                                     (step-quasi-time sim step
                                                      :total-steps *total-iter*

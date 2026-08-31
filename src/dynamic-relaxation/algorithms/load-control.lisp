@@ -6,7 +6,7 @@
                            (load-steps 10)
                            (initial-load 0d0)
                            (substeps 50)
-                           (damping 1d0)
+                           (damping (sqrt 2d0))
                            (kinetic-damping nil)
                            (criteria 1d-3)
                            (max-plastic-inc nil)
@@ -51,9 +51,6 @@
                      (funcall loading-function (+ initial-load (* (- 1d0 initial-load) percent))))
                    (let ((iter-conv-steps 0)
                          (i 0))
-                     ;; (when damping
-                     ;;   (setf (cl-mpm::sim-damping-factor sim)
-                     ;;         (* damping (cl-mpm/setup:estimate-critical-damping sim))))
                      (setf (cl-mpm/dynamic-relaxation::sim-damping-scale sim) damping)
                      (time
                       (generalised-staggered-solve

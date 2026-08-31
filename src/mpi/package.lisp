@@ -150,7 +150,7 @@
 
 (defun mpi-sum (value)
   "Sum a scalar over all mpi nodes"
-  (cl-mpi:mpi-barrier)
+  ;; (cl-mpi:mpi-barrier)
   (let ((output 0d0))
     ;; (static-vectors:with-static-vector (source 1 :element-type 'double-float
     ;;                                              :initial-element (coerce value 'double-float))
@@ -196,7 +196,7 @@
    ))
 
 (defun mpi-max (value)
-  (cl-mpi:mpi-barrier)
+  ;; (cl-mpi:mpi-barrier)
   ;; (static-vectors:with-static-vector (source 1 :element-type 'double-float :initial-element (coerce value 'double-float))
   ;;   (static-vectors:with-static-vector (dest 1 :element-type 'double-float :initial-element 0d0)
   ;;     (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-max+)
@@ -210,7 +210,7 @@
   )
 
 (defun mpi-min (value)
-  (cl-mpi:mpi-barrier)
+  ;; (cl-mpi:mpi-barrier)
   (static-vectors:with-static-vector (source 1 :element-type 'double-float :initial-element (coerce value 'double-float))
     (static-vectors:with-static-vector (dest 1 :element-type 'double-float :initial-element 0d0)
       (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-min+)
@@ -219,51 +219,51 @@
 
 (defun mpi-vector-integer-sum (values)
   "Sum a scalar over all mpi nodes"
-  (cl-mpi:mpi-barrier)
+  ;; (cl-mpi:mpi-barrier)
   (let ((size (length values)))
     (static-vectors:with-static-vector (source size :element-type '(signed-byte 32)
                                                     :initial-contents values)
       (static-vectors:with-static-vector (dest size :element-type '(signed-byte 32)
                                                     :initial-element 0)
         (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-sum+)
-        (cl-mpi:mpi-barrier)
+        ;; (cl-mpi:mpi-barrier)
         (aops:copy-into values dest)))
     values))
 
 (defun mpi-vector-integer-max (values)
   "Sum a scalar over all mpi nodes"
-  (cl-mpi:mpi-barrier)
+  ;; (cl-mpi:mpi-barrier)
   (let ((size (length values)))
     (static-vectors:with-static-vector (source size :element-type '(signed-byte 32)
                                                     :initial-contents values)
       (static-vectors:with-static-vector (dest size :element-type '(signed-byte 32)
                                                     :initial-element 0)
         (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-max+)
-        (cl-mpi:mpi-barrier)
+        ;; (cl-mpi:mpi-barrier)
         (aops:copy-into values dest)))
     values))
 
 (defun mpi-vector-sum (values)
   "Sum a scalar over all mpi nodes"
-  (cl-mpi:mpi-barrier)
+  ;; (cl-mpi:mpi-barrier)
   (let ((size (length values)))
     (static-vectors:with-static-vector (source size :element-type 'double-float
                                                     :initial-contents values)
       (static-vectors:with-static-vector (dest size :element-type 'double-float :initial-element 0d0)
         (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-sum+)
-        (cl-mpi:mpi-barrier)
+        ;; (cl-mpi:mpi-barrier)
         (aops:copy-into values dest)))
     values))
 
 
 (defun mpi-vector-max (values)
   "Sum a scalar over all mpi nodes"
-  (cl-mpi:mpi-barrier)
+  ;; (cl-mpi:mpi-barrier)
   (let ((size (length values)))
     (static-vectors:with-static-vector (source size :element-type 'double-float
                                                     :initial-contents values)
       (static-vectors:with-static-vector (dest size :element-type 'double-float :initial-element 0d0)
         (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-max+)
-        (cl-mpi:mpi-barrier)
+        ;; (cl-mpi:mpi-barrier)
         (aops:copy-into values dest)))
     values))

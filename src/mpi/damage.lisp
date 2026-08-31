@@ -19,15 +19,7 @@
             (damage-mps (mpm-sim-mpi-damage-mps-cache sim)))
 
         (setf (fill-pointer damage-mps) 0)
-        ;; (format t "Start transfer~%")
-        ;; (setf damage-mps (make-array 0 :element-type t :adjustable t :fill-pointer 0))
-        ;; (if damage-mps
-        ;;   (setf (fill-pointer damage-mps) 0)
-        ;;   (setf damage-mps (make-array 0 :element-type t :adjustable t :fill-pointer 0)))
-        ;; (pprint damage-mps)
-        ;; (setf (fill-pointer *damage-mp-send-cache*) 0)
-        ;; (format t "Begin transfer~%")
-        (cl-mpi::mpi-barrier)
+        ;; (cl-mpi::mpi-barrier)
         ;; (format t "Synced~%")
         (loop for i from 0 below nd
               do

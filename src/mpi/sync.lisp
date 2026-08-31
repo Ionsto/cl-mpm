@@ -487,7 +487,8 @@
                                                (cl-mpm::sim-add-mp sim mp)
                                                ;; (vector-push-extend mp mps)
                                                ))))))))))))))))
-  (cl-mpi:mpi-barrier))
+  ;; (cl-mpi:mpi-barrier)
+  )
 ;  )
 
 (defvar *mutex-code* (cl-store:register-code 110 'sb-thread:mutex))
