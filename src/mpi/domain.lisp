@@ -51,25 +51,28 @@
                             in-bounds
                             (and
                              (> bu (cl-mpm/utils:varef pos i))
-                             (<= bl (cl-mpm/utils:varef pos i)))
-                            )))))
-        in-bounds
-        ))))
+                             (<= bl (cl-mpm/utils:varef pos i))))))))
+        in-bounds))))
 
 (defun in-computational-domain-buffer (sim pos node-buffer)
   (let ((in-bounds t)
+        (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
         (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))
-    (loop for i from 0 below (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))
-          do
-             (destructuring-bind (bl bu) (nth i (mpm-sim-mpi-domain-bounds sim))
-               (when (not (= bu bl))
-                 (setf in-bounds
-                       (and
-                        in-bounds
-                        (and
-                         (> (+ bu (* node-buffer h)) (cl-mpm/utils:varef pos i))
-                         (<= (- bl (* node-buffer h)) (cl-mpm/utils:varef pos i)))
-                        )))))
+    (with-accessors ((bounds mpm-sim-mpi-domain-bounds))
+        sim
+      (loop for i from 0 below nd
+            for bound in bounds
+            while in-bounds
+            do
+               (destructuring-bind (bl bu) bound
+                 (declare (double-float bl bu))
+                 (when (not (= bu bl))
+                   (setf in-bounds
+                         (and
+                          in-bounds
+                          (and
+                           (> (+ bu (* node-buffer h)) (cl-mpm/utils:varef pos i))
+                           (<= (- bl (* node-buffer h)) (cl-mpm/utils:varef pos i)))))))))
     in-bounds))
 
 (defun calculate-domain-sizes (sim &optional size)

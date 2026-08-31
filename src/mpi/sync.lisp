@@ -212,13 +212,16 @@
        (cl-mpm/utils::bpdotimes (i (length node-list))
          (let* ((mpi-node (aref node-list i))
                 (index (mpi-object-node-index mpi-node))
+                (agg (mpi-object-node-agg mpi-node))
                 (node (cl-mpm/mesh:get-node mesh index)))
            (if node
-               (progn
+               (when t;agg
                  (with-accessors ((disp cl-mpm/mesh::node-displacment)
-                                  (acc cl-mpm/mesh::node-acceleration)
-                                  )
+                                  (acc cl-mpm/mesh::node-acceleration))
                      node
+                   ;; (cl-mpm::fast-zero (cl-mpm/mesh::node-acceleration node))
+                   ;; (cl-mpm::fast-zero (cl-mpm/mesh::node-velocity node))
+                   ;; (cl-mpm::fast-zero (cl-mpm/mesh::node-displacment node))
                    (cl-mpm/fastmaths::fast-.+ disp (mpi-object-node-displacement mpi-node) disp)
                    (cl-mpm/fastmaths::fast-.+ acc (mpi-object-node-acc mpi-node) acc)))
                (error "MPI exchange touched invalid node?"))))))))

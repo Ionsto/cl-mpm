@@ -72,11 +72,10 @@
                     (cl-mpm/mesh::node-position node)
                     :filter
                     (lambda (c)
-                      ;; (not)
                       (cl-mpm/mpi::in-computational-domain-buffer
                        sim
                        (cl-mpm/mesh::cell-centroid c)
-                       (* -1d0 (cl-mpm/mesh::mesh-resolution (cl-mpm::sim-mesh sim))))))))
+                       -1)))))
              (if closest-elem
                  (progn
                    (setf (cl-mpm/mesh::node-agg-interior-cell node) closest-elem)

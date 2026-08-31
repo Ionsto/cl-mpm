@@ -290,7 +290,8 @@
            mesh
            (lambda (node)
              (if (and (cl-mpm/mesh:node-active node)
-                      (not (cl-mpm/mesh::node-agg node)))
+                      (not (cl-mpm/mesh::node-agg node))
+                      (cl-mpm/mpi::node-in-computational-domain sim node))
                  (cl-mpm/fastmaths:dot
                   (cl-mpm/mesh:node-velocity node)
                   (cl-mpm/fastmaths:fast-.-
@@ -311,7 +312,8 @@
                    (lambda (node)
                      (the double-float
                           (if (and (cl-mpm/mesh:node-active node)
-                                   (not (cl-mpm/mesh::node-agg node)))
+                                   (not (cl-mpm/mesh::node-agg node))
+                                   (cl-mpm/mpi::node-in-computational-domain sim node))
                               (progn
                                 (when (not (typep (cl-mpm/mesh:node-mass node) 'double-float))
                                   (break))
@@ -324,46 +326,32 @@
                   0d0
                   ))))
 
-        (when (cl-mpm/aggregate::sim-enable-aggregate sim)
-          (cl-mpm/aggregate::iterate-over-dimensions-with-mutex
-           (cl-mpm/mesh::mesh-nd mesh)
-           (lambda (d mut)
-             (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
-                    (res-prev (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual-prev d))
-                    (ma (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-mass))
-                    (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d))
-                    (vglobal
-                      (cl-mpm/aggregate::extend-vec
-                       sim
-                       vi
-                       d)))
-               (let ((dnum (cl-mpm/fastmaths:dot
-                            (cl-mpm/fastmaths::fast-.- res-prev res)
-                            vglobal
-                            ))
-                     (ddenom (* dt (cl-mpm/fastmaths:dot vglobal
-                                                         (cl-mpm/fastmaths::fast-.*
-                                                          ma
-                                                          vglobal)))))
-                 (declare (double-float num dnum denom ddenom))
-                 (sb-thread::with-mutex (mut)
-                   (incf num dnum)
-                   (incf denom ddenom))))
-             ;; (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
-             ;;        (res-prev (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual-prev d))
-             ;;        (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)))
-             ;;   (let ((dnum (cl-mpm/fastmaths:dot
-             ;;                vi
-             ;;                (cl-mpm/aggregate::aggregate-vec
-             ;;                 sim
-             ;;                 (cl-mpm/fastmaths::fast-.- res-prev res)
-             ;;                 d)))
-             ;;         (ddenom (* dt (cl-mpm/fastmaths:dot vi (cl-mpm/aggregate::@-mass-matrix-vec sim vi d)))))
-             ;;     (declare (double-float num dnum denom ddenom))
-             ;;     (sb-thread::with-mutex (mut)
-             ;;       (incf num dnum)
-             ;;       (incf denom ddenom))))
-             )))
+        ;; (when (cl-mpm/aggregate::sim-enable-aggregate sim)
+        ;;   (cl-mpm/aggregate::iterate-over-dimensions-with-mutex
+        ;;    (cl-mpm/mesh::mesh-nd mesh)
+        ;;    (lambda (d mut)
+        ;;      (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
+        ;;             (res-prev (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual-prev d))
+        ;;             (ma (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-mass))
+        ;;             (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d))
+        ;;             (vglobal
+        ;;               (cl-mpm/aggregate::extend-vec
+        ;;                sim
+        ;;                vi
+        ;;                d)))
+        ;;        (let ((dnum (cl-mpm/fastmaths:dot
+        ;;                     (cl-mpm/fastmaths::fast-.- res-prev res)
+        ;;                     vglobal
+        ;;                     ))
+        ;;              (ddenom (* dt (cl-mpm/fastmaths:dot vglobal
+        ;;                                                  (cl-mpm/fastmaths::fast-.*
+        ;;                                                   ma
+        ;;                                                   vglobal)))))
+        ;;          (declare (double-float num dnum denom ddenom))
+        ;;          (sb-thread::with-mutex (mut)
+        ;;            (incf num dnum)
+        ;;            (incf denom ddenom)))))))
+
         (setf num (cl-mpm/mpi::mpi-sum num)
               denom (cl-mpm/mpi::mpi-sum denom))
         (min 1.9d0
@@ -379,3 +367,115 @@
                          0d0))))))
     ))
 
+
+(cl-mpm/utils::with-arb-pool
+  (defun update-node-forces-qs-mpi (sim)
+    (with-accessors ((mesh cl-mpm:sim-mesh)
+                     (mass-scale cl-mpm:sim-mass-scale)
+                     (damping cl-mpm:sim-damping-factor)
+                     (damping-scale cl-mpm/dynamic-relaxation::sim-damping-scale)
+                     (damping-algo cl-mpm::sim-damping-algorithm)
+                     (agg-elems cl-mpm/aggregate::sim-agg-elems)
+                     (dt cl-mpm:sim-dt)
+                     (solve-count sim-solve-count)
+                     (damping-update-count sim-damping-update-count)
+                     (enable-aggregate cl-mpm/aggregate::sim-enable-aggregate))
+        sim
+      (declare (fixnum solve-count damping-update-count)
+               (double-float dt damping damping-scale))
+      ;; (cl-mpm::apply-essential-bcs sim)
+      (cl-mpm:iterate-over-nodes
+       mesh
+       (lambda (node)
+         (when (cl-mpm/mesh:node-active node)
+           (cl-mpm::calculate-forces-midpoint node 0d0 0d0 mass-scale))))
+      (cl-mpm::compute-reaction-force sim)
+      ;;For each aggregated element set solve mass matrix and velocity
+      (when enable-aggregate
+        (let* ()
+          (cl-mpm/aggregate::iterate-over-dimensions
+           (cl-mpm::mesh-nd mesh)
+           (lambda (d)
+             (let* ((f (cl-mpm/aggregate::aggregate-vec
+                        sim
+                        (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d) d))
+                    (et (cl-mpm/aggregate::sim-global-sparse-et sim))
+                    (e (cl-mpm/aggregate::sim-global-sparse-e sim))
+                    (sma (cl-mpm/aggregate::sim-global-sparse-ma sim))
+                    (bcs-int (aref (cl-mpm/aggregate::sim-global-bcs-int sim) d))
+                    (bcs (aref (cl-mpm/aggregate::sim-global-bcs sim) d))
+                    (work-vec (grab-new))
+                    (work-vec-agg (grab-new))
+                    (fg (grab-new))
+                    (f (grab-new))
+                    ;; (work-vec (cl-mpm/utils::arb-vector (length (cl-mpm/aggregate::sim-agg-nodes-fd sim))))
+                    ;; (work-vec-agg (cl-mpm/utils::arb-vector (length (cl-mpm/aggregate::sim-agg-nodes-fdc sim))))
+                    )
+               (cl-mpm/utils::resize-vector fg (cl-mpm/utils::sparse-matrix-nrows e))
+               (cl-mpm/utils::resize-vector f (cl-mpm/utils::sparse-matrix-nrows et))
+               (cl-mpm/aggregate::aggregate-vec
+                sim (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d fg) d
+                f)
+               (cl-mpm/utils::resize-vector work-vec (cl-mpm/utils::sparse-matrix-nrows e))
+               (cl-mpm/utils::resize-vector work-vec-agg (cl-mpm/utils::sparse-matrix-nrows et))
+               (let* ((acc
+                        (cl-mpm/linear-solver::solve-conjugant-gradients
+                         (lambda (v)
+                           (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
+                            e
+                            v
+                            bcs
+                            bcs-int
+                            work-vec
+                            )
+                           (cl-mpm/fastmaths::fast-.*
+                            sma
+                            work-vec
+                            work-vec)
+                           (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
+                            et
+                            work-vec
+                            bcs-int
+                            bcs
+                            work-vec-agg))
+                         f
+                         :tol 1d-15
+                         :max-iters 10000
+                         :mask bcs-int
+                         )))
+                 (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
+                 (cl-mpm/aggregate::project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d)))))))
+      (when (= (mod solve-count damping-update-count) 0)
+        (setf damping (the double-float (cl-mpm/dynamic-relaxation::dr-estimate-damping sim))))
+      (cl-mpm:iterate-over-nodes
+       mesh
+       (lambda (node)
+         (when (cl-mpm/mesh:node-active node)
+           (with-accessors ((mass cl-mpm::node-mass)
+                            (vel cl-mpm::node-velocity)
+                            (force cl-mpm::node-force)
+                            (internal cl-mpm/mesh::node-interior)
+                            (agg cl-mpm/mesh::node-agg)
+                            (acc cl-mpm::node-acceleration))
+               node
+             (when (or (not agg)
+                       internal)
+               (cl-mpm::integrate-vel-midpoint vel acc mass mass-scale dt damping))))))
+      (cl-mpm::apply-essential-bcs sim)
+
+      (with-accessors ((ke-prev sim-ke-prev)
+                       (ke sim-ke)
+                       (ke-damping sim-kinetic-damping))
+          sim
+        (when ke-damping
+          (setf ke (calculate-ke sim))
+          (setf damping 0d0)
+          ;; (setf ke (cl-mpm::sim-stats-energy sim))
+          (when (> ke-prev ke)
+            (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
+            (cl-mpm::reset-grid-acceleration (cl-mpm:sim-mesh sim))
+            ;; (cl-mpm::reset-nodes-force sim)
+            (setf ke 0d0))
+          (setf ke-prev ke)))
+      ;; (cl-mpm::apply-essential-bcs sim)
+      )))

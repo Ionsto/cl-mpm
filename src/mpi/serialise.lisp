@@ -23,6 +23,10 @@
   (let ((bytes-per-int 2))
     `(push-bytes ,output (cl-intbytes:int->octets ,value ,bytes-per-int) ,inc)))
 
+(defmacro push-bool (output value inc)
+  (let ((bytes-per-int 2))
+    `(push-bytes ,output (cl-intbytes:int->octets ,(if value 1 0) ,bytes-per-int) ,inc)))
+
 (defmacro push-index (output value inc)
   `(progn
      (push-int ,output (nth 0 ,value) ,inc)
@@ -46,6 +50,7 @@
   (defun serialise-length (type)
     (ecase type
       (int 2)
+      (bool 2)
       (index (* 2 3))
       (float 8)
       (vector (* 8 3))
@@ -54,6 +59,10 @@
 (defmacro pull-int (array inc)
   (let ((bytes-per-int 2))
     `(cl-intbytes:octets->int (pull-bytes ,array ,inc ,bytes-per-int) ,bytes-per-int)))
+
+(defmacro pull-bool (array inc)
+  (let ((bytes-per-int 2))
+    `(= 1 (cl-intbytes:octets->int (pull-bytes ,array ,inc ,bytes-per-int) ,bytes-per-int))))
 
 (defmacro pull-float (array inc)
   (let ((bytes-per-float 8))
@@ -154,6 +163,7 @@
 (make-mpi-ser
  node
  ((index index cl-mpm/mesh::node-index)
+  (bool agg cl-mpm/mesh::node-agg)
   (float mass cl-mpm/mesh::node-mass)
   (float pmod cl-mpm/mesh::node-pwave)
   (float svp cl-mpm/mesh::node-svp-sum)
