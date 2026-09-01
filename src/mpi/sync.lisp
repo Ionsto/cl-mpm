@@ -200,12 +200,13 @@
   ;; (format t "Sync momentum ~%")
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
-    (cl-mpm::iterate-over-nodes
-     (cl-mpm:sim-mesh sim)
-     (lambda (n)
-       (when (not (in-computational-domain sim (cl-mpm/mesh::node-position n)))
-         (cl-mpm::fast-zero (cl-mpm/mesh::node-acceleration n))
-         (cl-mpm::fast-zero (cl-mpm/mesh::node-displacment n)))))
+    ;; (cl-mpm::iterate-over-nodes
+    ;;  (cl-mpm:sim-mesh sim)
+    ;;  (lambda (n)
+    ;;    (when (not (in-computational-domain sim (cl-mpm/mesh::node-position n)))
+    ;;      (cl-mpm::fast-zero (cl-mpm/mesh::node-acceleration n))
+    ;;      (cl-mpm::fast-zero (cl-mpm/mesh::node-velocity n))
+    ;;      (cl-mpm::fast-zero (cl-mpm/mesh::node-displacment n)))))
     (exchange-nodes
      sim
      (lambda (node-list)
@@ -215,20 +216,24 @@
                 (agg (mpi-object-node-agg mpi-node))
                 (node (cl-mpm/mesh:get-node mesh index)))
            (if node
-               (when t;agg
+               (when agg
                  (with-accessors ((disp cl-mpm/mesh::node-displacment)
+                                  (vel cl-mpm/mesh::node-velocity)
                                   (acc cl-mpm/mesh::node-acceleration))
                      node
-                   ;; (cl-mpm::fast-zero (cl-mpm/mesh::node-acceleration node))
-                   ;; (cl-mpm::fast-zero (cl-mpm/mesh::node-velocity node))
-                   ;; (cl-mpm::fast-zero (cl-mpm/mesh::node-displacment node))
+                   (cl-mpm::fast-zero acc)
+                   (cl-mpm::fast-zero vel)
+                   (cl-mpm::fast-zero disp)
+                   (cl-mpm::fast-zero (cl-mpm/mesh::node-acceleration node))
+                   (cl-mpm::fast-zero (cl-mpm/mesh::node-displacment node))
                    (cl-mpm/fastmaths::fast-.+ disp (mpi-object-node-displacement mpi-node) disp)
-                   (cl-mpm/fastmaths::fast-.+ acc (mpi-object-node-acc mpi-node) acc)))
+                   (cl-mpm/fastmaths::fast-.+ vel (mpi-object-node-velocity mpi-node) vel)
+                   (cl-mpm/fastmaths::fast-.+ acc (mpi-object-node-acc mpi-node) acc)
+                   ))
                (error "MPI exchange touched invalid node?"))))))))
 
 (declaim (notinline mpi-sync-mass))
 (defun mpi-sync-mass (sim)
-  ;; (format t "Sync momentum ~%")
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
     (exchange-node-like
@@ -243,19 +248,11 @@
            (if node
                (progn
                  (with-accessors ((active cl-mpm/mesh:node-active)
-                                  (mass cl-mpm/mesh:node-mass)
-                                  (velocity cl-mpm/mesh:node-velocity)
-                                  (pmod cl-mpm/mesh::node-pwave)
-                                  (vol cl-mpm/mesh::node-volume)
-                                  (svp cl-mpm/mesh::node-svp-sum))
+                                  (mass cl-mpm/mesh:node-mass))
                      node
-                   (declare (double-float mass svp vol pmod))
+                   (declare (double-float mass))
                    (setf active t)
-                   (incf mass (the double-float (mpi-object-node-mass-mass mpi-node)))
-                   ;; (incf svp (the double-float  (mpi-object-node-mass-svp mpi-node)))
-                   ;; (incf vol (the double-float  (mpi-object-node-mass-vol mpi-node)))
-                   ;; (incf pmod (the double-float (mpi-object-node-mass-pmod mpi-node)))
-                   ))
+                   (incf mass (the double-float (mpi-object-node-mass-mass mpi-node)))))
                (error "MPI exchange touched invalid node?"))))))))
 
 (defun mpi-sync-j-inc (sim)

@@ -25,7 +25,7 @@
 
 (defmacro push-bool (output value inc)
   (let ((bytes-per-int 2))
-    `(push-bytes ,output (cl-intbytes:int->octets ,(if value 1 0) ,bytes-per-int) ,inc)))
+    `(push-bytes ,output (cl-intbytes:int->octets (if ,value 1 0) ,bytes-per-int) ,inc)))
 
 (defmacro push-index (output value inc)
   `(progn

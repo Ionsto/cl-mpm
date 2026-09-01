@@ -358,9 +358,6 @@ leaves a hanging mpi domain at the back"
 (defmethod load-balance-metric ((sim cl-mpm::mpm-sim))
   (let ((rank (cl-mpi:mpi-comm-rank)))
     (set-mp-mpi-index sim)
-    ;; (format t "Compute load balance metric on ~D~%" (length (cl-mpm:sim-mps sim)))
-    ;; (count-if (lambda (mp) (= (cl-mpm/particle::mp-mpi-index mp) rank))
-    ;;           (cl-mpm:sim-mps sim))
     (let ((count
             (count-if (lambda (mp) (= (cl-mpm/particle::mp-mpi-index mp) rank))
                       (cl-mpm:sim-mps sim))
@@ -519,6 +516,7 @@ leaves a hanging mpi domain at the back"
                               (exchange-mps sim 0d0)
                               (set-mp-mpi-index sim)
                               (clear-ghost-mps sim))
+
                             (load-balance-setup sim))))))
     (let* ((metric (float (mpm-sim-mpi-load-metric sim) 0d0))
            (min-mps (mpi-min metric))

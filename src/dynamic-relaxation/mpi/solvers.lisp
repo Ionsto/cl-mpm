@@ -109,12 +109,13 @@
     (cl-mpm::reset-grid mesh :reset-displacement t)
     (cl-mpm::reset-node-displacement sim)
     (cl-mpm::p2g mesh mps vel-algo)
+    (setf (cl-mpm::sim-dt sim) 1d0)
     (cl-mpm/mpi::mpi-sync-momentum sim)
     (when (> mass-filter 0d0)
       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
     (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::filter-cells sim)
-    (cl-mpm::apply-essential-bcs sim)
+    ;; (cl-mpm::apply-essential-bcs sim)
     ;; (cl-mpm::update-node-kinematics sim)
     (cl-mpm::iterate-over-nodes
      mesh
@@ -126,9 +127,7 @@
     (cl-mpm::reset-node-displacement sim)
     ;; (midpoint-starter-mpi sim)
     (setf (cl-mpm::sim-damping-factor sim) 0d0)
-    (setf initial-setup t))
-
-  )
+    (setf initial-setup t)))
 
 (defmethod update-node-fictious-mass ((sim cl-mpm/dynamic-relaxation::mpm-sim-quasi-static-mpi))
   (with-accessors ((mesh cl-mpm::sim-mesh)
@@ -139,13 +138,13 @@
     (cl-mpm::iterate-over-nodes
      (cl-mpm:sim-mesh sim)
      (lambda (n)
-       (when t;(not (cl-mpm/mpi::node-in-computational-domain sim n))
-         (setf (cl-mpm/mesh::node-mass n) 0d0)
-         ;; (setf (cl-mpm/mesh::node-svp n) 0d0)
-         ;; (setf (cl-mpm/mesh::node-vol n) 0d0)
-         ;; (setf (cl-mpm/mesh::node-pmod n) 0d0)
-         )))
+       ;; (not (cl-mpm/mpi::node-in-computational-domain sim n))
+       (when t
+         (setf (cl-mpm/mesh::node-mass n) 0d0))))
     (map-stiffness-quasi-static sim)
+    (loop for bcs-f in bcs-force-list
+          do (loop for bc across bcs-f
+                   do (cl-mpm/bc::assemble-bc-stiffness sim bc)))
     (cl-mpm/mpi::mpi-sync-mass sim)
     (cl-mpm/aggregate::update-mass-matrix sim)
     (setf dt 1d0))
@@ -178,31 +177,22 @@
       (pre-step sim))
     (cl-mpm/penalty::reset-penalty sim)
     (setf dt 1d0)
-    (cl-mpm::update-nodes sim)
-    (cl-mpm::update-cells sim)
     (cl-mpm::reset-nodes-force sim)
-    (cl-mpm::iterate-over-nodes
-     (cl-mpm::sim-mesh sim)
-     (lambda (n)
-       (when n
-         (when (and (cl-mpm/mesh:node-active n)
-                    (not (cl-mpm/mpi::node-in-computational-domain sim n)))
-           (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-displacment n))
-           (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-velocity n))))))
     (cl-mpm::apply-essential-bcs sim)
-
-    (cl-mpm/mpi::mpi-sync-displacement sim)
-
+    (cl-mpm::apply-force-bcs sim dt-loadstep)
     (cl-mpm/mpi::with-mpi-errors
         (cl-mpm::update-stress mesh mps dt-loadstep fbar))
     (cl-mpm::p2g-force-fs sim)
-    (cl-mpm::apply-force-bcs sim dt-loadstep)
-    (cl-mpm/mpi::mpi-sync-force sim)
-    (update-node-fictious-mass sim)
+    (cl-mpm/mpi::with-mpi-errors
+        (cl-mpm/mpi::mpi-sync-force sim))
+    (cl-mpm/mpi::with-mpi-errors
+        (update-node-fictious-mass sim))
     ;;Update our nodes after force mapping
-    (cl-mpm::update-node-forces sim)
+    (update-node-forces-quasi-static sim)
     (cl-mpm::apply-essential-bcs sim)
-    ;; (cl-mpm::update-dynamic-stats sim)
+    (cl-mpm::update-nodes sim)
+    (cl-mpm/mpi::with-mpi-errors
+        (cl-mpm/mpi::mpi-sync-displacement sim))
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-damage-quasi-static-mpi))
@@ -239,7 +229,7 @@
     (cl-mpm::apply-force-bcs sim dt-loadstep)
 
     (cl-mpm/mpi::with-mpi-errors
-      (cl-mpm::update-stress mesh mps dt-loadstep fbar))
+        (cl-mpm::update-stress mesh mps dt-loadstep fbar))
     (cl-mpm/mpi::with-mpi-errors
         (cl-mpm/damage::calculate-damage sim dt-loadstep))
 
@@ -325,32 +315,6 @@
                    #'+)
                   0d0
                   ))))
-
-        ;; (when (cl-mpm/aggregate::sim-enable-aggregate sim)
-        ;;   (cl-mpm/aggregate::iterate-over-dimensions-with-mutex
-        ;;    (cl-mpm/mesh::mesh-nd mesh)
-        ;;    (lambda (d mut)
-        ;;      (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
-        ;;             (res-prev (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual-prev d))
-        ;;             (ma (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-mass))
-        ;;             (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d))
-        ;;             (vglobal
-        ;;               (cl-mpm/aggregate::extend-vec
-        ;;                sim
-        ;;                vi
-        ;;                d)))
-        ;;        (let ((dnum (cl-mpm/fastmaths:dot
-        ;;                     (cl-mpm/fastmaths::fast-.- res-prev res)
-        ;;                     vglobal
-        ;;                     ))
-        ;;              (ddenom (* dt (cl-mpm/fastmaths:dot vglobal
-        ;;                                                  (cl-mpm/fastmaths::fast-.*
-        ;;                                                   ma
-        ;;                                                   vglobal)))))
-        ;;          (declare (double-float num dnum denom ddenom))
-        ;;          (sb-thread::with-mutex (mut)
-        ;;            (incf num dnum)
-        ;;            (incf denom ddenom)))))))
 
         (setf num (cl-mpm/mpi::mpi-sum num)
               denom (cl-mpm/mpi::mpi-sum denom))
