@@ -107,14 +107,21 @@
                                       (when object
                                         (loop for mp across object
                                               do (progn
-                                                   (vector-push-extend
-                                                    (make-instance 'cl-mpm/particle::particle-damage
-                                                                   :damage (mpi-object-damage-mp-damage mp)
-                                                                   :volume (mpi-object-damage-mp-volume mp)
-                                                                   :position (mpi-object-damage-mp-position mp)
-                                                                   :damage-y (mpi-object-damage-mp-y mp)
-                                                                   :local-length (mpi-object-damage-mp-local-length mp))
-                                                    damage-mps))))))))))))
+                                                   (let ((dummy-mp (allocate-instance (find-class 'cl-mpm/particle::particle-damage))))
+                                                     (setf (slot-value dummy-mp 'cl-mpm/particle::damage) (mpi-object-damage-mp-damage mp)
+                                                           (slot-value dummy-mp 'cl-mpm/particle::volume) (mpi-object-damage-mp-volume mp)
+                                                           (slot-value dummy-mp 'cl-mpm/particle::position) (mpi-object-damage-mp-position mp)
+                                                           (slot-value dummy-mp 'cl-mpm/particle::damage-y-local) (mpi-object-damage-mp-y mp)
+                                                           (slot-value dummy-mp 'cl-mpm/particle::true-local-length) (mpi-object-damage-mp-local-length mp))
+                                                     (vector-push-extend
+                                                      dummy-mp
+                                                      ;; (make-instance (find-class 'cl-mpm/particle::particle-damage)
+                                                      ;;                    :damage (mpi-object-damage-mp-damage mp)
+                                                      ;;                    :volume (mpi-object-damage-mp-volume mp)
+                                                      ;;                    :position (mpi-object-damage-mp-position mp)
+                                                      ;;                    :damage-y (mpi-object-damage-mp-y mp)
+                                                      ;;                    :local-length (mpi-object-damage-mp-local-length mp))
+                                                      damage-mps)))))))))))))
         damage-mps))))
 
 (defun save-damage-vtk (filename mps)
