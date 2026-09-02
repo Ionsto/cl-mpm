@@ -206,26 +206,38 @@
   stress)
 (defun dev-exp-v-nostrain (stress strain-n strain e nu de viscosity dt)
   "A stress increment form of a viscoelastic maxwell material"
-  (let* ((stress-n (cl-mpm/constitutive:linear-elastic-mat strain-n de))
-         (stress-inc (cl-mpm/constitutive:linear-elastic-mat (cl-mpm/fastmaths:fast-.- strain strain-n) de))
-         (pressure (/ (trace-voigt stress-n) 3d0))
-         (pressure-inc (/ (trace-voigt stress-inc) 3d0))
+  (let* ((stress (cl-mpm/constitutive:linear-elastic-mat strain de))
+         (stress-n (cl-mpm/constitutive:linear-elastic-mat strain-n de))
+
+         (pressure (/ (trace-voigt stress) 3d0))
+         (pressure-n (/ (trace-voigt stress-n) 3d0))
+
          (pmat (voigt-eye pressure))
-         (dev (cl-mpm/fastmaths:fast-.- stress-n pmat))
-         (dev-inc (cl-mpm/fastmaths:fast-.- stress-inc (voigt-eye pressure-inc)))
-         (rho (/ viscosity e))
+
+         (dev (cl-mpm/fastmaths:fast-.- stress pmat))
+         (dev-n (cl-mpm/fastmaths:fast-.- stress-n (voigt-eye pressure-n)))
+         ;; (dev-inc (cl-mpm/fastmaths:fast-.- stress-inc (voigt-eye pressure-inc)))
+         (G (cl-mpm/particle::calculate-shear-modulus e nu))
+         (rho (/ viscosity G))
          (dy (/ dt rho))
          (exp-rho (exp (- dy)))
-         (lam (/ (- 1 exp-rho) dy)))
+         (lam (/ (- 1 exp-rho) dy))
+         (dev-j2 (sqrt (cl-mpm/fastmaths::voigt-j2 dev)))
+         (dev-n-j2 (sqrt (cl-mpm/fastmaths::voigt-j2 dev-n)))
+         )
+    (declare (double-float rho dy exp-rho lam dev-j2 dev-n-j2))
     (cl-mpm/fastmaths:fast-.+
-     (voigt-eye (+ pressure pressure-inc))
-     (cl-mpm/fastmaths:fast-.+
-      (cl-mpm/fastmaths:fast-scale dev exp-rho)
-      (cl-mpm/fastmaths:fast-scale dev-inc lam))
-     ;; (cl-mpm/fastmaths:fast-scale
-     ;;  (cl-mpm/fastmaths:fast-.- stress pmat)
-     ;;  exp-rho)
-     )))
+     pmat
+     (cl-mpm/fastmaths:fast-scale!
+      dev
+      (/
+       (+
+        (* exp-rho dev-n-j2)
+        (* lam (- dev-j2 dev-n-j2)))
+       dev-j2)
+      ;; (cl-mpm/fastmaths:fast-scale dev exp-rho)
+      ;; (cl-mpm/fastmaths:fast-scale dev-inc lam)
+      ))))
 
 ;; (defun dev-exp-v (stress strain-n strain e nu de viscosity dt)
 ;;   "A stress increment form of a viscoelastic maxwell material"

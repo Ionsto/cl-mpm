@@ -183,12 +183,14 @@
       )))
 
 
+(defparameter *mux* (sb-thread:make-mutex))
 (defmethod constitutive-model ((mp particle-ice-brittle) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
   (with-accessors ((de mp-elastic-matrix)
                    (stress mp-stress)
                    (stress-u mp-undamaged-stress)
                    (strain mp-strain)
+                   (strain-n mp-strain-n)
                    (trial-elastic-strain mp-trial-strain)
                    (damage mp-damage)
                    (damage-pressure mp-damage-pressure)
@@ -225,8 +227,19 @@
     (setf p-wave (cl-mpm/particle::compute-p-modulus mp))
     (when (and (cl-mpm/particle::mp-enable-viscosity mp)
                (> dt 0d0))
-      (multiple-value-bind (eps pmod) (cl-mpm/ext::constitutive-viscoelastic stress-u strain de e nu dt (cl-mpm/particle::mp-viscosity mp))
-        (setf p-wave pmod)))
+      (let ((viscosity (cl-mpm/particle::mp-viscosity mp)))
+        (let* ((K (cl-mpm/particle::calculate-bulk-modulus e nu))
+               (G (cl-mpm/particle::calculate-shear-modulus e nu))
+               (rho (/ viscosity G))
+               (dy (/ dt rho))
+               (exp-rho (exp (- dy)))
+               (lam (/ (- 1 exp-rho) dy)))
+          (cl-mpm/models/visco::dev-exp-v stress-u strain-n strain e nu de viscosity dt)
+          (setf p-wave (+ K (* 4/3 G lam))))
+        ;; (multiple-value-bind (eps pmod) (cl-mpm/ext::constitutive-viscoelastic stress-u strain de e nu dt viscosity)
+        ;;   (setf p-wave pmod)
+        ;;   )
+        ))
     (cl-mpm/utils:voigt-copy-into strain trial-elastic-strain)
     (when enable-plasticity
         (let* (;; (epstr (voigt-copy strain))
@@ -247,7 +260,7 @@
           ;;   (setf stress-u sig yield-func f)
           ;;   (let ((probe-vec (cl-mpm/utils::voigt-zeros))
           ;;         (dep (cl-mpm/particle::mp-tangent-stiffness mp)))
-          ;;     (setf p-wave 0d0)
+          ;;     (setf p-wave (* 1d-6 p-wave))
           ;;     (loop for d from 0 below 2
           ;;           do (progn
           ;;                (cl-mpm/fastmaths::fast-zero probe-vec)
@@ -282,13 +295,14 @@
              yield-func f
              ;; p-wave (* 1.0d0 pmod)
              )
-            (when t
+            (when (> yield-func 0d0)
               (setf p-wave (* 1.0d0 pmod)))
             (let ((inc (expt (* 1 (max 0d0
                                          (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
                                             (cl-mpm/utils::trace-voigt strain)))) 1)))
               (setf ps-vm (+ ps-vm-1 inc))
-              (setf ps-vm-inc inc)))))
+              (setf ps-vm-inc inc)))
+          ))
     (cl-mpm/utils:voigt-copy-into stress-u stress)
     stress))
 
@@ -824,7 +838,7 @@
                               undamaged-stress
                               (/ 1d0 j)))
            (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
-           ;; (pressure (* pressure damage))
+           (pressure (* pressure damage))
            ;; (pind (- p pressure))
            (pind p)
            (p-deg 0d0)
@@ -839,7 +853,7 @@
       (setf stress
             (cl-mpm/fastmaths:fast-.+
              ;; (cl-mpm/constitutive::voight-eye p)
-             (cl-mpm/constitutive::voight-eye (- p (* damage pressure)))
+             (cl-mpm/constitutive::voight-eye (- p pressure))
              (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage-s))
              stress))
       (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
