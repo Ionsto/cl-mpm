@@ -246,7 +246,7 @@
                         (not (cl-mpm/mesh::cell-partial cell))
                         (not (cl-mpm/mesh::cell-agg cell))
                         (not (eq cell exclude))
-                      (> volume (* volume-t volume-ratio-min))
+                        (> volume (* volume-t volume-ratio-min))
                         (funcall filter cell))
                    (let ((dist-tr (cl-mpm/fastmaths::diff-norm
                                    pos
