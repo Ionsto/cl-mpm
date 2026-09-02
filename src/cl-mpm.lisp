@@ -157,10 +157,12 @@
    (mp-damage-removal-instant
     :type boolean
     :accessor sim-mp-damage-removal-instant
+    :initarg :damage-removal-instant
     :initform nil)
    (mp-damage-removal-criteria
     :type double-float
     :accessor sim-mp-damage-removal-criteria
+    :initarg :damage-removal-crit
     :initform 0.9d0)
    (velocity-algorithm
     :type symbol

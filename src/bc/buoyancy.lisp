@@ -202,8 +202,7 @@
                 c)
                0.5d0)))
        (let ((pos (compute-corner-displaced mesh c)))
-         (funcall func pos)))))
-  )
+         (funcall func pos))))))
 
 (defun calculate-val-scalar-mp-gimp (mesh mp func)
   (let ((val 0d0)
