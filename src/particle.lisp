@@ -51,6 +51,7 @@
 
 (defstruct corner
   (contact nil)
+  (stick nil)
   (offset (cl-mpm/utils::vector-zeros))
   (position (cl-mpm/utils::vector-zeros))
   (trial-position (cl-mpm/utils::vector-zeros))
@@ -61,6 +62,7 @@
 (defun safe-copy-corner (corner)
   (make-corner
    :contact (corner-contact corner)
+   :stick (corner-stick corner)
    :offset (cl-mpm/utils:vector-copy (corner-offset corner))
    :position (cl-mpm/utils:vector-copy (corner-position corner))
    :trial-position (cl-mpm/utils:vector-copy (corner-trial-position corner))
@@ -536,6 +538,7 @@
     (dotimes (i (length (mp-corners mp)))
       (let ((corner (aref (mp-corners mp) i)))
         (setf (corner-contact corner) nil)
+        (setf (corner-stick corner) nil)
         (cl-mpm/utils:vector-copy-into
          (corner-penalty-frictional-force-prev corner)
          (corner-penalty-frictional-force corner))))))
@@ -562,7 +565,8 @@
 (defun finalise-corners (mesh mp)
   (cl-mpm/fastmaths::fast-zero (mp-penalty-frictional-force mp))
   (cl-mpm/fastmaths::fast-zero (mp-penalty-frictional-force-prev mp))
-  (setf (mp-penalty-normal-force mp) 0d0)
+  (setf (mp-penalty-normal-force mp) 0d0
+        (mp-penalty-friction-stick mp) nil)
   (iterate-over-mp-corners
    mp
    (lambda (corner)
@@ -577,6 +581,9 @@
 
      (setf (corner-contact corner) nil)
      (incf (mp-penalty-normal-force mp) (corner-penalty-normal-force corner))
+     (setf (mp-penalty-friction-stick mp) (or
+                                           (not (mp-penalty-friction-stick mp))
+                                           (corner-stick corner)))
      (cl-mpm/fastmaths::fast-.+
       (corner-penalty-frictional-force corner)
       (mp-penalty-frictional-force mp)

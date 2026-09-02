@@ -818,8 +818,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                    (instant-damage-removal cl-mpm::sim-mp-damage-removal-instant)
                    (damage-crit cl-mpm::sim-mp-damage-removal-criteria))
       sim
-    (let ((h (cl-mpm/mesh:mesh-resolution mesh))
-          )
+    (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
       (remove-mps-func
        sim
        (lambda (mp)

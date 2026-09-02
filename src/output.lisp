@@ -456,7 +456,8 @@
    (append
     (cl-mpm::sim-output-list sim)
     (list
-     (list :BOOL "fric-contact" #'cl-mpm/particle::mp-penalty-contact-step)
+     (list :BOOL "fric-contact" #'cl-mpm/particle::mp-penalty-contact)
+     (list :BOOL "fric-stick" #'cl-mpm/particle::mp-penalty-friction-stick)
      (list :SCALAR "i1" (lambda (mp) (cl-mpm/utils::trace-voigt (cl-mpm/particle:mp-stress mp))))
      (list :SCALAR "j2" (lambda (mp) (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils::deviatoric-voigt (cl-mpm/particle:mp-stress mp))))))
      (list :SCALAR "unique-id" #'cl-mpm/particle::mp-unique-index)

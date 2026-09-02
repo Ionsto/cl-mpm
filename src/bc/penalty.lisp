@@ -701,6 +701,7 @@
                       (when (> (cl-mpm/fastmaths::mag-squared force-friction) 0d0)
                         (when (> (cl-mpm/fastmaths::mag force-friction) stick-friction)
                             (progn
+                              (setf (cl-mpm/particle::corner-stick corner) t)
                               (cl-mpm/utils:vector-copy-into
                                     (cl-mpm/fastmaths:fast-scale-vector
                                      (cl-mpm/fastmaths:norm force-friction)
