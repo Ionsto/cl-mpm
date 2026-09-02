@@ -1181,6 +1181,7 @@
                (rct-force reaction-force)
                (ghost-force ghost-force)
                (damping-force damping-force)
+               (inertia-force inertia-force)
                (buoyancy-force buoyancy-force))
       node
     (declare (magicl::matrix/double-float acc force int-force ghost-force damping-force buoyancy-force))
@@ -1190,6 +1191,7 @@
     (cl-mpm/fastmaths::fast-zero-vector ext-force)
     (cl-mpm/fastmaths::fast-zero-vector rct-force)
     (cl-mpm/fastmaths::fast-zero-vector damping-force)
+    (cl-mpm/fastmaths::fast-zero-vector inertia-force)
     (cl-mpm/fastmaths::fast-zero-vector ghost-force)
     (cl-mpm/fastmaths::fast-zero-vector buoyancy-force)))
 
