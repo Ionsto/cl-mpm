@@ -25,13 +25,11 @@
 (defparameter *enable-plastic-damage* nil)
 (defparameter *delay-time* 1d5)
 (defparameter *delay-exponent* 4d0)
-(defparameter *enable-viscosity* t)
+(defparameter *enable-viscosity* nil)
 (defparameter *length-scaler* 1d0)
 (defparameter *gf* 10000d0)
 (defparameter *pd-oversize* 1d-6)
 (defparameter *ductility* 10d0)
-;; (defparameter *tensile-strength* 0.1185d6)
-;; (defparameter *tensile-strength* 0.1d6)
 (defparameter *tensile-strength* 0.1d6)
 (defparameter *biot-coefficent* 1d0)
 
@@ -304,8 +302,7 @@
                   (<= (cl-mpm/utils::varef pos 1) datum)))))
             (cl-mpm::add-bcs-force-list
              *sim*
-             *bc-melange*
-             ))))
+             *bc-melange*))))
 
       (unless (= start-height end-height)
         (cl-mpm/setup::remove-sdf *sim*
@@ -567,7 +564,7 @@
          (dt 1d3)
          (total-time 1d10)
          (H 900d0)
-         (ice-aspect 6d0)
+         (ice-aspect 2d0)
          (density 918d0)
          (explicit-dt-scale 0.45d0)
          (water-damping 1d0)
@@ -683,7 +680,7 @@
        :sub-conv-steps 5
        :total-time total-time
        :save-vtk-loadstep t
-       :save-vtk-dr nil
+       :save-vtk-dr t
        :enable-plastic t
        :enable-damage t
        :plotter (lambda (sim)
