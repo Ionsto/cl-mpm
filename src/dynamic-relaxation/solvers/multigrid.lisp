@@ -2000,7 +2000,12 @@
 (defmethod cl-mpm/dynamic-relaxation::save-vtks-dr-step ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree) output-dir trial-solve step iter)
   (let ((post (format nil "~5,'0d_~5,'0d_~5,'0d.vtk" trial-solve step iter)))
     (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~A.vtk" post)) sim)
-    (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~A.vtk" post)) sim))
+    (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~A.vtk" post)) sim)
+    ;; (dotimes (i (1+ (cl-mpm::sim-multigrid-refinement sim)))
+    ;;   (setf (cl-mpm::sim-mesh sim) (aref (cl-mpm::sim-mesh-list sim) i))
+    ;;   (cl-mpm/output::save-vtk-mesh-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~D_~A.vtk" i post)) (aref (cl-mpm::sim-mesh-list sim) i) sim)
+    ;;   )
+    )
   (set-mesh-default sim))
 
 
@@ -2045,6 +2050,7 @@
           (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
         (cl-mpm::apply-essential-bcs sim)
         (cl-mpm::filter-cells sim)
+        (reproject-volume sim)
         (cl-mpm::apply-essential-bcs sim)
         (cl-mpm::iterate-over-nodes
          mesh
@@ -2482,6 +2488,7 @@
         (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
       (cl-mpm::apply-essential-bcs sim))
     (cl-mpm::filter-cells sim)
+    (reproject-volume sim)
     (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::iterate-over-nodes
      mesh
@@ -2494,125 +2501,125 @@
     ))
 
 
-(defmethod %converge-quasi-static ((sim mpm-sim-dr-multigrid)
-                                   energy-crit
-                                   oobf-crit
-                                   live-plot
-                                   dt-scale
-                                   substeps
-                                   conv-steps
-                                   post-iter-step
-                                   convergance-criteria
-                                   kinetic-damping
-                                   damping-factor)
-  (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
-                   (bcs-list cl-mpm::sim-bcs-list)
-                   (vel-algo cl-mpm::sim-velocity-algorithm))
-      sim
-    (let ((refine (cl-mpm::sim-multigrid-refinement sim))
-          (conv-crit (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
-          (mass-filter (/ (cl-mpm::sim-mass-filter sim)
-                          (expt (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)) 2))))
-      (set-mesh-default sim)
-      (cl-mpm::iterate-over-mps
-       (cl-mpm:sim-mps sim)
-       (lambda (mp)
-         (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)))
-      ;; (set-mesh sim 0)
-      ;; (cl-mpm::reset-grid )
-      (iterate-over-meshes
-       sim
-       (lambda (m i)
-         (cl-mpm::reset-grid m)))
+;; (defmethod %converge-quasi-static ((sim mpm-sim-dr-multigrid)
+;;                                    energy-crit
+;;                                    oobf-crit
+;;                                    live-plot
+;;                                    dt-scale
+;;                                    substeps
+;;                                    conv-steps
+;;                                    post-iter-step
+;;                                    convergance-criteria
+;;                                    kinetic-damping
+;;                                    damping-factor)
+;;   (with-accessors ((mesh-list cl-mpm::sim-mesh-list)
+;;                    (bcs-list cl-mpm::sim-bcs-list)
+;;                    (vel-algo cl-mpm::sim-velocity-algorithm))
+;;       sim
+;;     (let ((refine (cl-mpm::sim-multigrid-refinement sim))
+;;           (conv-crit (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
+;;           (mass-filter (/ (cl-mpm::sim-mass-filter sim)
+;;                           (expt (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)) 2))))
+;;       (set-mesh-default sim)
+;;       (cl-mpm::iterate-over-mps
+;;        (cl-mpm:sim-mps sim)
+;;        (lambda (mp)
+;;          (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)))
+;;       ;; (set-mesh sim 0)
+;;       ;; (cl-mpm::reset-grid )
+;;       (iterate-over-meshes
+;;        sim
+;;        (lambda (m i)
+;;          (cl-mpm::reset-grid m)))
 
-      (format t "Multigrid solve~%")
-      (let ((damage-state (cl-mpm::sim-enable-damage sim)))
-        (setf (cl-mpm::sim-enable-damage sim) nil)
-        (let ((total-iters 0))
-          (dotimes (i (+ refine 1))
-            (let ((final-step (= i refine)))
-              (format t "Mesh step ~D~%" i)
-              (set-mesh sim i)
-              ;; (setf (cl-mpm::sim-multigrid-current-mesh sim) i)
-              (when final-step
-                (setf (cl-mpm::sim-enable-damage sim) damage-state))
-              (cl-mpm::iterate-over-mps
-               (cl-mpm:sim-mps sim)
-               (lambda (mp)
-                 (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)))
-              (pre-step sim)
-              (cl-mpm::reset-nodes-force sim)
-              ;; (pre-step-nodisp sim)
-              (unless (= i 0)
-                (let ((coarse-mesh (aref (cl-mpm::sim-mesh-list sim) (- i 1))))
-                  (cl-mpm::iterate-over-nodes
-                   (cl-mpm:sim-mesh sim)
-                   (lambda (n)
-                     (when (cl-mpm/mesh::node-active n)
-                       (with-accessors ((disp cl-mpm/mesh::node-displacment))
-                           n
-                         (cl-mpm::fast-zero disp)
-                         (cl-mpm::iterate-over-neighbours-point-linear
-                          coarse-mesh
-                          (cl-mpm/mesh::node-position n)
-                          (lambda (mc coarse-node weight grads)
-                            (cl-mpm/fastmaths::fast-fmacc
-                             disp
-                             (cl-mpm/mesh::node-displacment coarse-node)
-                             weight)))))))))
-              (midpoint-starter sim)
-              ;; (pre-step-nodisp sim)
-              (format t "Solve final step ~A~%" final-step)
-              ;; (save-vtks-dr-step sim "./output/" 1000 (* 2 i))
-              (setf (cl-mpm/dynamic-relaxation::sim-convergence-critera sim)
-                    conv-crit
-                    ;; (if final-step conv-crit (sqrt conv-crit))
-                    )
-              (format t "Conv crit ~E~%" (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
-              (call-next-method
-               sim
-               (cl-mpm/dynamic-relaxation::sim-convergence-critera sim)
-               (cl-mpm/dynamic-relaxation::sim-convergence-critera sim)
-               live-plot
-               dt-scale
-               substeps
-               conv-steps
-               (lambda (i o e)
-                 (funcall post-iter-step total-iters o e)
-                 (incf total-iters))
-               convergance-criteria
-               kinetic-damping
-               damping-factor)
-              ;;Remap
-              ;; (unless final-step
-              ;;   (set-mesh sim (+ i 1))
-              ;;   (cl-mpm::iterate-over-mps
-              ;;    (cl-mpm:sim-mps sim)
-              ;;    (lambda (mp)
-              ;;      (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)))
-              ;;   (let ((mesh (cl-mpm:sim-mesh sim))
-              ;;         (mps (cl-mpm:sim-mps sim)))
-              ;;     (cl-mpm::reset-grid mesh :reset-displacement nil)
-              ;;     (cl-mpm::p2g mesh mps vel-algo)
-              ;;     (when (> mass-filter 0d0)
-              ;;       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim))))
-              ;;   (let ((coarse-mesh (aref (cl-mpm::sim-mesh-list sim) i)))
-              ;;     (cl-mpm::iterate-over-nodes
-              ;;      (cl-mpm:sim-mesh sim)
-              ;;      (lambda (n)
-              ;;        (when (cl-mpm/mesh::node-active n)
-              ;;          (with-accessors ((disp cl-mpm/mesh::node-displacment))
-              ;;              n
-              ;;            (cl-mpm::fast-zero disp)
-              ;;            (cl-mpm::iterate-over-neighbours-point-linear
-              ;;             coarse-mesh
-              ;;             (cl-mpm/mesh::node-position n)
-              ;;             (lambda (mc coarse-node weight grads)
-              ;;               (cl-mpm/fastmaths::fast-fmacc
-              ;;                disp
-              ;;                (cl-mpm/mesh::node-displacment coarse-node)
-              ;;                weight)))))))))
-              )))))))
+;;       (format t "Multigrid solve~%")
+;;       (let ((damage-state (cl-mpm::sim-enable-damage sim)))
+;;         (setf (cl-mpm::sim-enable-damage sim) nil)
+;;         (let ((total-iters 0))
+;;           (dotimes (i (+ refine 1))
+;;             (let ((final-step (= i refine)))
+;;               (format t "Mesh step ~D~%" i)
+;;               (set-mesh sim i)
+;;               ;; (setf (cl-mpm::sim-multigrid-current-mesh sim) i)
+;;               (when final-step
+;;                 (setf (cl-mpm::sim-enable-damage sim) damage-state))
+;;               (cl-mpm::iterate-over-mps
+;;                (cl-mpm:sim-mps sim)
+;;                (lambda (mp)
+;;                  (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)))
+;;               (pre-step sim)
+;;               (cl-mpm::reset-nodes-force sim)
+;;               ;; (pre-step-nodisp sim)
+;;               (unless (= i 0)
+;;                 (let ((coarse-mesh (aref (cl-mpm::sim-mesh-list sim) (- i 1))))
+;;                   (cl-mpm::iterate-over-nodes
+;;                    (cl-mpm:sim-mesh sim)
+;;                    (lambda (n)
+;;                      (when (cl-mpm/mesh::node-active n)
+;;                        (with-accessors ((disp cl-mpm/mesh::node-displacment))
+;;                            n
+;;                          (cl-mpm::fast-zero disp)
+;;                          (cl-mpm::iterate-over-neighbours-point-linear
+;;                           coarse-mesh
+;;                           (cl-mpm/mesh::node-position n)
+;;                           (lambda (mc coarse-node weight grads)
+;;                             (cl-mpm/fastmaths::fast-fmacc
+;;                              disp
+;;                              (cl-mpm/mesh::node-displacment coarse-node)
+;;                              weight)))))))))
+;;               (midpoint-starter sim)
+;;               ;; (pre-step-nodisp sim)
+;;               (format t "Solve final step ~A~%" final-step)
+;;               ;; (save-vtks-dr-step sim "./output/" 1000 (* 2 i))
+;;               (setf (cl-mpm/dynamic-relaxation::sim-convergence-critera sim)
+;;                     conv-crit
+;;                     ;; (if final-step conv-crit (sqrt conv-crit))
+;;                     )
+;;               (format t "Conv crit ~E~%" (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
+;;               (call-next-method
+;;                sim
+;;                (cl-mpm/dynamic-relaxation::sim-convergence-critera sim)
+;;                (cl-mpm/dynamic-relaxation::sim-convergence-critera sim)
+;;                live-plot
+;;                dt-scale
+;;                substeps
+;;                conv-steps
+;;                (lambda (i o e)
+;;                  (funcall post-iter-step total-iters o e)
+;;                  (incf total-iters))
+;;                convergance-criteria
+;;                kinetic-damping
+;;                damping-factor)
+;;               ;;Remap
+;;               ;; (unless final-step
+;;               ;;   (set-mesh sim (+ i 1))
+;;               ;;   (cl-mpm::iterate-over-mps
+;;               ;;    (cl-mpm:sim-mps sim)
+;;               ;;    (lambda (mp)
+;;               ;;      (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)))
+;;               ;;   (let ((mesh (cl-mpm:sim-mesh sim))
+;;               ;;         (mps (cl-mpm:sim-mps sim)))
+;;               ;;     (cl-mpm::reset-grid mesh :reset-displacement nil)
+;;               ;;     (cl-mpm::p2g mesh mps vel-algo)
+;;               ;;     (when (> mass-filter 0d0)
+;;               ;;       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim))))
+;;               ;;   (let ((coarse-mesh (aref (cl-mpm::sim-mesh-list sim) i)))
+;;               ;;     (cl-mpm::iterate-over-nodes
+;;               ;;      (cl-mpm:sim-mesh sim)
+;;               ;;      (lambda (n)
+;;               ;;        (when (cl-mpm/mesh::node-active n)
+;;               ;;          (with-accessors ((disp cl-mpm/mesh::node-displacment))
+;;               ;;              n
+;;               ;;            (cl-mpm::fast-zero disp)
+;;               ;;            (cl-mpm::iterate-over-neighbours-point-linear
+;;               ;;             coarse-mesh
+;;               ;;             (cl-mpm/mesh::node-position n)
+;;               ;;             (lambda (mc coarse-node weight grads)
+;;               ;;               (cl-mpm/fastmaths::fast-fmacc
+;;               ;;                disp
+;;               ;;                (cl-mpm/mesh::node-displacment coarse-node)
+;;               ;;                weight)))))))))
+;;               )))))))
 
 
 (defmethod cl-mpm/damage::calculate-damage :around ((sim mpm-sim-mg-quasi-static) dt)
@@ -2646,3 +2653,23 @@
 ;;     (setf delocal-counter -1)
 ;;     (progn
 ;;       (cl-mpm/damage::update-delocalisation-list (first (last (cl-mpm::sim-mesh-list sim))) mps))))
+
+
+(defun reproject-volume (sim)
+  ;; (cl-mpm::filter-cells sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+     (let ((nd (cl-mpm/mesh:mesh-nd mesh)))
+       ;; (cl-mpm/aggregate::assemble-global-scalar
+       ;;  sim
+       ;;  #'cl-mpm/mesh::node-volume)
+       (cl-mpm/aggregate::project-global-scalar
+        sim
+        (cl-mpm/aggregate::extend-vec-nobcs
+         sim
+         (cl-mpm/aggregate::aggregate-vec-nobcs
+          sim
+          (cl-mpm/aggregate::assemble-global-scalar
+           sim
+           #'cl-mpm/mesh::node-volume) 0) 0)
+        cl-mpm/mesh::node-volume))))

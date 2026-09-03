@@ -239,12 +239,17 @@
   ((:module "src"
     :serial t
     :components
-    ((:module "dynamic-relaxation"
+    ((:module "dynamic-relaxation/mpi"
       :serial t
       :components
-      ((:file "mpi/solvers")
-       (:file "mpi/dr")
-       (:file "mpi/criteria")))))))
+      ((:file "package")
+       (:file "dr")
+       (:file "criteria")
+       (:module "solvers"
+        :serial t
+        :components
+        ((:file "quasi-static")
+         (:file "dynamic")))))))))
 
 
 
@@ -360,7 +365,10 @@
 
 (defsystem "cl-mpm/penalty"
   :depends-on ("cl-mpm"
-               "cl-mpm/bc")
+               "cl-mpm/bc"
+               "cl-mpm/particle"
+               "jonathan"
+               "str")
   :description ""
   :components ((:file "src/bc/penalty")))
 

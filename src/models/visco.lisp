@@ -226,18 +226,15 @@
          (dev-n-j2 (sqrt (cl-mpm/fastmaths::voigt-j2 dev-n)))
          )
     (declare (double-float rho dy exp-rho lam dev-j2 dev-n-j2))
+    (when (> dev-j2 0d0)
+      (cl-mpm/fastmaths:fast-scale! dev (/ 1d0 dev-j2)))
     (cl-mpm/fastmaths:fast-.+
      pmat
      (cl-mpm/fastmaths:fast-scale!
       dev
-      (/
-       (+
-        (* exp-rho dev-n-j2)
-        (* lam (- dev-j2 dev-n-j2)))
-       dev-j2)
-      ;; (cl-mpm/fastmaths:fast-scale dev exp-rho)
-      ;; (cl-mpm/fastmaths:fast-scale dev-inc lam)
-      ))))
+      (+
+       (* exp-rho dev-n-j2)
+       (* lam (- dev-j2 dev-n-j2)))))))
 
 ;; (defun dev-exp-v (stress strain-n strain e nu de viscosity dt)
 ;;   "A stress increment form of a viscoelastic maxwell material"

@@ -234,6 +234,7 @@
                (dy (/ dt rho))
                (exp-rho (exp (- dy)))
                (lam (/ (- 1 exp-rho) dy)))
+          (declare (double-float K G rho dy exp-rho lam dt viscosity p-wave))
           (cl-mpm/models/visco::dev-exp-v stress-u strain-n strain e nu de viscosity dt)
           (setf p-wave (+ K (* 4/3 G lam))))
         ;; (multiple-value-bind (eps pmod) (cl-mpm/ext::constitutive-viscoelastic stress-u strain de e nu dt viscosity)
@@ -242,11 +243,7 @@
         ))
     (cl-mpm/utils:voigt-copy-into strain trial-elastic-strain)
     (when enable-plasticity
-        (let* (;; (epstr (voigt-copy strain))
-               (K (/ e (* 3 (- 1d0 (* 2 nu)))))
-               (pressure-strain (cl-mpm/utils::voigt-eye (/ pressure (* 3d0 K (/ 1d0 j)))))
-               (p (/ (cl-mpm/constitutive::voight-trace stress-u) 3d0))
-               )
+        (let* ((K (/ e (* 3 (- 1d0 (* 2 nu))))))
           (setf
            damage-pressure
            (- 1d0 damage))
@@ -297,9 +294,10 @@
              )
             (when (> yield-func 0d0)
               (setf p-wave (* 1.0d0 pmod)))
-            (let ((inc (expt (* 1 (max 0d0
-                                         (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
-                                            (cl-mpm/utils::trace-voigt strain)))) 1)))
+            (let (;; (inc (expt (* 1 (max 0d0
+                  ;;                        (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
+                  ;;                           (cl-mpm/utils::trace-voigt strain)))) 1))
+                  )
               (setf ps-vm (+ ps-vm-1 inc))
               (setf ps-vm-inc inc)))
           ))

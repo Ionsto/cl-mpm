@@ -192,7 +192,7 @@
   (let* ((closest-elem nil)
          (dist 0d0)
          (volume-ratio-min 0.25d0)
-         (volume-t (expt (cl-mpm/mesh::mesh-resolution mesh) (cl-mpm/mesh:mesh-nd mesh)))
+         ;; (volume-t (expt (cl-mpm/mesh::mesh-resolution mesh) (cl-mpm/mesh:mesh-nd mesh)))
          (pos position))
     (flet ((check-cell (cell)
              (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
@@ -200,6 +200,7 @@
                               (centroid cl-mpm/mesh::cell-centroid)
                               (active cl-mpm/mesh::cell-active)
                               (volume cl-mpm/mesh::cell-volume)
+                              (volume-t cl-mpm/mesh::cell-volume-current)
                               (agg cl-mpm/mesh::cell-agg)
                               )
                  cell
@@ -207,7 +208,7 @@
                       (cl-mpm/mesh::cell-active cell)
                       (not (cl-mpm/mesh::cell-partial cell))
                       (not (cl-mpm/mesh::cell-agg cell))
-                      (> volume (* volume-t volume-ratio-min))
+                      ;; (> volume (* volume-t volume-ratio-min))
                       (not (eq cell exclude))
                       (funcall filter cell))
                  (let ((dist-tr (cl-mpm/fastmaths::diff-norm
@@ -218,49 +219,49 @@
                           (> dist dist-tr))
                      (setf dist dist-tr
                            closest-elem cell)))))))
-      ;; (iterate-over-cell-patch
-      ;;  mesh
-      ;;  position
-      ;;  1
-      ;;  #'check-cell)
+      (iterate-over-cell-patch
+       mesh
+       position
+       1
+       #'check-cell)
       (unless closest-elem
-        (iterate-over-cell-patch
-         mesh
-         position
-         2
-         #'check-cell)
-        (unless closest-elem
-          (let ((mutex (sb-thread:make-mutex)))
-            (cl-mpm::iterate-over-cells
-             mesh
-             (lambda (cell)
-               (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
-                                (index cl-mpm/mesh::cell-index)
-                                (centroid cl-mpm/mesh::cell-centroid)
-                                (active cl-mpm/mesh::cell-active)
-                                (volume cl-mpm/mesh::cell-volume)
-                                (agg cl-mpm/mesh::cell-agg))
-                   cell
-                 (when (and
-                        (cl-mpm/mesh::cell-active cell)
-                        (not (cl-mpm/mesh::cell-partial cell))
-                        (not (cl-mpm/mesh::cell-agg cell))
-                        (not (eq cell exclude))
-                        (> volume (* volume-t volume-ratio-min))
-                        (funcall filter cell))
-                   (let ((dist-tr (cl-mpm/fastmaths::diff-norm
-                                   pos
-                                   centroid)))
-                     ;;Double checked lock
-                     (when (or
-                            (not closest-elem)
-                            (> dist dist-tr))
-                       (sb-thread:with-mutex (mutex)
-                         (when (or
-                                (not closest-elem)
-                                (> dist dist-tr))
-                           (setf dist dist-tr
-                                 closest-elem cell)))))))))))
+        ;; (iterate-over-cell-patch
+        ;;  mesh
+        ;;  position
+        ;;  2
+        ;;  #'check-cell)
+        ;; (unless closest-elem
+        ;;   (let ((mutex (sb-thread:make-mutex)))
+        ;;     (cl-mpm::iterate-over-cells
+        ;;      mesh
+        ;;      (lambda (cell)
+        ;;        (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+        ;;                         (index cl-mpm/mesh::cell-index)
+        ;;                         (centroid cl-mpm/mesh::cell-centroid)
+        ;;                         (active cl-mpm/mesh::cell-active)
+        ;;                         (volume cl-mpm/mesh::cell-volume)
+        ;;                         (agg cl-mpm/mesh::cell-agg))
+        ;;            cell
+        ;;          (when (and
+        ;;                 (cl-mpm/mesh::cell-active cell)
+        ;;                 (not (cl-mpm/mesh::cell-partial cell))
+        ;;                 (not (cl-mpm/mesh::cell-agg cell))
+        ;;                 (not (eq cell exclude))
+        ;;                 ;;(> volume (* volume-t volume-ratio-min))
+        ;;                 (funcall filter cell))
+        ;;            (let ((dist-tr (cl-mpm/fastmaths::diff-norm
+        ;;                            pos
+        ;;                            centroid)))
+        ;;              ;;Double checked lock
+        ;;              (when (or
+        ;;                     (not closest-elem)
+        ;;                     (> dist dist-tr))
+        ;;                (sb-thread:with-mutex (mutex)
+        ;;                  (when (or
+        ;;                         (not closest-elem)
+        ;;                         (> dist dist-tr))
+        ;;                    (setf dist dist-tr
+        ;;                          closest-elem cell)))))))))))
         ))
     closest-elem))
 
@@ -368,6 +369,35 @@
                  do (when (cl-mpm/mesh::node-active n)
                       (setf (cl-mpm/mesh::node-agg n) t)))))))
 
+    (when t
+      (let ((volume-ratio 0.25d0))
+        (cl-mpm::iterate-over-nodes
+         mesh
+         (lambda (node)
+           (with-accessors ((active cl-mpm/mesh::node-active)
+                            (agg cl-mpm/mesh::node-agg))
+               node
+             (when (and active
+                        (< (cl-mpm/mesh::node-volume node)
+                           (* volume-ratio (cl-mpm/mesh::node-volume-true node))))
+               (setf (cl-mpm/mesh::node-agg node) t))))))
+      (cl-mpm::iterate-over-cells
+       mesh
+       (lambda (cell)
+         (with-accessors ((nodes cl-mpm/mesh::cell-nodes)
+                          (cell-agg cl-mpm/mesh::cell-agg)
+                          (active cl-mpm/mesh::cell-active))
+             cell
+           ;;Set all aggregated nodes
+           (when (and active
+                      (not cell-agg))
+             (let ((agg t))
+               (loop for n across nodes
+                     do (when (and (cl-mpm/mesh::node-active n)
+                                   (not (cl-mpm/mesh::node-agg n)))
+                          (setf agg nil)))
+               (setf cell-agg agg)))))))
+
     ;;For each aggregate node, locate the closest support cell
     (cl-mpm::iterate-over-nodes
      mesh
@@ -381,7 +411,9 @@
                  (progn
                    (setf (cl-mpm/mesh::node-agg-interior-cell node) closest-elem)
                    (setf (cl-mpm/mesh::cell-interior closest-elem) t))
-                 (format t "No closest elem?~%")
+                 (progn
+                   ;; (format t "No closest elem?~%")
+                   (setf (cl-mpm/mesh::node-agg node) nil))
                  ;; (error "No closest elem?")
                  ))))))
 

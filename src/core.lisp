@@ -49,7 +49,10 @@
                   (gimp-removal-criteria mp h nd)
                   nil))))))))))
 
-(defun check-single-mps (sim)
+
+(defgeneric check-single-mps (sim)
+  )
+(defmethod check-single-mps ((sim mpm-sim))
   "Function to check and remove single material points"
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh))
@@ -151,6 +154,7 @@
             (varef df 8) 1d0)
       (let ((w 0d0))
         (declare (double-float w))
+        (setf (cl-mpm/mesh::cell-volume-current cell) 0d0)
         (cl-mpm::iterate-over-neighbours-point-linear
          mesh
          centroid
@@ -1141,7 +1145,7 @@ This modifies the dt of the simulation in the process
   (when (cl-mpm::sim-allow-mp-split sim)
     (split-mps sim))
   (check-mps sim)
-  ;; (check-single-mps sim)
+  (check-single-mps sim)
   ;; (cl-mpm/ghost::reset-ghost-cache sim)
   ;; (reset-node-displacement sim)
   )

@@ -88,14 +88,14 @@
                      (force-ghost cl-mpm/mesh::node-ghost-force)
                      (residual cl-mpm/mesh::node-residual)
                      (residual-prev cl-mpm/mesh::node-residual-prev)
+                     (inertia-force cl-mpm/mesh::node-inertia-force)
                      (acc cl-mpm/mesh::node-acceleration))
         node
       (declare (double-float mass dt true-damping mass-scale))
       (progn
         (cl-mpm/fastmaths:fast-zero acc)
         ;;Backwards euler acceleration
-        (let ((vn (cl-mpm/utils:vector-zeros))
-              (inertia-force (cl-mpm/utils:vector-zeros)))
+        (let ((vn (cl-mpm/utils:vector-zeros)))
           (unless (= real-dt 0d0)
             (cl-mpm/utils:vector-copy-into disp vn)
             (cl-mpm/fastmaths:fast-scale! vn (/ 1d0 real-dt))
@@ -231,21 +231,21 @@
         ;; (cl-mpm::apply-essential-bcs sim)
         )))
 
-(defmethod cl-mpm::update-nodes ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
-  (with-accessors ((mesh cl-mpm::sim-mesh)
-                   ;; (dt cl-mpm/dynamic-relaxation::sim-dt-loadstep)
-                   (agg cl-mpm/aggregate::sim-enable-aggregate))
-      sim
-    (let ((dt 1d0))
-      (cl-mpm::iterate-over-nodes
-       mesh
-       (lambda (node)
-         (when (and (cl-mpm/mesh:node-active node)
-                    (or (not (cl-mpm/mesh::node-agg node))
-                        (cl-mpm/mesh::node-interior node)))
-           (cl-mpm::update-node node dt))))
-      (when agg
-        (cl-mpm/aggregate::project-displacement sim)))))
+;; (defmethod cl-mpm::update-nodes ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
+;;   (with-accessors ((mesh cl-mpm::sim-mesh)
+;;                    ;; (dt cl-mpm/dynamic-relaxation::sim-dt-loadstep)
+;;                    (agg cl-mpm/aggregate::sim-enable-aggregate))
+;;       sim
+;;     (let ((dt 1d0))
+;;       (cl-mpm::iterate-over-nodes
+;;        mesh
+;;        (lambda (node)
+;;          (when (and (cl-mpm/mesh:node-active node)
+;;                     (or (not (cl-mpm/mesh::node-agg node))
+;;                         (cl-mpm/mesh::node-interior node)))
+;;            (cl-mpm::update-node node dt))))
+;;       (when agg
+;;         (cl-mpm/aggregate::project-displacement sim)))))
 
 (defmethod map-stiffness ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
   (with-accessors ((mesh cl-mpm:sim-mesh)
@@ -305,7 +305,7 @@
                                (+
                                 (the double-float
                                      (*
-                                      (the double-float 
+                                      (the double-float
                                            (+
                                             (* (/ 1d0 (expt dt-true 1)) true-damping)
                                             (/ 2d0 (expt dt-true 2))))
@@ -327,22 +327,6 @@
     (cl-mpm::apply-essential-bcs sim)
 
     (cl-mpm/ghost::apply-ghost-stiffness sim)
-
-    ;; (when (and enable-dynamics
-    ;;            (> dt-true 0d0))
-    ;;   (let ((mass-scale (the double-float (/ 1d0 (cl-mpm::sim-dt-scale sim)))))
-    ;;     (cl-mpm:iterate-over-nodes
-    ;;      mesh
-    ;;      (lambda (node)
-    ;;        (when (cl-mpm/mesh:node-active node)
-    ;;          (incf (cl-mpm/mesh:node-mass node)
-    ;;                (* mass-scale
-    ;;                   (+
-    ;;                    (* (/ 1d0 (expt dt-true 1))
-    ;;                       (sim-true-damping sim)
-    ;;                       (cl-mpm/mesh::node-true-mass node))
-    ;;                    (* (/ 1d0 (expt dt-true 2))
-    ;;                       (cl-mpm/mesh::node-true-mass node))))))))))
 
     (cl-mpm/aggregate::update-mass-matrix sim)
     (setf (cl-mpm:sim-dt sim) 1d0)
@@ -622,91 +606,3 @@
       (call-next-method)
       (super-step sim)))
 
-;; (let ((work-pool (cl-mpm/utils::make-object-pool
-;;                  :constructor (lambda ()
-;;                                 (cl-mpm/utils:vector-zeros)))))
-;;   (defmethod dr-estimate-damping ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
-;;     (with-accessors ((mesh cl-mpm:sim-mesh))
-;;         sim
-;;       (let ((num 0d0)
-;;             (denom 0d0)
-;;             (dt 1d0))
-;;         (declare (double-float denom num))
-;;         (cl-mpm/utils::object-pool-ensure-size work-pool)
-;;         (setf
-;;          num
-;;          (float
-;;           (cl-mpm::reduce-over-nodes
-;;            mesh
-;;            (lambda (node)
-;;              (if (and (cl-mpm/mesh:node-active node)
-;;                       (not (cl-mpm/mesh::node-agg node)))
-;;                  (*
-;;                     (cl-mpm/fastmaths:dot
-;;                      (cl-mpm/mesh::node-velocity node)
-;;                      (cl-mpm/fastmaths:fast-.-
-;;                       (cl-mpm/mesh::node-residual-prev node)
-;;                       (cl-mpm/mesh::node-residual node)
-;;                       )
-;;                      )
-;;                     )
-;;                  0d0))
-;;            #'+)
-;;           0d0))
-;;         (setf
-;;          denom
-;;          (* dt
-;;             (the double-float
-;;                  (float
-;;                   (cl-mpm::reduce-over-nodes
-;;                    mesh
-;;                    (lambda (node)
-;;                      (the double-float
-;;                           (if (and (cl-mpm/mesh:node-active node)
-;;                                    (not (cl-mpm/mesh::node-agg node)))
-;;                               (*
-;;                                (the double-float (cl-mpm/mesh:node-mass node))
-;;                                (the double-float (cl-mpm/fastmaths::mag-squared
-;;                                                   (cl-mpm/mesh::node-velocity node))))
-;;                               0d0)))
-;;                    #'+)
-;;                   0d0
-;;                   ))))
-
-;;         ;; (when (cl-mpm/aggregate::sim-enable-aggregate sim)
-;;         ;;   (cl-mpm/aggregate::iterate-over-dimensions-with-mutex
-;;         ;;    (cl-mpm/mesh::mesh-nd mesh)
-;;         ;;    (lambda (d mut)
-;;         ;;      (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
-;;         ;;             (res-prev (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual-prev d))
-;;         ;;             (ma (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-mass))
-;;         ;;             (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d))
-;;         ;;             (vglobal
-;;         ;;               (cl-mpm/aggregate::extend-vec
-;;         ;;                sim
-;;         ;;                vi
-;;         ;;                d)))
-;;         ;;        (let ((dnum (cl-mpm/fastmaths:dot
-;;         ;;                     (cl-mpm/fastmaths::fast-.- res-prev res)
-;;         ;;                     vglobal
-;;         ;;                     ))
-;;         ;;              (ddenom (* dt (cl-mpm/fastmaths:dot vglobal
-;;         ;;                                                  (cl-mpm/fastmaths::fast-.*
-;;         ;;                                                   ma
-;;         ;;                                                   vglobal)))))
-;;         ;;          (declare (double-float num dnum denom ddenom))
-;;         ;;          (sb-thread::with-mutex (mut)
-;;         ;;            (incf num dnum)
-;;         ;;            (incf denom ddenom)))))))
-;;         (format t "~E ~E ~%" num denom)
-;;         (min 1.9d0
-;;              (max 0d0
-;;                   (* ;(the double-float (cl-mpm/dynamic-relaxation::sim-damping-scale sim))
-;;                      (if (> num 0d0)
-;;                          (if (= denom 0d0)
-;;                              0d0
-;;                              (the double-float
-;;                                   (* (sqrt 2d0)
-;;                                      (the double-float
-;;                                           (sqrt (max 0d0 (the double-float (/ num denom))))))))
-;;                          0d0))))))))

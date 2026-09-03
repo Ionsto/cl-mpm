@@ -646,6 +646,11 @@
               (format fs "POINT_DATA ~d~%" (array-total-size cells))
               ;; (save-parameter-cells "octree" (cl-mpm/dynamic-relaxation::cell-octree-refine cell))
               (save-parameter-cells "buoyancy" (if (cl-mpm/mesh::cell-boundary cell) 1 0))
+
+              ;; (save-parameter-cells "volume-c" (cl-mpm/mesh::cell-volume-current cell))
+              ;; (save-parameter-cells "volume" (cl-mpm/mesh::cell-volume cell))
+              ;; (save-parameter-cells "volume-ratio" (/ (cl-mpm/mesh::cell-volume-current cell)
+              ;;                                         (cl-mpm/mesh::cell-volume cell)))
               (save-parameter-cells "active" (if (cl-mpm/mesh::cell-active cell) 1 0))
               (save-parameter-cells "partial" (if (cl-mpm/mesh::cell-partial cell) 1 0))
               (save-parameter-cells "ghost" (if (cl-mpm/mesh::cell-ghost-element cell) 1 0))
