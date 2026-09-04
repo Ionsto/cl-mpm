@@ -552,9 +552,7 @@
                                    stick-friction))
                             (setf (cl-mpm/particle::mp-penalty-friction-stick mp) nil))
                           (progn
-                            (setf (cl-mpm/particle::mp-penalty-friction-stick mp) t)))
-                      ;; (cl-mpm/fastmaths::fast-.+ force force-friction force)
-                      )
+                            (setf (cl-mpm/particle::mp-penalty-friction-stick mp) t))))
                     (setf mp-friction force-friction))
                   (setf mp-normal-force (- normal-force damping-force))
 

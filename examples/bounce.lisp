@@ -5,8 +5,8 @@
 (in-package :cl-mpm/examples/bounce)
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
-  ;(cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
-  (cl-mpm::update-stress-linear mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-linear mesh mp dt fbar)
   )
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
@@ -45,8 +45,8 @@
                ;; (mapcar (lambda (x) (* x e-scale)) size)
                (list 1 (/ L h))
                ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
-               ;; :sim-type 'cl-mpm:mpm-sim-usf
-               :sim-type 'cl-mpm:mpm-sim-musl
+               :sim-type 'cl-mpm:mpm-sim-usf
+               ;; :sim-type 'cl-mpm:mpm-sim-musl
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
                :args-list
                (append
@@ -256,11 +256,11 @@
             (compute-strain-energy sim)
             (compute-gpe-diff sim))))
 
-(defun run (&key (output-dir "./output/")
 
+
+(defun run (&key (output-dir "./output/")
               (dt-scale 1d0)
-              (total-time 10d0)
-              )
+              (total-time 10d0))
   (let* (;; (total-time 10d0)
          (target-time 1d0)
          ;(dt-scale 0.9d0)
@@ -284,63 +284,84 @@
                                                (list :dt target-time))
     (format t "Substeps ~D~%" substeps)
     (vgplot:close-all-plots)
-    (let ((total-iter 0)
-          (dt-accumulator 0d0))
-      (time (loop for steps from 0 to (round total-time target-time)
-                  while *run-sim*
-                  do
-                     (let ()
-                       (format t "Step ~d substep est ~D~%" steps (floor target-time (cl-mpm::sim-dt *sim*)))
-                       (cl-mpm/dynamic-relaxation::save-vtks *sim* output-dir steps)
-                       (incf dt-accumulator target-time)
-                       (setf dt-accumulator (min (- total-time (cl-mpm::sim-time *sim*)) dt-accumulator))
-                       (time
-                        (loop while (> dt-accumulator 0d0)
-                              do
-                                 (progn
-                                   (save-timestep *sim* output-dir total-iter)
-                                   (cl-mpm::update-sim *sim*)
-                                   (push (cl-mpm::sim-time *sim*) *data-time*)
-                                   (push (cl-mpm::sim-stats-energy *sim*) *data-ke*)
-                                   ;; (push (compute-energy *sim*) *data-ke*)
-                                   (push (compute-strain-energy *sim*) *data-se*)
-                                   (push (compute-gpe-diff *sim*) *data-gpe*)
-                                   (incf total-iter)
-                                   (decf dt-accumulator (cl-mpm::sim-dt *sim*))
-                                   ;; (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup:estimate-elastic-dt *sim* :dt-scale dt-scale))
-                                   ;; (setf (cl-mpm:sim-dt *sim*) (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
-                                   ;; (format t "Dt ~E~%" (cl-mpm:sim-dt *sim*))
-                                   )
-                          ;; (when (> (cl-mpm::sim-time *sim*) 0.75d0)
-                          ;;   (setf (cl-mpm::sim-gravity *sim*) 0d0))
-                          ))
-                       ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
-                       ;;   (format t "CFL dt estimate: ~f~%" dt-e)
-                       ;;   (format t "CFL step count estimate: ~D~%" substeps-e)
-                       ;;   (setf substeps substeps-e))
-                       ;; (plot-domain)
-                       (vgplot:plot
-                        *data-time* *data-ke* "ke"
-                        *data-time* *data-se* "se"
-                        *data-time* *data-gpe* "gpe"
-                        *data-time*
-                        (mapcar #'+
-                                *data-ke*
-                                *data-se*
-                                *data-gpe*
-                                )
-                        "error"
-                        )
-                       ;; (vgplot:title (format nil "Time:~F - KE ~E - OOBF ~E - Work ~E"  (cl-mpm::sim-time *sim*) energy oobf work))
-                       (swank.live:update-swank)
-                       ))))
+    (let ((initial-energy (compute-energy *sim*)))
+      (defparameter *initial-energy* initial-energy)
+      (dotimes (total-iter (round total-time (cl-mpm:sim-dt *sim*)))
+        (progn
+          (save-timestep *sim* output-dir total-iter)
+          (cl-mpm::update-sim *sim*)
+          (push (cl-mpm::sim-time *sim*) *data-time*)
+          (push (compute-energy *sim*) *data-ke*)
+          (push (compute-strain-energy *sim*) *data-se*)
+          (push (compute-gpe-diff *sim*) *data-gpe*))
+        (swank.live:update-swank))
+      (flet ((norm (m) (mapcar (lambda (x) (/ x initial-energy)) m)))
+        (vgplot:plot
+         ;; *data-time* (norm *data-ke*) "ke"
+         ;; *data-time* (norm *data-se*) "se"
+         ;; *data-time* (norm *data-gpe*) "gpe"
+         *data-time*
+         (norm
+          (mapcar #'+
+                  *data-ke*
+                  *data-se*
+                  *data-gpe*))
+         "error"))
+      (format t
+              "Root mean squared error ~E~%"
+              (sqrt
+               (reduce #'+
+                       (mapcar (lambda (x) (* x x))
+                               (mapcar #'+
+                                       *data-ke*
+                                       *data-se*))))))
+    ;; (let ((initial-energy (compute-energy *sim*)))
+    ;;   (let ((total-iter 0)
+    ;;         (dt-accumulator 0d0))
+    ;;     (time (loop for steps from 0 to (round total-time target-time)
+    ;;                 while *run-sim*
+    ;;                 do
+    ;;                    (let ()
+    ;;                      (format t "Step ~d substep est ~D~%" steps (floor target-time (cl-mpm::sim-dt *sim*)))
+    ;;                      (cl-mpm/dynamic-relaxation::save-vtks *sim* output-dir steps)
+    ;;                      (incf dt-accumulator target-time)
+    ;;                      (setf dt-accumulator (min (- total-time (cl-mpm::sim-time *sim*)) dt-accumulator))
+    ;;                      (time
+    ;;                       (loop while (> dt-accumulator 0d0)
+    ;;                             do
+    ;;                                (progn
+    ;;                                  (save-timestep *sim* output-dir total-iter)
+    ;;                                  (cl-mpm::update-sim *sim*)
+    ;;                                  (push (cl-mpm::sim-time *sim*) *data-time*)
+    ;;                                  (push (compute-energy *sim*) *data-ke*)
+    ;;                                  (push (compute-strain-energy *sim*) *data-se*)
+    ;;                                  (push (compute-gpe-diff *sim*) *data-gpe*)
+    ;;                                  (incf total-iter)
+    ;;                                  (decf dt-accumulator (cl-mpm::sim-dt *sim*)))))
+    ;;                      (flet ((norm (m) (mapcar (lambda (x) (/ x initial-energy)) m))) 
+    ;;                        (vgplot:plot
+    ;;                         ;; *data-time* *data-ke* "ke"
+    ;;                         ;; *data-time* *data-se* "se"
+    ;;                         ;; *data-time* *data-gpe* "gpe"
+    ;;                         *data-time*
+    ;;                         (norm
+    ;;                          (mapcar #'+
+    ;;                                  *data-ke*
+    ;;                                  *data-se*
+    ;;                                  ;; *data-gpe*
+    ;;                                  ))
+    ;;                         "error"))
+    ;;                      (swank.live:update-swank)
+    ;;                      )))))
 
     )
   )
 
 (defun test ()
-  (setup :mps 2)
-  (run :dt-scale 0.25d0))
+  (setup :mps 4)
+  (run :dt-scale 0.5d0
+       :total-time 10d0
+       ))
 
 (defun make-csv (output-dir filename)
   (with-open-file (stream (merge-pathnames filename output-dir) :direction :output :if-exists :supersede)
@@ -356,14 +377,12 @@
 (defun test-range ()
   (let* ((classes (list
                    'cl-mpm/aggregate::mpm-sim-usf
-                   ;; 'cl-mpm/aggregate::mpm-sim-agg-usf
                    'cl-mpm::mpm-sim-usl
                    'cl-mpm::mpm-sim-musl
                    ;; 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
                    ))
          (names (list
                  "USF"
-                 ;; "USF-AGG"
                  "USL"
                  "MUSL"
                  ;; "IMPLICIT"
@@ -374,14 +393,12 @@
              (progn
                (let ((output-dir (format nil "output-~A/" n)))
                  ;; (setup-beam :refine 0.5 :mps 2)
-                 (setup :refine 1 :mps 2)
+                 (setup :refine 1 :mps 4)
                  ;; (setf (cl-mpm::sim-damping-factor *sim*) (* 0.01d0 (cl-mpm/setup:estimate-critical-damping *sim*)))
                  (change-class *sim* c)
                  (run :output-dir output-dir
-                      ;; :dt-scale 0.5d0
-                      :dt-scale 0.5d0
-                      :total-time 10d0
-                      )
+                      :dt-scale 0.1d0
+                      :total-time 10d0)
                  (make-csv "./energy-data/" (format nil "energy-~A.csv" n)))))
     (make-combined-data-file "./energy-data/")))
 
@@ -414,7 +431,7 @@
 
 (defun test-dt-scale ()
   (let* ((dt-scales (list
-                     ;; 1d0
+                     0.9d0
                      0.5d0
                      0.1d0
                      0.01d0
@@ -425,7 +442,7 @@
           do
              (progn
                (let ((output-dir (format nil "output-~A/" d)))
-                 (setup :mps 4)
+                 (setup :mps 2)
                  ;; (setf (cl-mpm::sim-damping-factor *sim*) (* 0.01d0 (cl-mpm/setup:estimate-critical-damping *sim*)))
                  ;; (change-class *sim* c)
                  (change-class *sim* 'cl-mpm/aggregate:mpm-sim-agg-usf)

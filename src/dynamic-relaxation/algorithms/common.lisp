@@ -96,7 +96,7 @@
 
 (defgeneric save-vtks-dr-step (sim output-dir trial-solve step iter))
 (defmethod save-vtks-dr-step ((sim cl-mpm:mpm-sim) output-dir trial-solve step iter)
-  (let ((post (format nil "~5,'0d_~5,'0d_~5,'0d.vtk" trial-solve step iter)))
+  (let ((post (format nil "~5,'0d_~5,'0d_~5,'0d" trial-solve step iter)))
     (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~A.vtk" post)) sim)
     (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~A.vtk" post)) sim)
     (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_step_cells_~A.vtk" post)) sim)

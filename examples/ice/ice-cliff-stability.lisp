@@ -11,10 +11,10 @@
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 
 (defparameter *angle* 38d0)
-(defparameter *angle-r* 20d0)
+(defparameter *angle-r* 38d0)
 (defparameter *angle-psi* 0d0)
 (defparameter *rt* 1d0)
-(defparameter *rc* 0.9d0)
+(defparameter *rc* 0d0)
 (defparameter *enable-plastic-damage* nil)
 (defparameter *delay-time* 1d4)
 (defparameter *delay-exponent* 4d0)
@@ -30,7 +30,7 @@
 
 (defparameter *ductility* 10d0)
 ;; (defparameter *tensile-strength* 0.1185d6)
-(defparameter *tensile-strength* 0.1d6)
+(defparameter *tensile-strength* 0.2d6)
 
 
 (defun est-shear-from-angle (angle angle-r rc)
@@ -58,6 +58,7 @@
      ;; :colour-func (lambda (mp) (/ (cl-mpm/particle:mp-mass mp)
      ;;                              (cl-mpm/particle:mp-volume mp)))
      :colour-func #'cl-mpm/particle::mp-damage
+     ;; :colour-func #'cl-mpm/particle::mp-damage-ybar
      ;; :colour-func (lambda (mp) (cl-mpm/utils::varef  (cl-mpm/particle::mp-stress mp ) 1))
      ))
   )
@@ -90,11 +91,7 @@
                (cl-mpm/fastmaths:fast-.+
                 undamaged-stress
                 ;; stress
-                (cl-mpm/utils:voigt-eye (*
-                                         0d0
-                                         j
-                                         (- pressure)
-                                         )))))
+                (cl-mpm/utils:voigt-eye (* 0d0 j (- pressure))))))
         (setf y
               (*
                (+
@@ -151,9 +148,9 @@
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
                                                :sim-type
                                                ;; Took [TODO] seconds
-                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
                                                ;; Took 57 seconds
-                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic
+                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static
                                                :args-list
                                                (list
@@ -499,7 +496,8 @@
 (defun stability-qt-test ()
   (cl-mpm/utils:set-workers 16)
   (let* ((heights (list
-                   500d0
+                   200d0
+                   ;; 500d0
                    ;; 200d0
                    ;; 300d0
                    ;; ;; 400d0
@@ -507,13 +505,13 @@
                    ;; 600d0
                    ))
          (floatations (list
-                       0.5d0
+                       ;; 0.5d0
                        ;; 0d0
                        ;; 0.5d0
                        ;; 0.9d0
                        ;; 1d0
                        ))
-         (cliff-step 20d0)
+         (cliff-step 10d0)
          (density 918d0)
          (water-density 1028d0)
          )
@@ -530,31 +528,31 @@
                       (floating-point (/ density water-density))
                       (floating-cliff (- height (* height floating-point))))
                  (loop for fi from 0
-                       for flotation in floatations
-                       ;; for i from 0 to (ceiling (- height floating-cliff) cliff-step)
+                       ;; for flotation in floatations
+                       for i from 0 to (ceiling (- height floating-cliff) cliff-step)
                        do
-                          (let* (;(cliff-size (min height (+ floating-cliff (* i cliff-step))))
+                          (let* ((cliff-size (min height (+ floating-cliff (* i cliff-step))))
                                  ;; (cliff-size (min height 100d0))
-                                 ;; (flotation (/ (- height cliff-size) (* floating-point height)))
+                                 (flotation (/ (- height cliff-size) (* floating-point height)))
                                  (mps 3)
                                  (output-dir (format nil "./output-~f-~f/" height flotation)))
                             (format t "Problem ~f ~f~%" height flotation)
                             (defparameter *length-scaler* 1d0)
                             ;; (defparameter *length-scale* 20d0)
                             (defparameter *early-exit-flag* nil)
-                            (setup :refine 0.125d0
+                            (setup :refine 0.5d0
                                    :multigrid-refines 0
                                    :friction 0.5d0
                                    :ice-height height
                                    :mps mps
                                    :hydro-static nil
                                    :cryo-static nil
-                                   :elastic-static t
-                                   :aspect 6d0
+                                   :elastic-static nil
+                                   :aspect 2d0
                                    :slope 0d0
-                                   :bench-length (* 1d0 height)
+                                   :bench-length (* 0d0 height)
                                    :floatation-ratio flotation
-                                   :use-penalty t
+                                   :use-penalty nil
                                    :stick-base nil)
                             (cl-mpm::domain-sort-mps *sim*)
 
@@ -747,5 +745,7 @@
                     (format t "~A - " (aref *stability* hi fi)))
            (format t "~%")
         ))
+
+
 
 

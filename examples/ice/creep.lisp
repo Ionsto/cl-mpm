@@ -35,7 +35,7 @@
     (defparameter *ice-length* ice-length)
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
                                                :sim-type
-                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
+                                               'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
                                                :args-list
                                                (list
                                                 :enable-fbar t
@@ -43,7 +43,7 @@
                                                 :split-factor (* 1d0 (sqrt 2) (/ 1d0 mps))
                                                 :max-split-depth 8
                                                 :enable-split t
-                                                :refinement multigrid-refine
+                                                ;; :refinement multigrid-refine
                                                 )))
     (setf mesh-resolution (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
     (cl-mpm:add-mps
@@ -53,16 +53,25 @@
       block-size
       (mapcar (lambda (e) (* (/ e mesh-resolution) mps)) block-size)
       density
-      'cl-mpm/particle::particle-ice-linear
+      ;; 'cl-mpm/particle::particle-ice-linear
+      ;; :E 1d9
+      ;; :nu 0.24d0
+      ;; :viscosity 1.3d13
+      ;; :enable-viscosity t
+      'cl-mpm/particle::particle-glen
       :E 1d9
       :nu 0.24d0
-      :viscosity 1.3d13
-      :enable-viscosity t))
+      :visc-power 3d0
+      :visc-factor 111d6
+      ;; :viscosity 1.3d13
+      :enable-viscosity t
+      ))
     (cl-mpm/setup:setup-bcs
      *sim*
-     :left '(0 nil 0))
-    :bottom '(nil 0 0)
+     :left '(0 nil 0)
+     :bottom '(nil 0 0))
     (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
+    (cl-mpm/output:add-mp-output *sim* :SCALAR "viscosity" #'cl-mpm/particle::mp-viscosity)
     ))
 
 (defun plot-time-disp ()
@@ -84,14 +93,16 @@
 
 (defun test ()
   (setup
-   :refine 0.25
+   :refine 1
+   :mps 3
    :ice-height 125d0
    :aspect 4d0
-   :multigrid-refine 3)
+   )
 
   (let* ((day (* 24d0 60d0 60d0))
          (month (* 30d0 day))
-         (dt (* 10d0 day))
+         (dt (* 5d0 day))
+         ;; (dt 1d0)
          (total-time (* 6 month)))
 
     (defparameter *data-time* (list 0d0))
@@ -114,7 +125,7 @@
        :dt dt
        :total-time total-time
        ;; :steps 1000
-       :dt-scale 1d0
+       :dt-scale 0.9d0
        :conv-criteria 1d-3
        :substeps 50
        :min-adaptive-steps -0
@@ -122,14 +133,17 @@
        :save-vtk-loadstep t
        :save-vtk-dr t
 
-       :plotter (lambda (sim) (plot-domain)
-                  (vgplot:title (format nil "T - ~E months~%" (/ (cl-mpm::sim-time sim) month))))
+       :plotter (lambda (sim)
+                  ;; (plot-time-disp)
+                  (plot-domain)
+                  ;; (vgplot:title (format nil "T - ~E months~%" (/ (cl-mpm::sim-time sim) month)))
+                  )
 
        :post-conv-step (lambda (sim) (plot-domain))
        :post-load-step (lambda (sim)
                          (push (/ (cl-mpm::sim-time sim)
                                   month) *data-time*)
-                         (push 
+                         (push
                           (get-disp)
                                *data-disp*)
                          (save-csv "./analysis_scripts/ice/creep/" "data.csv")
@@ -142,4 +156,22 @@
 
 (defun est-visco (A n)
   (* 3/2 Kn)
+  )
+
+(let* ((strain-n (cl-mpm/utils:voigt-from-list (list 0d0 0d0 0d0 1d-12 0d0 0d0)))
+       (strain (cl-mpm/utils:voigt-from-list (list 0d0 0d0 0d0 1d-12 0d0 0d0)))
+       (E 1d9)
+       (nu 0.24d0)
+       (de (cl-mpm/constitutive::linear-elastic-matrix E nu))
+      )
+  (pprint
+   (cl-mpm/models/visco::glen-flow-scalar-j2
+    (magicl:@ de strain)
+    strain-n
+    strain
+    e nu de
+    111d6
+    3d0
+    1d0
+    ))
   )
