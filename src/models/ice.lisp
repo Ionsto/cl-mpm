@@ -8,16 +8,18 @@
 
 (in-package :cl-mpm/particle)
 
-(defclass particle-glen (particle-elastic)
+(defclass particle-glen ( particle-finite-viscoelastic particle-elastic )
   ((visc-factor
     :accessor mp-visc-factor
+    :initform 111d6
     :initarg :visc-factor)
    (visc-power
     :accessor mp-visc-power
+    :initform 3d0
     :initarg :visc-power)
-   (true-visc
-    :accessor mp-true-visc
-    :initform 0d0)
+   ;; (true-visc
+   ;;  :accessor mp-true-visc
+   ;;  :initform 0d0)
    )
   (:documentation "A glen flow law material point"))
 
@@ -227,6 +229,23 @@
     (setf p-wave (cl-mpm/particle::compute-p-modulus mp))
     (when (and (cl-mpm/particle::mp-enable-viscosity mp)
                (> dt 0d0))
+      ;; (let ((viscosity
+      ;;         (cl-mpm/models/visco::glen-flow-scalar-j2
+      ;;          stress-u strain-n strain e nu de
+      ;;          111d6
+      ;;          3d0
+      ;;          dt
+      ;;          :result-stress stress-u
+      ;;          :result-strain strain)))
+      ;;   (let* ((K (cl-mpm/particle::calculate-bulk-modulus e nu))
+      ;;          (G (cl-mpm/particle::calculate-shear-modulus e nu))
+      ;;          (rho (/ viscosity G))
+      ;;          (dy (/ dt rho))
+      ;;          (exp-rho (exp (- dy)))
+      ;;          (lam (/ (- 1 exp-rho) dy)))
+      ;;     (declare (double-float K G rho dy exp-rho lam dt viscosity p-wave))
+      ;;     (setf p-wave (+ K (* 4/3 G lam))))
+      ;;   )
       (let ((viscosity (cl-mpm/particle::mp-viscosity mp)))
         (let* ((K (cl-mpm/particle::calculate-bulk-modulus e nu))
                (G (cl-mpm/particle::calculate-shear-modulus e nu))
@@ -240,7 +259,8 @@
         ;; (multiple-value-bind (eps pmod) (cl-mpm/ext::constitutive-viscoelastic stress-u strain de e nu dt viscosity)
         ;;   (setf p-wave pmod)
         ;;   )
-        ))
+        )
+      )
     (cl-mpm/utils:voigt-copy-into strain trial-elastic-strain)
     (when enable-plasticity
         (let* ((K (/ e (* 3 (- 1d0 (* 2 nu))))))
@@ -314,18 +334,36 @@
                (de elastic-matrix)
                (visc-factor visc-factor)
                (visc-power visc-power)
-               (strain-rate strain-rate) ;Note strain rate is actually strain increment through dt
-               (velocity-rate velocity-rate) ;Note strain rate is actually strain increment through dt
                (stress stress)
+               (strain-n strain-n)
                (strain strain)
-               (stretch stretch-tensor)
-               (eng-strain-rate eng-strain-rate)
-               )
+               (visc viscosity)
+               (p-wave p-modulus-0))
       mp
     (declare (double-float E visc-factor visc-power))
-    (let* (;(viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power))
-           (viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power)))
-      (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt strain))))
+    (setf stress (cl-mpm/constitutive::linear-elastic-mat strain de stress))
+    (setf p-wave (cl-mpm/particle::compute-p-modulus mp))
+    (when (and (> dt 0d0))
+      (let ((viscosity
+              (cl-mpm/models/visco::glen-flow-scalar-j2
+               stress strain-n strain e nu de
+               visc-factor
+               visc-power
+               dt
+               (cl-mpm/particle::mp-deformation-jacobian-strain mp)
+               (cl-mpm/particle::mp-deformation-jacobian-strain-n mp)
+               :result-stress stress
+               :result-strain strain)))
+        (let* ((K (cl-mpm/particle::calculate-bulk-modulus e nu))
+               (G (cl-mpm/particle::calculate-shear-modulus e nu))
+               (rho (/ viscosity G))
+               (dy (/ dt rho))
+               (exp-rho (exp (- dy)))
+               (lam (/ (- 1 exp-rho) dy)))
+          (declare (double-float K G rho dy exp-rho lam dt viscosity p-wave))
+          (setf visc viscosity)
+          (setf p-wave (+ K (* 4/3 G lam))))))
+    stress))
 
 (defmethod constitutive-model ((mp particle-m-ice) strain dt)
   "Function for modeling stress intergrated viscoplastic norton-hoff material"

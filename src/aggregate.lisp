@@ -225,11 +225,11 @@
        1
        #'check-cell)
       (unless closest-elem
-        ;; (iterate-over-cell-patch
-        ;;  mesh
-        ;;  position
-        ;;  2
-        ;;  #'check-cell)
+        (iterate-over-cell-patch
+         mesh
+         position
+         3
+         #'check-cell)
         ;; (unless closest-elem
         ;;   (let ((mutex (sb-thread:make-mutex)))
         ;;     (cl-mpm::iterate-over-cells

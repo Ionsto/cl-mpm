@@ -352,7 +352,7 @@
                 (format t "Slot ~A has a ~A - ~A~%" slot (type-of value) value)))))))))
 
 (defun test-mp-slots (mps)
-  (format t "Testing slots~%")
+  ;; (format t "Testing slots~%")
   (cl-mpm::iterate-over-mps
    mps
    #'test-slot-types))
@@ -406,7 +406,7 @@
                             (* 2 (cl-mpm/mesh:mesh-resolution mesh))))
             (nd (cl-mpm/mesh:mesh-nd mesh))
             )
-        (test-mp-slots (cl-mpm:sim-mps sim))
+        ;; (test-mp-slots (cl-mpm:sim-mps sim))
         (loop for i from 0 below nd
               do
                  (let ((id-delta (list 0 0 0)))
