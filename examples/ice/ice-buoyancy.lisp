@@ -137,8 +137,8 @@
      ;; :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
      ;; :colour-func (lambda (mp) (/ (cl-mpm/particle:mp-mass mp)
      ;;                              (cl-mpm/particle:mp-volume mp)))
-     ;; :colour-func #'cl-mpm/particle::mp-damage
-     :colour-func #'cl-mpm/particle::mp-damage-ybar
+     :colour-func #'cl-mpm/particle::mp-damage
+     ;; :colour-func #'cl-mpm/particle::mp-damage-ybar
      ;; :colour-func #'cl-mpm/particle::mp-pressure
      ;; :colour-func (lambda (mp) (cl-mpm/utils::varef (cl-mpm/particle::mp-body-force mp) 1))
 
@@ -565,7 +565,7 @@
          (dt 1d3)
          (total-time 1d10)
          (H 500d0)
-         (ice-aspect 4d0)
+         (ice-aspect 6d0)
          (density 918d0)
          (explicit-dt-scale 0.45d0)
          (water-damping 1d0)
@@ -577,7 +577,7 @@
      :refine 0.25
      ;; :multigrid-refines 0
      :friction friction
-     :bench-length (* 1d0 H)
+     :bench-length (* 0d0 H)
      :bench-extra-cut (* 0d0 (* H 1d0))
      :ice-height H
      :mps mps
@@ -722,7 +722,7 @@
          (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) t))
        :setup-quasi-static
        (lambda (sim)
-         (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
+         (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-9)
          (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic)
            (setf (cl-mpm/dynamic-relaxation::sim-true-damping *sim*) (* 1d-4 (cl-mpm/setup::estimate-critical-damping *sim*))))
          (cl-mpm::remove-mps-func
@@ -731,16 +731,16 @@
             (and
              (typep mp 'cl-mpm/particle::particle-damage)
              (> (cl-mpm/particle::mp-damage mp) 0.99d0))))
-         (cl-mpm::reset-grid (cl-mpm:sim-mesh *sim*) :reset-displacement t)
-         (cl-mpm/dynamic-relaxation::pre-step *sim*)
-         (cl-mpm::check-mps *sim*)
+         ;; (cl-mpm::reset-grid (cl-mpm:sim-mesh *sim*) :reset-displacement t)
+         ;; (cl-mpm/dynamic-relaxation::pre-step *sim*)
+         ;; (cl-mpm::check-mps *sim*)
          (setf
           (cl-mpm/penalty::bc-penalty-friction *floor-bc*) friction
           (cl-mpm::sim-velocity-algorithm sim) :TBLEND
           (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) water-damping))
        :setup-dynamic
        (lambda (sim)
-         (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
+         (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-9)
          (setf
           (cl-mpm/damage::sim-damage-delocal-counter-max sim) 10
           (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) water-damping
