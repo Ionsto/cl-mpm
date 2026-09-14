@@ -126,17 +126,14 @@
                                   do
                                      (progn
                                        (cl-mpm::update-sim sim)
-
                                        (when adaptive-mass-enabled 
                                          (incf oobf (estimate-static-oobf sim))
                                          (incf energy (cl-mpm::sim-stats-energy sim))
                                          (incf work (estimate-strain-energy sim))
-                                         (incf substeps)
-                                         )
-
+                                         (incf substeps))
                                        (incf total-iter)
-                                       (decf dt-accumulator (cl-mpm::sim-dt sim))
-                                       (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim))))))
+                                       (decf dt-accumulator (cl-mpm::sim-dt sim)))))
+                           (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
                            (funcall post-iter-step sim)
                            (funcall plotter sim)
                            (when save-vtk-loadstep
