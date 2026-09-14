@@ -453,6 +453,7 @@
 (defun calculate-p-wave-modulus (E nu)
   (cl-mpm/utils::calculate-p-wave-modulus E nu))
 
+(declaim (ftype (function (particle) double-float) compute-p-modulus))
 (defun compute-p-modulus (particle)
   (with-accessors ((E  mp-E)
                    (nu mp-nu))
