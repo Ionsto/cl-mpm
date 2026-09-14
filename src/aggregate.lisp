@@ -386,7 +386,7 @@
                  do (when (cl-mpm/mesh::node-active n)
                       (setf (cl-mpm/mesh::node-agg n) t)))))))
 
-    (when t
+    (when nil
       (let ((volume-ratio 0.25d0))
         (cl-mpm::iterate-over-nodes
          mesh
