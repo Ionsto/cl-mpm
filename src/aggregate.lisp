@@ -1256,27 +1256,30 @@
                    (mass-scale cl-mpm::sim-mass-scale)
                    (enable-agg cl-mpm/aggregate::sim-enable-aggregate))
       sim
-    (let ((et (cl-mpm/aggregate::sim-global-sparse-et sim))
-          (e (cl-mpm/aggregate::sim-global-sparse-e sim))
-          (m (cl-mpm/aggregate::sim-global-sparse-ma sim))
-          (k (assemble-global-scalar sim #'cl-mpm/mesh::node-pwave))
-          (h (cl-mpm/mesh:mesh-resolution mesh))
-          )
-      (let ((eigen-value
-              (cl-mpm/linear-solver::estimate-max-eigenvalue
-               (lambda (x)
-                 (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
-                  et
-                  (cl-mpm/fastmaths::fast-./
+    (if (and (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
+             (> (length (cl-mpm/aggregate::sim-agg-nodes-fdc sim)) 0d0))
+      (let ((et (cl-mpm/aggregate::sim-global-sparse-et sim))
+            (e (cl-mpm/aggregate::sim-global-sparse-e sim))
+            (m (cl-mpm/aggregate::sim-global-sparse-ma sim))
+            (k (assemble-global-scalar sim #'cl-mpm/mesh::node-pwave))
+            (h (cl-mpm/mesh:mesh-resolution mesh))
+            )
+        (let ((eigen-value
+                (cl-mpm/linear-solver::estimate-max-eigenvalue
+                 (lambda (x)
                    (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
-                    e
-                    (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
-                     et
-                     (cl-mpm/fastmaths::fast-.*
+                    et
+                    (cl-mpm/fastmaths::fast-./
+                     (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
+                      e
                       (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
-                       e
-                       x)
-                      m)))
-                   k)))
-               (length (cl-mpm/aggregate::sim-agg-nodes-fdc sim)))))
-        (/ 1d0 (* h (sqrt eigen-value)))))))
+                       et
+                       (cl-mpm/fastmaths::fast-.*
+                        (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
+                         e
+                         x)
+                        m)))
+                     k)))
+                 (length (cl-mpm/aggregate::sim-agg-nodes-fdc sim)))))
+          (/ 1d0 (* h (sqrt eigen-value)))))
+      0d0)))
