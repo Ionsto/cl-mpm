@@ -431,9 +431,15 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 
 (defun iterate-over-neighbours-point-linear (mesh position func)
   "Iterate over neighbours of an arbitrary point - using FEM linear basis"
-  (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
-      (iterate-over-neighbours-point-linear-2d mesh position func)
-      (iterate-over-neighbours-point-linear-3d mesh position func)))
+  (ecase (the fixnum (cl-mpm/mesh:mesh-nd mesh))
+    ;; (1 (iterate-over-neighbours-point-linear-1d mesh position func))
+    (1 (iterate-over-neighbours-point-linear-2d mesh position func))
+    (2 (iterate-over-neighbours-point-linear-2d mesh position func))
+    (3 (iterate-over-neighbours-point-linear-3d mesh position func)))
+  ;; (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
+  ;;     (iterate-over-neighbours-point-linear-2d mesh position func)
+  ;;     (iterate-over-neighbours-point-linear-3d mesh position func))
+  )
 
 (declaim (inline iterate-over-neighbours-point-linear-lisp)
          (ftype (function (cl-mpm/mesh::mesh magicl:matrix/double-float function) (values))

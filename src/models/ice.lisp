@@ -222,7 +222,7 @@
                    )
       mp
     (declare (magicl:matrix/double-float de stress stress-u strain plastic-strain)
-             (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi kc-r kt-r g-r damage j))
+             (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi kc-r kt-r g-r damage j dt))
     ;;Train elastic strain - plus trail kirchoff stress
     (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
     ;;Viscoelastic corrector
@@ -263,7 +263,8 @@
       )
     (cl-mpm/utils:voigt-copy-into strain trial-elastic-strain)
     (when enable-plasticity
-        (let* ((K (/ e (* 3 (- 1d0 (* 2 nu))))))
+      (let* ((K (/ e (* 3 (- 1d0 (* 2 nu))))))
+        (declare (double-float damage-pressure coheasion pressure))
           (setf
            damage-pressure
            (- 1d0 damage))

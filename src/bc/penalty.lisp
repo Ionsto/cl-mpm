@@ -609,7 +609,6 @@
                                             damping
                                             (/ 1d0 dt))
                                          0d0))
-                                    ;; (+ 1d0 (expt friction 2))
                                     (+ 1d0 (expt friction 1))
                                     contact-area)
                         :density (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))
@@ -1478,6 +1477,7 @@
                               1d0
                               epsilon
                               contact-area)
+                  :density (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))
                   :mesh mesh)
                  (bc-penalty-contact-points bc)))
               normal-force)))))))

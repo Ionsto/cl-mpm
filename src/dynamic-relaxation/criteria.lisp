@@ -175,8 +175,8 @@
                    (list
                     (* 0.5d0 mass (cl-mpm/fastmaths::mag-squared vel))
                     (cl-mpm/fastmaths::mag-squared res)
-                    ;; (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+ f-ext f-rct))
-                    (cl-mpm/fastmaths::mag-squared f-ext)
+                    (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+ f-ext f-rct))
+                    ;; (cl-mpm/fastmaths::mag-squared f-ext)
                     (cl-mpm/fastmaths:dot disp f-ext))))
                (list 0d0 0d0 0d0 0d0)))
          (lambda (&rest args)
@@ -192,6 +192,7 @@
            (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))
                   (f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
                   (f-rct (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-reaction-force d))
+                  ;; (f-ext (cl-mpm/fastmaths::fast-.+ f-ext f-rct))
                   (ma (cl-mpm/aggregate::sim-global-ma sim))
                   (mv (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-mass))
                   (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d))
@@ -203,8 +204,8 @@
                                ))
                    (doobf-denom
                      (+
-                      ;; (cl-mpm/fastmaths::mag-squared
-                      ;;  f-rct)
+                      (cl-mpm/fastmaths::mag-squared
+                       f-rct)
                       (cl-mpm/fastmaths::mag-squared
                        (cl-mpm/aggregate::aggregate-vec sim f-ext d))))
                    (dpower (cl-mpm/fastmaths:dot
@@ -955,9 +956,15 @@
   )
 
 (defun compute-max-deformation (sim)
-  (if (= (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)) 2)
-          (compute-max-deformation-2d sim)
-          (compute-max-deformation-3d sim)))
+  (case (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))
+    (1 1d0)
+    (2 (compute-max-deformation-2d sim))
+    (3 (compute-max-deformation-3d sim))
+    (t (error "Unsupported mesh dimension ~A" (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))))
+  ;; (if (= (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)) 2)
+  ;;         (compute-max-deformation-2d sim)
+  ;;         (compute-max-deformation-3d sim))
+  )
 
 (defmethod print-max-deformation (sim)
   (let ((cmax 0d0)

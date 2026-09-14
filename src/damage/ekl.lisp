@@ -16,10 +16,7 @@
                  (min 1d0 (max 0d0 (the double-float (cl-mpm/mesh::node-damage node))))
                  0d0))
            (get-damage (position)
-             (let ((damage 0d0)
-                   (weight 0d0))
-               ;; (when (and *enable-reflect-x* (< (varef position 0) 0d0))
-               ;;   )
+             (let ((damage 0d0))
                (let ((true-pos position))
                  (when (or *enable-reflect-x* *enable-reflect-y* *enable-reflect-z*)
                    (setf true-pos (remap-pos true-pos)))
@@ -33,9 +30,7 @@
                               (* (node-dam node)
                                  weight))
                         (incf damage (* 1d0 weight))))))
-               damage)
-             )
-           )
+               damage)))
     (with-accessors ((h cl-mpm/mesh::mesh-resolution))
         mesh
       (let* ((pos-a (cl-mpm/particle:mp-position mp-a))
@@ -46,7 +41,6 @@
         (declare (double-float h final-distance epsilon))
         (cl-mpm/fastmaths:fast-.- pos-b pos-a diff)
         (let* ((length (sqrt (diff-squared mp-a mp-b))))
-
           ;; Sample damage at midpoint and integrated with constant damage assumption
           ;; Can utilise linear shape function damage assumption but produced a nasty looking intergral
           (declare (double-float h length final-distance))
@@ -56,7 +50,7 @@
                    ;;Start at point a and step through to b
                    (step-point (cl-mpm/utils::vector-copy pos-a))
                    ;;Resolution of our midpoint integration
-                   (step-size (/ h 6d0))
+                   (step-size (/ h 2d0))
                    )
               (cl-mpm/fastmaths:fast-scale! step-norm (/ 1d0 length))
               (multiple-value-bind (steps remainder) (floor length step-size)
@@ -71,23 +65,16 @@
                                  (declare (double-float damage))
                                  (incf final-distance
                                        (* step-size
-                                          (/ 1d0 (max epsilon (sqrt (max 0d0 (min 1d0 (- 1d0 damage)))))))))
+                                          (/ 1d0 (max epsilon (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 damage))))))))))
                                (cl-mpm/fastmaths::fast-.+ step-point dhstep step-point)
                                )
                           )))
                 (let* ((step-size remainder)
                        (dhstep (cl-mpm/utils::vector-copy step-norm)))
-                  (magicl:scale! dhstep (* 0.5d0 step-size))
+                  (cl-mpm/fastmaths:fast-scale! dhstep (* 0.5d0 step-size))
                   (progn
                     (cl-mpm/fastmaths::fast-.+ step-point dhstep step-point)
-                    (let ((damage 0d0))
-                      (cl-mpm::iterate-over-neighbours-point-linear
-                       mesh
-                       step-point
-                       (lambda (m node weight grads)
-                         (declare (double-float damage weight))
-                         (incf damage
-                               (* (node-dam node) weight))))
+                    (let ((damage (get-damage step-point)))
                       (incf final-distance (* step-size
                                               (/ 1d0
                                                  (max epsilon
