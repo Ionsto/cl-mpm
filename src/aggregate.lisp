@@ -247,38 +247,38 @@
         ;;  position
         ;;  3
         ;;  #'check-cell)
-        ;; (unless closest-elem
-        ;;   (let ((mutex (sb-thread:make-mutex)))
-        ;;     (cl-mpm::iterate-over-cells
-        ;;      mesh
-        ;;      (lambda (cell)
-        ;;        (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
-        ;;                         (index cl-mpm/mesh::cell-index)
-        ;;                         (centroid cl-mpm/mesh::cell-centroid)
-        ;;                         (active cl-mpm/mesh::cell-active)
-        ;;                         (volume cl-mpm/mesh::cell-volume)
-        ;;                         (agg cl-mpm/mesh::cell-agg))
-        ;;            cell
-        ;;          (when (and
-        ;;                 (cl-mpm/mesh::cell-active cell)
-        ;;                 (not (cl-mpm/mesh::cell-partial cell))
-        ;;                 (not (cl-mpm/mesh::cell-agg cell))
-        ;;                 (not (eq cell exclude))
-        ;;                 ;;(> volume (* volume-t volume-ratio-min))
-        ;;                 (funcall filter cell))
-        ;;            (let ((dist-tr (cl-mpm/fastmaths::diff-norm
-        ;;                            pos
-        ;;                            centroid)))
-        ;;              ;;Double checked lock
-        ;;              (when (or
-        ;;                     (not closest-elem)
-        ;;                     (> dist dist-tr))
-        ;;                (sb-thread:with-mutex (mutex)
-        ;;                  (when (or
-        ;;                         (not closest-elem)
-        ;;                         (> dist dist-tr))
-        ;;                    (setf dist dist-tr
-        ;;                          closest-elem cell)))))))))))
+        (unless closest-elem
+          (let ((mutex (sb-thread:make-mutex)))
+            (cl-mpm::iterate-over-cells
+             mesh
+             (lambda (cell)
+               (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                                (index cl-mpm/mesh::cell-index)
+                                (centroid cl-mpm/mesh::cell-centroid)
+                                (active cl-mpm/mesh::cell-active)
+                                (volume cl-mpm/mesh::cell-volume)
+                                (agg cl-mpm/mesh::cell-agg))
+                   cell
+                 (when (and
+                        (cl-mpm/mesh::cell-active cell)
+                        (not (cl-mpm/mesh::cell-partial cell))
+                        (not (cl-mpm/mesh::cell-agg cell))
+                        (not (eq cell exclude))
+                        ;;(> volume (* volume-t volume-ratio-min))
+                        (funcall filter cell))
+                   (let ((dist-tr (cl-mpm/fastmaths::diff-norm
+                                   pos
+                                   centroid)))
+                     ;;Double checked lock
+                     (when (or
+                            (not closest-elem)
+                            (> dist dist-tr))
+                       (sb-thread:with-mutex (mutex)
+                         (when (or
+                                (not closest-elem)
+                                (> dist dist-tr))
+                           (setf dist dist-tr
+                                 closest-elem cell)))))))))))
         ))
     closest-elem))
 
@@ -1250,3 +1250,33 @@
           (* (sqrt mass-scale) (sqrt inner-factor) h)
           (cl-mpm:sim-dt sim)))))
 
+
+(defun estimate-aggregated-cfl (sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mass-scale cl-mpm::sim-mass-scale)
+                   (enable-agg cl-mpm/aggregate::sim-enable-aggregate))
+      sim
+    (let ((et (cl-mpm/aggregate::sim-global-sparse-et sim))
+          (e (cl-mpm/aggregate::sim-global-sparse-e sim))
+          (m (cl-mpm/aggregate::sim-global-sparse-ma sim))
+          (k (assemble-global-scalar sim #'cl-mpm/mesh::node-pwave))
+          (h (cl-mpm/mesh:mesh-resolution mesh))
+          )
+      (let ((eigen-value
+              (cl-mpm/linear-solver::estimate-max-eigenvalue
+               (lambda (x)
+                 (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
+                  et
+                  (cl-mpm/fastmaths::fast-./
+                   (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
+                    e
+                    (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
+                     et
+                     (cl-mpm/fastmaths::fast-.*
+                      (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
+                       e
+                       x)
+                      m)))
+                   k)))
+               (length (cl-mpm/aggregate::sim-agg-nodes-fdc sim)))))
+        (/ 1d0 (* h (sqrt eigen-value)))))))

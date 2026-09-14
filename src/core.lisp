@@ -1009,6 +1009,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         min-dt
         sb-ext::most-positive-double-float)))
 
+(declaim (ftype (function (cl-mpm::mpm-sim) double-float) calculate-min-dt))
 
 (defgeneric calculate-min-dt (sim)
   (:documentation "A function for calculating an approximate stable timestep"))

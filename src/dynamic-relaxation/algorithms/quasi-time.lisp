@@ -72,7 +72,9 @@
                                        (and
                                         (convergence-criteria sim)
                                         (<= o (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
-                                        (< dconv damage-crit)))
+                                        (if (cl-mpm::sim-enable-damage sim)
+                                            (< dconv damage-crit)
+                                            t)))
                                      :damping-factor damping
                                      :post-iter-step
                                      (lambda (i e o)

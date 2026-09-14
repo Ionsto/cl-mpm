@@ -20,6 +20,7 @@
                    (damage-inc cl-mpm/particle::mp-damage-increment)
                    (strain cl-mpm/particle::mp-strain))
       mp
+    (declare (double-float volume damage-inc))
     (* 0.5d0 volume damage-inc (cl-mpm/fastmaths:dot stress strain))))
 
 (defmethod set-mp-damage ((mp cl-mpm/particle::particle-damage) d)
@@ -92,126 +93,9 @@
     (expt (- 1d0 damage) 2d0)
     0d0))
 
-;; (declaim
-;;  ;(inline calculate-damage-increment)
-;;  (ftype (function (cl-mpm/particle:particle double-float) t) calculate-damage-increment))
-(defun calculate-damage-increment (mp dt)
-  (let ((damage-increment 0d0))
-    (with-accessors (;(stress cl-mpm/particle::mp-stress)
-                     (stress cl-mpm/particle::mp-undamaged-stress)
-                     ;; (strain cl-mpm/particle::mp-strain)
-                     (damage cl-mpm/particle:mp-damage)
-                     (strain-rate cl-mpm/particle::mp-velocity-rate)
-                     (critical-stress cl-mpm/particle:mp-critical-stress)
-                     (init-stress cl-mpm/particle::mp-initiation-stress)
-                     (critical-damage cl-mpm/particle::mp-critical-damage)
-                     (damage-rate cl-mpm/particle::mp-damage-rate)
-                     (pressure cl-mpm/particle::mp-pressure)
-                     (ybar cl-mpm/particle::mp-damage-ybar)
-                     (def cl-mpm/particle::mp-deformation-gradient)
-                     ;(damage-driving-factor cl-mpm/particle::mp-damage-driving-factor)
-                     (ybar-tensor cl-mpm/particle::mp-damage-ybar-tensor)
-                     (local-length cl-mpm/particle::mp-local-length)
-                     (local-length-damaged cl-mpm/particle::mp-local-length-damaged)
-                     (local-length-t cl-mpm/particle::mp-true-local-length)
-                     ) mp
-      (declare (double-float pressure damage))
-        (progn
-          (progn
-                                        ;multiple-value-bind (l v) (cl-mpm/utils::eig (magicl:scale (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
-
-            (when t;(< damage 1d0)
-              (let ((cauchy-undamaged (magicl:scale stress (/ 1d0 (* 1d0;(- 1d0 damage)
-                                                                     (magicl:det def))))))
-                (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d cauchy-undamaged)
-                  (let* (;;Only allow tensile damage
-                         (pressure-effective (* 1d0 damage pressure))
-                         ;; (pressure-effective (* 1d0 pressure))
-                         (j2 (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/constitutive::deviatoric-voigt
-                                                                   cauchy-undamaged))))
-                         (p (* 0.3d0 (+ s_1 s_2 s_3)))
-                         (s_1 (- s_1 pressure-effective))
-                         (s_2 (- s_2 pressure-effective))
-                         (s_3 (- s_3 pressure-effective))
-                         (s_1 (max 0d0 s_1))
-                         (s_2 (max 0d0 s_2))
-                         (s_3 (max 0d0 s_3))
-                         ;; (vm (* (sqrt (/ 3 4)) (- s_1 s_2)))
-                         ;; (vm (sqrt (* 0.5d0
-                         ;;              (+ (expt (- s_1 s_2) 2)
-                         ;;                 (expt (- s_2 s_3) 2)
-                         ;;                 (expt (- s_3 s_1) 2)))))
-                         (s_1 (- j2 (* 0.2d0 p)))
-
-                         ;; (s_1 (- s_1 s_3))
-                         ;; (s_1 vm)
-
-                                        ;(damage-inv (- 1d0 damage))
-                         )
-                    (when (> s_1 0d0)
-                      (setf damage-increment (* (- 1d0 damage) s_1))
-                      ;; (if (< damage 1d0)
-                      ;;     (setf damage-increment (/ s_1 (expt (- 1d0 damage) 0.5d0)))
-                      ;;     (setf damage-increment s_1)
-                      ;;     )
-                      )))))
-            (when (>= damage 1d0)
-              (setf damage-increment 0d0))
-
-            ;;Delocalisation switch
-            (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
-            ))))
-  (values))
-
-(declaim
- (inline apply-damage)
- (ftype (function (cl-mpm/particle:particle double-float) (values)) apply-damage))
-(defun apply-damage (mp dt)
-    (with-accessors ((stress cl-mpm/particle:mp-stress)
-                     (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
-                     (damage cl-mpm/particle:mp-damage)
-                     (damage-inc cl-mpm/particle::mp-damage-increment)
-                     (ybar cl-mpm/particle::mp-damage-ybar)
-                     (init-stress cl-mpm/particle::mp-initiation-stress)
-                     (damage-rate cl-mpm/particle::mp-damage-rate)
-                     (critical-damage cl-mpm/particle::mp-critical-damage)
-                     (pressure cl-mpm/particle::mp-pressure)
-                     (def cl-mpm/particle::mp-deformation-gradient)
-                     ) mp
-      (declare (double-float damage damage-inc critical-damage))
-        (progn
-          ;;Damage increment holds the delocalised driving factor
-          (setf ybar damage-inc)
-          ;; (when (< damage 1d0)
-          ;; (setf damage-inc (* damage-inc (/ 1d0 (expt (- 1d0 damage) 1d0))));3
-          ;;Normal
-          ;; (setf damage-inc (* dt (- critical-damage damage) (damage-rate-profile damage-inc damage damage-rate init-stress)))
-          (setf damage-inc (* dt (damage-rate-profile-chalk damage-inc damage damage-rate init-stress)))
-          ;;Mohr coloumb
-          ;; (let ((angle 30d0))
-          ;;   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d (magicl:scale stress (/ 1d0 (magicl:det def))))
-          ;;     (let ((init-stress (* (+ s_1 s_3) (sin angle))))
-          ;;       (setf damage-inc (* dt (damage-rate-profile damage-inc damage damage-rate init-stress))))
-          ;;     ))
-
-
-          (when (>= damage 1d0)
-            (setf damage-inc 0d0)
-            (setf ybar 0d0))
-          (incf (cl-mpm/particle::mp-time-averaged-damage-inc mp) damage-inc)
-          (incf (cl-mpm/particle::mp-time-averaged-ybar mp) ybar)
-          (incf (cl-mpm/particle::mp-time-averaged-counter mp))
-          ;;Transform to log damage
-          (incf damage damage-inc)
-          ;;Transform to linear damage
-          (setf damage (max 0d0 (min 1d0 damage)))
-          (when (> damage critical-damage)
-            (setf damage 1d0)
-            (setf damage-inc 0d0)))
-  (values)
-  ))
 (defmethod cl-mpm/particle:post-stress-step (mesh (mp cl-mpm/particle:particle-damage) dt)
   )
+
 (defun find-nodal-local-length (mesh mp)
   (let ((nodal-damage 0d0))
     (cl-mpm::iterate-over-neighbours
@@ -229,6 +113,7 @@
       (setf local-length-t (length-localisation local-length local-length-damaged nodal-damage))
       ;; (setf local-length-t local-length)
       )))
+
 (defun find-intergral-local-length (mesh mp)
   (with-accessors ((tll cl-mpm/particle::mp-true-local-length)
                    (ll cl-mpm/particle::mp-local-length)
@@ -880,7 +765,7 @@ Calls the function with the mesh mp and node"
   (cl-mpm:iterate-over-nodes
    (cl-mpm:sim-mesh sim)
    (lambda (n)
-     (if (> (cl-mpm/mesh::node-volume n) 0d0);(cl-mpm/mesh::node-active n)
+     (if (> (cl-mpm/mesh::node-volume n) 0d0)
          (progn
            (setf (cl-mpm/mesh::node-damage n)
                  (min 1d0
@@ -988,48 +873,6 @@ Calls the function with the mesh mp and node"
 
 (defmethod (setf cl-mpm::sim-mps) (mps (sim cl-mpm/damage::mpm-sim-damage))
   (call-next-method))
-
-
-
-
-
-
-
-(defstruct damage-model
-  name)
-
-(defstruct (damage-model-creep (:include damage-model))
-           (initiation-stress
-            0d0
-            :type DOUBLE-FLOAT)
-           (damage-rate
-            0d0
-            :type DOUBLE-FLOAT)
-           )
-
-(defstruct (damage-model-rankine (:include damage-model))
-  (initiation-stress
-   0d0
-   :type DOUBLE-FLOAT)
-  (failure-stress
-   0d0
-   :type DOUBLE-FLOAT)
-  (y-history
-   0d0
-   :type DOUBLE-FLOAT)
-  )
-
-(defstruct (damage-model-chalk (:include damage-model))
-  (coheasion
-   0d0
-   :type DOUBLE-FLOAT)
-  (friction-angle
-   0d0
-   :type DOUBLE-FLOAT)
-  (damage-rate
-   0d0
-   :type DOUBLE-FLOAT)
-  )
 
 
 (defmethod damage-model-calculate-y ((mp cl-mpm/particle::particle) dt)
@@ -1155,6 +998,7 @@ Calls the function with the mesh mp and node"
                                  (inc cl-mpm/particle::mp-damage-increment)
                                  (mass cl-mpm/particle::mp-mass))
                     mp
+                  (declare (double-float mass damage damage-prev))
                   (expt (* mass (- damage damage-prev)) 2))
                 0d0))
             #'+))
@@ -1168,11 +1012,13 @@ Calls the function with the mesh mp and node"
                                    (inc cl-mpm/particle::mp-damage-increment)
                                    (mass cl-mpm/particle::mp-mass))
                       mp
+                    (declare (double-float mass damage damage-prev))
                     (expt (* mass damage) 2))
                   0d0))
             #'+)))
+    (declare (double-float delta-ds delta-incs))
     (if (> delta-incs 0d0)
-        (sqrt (/ delta-ds delta-incs))
+        (the double-float (sqrt (/ delta-ds delta-incs)))
         0d0)))
 
 (defmethod compute-damage ((mp cl-mpm/particle::particle)))
