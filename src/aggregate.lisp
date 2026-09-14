@@ -1287,7 +1287,7 @@
                        (length (cl-mpm/aggregate::sim-agg-nodes-fdc sim))
                        :tol 1d-3
                        )))
-                (/ 1d0 (sqrt eigen-value))
+                (/ h (sqrt eigen-value))
                 ;; (/ 1d0 (sqrt (* h eigen-value)))
                 ;; (/ 1d0 (* h (sqrt eigen-value)))
                 ;; (sqrt (/ 1d0 (* h (sqrt eigen-value))))
