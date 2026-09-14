@@ -1227,10 +1227,10 @@
                          most-positive-double-float))
                    most-positive-double-float))
              #'min))
-      ;; (when enable-agg
-      ;;   (let ((agg-inner (expt (/ (cl-mpm/aggregate::estimate-aggregated-cfl sim) h) 2)))
-      ;;     (format t "~E ~E ~%" inner-factor agg-inner)
-      ;;     (setf inner-factor (min inner-factor agg-inner))))
+      (when enable-agg
+        (let ((agg-inner (expt (/ (cl-mpm/aggregate::estimate-aggregated-cfl sim) h) 2)))
+          ;; (format t "~E ~E ~%" inner-factor agg-inner)
+          (setf inner-factor (min inner-factor agg-inner))))
       (if (< inner-factor most-positive-double-float)
           (* (sqrt mass-scale) (sqrt inner-factor) h)
           (cl-mpm:sim-dt sim)))))
