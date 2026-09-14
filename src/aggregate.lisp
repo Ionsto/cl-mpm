@@ -1228,58 +1228,68 @@
                    most-positive-double-float))
              #'min))
       ;; (when enable-agg
-      ;;   (when (cl-mpm/aggregate::sim-global-ma sim)
-      ;;     (let* ((E (magicl:transpose (cl-mpm/aggregate::sim-global-e sim)))
-      ;;            (ma (cl-mpm/aggregate::sim-global-ma sim))
-      ;;            (agg-inner inner-factor))
-      ;;       (let* ((p-mod (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-pwave))
-      ;;              (p-ratio (magicl:@ (assemble-internal-identity sim (magicl:@ E p-mod)) ma)))
-      ;;         (magicl:map! #'abs p-ratio)
-      ;;         (loop for i from 0 below (magicl:nrows p-ratio)
-      ;;               do (setf agg-inner
-      ;;                        (min
-      ;;                         agg-inner
-      ;;                         (magicl:sum (magicl:row p-ratio i)))
-      ;;                        ;; (min agg-inner (max 0d0 (/ 1d0 v)))
-      ;;                        ))
-      ;;         ;; (loop for v across (cl-mpm/utils:fast-storage p-ratio)
-      ;;         ;;       do (setf agg-inner (min agg-inner (max 0d0 (/ 1d0 v)))))
-      ;;         )
-      ;;       (setf inner-factor (min inner-factor agg-inner)))))
+      ;;   (let ((agg-inner (expt (/ (cl-mpm/aggregate::estimate-aggregated-cfl sim) h) 2)))
+      ;;     (format t "~E ~E ~%" inner-factor agg-inner)
+      ;;     (setf inner-factor (min inner-factor agg-inner))))
       (if (< inner-factor most-positive-double-float)
           (* (sqrt mass-scale) (sqrt inner-factor) h)
           (cl-mpm:sim-dt sim)))))
 
 
-(defun estimate-aggregated-cfl (sim)
-  (with-accessors ((mesh cl-mpm:sim-mesh)
-                   (mass-scale cl-mpm::sim-mass-scale)
-                   (enable-agg cl-mpm/aggregate::sim-enable-aggregate))
-      sim
-    (if (and (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
-             (> (length (cl-mpm/aggregate::sim-agg-nodes-fdc sim)) 0d0))
-      (let ((et (cl-mpm/aggregate::sim-global-sparse-et sim))
-            (e (cl-mpm/aggregate::sim-global-sparse-e sim))
-            (m (cl-mpm/aggregate::sim-global-sparse-ma sim))
-            (k (assemble-global-scalar sim #'cl-mpm/mesh::node-pwave))
-            (h (cl-mpm/mesh:mesh-resolution mesh))
-            )
-        (let ((eigen-value
-                (cl-mpm/linear-solver::estimate-max-eigenvalue
-                 (lambda (x)
-                   (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
-                    et
-                    (cl-mpm/fastmaths::fast-./
-                     (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
-                      e
-                      (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
-                       et
-                       (cl-mpm/fastmaths::fast-.*
-                        (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
-                         e
-                         x)
-                        m)))
-                     k)))
-                 (length (cl-mpm/aggregate::sim-agg-nodes-fdc sim)))))
-          (/ 1d0 (* h (sqrt eigen-value)))))
-      0d0)))
+(cl-mpm/utils::with-arb-pool
+    (defun estimate-aggregated-cfl (sim)
+      (with-accessors ((mesh cl-mpm:sim-mesh)
+                       (mass-scale cl-mpm::sim-mass-scale)
+                       (enable-agg cl-mpm/aggregate::sim-enable-aggregate))
+          sim
+        (if (and (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
+                 (> (length (cl-mpm/aggregate::sim-agg-nodes-fdc sim)) 0d0))
+            (let ((et (cl-mpm/aggregate::sim-global-sparse-et sim))
+                  (e (cl-mpm/aggregate::sim-global-sparse-e sim))
+                  (m (cl-mpm/aggregate::sim-global-sparse-ma sim))
+                  (k (assemble-global-scalar sim #'cl-mpm/mesh::node-pwave))
+                  (h (cl-mpm/mesh:mesh-resolution mesh))
+                  (wv1 (grab-new))
+                  (wv2 (grab-new))
+                  (wv3 (grab-new))
+                  (wv4 (grab-new)))
+              (cl-mpm/utils::resize-vector wv1 (cl-mpm/utils::sparse-matrix-nrows e))
+              (cl-mpm/utils::resize-vector wv2 (cl-mpm/utils::sparse-matrix-nrows et))
+              (cl-mpm/utils::resize-vector wv3 (cl-mpm/utils::sparse-matrix-nrows e))
+              (cl-mpm/utils::resize-vector wv4 (cl-mpm/utils::sparse-matrix-nrows et))
+              (let ((eigen-value
+                      (cl-mpm/linear-solver::estimate-max-eigenvalue
+                       (lambda (x)
+                         (cl-mpm/linear-solver::solve-conjugant-gradients
+                          (lambda (v)
+                            (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
+                             et
+                             (cl-mpm/fastmaths::fast-.*
+                              (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
+                               e
+                               v
+                               wv3)
+                              m
+                              wv3)
+                             wv4))
+                          (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
+                           et
+                           (cl-mpm/fastmaths::fast-.*
+                            (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-multithread
+                             e
+                             x
+                             wv1)
+                            k
+                            wv1)
+                           wv2)
+                          :tol 1d-3
+                          :max-iters 10000))
+                       (length (cl-mpm/aggregate::sim-agg-nodes-fdc sim))
+                       :tol 1d-3
+                       )))
+                (/ 1d0 (sqrt eigen-value))
+                ;; (/ 1d0 (sqrt (* h eigen-value)))
+                ;; (/ 1d0 (* h (sqrt eigen-value)))
+                ;; (sqrt (/ 1d0 (* h (sqrt eigen-value))))
+                ))
+            sb-ext::double-float-positive-infinity))))

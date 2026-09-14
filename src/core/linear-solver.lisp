@@ -19,13 +19,13 @@
 (declaim #.cl-mpm/settings:*optimise-setting*)
 (in-package :cl-mpm/linear-solver)
 
-(defun estimate-max-eigenvector (a-operator b-size &key (tol 1d-9)(max-iters 10000))
+(defun estimate-max-eigenvector (a-operator b-size &key (tol 1d-9) (max-iters 10000))
   (declare (function a-operator))
   (let* ((crit tol)
          (err crit)
          (bn (magicl:rand (list b-size 1)))
-         (bn1 (cl-mpm/utils::arb-matrix  b-size 1))
-         )
+         (bn1 (cl-mpm/utils::arb-matrix  b-size 1)))
+    (declare (double-float err crit))
     (loop for i from 0 below max-iters
           while (>= err crit)
           do (progn
@@ -38,12 +38,23 @@
                         norm))
                  (setf bn bn1))))
     bn))
-(defun estimate-max-eigenvalue (a-operator b-size &key (max-iters 100))
+(defun estimate-max-eigenvalue (a-operator b-size &key (tol 1d-9) (max-iters 100))
   (declare (function a-operator))
-  (let ((vn (estimate-max-eigenvector a-operator b-size :max-iters max-iters)))
+  (let* ((vn (estimate-max-eigenvector a-operator b-size :tol tol :max-iters max-iters)))
     (/
      (cl-mpm/fastmaths:dot (funcall a-operator vn) vn)
-     (cl-mpm/fastmaths:dot vn vn))))
+     (cl-mpm/fastmaths:dot vn vn)
+     )))
+
+
+(defun test-eigenvalue ()
+  (let ((A (cl-mpm/utils::matrix-from-list (list 1d0 1d0 0d0
+                                                 1d0 6d0 0d0
+                                                 0d0 0d0 2d0)))
+        (B (cl-mpm/utils:vector-from-list (list 10d-1 2d-2 9d-2))))
+    (format t "Max eigenvalue ~E~%" (estimate-max-eigenvalue (lambda (v) (magicl:@ A v)) (magicl:nrows B)))
+    (multiple-value-bind (l v) (cl-mpm/utils::eig A)
+      (format t "Max eigenvalue ~E~%" (reduce #'max l)))))
 
 (defun solve-richardson (A-operator b
                          &key (tol 1d-9) (max-iters 10000)
