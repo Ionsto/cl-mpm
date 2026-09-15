@@ -159,7 +159,7 @@
                  (setf (nth i l) (* sii (H sii)))))
       (matrix-to-voight (magicl:@ v
                                   (magicl:from-diag l :type 'double-float)
-                                  (magicl:transpose v))))))
+                                  (cl-mpm/utils:transpose v))))))
 
 (defun tensile-projection-Q-mandel (stress)
   (flet ((H (x) (if (> x 0d0) 1d0 0d0)))
@@ -169,11 +169,11 @@
               do (let* ((sii (nth i l))
                         (vii (magicl::column v i))
 
-                        (vsi (magicl:@ vii (magicl:transpose vii)))
+                        (vsi (magicl:@ vii (cl-mpm/utils:transpose vii)))
                         (comp-prod
                           (magicl:scale (magicl:@
                                          (matrix-to-mandel vsi)
-                                         (magicl:transpose (matrix-to-mandel vsi)))
+                                         (cl-mpm/utils:transpose (matrix-to-mandel vsi)))
                                         (H sii)))
 
                         (v1 (magicl:tref vii 0 0))
@@ -208,11 +208,11 @@
         (loop for i from 0 to 1
               do (let* ((si (nth i l))
                         (vi (magicl::column v i))
-                        (vii (magicl:@ vi (magicl:transpose vi)))
+                        (vii (magicl:@ vi (cl-mpm/utils:transpose vi)))
                         (comp-prod
                           (magicl:scale (magicl:@
                                          (matrix-to-mandel vii)
-                                         (magicl:transpose (matrix-to-mandel vii)))
+                                         (cl-mpm/utils:transpose (matrix-to-mandel vii)))
                                         (H si))))
                    (cl-mpm/fastmaths::fast-.+ Q comp-prod Q)
                    )
@@ -221,15 +221,15 @@
                (sj (nth 1 l))
                (vi (magicl::column v 0))
                (vj (magicl::column v 1))
-               (vij (magicl:@ vi (magicl:transpose vj)))
-               (vji (magicl:@ vj (magicl:transpose vi)))
+               (vij (magicl:@ vi (cl-mpm/utils:transpose vj)))
+               (vji (magicl:@ vj (cl-mpm/utils:transpose vi)))
                (pij (magicl:scale!
                      (cl-mpm/fastmaths::fast-.+ vij vji)
                      0.5d0))
                (comp-prod
                  (magicl:scale! (magicl:@
                                 (matrix-to-mandel pij)
-                                (magicl:transpose (matrix-to-mandel pij)))
+                                (cl-mpm/utils:transpose (matrix-to-mandel pij)))
                                (+ (H si) (H sj)))))
           (cl-mpm/fastmaths::fast-.+ Q comp-prod Q))
           )
@@ -283,7 +283,7 @@
               do (let* ((sii (nth i l))
                         (vii (magicl::column v i))
                         (scale 1d0)
-                        (A (magicl:@ vii (magicl:transpose vii)))
+                        (A (magicl:@ vii (cl-mpm/utils:transpose vii)))
                         )
                    (when (> sii 0d0)
                      (setf scale (sqrt (- 1d0 damage)))
@@ -602,7 +602,7 @@
          (ddf (magicl:scale!
                (magicl:.-
                 (magicl:scale ddj2 (/ 1d0 (the double-float (sqrt (* 2d0 j2)))))
-                (magicl:scale! (magicl:@ dj2 (magicl:transpose dj2)) (/ 1d0 (the double-float (expt (* 2d0 j2) 3/2))))
+                (magicl:scale! (magicl:@ dj2 (cl-mpm/utils:transpose dj2)) (/ 1d0 (the double-float (expt (* 2d0 j2) 3/2))))
                 )
                (/ 1d0 rho))))
     (values df ddf)))
@@ -646,7 +646,7 @@
                                    (cl-mpm/fastmaths::fast-.+ (magicl:eye 6)
                                               (magicl:scale! (magicl:@ ddf de) dgam))
                                    df
-                                   (magicl:@ (magicl:transpose df) de)
+                                   (magicl:@ (cl-mpm/utils:transpose df) de)
                                    (magicl:zeros '(1 1))
                                    )
                                   '(2 2)
@@ -719,7 +719,7 @@
                                        (cl-mpm/fastmaths::fast-.+ (magicl:eye 6)
                                                                   (magicl:scale! (magicl:@ ddf de) dgam))
                                        df
-                                       (magicl:@ (magicl:transpose df) de)
+                                       (magicl:@ (cl-mpm/utils:transpose df) de)
                                        (magicl:zeros '(1 1))
                                        )
                                       '(2 2)
@@ -750,7 +750,7 @@
               ;;     (magicl:inv De)
               ;;     (magicl:scale ddf dgam))
               ;;    df
-              ;;    (magicl:transpose df)
+              ;;    (cl-mpm/utils:transpose df)
               ;;    (magicl:from-diag (list 0d0)))
               ;;   (list 2 2))
               ;;  )
@@ -761,7 +761,7 @@
                            (magicl:inv De)
                            (magicl:scale! ddf dgam))
                           df
-                          (magicl:transpose df)
+                          (cl-mpm/utils:transpose df)
                           (magicl:from-diag (list 0d0)))
                          (list 2 2)))))
                 ;; (pprint B)
@@ -902,14 +902,14 @@
                            (dg (vector-from-list (list m 0d0 -1d0)))
                            (rp (magicl:scale! (cl-mpm/utils:@-mat-vec De3 dg)
                                               (/ 1d0 (the double-float
-                                                          (magicl:tref (magicl:@ (magicl:transpose dg) De3 df) 0 0)
+                                                          (magicl:tref (magicl:@ (cl-mpm/utils:transpose dg) De3 df) 0 0)
                                                           ))))
-                           (t1 (/ (magicl:tref (magicl:@ (magicl:transpose rg1) Ce (magicl:.- sig siga)) 0 0)
-                                  (magicl:tref (magicl:@ (magicl:transpose rg1) Ce r1) 0 0)))
+                           (t1 (/ (magicl:tref (magicl:@ (cl-mpm/utils:transpose rg1) Ce (magicl:.- sig siga)) 0 0)
+                                  (magicl:tref (magicl:@ (cl-mpm/utils:transpose rg1) Ce r1) 0 0)))
                            (t2 (/ (magicl:tref (magicl:@
-                                                (magicl:transpose rg2)
+                                                (cl-mpm/utils:transpose rg2)
                                                 Ce (magicl:.- sig siga)) 0 0)
-                                  (magicl:tref (magicl:@ (magicl:transpose rg2) Ce r2) 0 0)))
+                                  (magicl:tref (magicl:@ (cl-mpm/utils:transpose rg2) Ce r2) 0 0)))
                            (f12 (magicl:tref (magicl:@ (magicl:transpose! (cl-mpm/fastmaths::cross-product rp r1))
                                                        (magicl:.- sig siga)) 0 0))
                            (f13 (magicl:tref (magicl:@ (magicl:transpose! (cl-mpm/fastmaths::cross-product rp r2))
@@ -1099,12 +1099,12 @@
                            (dg (vector-from-list (list m 0d0 -1d0)))
                            (rp (magicl:scale! (cl-mpm/utils:@-mat-vec De3 dg)
                                               (/ 1d0 (the double-float
-                                                          (magicl:tref (magicl:@ (magicl:transpose dg) De3 df) 0 0)
+                                                          (magicl:tref (magicl:@ (cl-mpm/utils:transpose dg) De3 df) 0 0)
                                                           ))))
-                           (t1 (/ (magicl:tref (magicl:@ (magicl:transpose rg1) Ce (magicl:.- sig siga)) 0 0)
-                                  (magicl:tref (magicl:@ (magicl:transpose rg1) Ce r1) 0 0)))
-                           (t2 (/ (magicl:tref (magicl:@ (magicl:transpose rg2) Ce (magicl:.- sig siga)) 0 0)
-                                  (magicl:tref (magicl:@ (magicl:transpose rg2) Ce r2) 0 0)))
+                           (t1 (/ (magicl:tref (magicl:@ (cl-mpm/utils:transpose rg1) Ce (magicl:.- sig siga)) 0 0)
+                                  (magicl:tref (magicl:@ (cl-mpm/utils:transpose rg1) Ce r1) 0 0)))
+                           (t2 (/ (magicl:tref (magicl:@ (cl-mpm/utils:transpose rg2) Ce (magicl:.- sig siga)) 0 0)
+                                  (magicl:tref (magicl:@ (cl-mpm/utils:transpose rg2) Ce r2) 0 0)))
                            (f12 (magicl:tref (magicl:@ (magicl:transpose! (cl-mpm/fastmaths::cross-product rp r1))
                                                        (magicl:.- sig siga)) 0 0))
                            (f13 (magicl:tref (magicl:@ (magicl:transpose! (cl-mpm/fastmaths::cross-product rp r2))
@@ -1353,7 +1353,7 @@
                                     )
                                    (/ 1d0 (* 3d0 rho)))
                                   (cl-mpm/fastmaths:fast-scale!
-                                   (magicl:@ s (magicl:transpose s))
+                                   (magicl:@ s (cl-mpm/utils:transpose s))
                                    (/ 1d0 (expt rho 3))))))
                            (setf (varef b 3) f)
                            (loop for i from 0 to 4
@@ -1372,7 +1372,7 @@
                                                                      (cl-mpm/fastmaths:fast-scale! (magicl:@ dgg De3) dgam)
                                                                      )
                                                                     dg
-                                                                    (magicl:@ (magicl:transpose df) De3)
+                                                                    (magicl:@ (cl-mpm/utils:transpose df) De3)
                                                                     (magicl:zeros '(1 1)))
                                                                    (list 2 2)
                                                 ))
@@ -1403,7 +1403,7 @@
                                           )
                                          (/ 1d0 (* 3d0 rho)))
                                         (cl-mpm/fastmaths:fast-scale!
-                                         (magicl:@ s (magicl:transpose s))
+                                         (magicl:@ s (cl-mpm/utils:transpose s))
                                          (/ 1d0 (expt rho 3)))))
 
                                       (loop for i from 0 to 2 do

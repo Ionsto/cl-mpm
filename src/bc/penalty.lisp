@@ -850,53 +850,35 @@
                    (debug-force bc-penalty-load)
                    (mp-stiffness bc-mp-stiffness))
       bc
-    (reset-load bc)
-    (setf mp-stiffness nil)
-    (with-accessors ((mps cl-mpm:sim-mps)
-                     (mesh cl-mpm:sim-mesh))
-        sim
-      (cl-mpm:iterate-over-mps
-       mps
-       (lambda (mp)
-         (cl-mpm::update-corners mesh mp)
-         (when t
-           (let ((in-contact nil)
-                 (closest-point (make-contact
-                                 nil
-                                 0d0
-                                 0d0
-                                 nil
-                                 nil)))
-             (cl-mpm/particle::iterate-over-mp-corners
-              mp
-              (lambda (corner)
-                (let* ((c (cl-mpm/particle::corner-trial-position corner)))
-                  (let* ((penetration-dist (penetration-distance-point c datum normal)))
-                    (declare (double-float penetration-dist))
-                    (when (and
-                           (>= penetration-dist 0d0)
-                           (penalty-contact-valid bc c))
-                      (apply-penalty-corner mesh bc mp corner dt))))))
-
-             ;; (cl-mpm::iterate-over-corners
-             ;;  ;; cl-mpm::iterate-over-midpoints
-             ;;  mesh
-             ;;  mp
-             ;;  (lambda (corner-trial)
-             ;;    (let* ((disp (compute-corner-displacement mesh corner-trial))
-             ;;           (corner (cl-mpm/fastmaths:fast-.+ corner-trial disp)))
-             ;;      (cl-mpm/mesh::clamp-point-to-bounds mesh corner)
-             ;;      (let* ((penetration-dist (penetration-distance-point corner datum normal)))
-             ;;        (declare (double-float penetration-dist))
-             ;;        (when (and
-             ;;               (>= penetration-dist 0d0)
-             ;;               (penalty-contact-valid bc corner))
-             ;;          (apply-penalty-point mesh bc mp
-             ;;                               corner
-             ;;                               corner-trial
-             ;;                               disp
-             ;;                               dt))))))
-             )))))))
+    (when (cl-mpm/bc::bc-enable bc)
+      (reset-load bc)
+      (setf mp-stiffness nil)
+      (with-accessors ((mps cl-mpm:sim-mps)
+                       (mesh cl-mpm:sim-mesh))
+          sim
+        (cl-mpm:iterate-over-mps
+         mps
+         (lambda (mp)
+           (cl-mpm::update-corners mesh mp)
+           (when t
+             (let ((in-contact nil)
+                   (closest-point (make-contact
+                                   nil
+                                   0d0
+                                   0d0
+                                   nil
+                                   nil)))
+               (cl-mpm/particle::iterate-over-mp-corners
+                mp
+                (lambda (corner)
+                  (let* ((c (cl-mpm/particle::corner-trial-position corner)))
+                    (let* ((penetration-dist (penetration-distance-point c datum normal)))
+                      (declare (double-float penetration-dist))
+                      (when (and
+                             (>= penetration-dist 0d0)
+                             (penalty-contact-valid bc c))
+                        (apply-penalty-corner mesh bc mp corner dt))))))
+               ))))))))
 
 
 (defgeneric resolve-closest-contact (bc corner))

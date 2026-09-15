@@ -82,7 +82,7 @@
                            (magicl:@
                             v
                             (cl-mpm/utils::matrix-diag (list (varef en 0) (varef en 1) (varef en 2)))
-                            (magicl:transpose v)))))
+                            (cl-mpm/utils:transpose v)))))
           (cl-mpm/utils:voigt-copy-into out-strain strain)
           (cl-mpm/constitutive::linear-elastic-mat strain de stress)
           out-strain
@@ -175,7 +175,7 @@
                            (magicl:@
                             v
                             (cl-mpm/utils::matrix-diag (list (varef en 0) (varef en 1) (varef en 2)))
-                            (magicl:transpose v)))))
+                            (cl-mpm/utils:transpose v)))))
           (cl-mpm/utils:voigt-copy-into out-strain strain)
           (cl-mpm/constitutive::linear-elastic-mat strain de stress)
           out-strain))))
@@ -455,7 +455,7 @@
         (let ((out-strain (cl-mpm/utils:matrix-to-voigt
                            (magicl:@ v
                                      (cl-mpm/utils::matrix-diag (list (varef en 0) (varef en 1) (varef en 2)))
-                                     (magicl:transpose v)))))
+                                     (cl-mpm/utils:transpose v)))))
           (cl-mpm/utils:voigt-copy-into out-strain strain)
           (cl-mpm/constitutive::linear-elastic-mat strain de stress)
           out-strain))))
@@ -522,7 +522,7 @@
         (let ((out-strain (cl-mpm/utils:matrix-to-voigt
                            (magicl:@ v
                                      (cl-mpm/utils::matrix-diag (list (varef en 0) (varef en 1) (varef en 2)))
-                                     (magicl:transpose v)))))
+                                     (cl-mpm/utils:transpose v)))))
           (cl-mpm/utils:voigt-copy-into out-strain strain)
           (cl-mpm/constitutive::linear-elastic-mat strain d stress)
           out-strain))))

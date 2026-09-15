@@ -1073,6 +1073,8 @@
   (let ((res (if res
                  (fast-zero-matrix res)
                  (cl-mpm/utils::matrix-zeros))))
+    (assert (eq (magicl::matrix/double-float-layout mat) :column-major))
+    (assert (eq (magicl::matrix/double-float-layout vec) :column-major))
     (@-matrix-matrix-lisp mat vec res)
     res))
 

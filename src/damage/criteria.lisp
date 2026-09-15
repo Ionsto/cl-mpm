@@ -56,7 +56,7 @@
              (cl-mpm/utils:matrix-to-voigt
               (magicl:@ v
                         (cl-mpm/utils::matrix-from-diag l)
-                        (magicl:transpose v)))))
+                        (cl-mpm/utils:transpose v)))))
 
          (i1 (cl-mpm/utils:trace-voigt strain))
          (j2
@@ -557,7 +557,7 @@
              (cl-mpm/utils:matrix-to-voigt
               (magicl:@ v
                         (cl-mpm/utils::matrix-from-diag l)
-                        (magicl:transpose v))))))
+                        (cl-mpm/utils:transpose v))))))
     (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain+ (magicl:@ de strain+)))))
     ))
 
@@ -573,7 +573,7 @@
               (magicl:@
                v
                (cl-mpm/utils::matrix-from-diag l)
-               (magicl:transpose v))))))
+               (cl-mpm/utils:transpose v))))))
     (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain+ (magicl:@ de strain+)))))))
 
 (declaim (ftype (function (magicl::matrix/double-float double-float) double-float)

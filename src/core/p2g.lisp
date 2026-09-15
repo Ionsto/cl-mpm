@@ -20,8 +20,7 @@
     (let ((mp-mass mp-mass)
           (mp-vel mp-vel)
           (mp-volume mp-volume)
-          (mp-pmod mp-pmod)
-          (mp-damage mp-damage))
+          (mp-pmod mp-pmod))
       (declare (type double-float mp-mass mp-volume))
       (iterate-over-neighbours
        mesh mp
@@ -49,7 +48,6 @@
              (incf node-mass (* mp-mass svp))
              (incf node-volume (* mp-volume svp))
              (incf node-p-wave (* mp-pmod mp-volume svp))
-             ;; (incf node-damage (* mp-damage mp-volume svp))
              (incf node-svp-sum svp)
              (cl-mpm/fastmaths::fast-fmacc node-vel mp-vel (* mp-mass svp))))))))
   (values))

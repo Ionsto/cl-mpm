@@ -241,18 +241,16 @@
                    (nu cl-mpm/particle::mp-nu))
       mp
     (declare (double-float damage))
-    (when (and
-           enable-damage
-           (> damage 0.0d0))
+    (when (> damage 0.0d0)
       (cl-mpm/utils:voigt-copy-into stress-undamaged stress)
       (cl-mpm/fastmaths:fast-scale! stress (/ (- 1d0 damage) j))
       (setf (cl-mpm/particle::mp-p-modulus-0 mp)
             (*
              (max
-              1d-6
+              1d-9
               (- 1d0 damage))
-             (cl-mpm/particle::compute-p-modulus mp)))
-      )))
+             (cl-mpm/particle::compute-p-modulus mp))))
+    ))
 
 (defun apply-vol-degredation (mp)
   (with-accessors ((damage        cl-mpm/particle::mp-damage)
@@ -283,10 +281,7 @@
         ))))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-elastic-damage) dt)
-  ;; (cl-mpm/damage::apply-isotropic-degredation mp)
-  (apply-isotropic-degredation mp)
-  ;; (apply-vol-degredation mp)
-  )
+  (cl-mpm/damage::apply-isotropic-degredation mp))
 
 (defmethod constitutive-model ((mp particle-creep-damage) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
@@ -416,7 +411,7 @@
                          ))
               (setf stress (magicl:scale! (matrix-to-voight (magicl:@ v
                                                                       (magicl:from-diag l :type 'double-float)
-                                                                      (magicl:transpose v))) j))
+                                                                      (cl-mpm/utils:transpose v))) j))
               ))))
       ;; (when nil;(> damage 0.0d0)
       ;;   (let ((j 1d0))
@@ -441,7 +436,7 @@
       ;;                    ))
       ;;         (setf stress (magicl:scale! (matrix-to-voight (magicl:@ v
       ;;                                                                 (magicl:from-diag l :type 'double-float)
-      ;;                                                                 (magicl:transpose v))) j))
+      ;;                                                                 (cl-mpm/utils:transpose v))) j))
       ;;         ))))
 
       stress

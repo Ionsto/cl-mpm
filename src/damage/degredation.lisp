@@ -12,10 +12,8 @@
                    (e cl-mpm/particle::mp-e)
                    (nu cl-mpm/particle::mp-nu))
       mp
-    (declare (double-float damage))
-    (when (and
-           ;; enable-damage
-           (> damage 0.0d0))
+    (declare (double-float damage j))
+    (when (> damage 0.0d0)
       (cl-mpm/utils:voigt-copy-into undamaged-stress stress)
       (cl-mpm/fastmaths:fast-scale! stress (/ (- 1d0 damage) j))
       (setf (cl-mpm/particle::mp-p-modulus-0 mp)
@@ -53,7 +51,7 @@
                    (magicl:@
                     v
                     (cl-mpm/utils::matrix-diag l)
-                    (magicl:transpose v))
+                    (cl-mpm/utils:transpose v))
                    stress))))))))
 
 (defun apply-tensile-strain-degredation (mp)
@@ -83,7 +81,7 @@
                 ;;           (magicl:@
                 ;;            v
                 ;;            (magicl:from-diag l :type 'double-float)
-                ;;            (magicl:transpose v))))
+                ;;            (cl-mpm/utils:transpose v))))
                 )
             ;; (pprint strain+)
             (setf stress
@@ -92,7 +90,7 @@
                     (magicl:@
                      v
                      (cl-mpm/utils::matrix-diag l)
-                     (magicl:transpose v)))
+                     (cl-mpm/utils:transpose v)))
                    de
                    stress))
             (cl-mpm/fastmaths:fast-scale! stress (/ 1d0 j))))))))

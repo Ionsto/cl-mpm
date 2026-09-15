@@ -345,8 +345,10 @@
           do (with-accessors ((pos cl-mpm/particle:mp-position)
                               (size cl-mpm/particle::mp-domain-size))
                  mp
-               (let* ((pmin (cl-mpm/mesh:position-to-index mesh (magicl:.- pos (magicl:scale size 0.5d0)) #'floor))
-                      (pmax (cl-mpm/mesh:position-to-index mesh (cl-mpm/fastmaths::fast-.+ pos (magicl:scale size 0.5d0)) #'floor)))
+               (let* ((pmin (cl-mpm/mesh:position-to-index mesh (cl-mpm/fastmaths::fast-.-
+                                                                 pos
+                                                                 (cl-mpm/fastmaths:fast-scale-vector size 0.5d0)) #'floor))
+                      (pmax (cl-mpm/mesh:position-to-index mesh (cl-mpm/fastmaths::fast-.+ pos (cl-mpm/fastmaths:fast-scale-vector size 0.5d0)) #'floor)))
                  (loop for x from (first pmin) to (first pmax)
                        do
                           (loop for y from (second pmin) to (second pmax)

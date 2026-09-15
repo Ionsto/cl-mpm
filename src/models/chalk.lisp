@@ -381,7 +381,7 @@
                            (let* ((sii (+ (* (- 1d0 anisotropicity) (nth i l-y))
                                           (reduce #'+ (mapcar (lambda (z) (* z anisotropicity (/ 1d0 3d0))) l-y))))
                                   (vii (magicl::column v i))
-                                  (vsi (magicl:@ vii (magicl:transpose vii)))
+                                  (vsi (magicl:@ vii (cl-mpm/utils:transpose vii)))
                                   (dii (magicl::trace (magicl:@ damage-tensor vsi)))
                                   )
                              ;; (setf sii ybar)
@@ -399,7 +399,7 @@
                                           (magicl:scale vsi damage-increment)
                                           damage-inc-mat))))))
               ;; (break)
-              (let ((omega (magicl:scale! (magicl:.- D (magicl:transpose D)) 0.5d0))
+              (let ((omega (magicl:scale! (magicl:.- D (cl-mpm/utils:transpose D)) 0.5d0))
                     )
                 (magicl:.+ damage-tensor
                            (magicl:.+ damage-inc-mat
@@ -443,7 +443,7 @@
                   )
             (setf damage-tensor (magicl:@ v
                                           (magicl:from-diag ls :type 'double-float)
-                                          (magicl:transpose v)))
+                                          (cl-mpm/utils:transpose v)))
             )
           )
   (values)

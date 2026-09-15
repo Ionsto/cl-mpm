@@ -564,6 +564,7 @@
 
 
 (defun finalise-corners (mesh mp)
+  (declare (particle mp) (cl-mpm/mesh::mesh mesh))
   (cl-mpm/fastmaths::fast-zero (mp-penalty-frictional-force mp))
   (cl-mpm/fastmaths::fast-zero (mp-penalty-frictional-force-prev mp))
   (setf (mp-penalty-normal-force mp) 0d0
@@ -593,8 +594,6 @@
       (corner-penalty-frictional-force-prev corner)
       (mp-penalty-frictional-force-prev mp)
       (mp-penalty-frictional-force-prev mp))
-
-     ;; (setf (corner-penalty-normal-force corner) 0d0)
      )))
 
 
@@ -993,10 +992,10 @@
 ;;                           )
 ;;                 objectify-stress-logspin))
 (defun objectify-stress-logspin (stress-inc stress def vorticity D)
-    (let ((b (magicl:@ def (magicl:transpose def)))
+    (let ((b (magicl:@ def (cl-mpm/utils:transpose def)))
           ;; (omega (assemble-vorticity-matrix vorticity))
-          (omega (magicl:scale! (magicl:.- D (magicl:transpose D)) 0.5d0))
-          (D (magicl:scale! (cl-mpm/fastmaths::fast-.+ D (magicl:transpose D)) 0.5d0))
+          (omega (magicl:scale! (magicl:.- D (cl-mpm/utils:transpose D)) 0.5d0))
+          (D (magicl:scale! (cl-mpm/fastmaths::fast-.+ D (cl-mpm/utils:transpose D)) 0.5d0))
           ;; (D (cl-mpm/utils::voigt-to-matrix D))
           )
         (multiple-value-bind (l v) (cl-mpm/utils::eig b)
@@ -1023,11 +1022,11 @@
                                                     (magicl:@
                                                      (magicl:@
                                                       v_i
-                                                      (magicl:transpose v_i))
+                                                      (cl-mpm/utils:transpose v_i))
                                                      D
                                                      (magicl:@
                                                       v_j
-                                                      (magicl:transpose v_j)))
+                                                      (cl-mpm/utils:transpose v_j)))
                                                     (+
                                                      (/ (+ 1d0 (/ l_i l_j)) (- 1d0 (/ l_i l_j)))
                                                      (/ 2d0 (the double-float (log (/ l_i l_j)))))
@@ -1051,7 +1050,7 @@
                 0d0 (the double-float (sqrt (the double-float (nth 1 l)))) 0d0
                 0d0 0d0 (the double-float (sqrt (the double-float (nth 2 l))))
                 ))
-              (magicl:transpose v)
+              (cl-mpm/utils:transpose v)
               )))
 
 

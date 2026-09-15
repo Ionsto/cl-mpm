@@ -89,7 +89,7 @@
       ;;             )
       ;;         (setf stress (magicl:scale! (matrix-to-voight (magicl:@ v
       ;;                                                                 (magicl:from-diag l :type 'double-float)
-      ;;                                                                 (magicl:transpose v))) j))
+      ;;                                                                 (cl-mpm/utils:transpose v))) j))
       ;;         ))
       ;;   )
       )

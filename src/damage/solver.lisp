@@ -34,12 +34,12 @@
                       (cl-mpm::apply-essential-bcs sim)
                       (cl-mpm::update-nodes sim)
                       (cl-mpm::update-filtered-cells sim)
-                      ;; (cl-mpm/ghost::apply-half-step-ghost sim)
+                      (cl-mpm/ghost::apply-half-step-ghost sim)
+                      (cl-mpm::apply-essential-bcs sim)
 
                       (cl-mpm::update-stress mesh mps dt fbar)
                       (cl-mpm/damage::calculate-damage sim dt)
                       (cl-mpm::update-stiffness-mps sim)
-                      ;; (break)
                       ;; ;Map forces onto nodes
                       (cl-mpm::p2g-force sim)
                       (cl-mpm::apply-force-bcs sim dt)
@@ -47,14 +47,16 @@
                       (cl-mpm::reset-node-displacement sim)
                       (cl-mpm::update-nodes sim)
                       (cl-mpm::apply-essential-bcs sim)
-                      ;; (cl-mpm/ghost::apply-half-step-ghost sim)
+                      (cl-mpm/ghost::apply-half-step-ghost sim)
+                      (cl-mpm::apply-essential-bcs sim)
 
                       (cl-mpm::update-dynamic-stats sim)
                       (cl-mpm::g2p mesh mps dt damping vel-algo)
                       (cl-mpm::new-loadstep sim)
                       (when remove-damage
                         (cl-mpm::remove-material-damaged sim))
-                      (incf time dt))
+                      (incf time dt)
+                      )
                     )))
 (defmethod cl-mpm::update-sim ((sim mpm-sim-usl-damage))
   (declare (cl-mpm::mpm-sim-usl sim))

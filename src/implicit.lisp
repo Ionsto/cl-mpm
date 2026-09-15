@@ -518,12 +518,12 @@
                             (cl-mpm/fastmaths:fast-.+
                              (cl-mpm/fastmaths:fast-.+
                               (cl-mpm/fastmaths:fast-scale!
-                               (magicl:@ x (magicl:transpose x))
+                               (magicl:@ x (cl-mpm/utils:transpose x))
                                (- s3))
                               (cl-mpm/fastmaths:fast-scale!
                                (cl-mpm/fastmaths:fast-.+
-                                (magicl:@ x (magicl:transpose bm1))
-                                (magicl:@ bm1 (magicl:transpose x)))
+                                (magicl:@ x (cl-mpm/utils:transpose bm1))
+                                (magicl:@ bm1 (cl-mpm/utils:transpose x)))
                                s4))
                              (cl-mpm/fastmaths:fast-scale!
                               bm11
@@ -557,7 +557,7 @@
                          (let ((esq (cl-mpm/constitutive::swizzle-voigt->coombs (cl-mpm/utils:matrix-to-voight
                                                                                 (magicl:@
                                                                                  (magicl:vector->column-matrix (magicl:column eV i))
-                                                                                 (magicl:transpose (magicl:vector->column-matrix (magicl:column eV i))))))))
+                                                                                 (cl-mpm/utils:transpose (magicl:vector->column-matrix (magicl:column eV i))))))))
                            (dotimes (iter 6)
                              (setf (magicl:tref edir iter i) (varef esq iter)))))
                        (let* ((Ib (cl-mpm/utils::tensor-voigt-4th-zeros))
@@ -622,7 +622,7 @@
                               (cl-mpm/fastmaths:fast-scale 
                                (magicl:@
                                 (magicl:vector->column-matrix (magicl:column edir i))
-                                (magicl:transpose (magicl:vector->column-matrix (magicl:column edir i)))
+                                (cl-mpm/utils:transpose (magicl:vector->column-matrix (magicl:column edir i)))
                                 )
                                (* (+ (nth i ydashP) (varef gama i))))
                               L L))
@@ -639,7 +639,7 @@
                 0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
                 0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
                 ))
-              (magicl:transpose v))))
+              (cl-mpm/utils:transpose v))))
 
 (defgeneric assemble-mp-stiffness (mesh mp))
 (defmethod assemble-mp-stiffness (mesh (mp cl-mpm/particle::particle-elastic))
@@ -914,7 +914,7 @@
                                      (cl-mpm::gradient-push-forwards-cached
                                       grads-b
                                       df-inv))))
-                           (let ((stiff (magicl:@ (magicl:transpose g-a) stiffness g-b)))
+                           (let ((stiff (magicl:@ (cl-mpm/utils:transpose g-a) stiffness g-b)))
                              (sb-thread:with-mutex ((sim-global-k-lock sim))
                                (dotimes (i nd)
                                  (declare (fixnum i))

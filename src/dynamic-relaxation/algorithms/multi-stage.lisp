@@ -68,18 +68,15 @@
                           (cl-mpm::update-sim sim)
                           (incf oobf (estimate-static-oobf sim))
                           (incf energy (cl-mpm::sim-stats-energy sim))
-                          (incf work (estimate-strain-energy sim))
-                          ;; (incf work (cl-mpm::sim-stats-power sim))
-                          ))
-
+                          (incf work (estimate-strain-energy sim))))
                        (setf
                         energy (/ energy substeps)
                         oobf (/ oobf substeps)
-                        work (/ work substeps)
-                        )
-                       (if (= work 0d0)
-                           (setf energy 0d0)
-                           (setf energy (abs (/ energy work))))
+                        work (/ work substeps))
+                       (setf energy
+                             (if (= work 0d0)
+                                 0d0
+                                 (abs (/ energy work))))
 
                        (let* ((hist 1d0)
                               (hist-power 0.5d0)
@@ -100,8 +97,8 @@
                            (format t "Current state ~A - ~E ~E~%" state hist-energy hist-oobf)
                            (case state
                              (:accelerate
-                              (when (or ;; (> energy (* hist-energy hist))
-                                     (> oobf (* hist-oobf hist)))
+                              (when (or (> energy (* hist-energy hist))
+                                        (> oobf (* hist-oobf hist)))
                                 (format t "Switched to dynamic timestep~%")
                                 (setf
                                  state :dynamic
@@ -109,7 +106,7 @@
                                  ;; (cl-mpm:sim-dt sim) (/ (cl-mpm:sim-dt sim) (sqrt mass-scaler))
                                  )))
                              (:dynamic
-                              (when (and ;; (< energy (/ hist-energy hist))
+                              (when (and (< energy (/ hist-energy hist))
                                          (< oobf (/ hist-oobf hist)))
                                 (format t "Switched to accelerate timestep~%")
                                 (reset-mp-velocity sim)

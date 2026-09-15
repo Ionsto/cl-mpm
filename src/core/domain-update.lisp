@@ -131,7 +131,7 @@
 ;;   ;;                    (list (the double-float (sqrt l1)) 0d0 0d0
 ;;   ;;                          0d0 (the double-float (sqrt l2)) 0d0
 ;;   ;;                          0d0 0d0 (the double-float (sqrt l3))))
-;;   ;;                   (magicl:transpose v)))
+;;   ;;                   (cl-mpm/utils:transpose v)))
 ;;   ;;                )
 ;;   ;;           (declare (type magicl:matrix/double-float stretch))
 ;;   ;;           (setf (aref domain-array 0) (* (the double-float (varef domain 0))
@@ -155,7 +155,7 @@
                 (list (the double-float (sqrt (the double-float (nth 0 l)))) 0d0 0d0
                       0d0 (the double-float (sqrt (the double-float (nth 1 l)))) 0d0
                       0d0 0d0 (the double-float (sqrt (the double-float (nth 2 l))))))
-               (magicl:transpose v)))
+               (cl-mpm/utils:transpose v)))
             )
         (declare (type magicl:matrix/double-float stretch))
         (setf (varef domain 0) (* (the double-float (varef domain-0 0))
@@ -281,8 +281,7 @@
     (with-accessors ((position cl-mpm/particle::mp-position)
                      (def cl-mpm/particle::mp-deformation-gradient)
                      (domain cl-mpm/particle::mp-domain-size)
-                     (domain-0 cl-mpm/particle::mp-domain-size-0)
-                     )
+                     (domain-0 cl-mpm/particle::mp-domain-size-0))
         mp
       (with-accessors ((mesh-size cl-mpm/mesh::mesh-mesh-size))
           mesh
@@ -317,7 +316,7 @@
       (let* ((omega (magicl:scale
                      (magicl:.-
                       D
-                      (magicl:transpose D)) 0.5d0))
+                      (cl-mpm/utils:transpose D)) 0.5d0))
              (dom
                true-domain)
              (dom-inc (cl-mpm/utils:matrix-from-list
@@ -343,45 +342,24 @@
         ;;  true-domain
         ;;  dom-inc
         ;;  true-domain)
-        (multiple-value-bind (u s vt) (magicl:svd (cl-mpm/particle::mp-deformation-gradient-increment mp))
+        (multiple-value-bind (u s vt) (cl-mpm/utils:svd (cl-mpm/particle::mp-deformation-gradient-increment mp))
           (let* ((R (magicl:@ u vt)))
             ;; (setf R Rdef)
-            (setf true-domain (magicl:@ R true-domain corner-stretch (magicl:transpose R)))
-            ;; (setf true-domain (magicl:@ R true-domain (magicl:transpose R)))
+            (setf true-domain (magicl:@ R true-domain corner-stretch (cl-mpm/utils:transpose R)))
+            ;; (setf true-domain (magicl:@ R true-domain (cl-mpm/utils:transpose R)))
             ))
-        ;; (cl-mpm/fastmaths:fast-.+
-        ;;  true-domain
-        ;;  dom-inc
-        ;;  true-domain)
-
-        ;; (cl-mpm/fastmaths::fast-.+
-        ;;  true-domain
-        ;;  co-inc
-        ;;  true-domain)
         (setf
          (varef domain 0)
-         ;; (magicl:tref true-domain 0 0)
          (cl-mpm/fastmaths:mag
           (cl-mpm/fastmaths::fast-@-matrix-vector
            true-domain
            (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
          (varef domain 1)
-         ;; (magicl:tref true-domain 1 1)
          (cl-mpm/fastmaths:mag
           (cl-mpm/fastmaths::fast-@-matrix-vector
            true-domain
            (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))))
-         ;; (varef domain 2)
-         ;; (cl-mpm/fastmaths:mag
-         ;;  (cl-mpm/fastmaths::fast-@-matrix-vector
-         ;;   true-domain
-         ;;   (cl-mpm/utils:vector-from-list (list 0d0 0d0 1d0)))
-         ;;  )
          )
-        ;; (incf (cl-mpm/utils:varef domain 0)
-        ;;       (magicl:tref co-inc 0 0))
-        ;; (incf (cl-mpm/utils:varef domain 1)
-        ;;       (magicl:tref co-inc 1 1))
         ))
     ))
 (defun update-domain-polar-2d (mesh mp dt)
@@ -394,11 +372,18 @@
                    (volume-n cl-mpm/particle::mp-volume-n)
                    (volume cl-mpm/particle::mp-volume))
       mp
-    (let ()
-      (multiple-value-bind (u s vt) (magicl:svd dF)
-        (let* ((R (magicl:@ u vt))
-               (U (magicl:@ (magicl:transpose vt) s vt)))
-          (setf true-domain (magicl:@ R U true-domain (magicl:transpose R))))))
+    (multiple-value-bind (u s vt) (cl-mpm/utils:svd dF)
+      ;; (let* ((R (magicl:@ u vt))
+      ;;        (U (magicl:@ (cl-mpm/utils:transpose vt) s vt)))
+      ;;   (setf true-domain (magicl:@ R U true-domain (cl-mpm/utils:transpose R))))
+
+      (let* ((R (cl-mpm/fastmaths::fast-@-matrix-matrix u vt))
+             (U (cl-mpm/fastmaths::fast-@-matrix-matrix (cl-mpm/utils:transpose vt) (cl-mpm/fastmaths::fast-@-matrix-matrix s vt))))
+        (setf true-domain (cl-mpm/fastmaths::fast-@-matrix-matrix
+                           (cl-mpm/fastmaths::fast-@-matrix-matrix
+                            R U)
+                           (cl-mpm/fastmaths::fast-@-matrix-matrix true-domain (cl-mpm/utils:transpose R)))))
+      )
     (if nil
         (setf
          (varef domain 0)
@@ -425,7 +410,7 @@
           (cl-mpm/fastmaths:mag
            (cl-mpm/fastmaths::fast-@-matrix-vector
             true-domain
-            (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))))))))
+            (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))))))));)
 
 (defun update-domain-polar-3d (mesh mp dt)
   "Use a corner tracking scheme to update domain lengths"
@@ -436,11 +421,11 @@
                    (volume cl-mpm/particle::mp-volume))
       mp
     (let ()
-      (multiple-value-bind (u s vt) (magicl:svd dF)
-        (let* (;; (vt (magicl:transpose vt))
+      (multiple-value-bind (u s vt) (cl-mpm/utils:svd dF)
+        (let* (;; (vt (cl-mpm/utils:transpose vt))
                (R (magicl:@ u vt))
-               (U (magicl:@ (magicl:transpose vt) s vt)))
-          (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R))))))
+               (U (magicl:@ (cl-mpm/utils:transpose vt) s vt)))
+          (setf true-domain (magicl:@ R (magicl:@ true-domain U) (cl-mpm/utils:transpose R))))))
     (setf
      (varef domain 0)
      (abs
@@ -611,7 +596,7 @@
     (let* ((d-0 (cl-mpm/utils::matrix-diag (list (expt (varef domain-0 0) 2)
                                                  (expt (varef domain-0 1) 2)
                                                  (expt (varef domain-0 2) 2))))
-           (l (magicl:@ def d-0 (magicl:transpose def))))
+           (l (magicl:@ def d-0 (cl-mpm/utils:transpose def))))
       (multiple-value-bind (l v) (cl-mpm/utils::eig l)
         (let* ((stretch
                  (magicl:@
@@ -620,7 +605,7 @@
                    (list (the double-float (sqrt (the double-float (nth 0 l)))) 0d0 0d0
                          0d0 (the double-float (sqrt (the double-float (nth 1 l)))) 0d0
                          0d0 0d0 (the double-float (sqrt (the double-float (nth 2 l))))))
-                  (magicl:transpose v)))
+                  (cl-mpm/utils:transpose v)))
                )
           (setf (varef domain 0) (abs (magicl:tref stretch 0 0)))
           (setf (varef domain 1) (abs (magicl:tref stretch 1 1)))
@@ -662,8 +647,8 @@
 ;;     (let* ((d-0 (cl-mpm/utils::matrix-diag (list (expt (varef domain-0 0) 1)
 ;;                                                  (expt (varef domain-0 1) 1)
 ;;                                                  (expt (varef domain-0 2) 1))))
-;;            ;(l (magicl:@ def d-0 (magicl:transpose def)))
-;;            (l (magicl:@ def d-0 (magicl:transpose def)))
+;;            ;(l (magicl:@ def d-0 (cl-mpm/utils:transpose def)))
+;;            (l (magicl:@ def d-0 (cl-mpm/utils:transpose def)))
 ;;            )
 ;;       ;; (setf (varef domain 0) (abs (magicl:tref stretch 0 0)))
 ;;       ;; (setf (varef domain 1) (abs (magicl:tref stretch 1 1)))

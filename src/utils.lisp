@@ -29,6 +29,8 @@
    #:vector-zeros
    #:vector-from-list
    #:eig
+   #:transpose
+   #:svd
    #:@-mat-vec
    #:@-tensor-voigt
    #:get-stress
@@ -55,6 +57,33 @@
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
+
+(defun ensure-column-major (mat)
+  (if (eq (magicl::matrix/double-float-layout mat) :column-major)
+      mat
+      (let* ((rows (magicl::matrix/double-float-nrows mat))
+             (cols (magicl::matrix/double-float-ncols mat))
+             (trans (cl-mpm/utils::arb-matrix rows cols)))
+        (declare (fixnum cols rows))
+        (dotimes (i rows)
+          (dotimes (j cols)
+            (declare (fixnum i j))
+            (setf (mtref trans i j) (mtref-row-major mat i j))))
+        trans)))
+
+(declaim (ftype (function (magicl:matrix/double-float)
+                          magicl:matrix/double-float) transpose))
+(defun transpose (arb)
+  (let* ((rows (magicl::matrix/double-float-nrows arb))
+         (cols (magicl::matrix/double-float-ncols arb))
+         (trans (cl-mpm/utils::arb-matrix cols rows)))
+    (declare (fixnum cols rows))
+    (dotimes (i rows)
+      (dotimes (j cols)
+        (declare (fixnum i j))
+        (setf (mtref trans j i) (mtref arb i j))))
+    trans))
+
 (declaim (inline eig)
          (ftype (function (magicl:matrix/double-float)
                           (values list magicl:matrix/double-float)) eig))
@@ -64,6 +93,21 @@
   ;; (magicl:hermitian-eig mat)
   ;; (multiple-value-bind (l v) (magicl:eig mat)
   ;;   (values l (magicl:.realpart v)))
+  )
+
+(defun svd (mat)
+  (multiple-value-bind (u s vt) (magicl:svd mat)
+    ;; (pprint u)
+    ;; (pprint s)
+    ;; (pprint vt)
+    (values (ensure-column-major u) (ensure-column-major s) (ensure-column-major vt))))
+
+(declaim (inline eig)
+         (ftype (function (magicl:matrix/double-float)
+                          (values list magicl:matrix/double-float)) eig))
+(defun eig (mat)
+  "Real eigen-decomposition"
+  (magicl:self-adjoint-eig mat)
   )
 
 
@@ -116,6 +160,17 @@
     (let ((numrows (magicl::matrix-nrows m)))
       (declare (type fixnum numrows))
       (aref (fast-storage m) (+ row (the fixnum (* col numrows)))))))
+
+(defun mtref-row-major (m row col)
+  (declare (magicl:matrix/double-float m)
+           (fixnum row col))
+  (policy-cond:with-expectations (> speed safety)
+      ((assertion (eq (magicl::matrix/double-float-layout m) :row-major))
+       (assertion (< row (magicl::matrix/double-float-nrows m)))
+       (assertion (< col (magicl::matrix/double-float-ncols m))))
+    (let ((numcols (magicl::matrix-ncols m)))
+      (declare (type fixnum numcols))
+      (aref (fast-storage m) (+ col (the fixnum (* row numcols)))))))
 
 (declaim (inline mtref-3x3)
          (ftype (function (magicl:matrix/double-float fixnum fixnum)
@@ -766,7 +821,7 @@
 (declaim (inline stretch-to-skew)
          (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) stretch-to-skew))
 (defun stretch-to-skew (stretch result)
-  ;; (magicl:.- stretch (magicl:transpose stretch) result)
+  ;; (magicl:.- stretch (cl-mpm/utils:transpose stretch) result)
   ;; (loop for i from 0 below 3
   ;;       do
   ;;          (setf (mtref result  i 0) 0d0))

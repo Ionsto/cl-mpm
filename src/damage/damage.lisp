@@ -785,8 +785,7 @@ Calls the function with the mesh mp and node"
      (lambda (mp)
        (when (typep mp 'cl-mpm/particle:particle-damage)
          ;; (find-mp-local-length mesh mp)
-         (find-intergral-local-length mesh mp)
-         )))))
+         (find-intergral-local-length mesh mp))))))
 
 (defgeneric delocalise-damage (sim))
 

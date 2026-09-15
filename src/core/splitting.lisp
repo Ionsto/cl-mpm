@@ -42,7 +42,7 @@
                                               (cl-mpm/fastmaths:fast-.+
                                                (cl-mpm/fastmaths:fast-scale K (sin angle))
                                                (magicl:@ K (cl-mpm/fastmaths:fast-scale K (- 1d0 (cos angle))))))))
-            (magicl:@ R (cl-mpm/utils::matrix-from-diag (list scale 1d0 1d0)) (magicl:transpose R)))))))
+            (magicl:@ R (cl-mpm/utils::matrix-from-diag (list scale 1d0 1d0)) (cl-mpm/utils:transpose R)))))))
 
 
 (defun split-vector (mp split-vec)

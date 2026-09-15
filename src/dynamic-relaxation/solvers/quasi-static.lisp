@@ -725,12 +725,12 @@
         ;;           (f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
         ;;           (E (cl-mpm/aggregate::sim-global-e sim))
         ;;           (ma (cl-mpm/aggregate::sim-global-ma sim))
-        ;;           (vi (magicl:@ (magicl:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-velocity d)))
+        ;;           (vi (magicl:@ (cl-mpm/utils:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-velocity d)))
         ;;           (disp (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-displacment d)))
         ;;      (incf oobf-num (cl-mpm/fastmaths::mag-squared
         ;;                      (cl-mpm/aggregate::apply-internal-bcs
         ;;                       sim
-        ;;                       (magicl:@ (magicl:transpose E)
+        ;;                       (magicl:@ (cl-mpm/utils:transpose E)
         ;;                                 (cl-mpm/fastmaths::fast-.+
         ;;                                  f-int
         ;;                                  f-ext))
@@ -739,11 +739,11 @@
         ;;      (incf oobf-denom (cl-mpm/fastmaths::mag-squared
         ;;                        (cl-mpm/aggregate::apply-internal-bcs
         ;;                         sim
-        ;;                         (magicl:@ (magicl:transpose E) f-ext)
+        ;;                         (magicl:@ (cl-mpm/utils:transpose E) f-ext)
         ;;                         d)))
         ;;      (incf power (cl-mpm/fastmaths:dot
         ;;                   disp f-ext))
-        ;;      (incf energy (* 0.5d0 (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0)))
+        ;;      (incf energy (* 0.5d0 (cl-mpm/utils::mtref (magicl:@ (cl-mpm/utils:transpose vi) ma vi) 0 0)))
         ;;      )))
         )
       (let ((oobf 0d0)

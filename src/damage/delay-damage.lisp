@@ -18,7 +18,8 @@
               (sqrt
                (*
                 k0
-                k)))
+                k))
+              )
              ;; (max
              ;;  k0
              ;;  k)
@@ -345,16 +346,17 @@
               (delay-integrate-explicit k y0 y1 dt k0
                                         tau
                                         tau-exp)))
-      (time (dotimes (i iters)
-              (cl-mpm/damage::analytic-trim
-               k
-               y0
-               y1
-               k0
-               dt
-               (lambda (k y0 y1 dt)
-                 (adaptive-dt k y0 y1 dt k0 tau tau-exp))
-               :tol 1d-6))))
+      ;; (time (dotimes (i iters)
+      ;;         (cl-mpm/damage::analytic-trim
+      ;;          k
+      ;;          y0
+      ;;          y1
+      ;;          k0
+      ;;          dt
+      ;;          (lambda (k y0 y1 dt)
+      ;;            (adaptive-dt k y0 y1 dt k0 tau tau-exp))
+      ;;          :tol 1d-6)))
+      )
     ;; (format t "Secant ~E~%"
     ;;         (cl-mpm/damage::analytic-trim
     ;;          k

@@ -178,9 +178,7 @@
              (length (max length-1 length-2))
              (area (* length-1 length-2))
              )
-        (let* ((nd (cl-mpm/mesh::mesh-nd mesh))
-               ;; (J (expt 2 (- nd 1)))
-               )
+        (let* ((nd (cl-mpm/mesh::mesh-nd mesh)))
           (loop for gp-1 in (list -1d0 1d0)
                 do
                    (loop for gp-2 in (list -1d0 1d0)
@@ -392,7 +390,7 @@
            (let* ((nx (varef normal 0))
                   (ny (varef normal 1))
                   (nz (varef normal 2))
-                  (dsvp-adjuster (magicl:transpose (cl-mpm/utils::arb-matrix-from-list
+                  (dsvp-adjuster (cl-mpm/utils:transpose (cl-mpm/utils::arb-matrix-from-list
                                                      (list
                                                       nx  0d0 0d0
                                                       0d0 ny  0d0
@@ -417,14 +415,14 @@
                                    (disp cl-mpm/mesh::node-displacment))
                       node
                     (let ((dsvp-p (fast-scale!
-                                   (magicl:transpose
+                                   (cl-mpm/utils:transpose
                                     (cl-mpm/shape-function::assemble-dsvp-3d
                                      grads))
                                    fact)))
                       (cl-mpm/fastmaths:fast-.+
                        (magicl:@
-                        (magicl:transpose dsvp-adjuster)
-                        (magicl:transpose dsvp-p)
+                        (cl-mpm/utils:transpose dsvp-adjuster)
+                        (cl-mpm/utils:transpose dsvp-p)
                         disp)
                        gradient-terms
                        gradient-terms))))))
@@ -488,7 +486,7 @@
            (let* ((nx (varef normal-trial 0))
                   (ny (varef normal-trial 1))
                   (nz (varef normal-trial 2))
-                  (dsvp-adjuster (magicl:transpose (cl-mpm/utils::arb-matrix-from-list
+                  (dsvp-adjuster (cl-mpm/utils:transpose (cl-mpm/utils::arb-matrix-from-list
                                                      (list
                                                       nx  0d0 0d0
                                                       0d0 ny  0d0
@@ -524,8 +522,8 @@
                                    )))
                       (cl-mpm/fastmaths:fast-.+
                        (magicl:@
-                        (magicl:transpose dsvp-adjuster)
-                        (magicl:transpose dsvp-p)
+                        (cl-mpm/utils:transpose dsvp-adjuster)
+                        (cl-mpm/utils:transpose dsvp-p)
                         disp)
                        gradient-terms
                        gradient-terms))))))
@@ -591,7 +589,7 @@
            (let* ((nx (varef normal-trial 0))
                   (ny (varef normal-trial 1))
                   (nz (varef normal-trial 2))
-                  (dsvp-adjuster (magicl:transpose (cl-mpm/utils::arb-matrix-from-list
+                  (dsvp-adjuster (cl-mpm/utils:transpose (cl-mpm/utils::arb-matrix-from-list
                                                      (list
                                                       nx  0d0 0d0
                                                       0d0 ny  0d0
@@ -618,17 +616,17 @@
                     (let ((dsvp-p (fast-scale!
                                    (magicl:transpose
                                     (cl-mpm/shape-function::assemble-dsvp-3d
-                                     (cl-mpm::gradient-push-forwards
-                                      grads
-                                      (cl-mpm/mesh::cell-deformation-gradient cell-p))
-                                     ;; grads
+                                     ;; (cl-mpm::gradient-push-forwards
+                                     ;;  grads
+                                     ;;  (cl-mpm/mesh::cell-deformation-gradient cell-p))
+                                     grads
                                      ))
                                    fact
                                    )))
                       (cl-mpm/fastmaths:fast-.+
                        (magicl:@
-                        (magicl:transpose dsvp-adjuster)
-                        (magicl:transpose dsvp-p)
+                        (cl-mpm/utils:transpose dsvp-adjuster)
+                        (cl-mpm/utils:transpose dsvp-p)
                         disp)
                        gradient-terms
                        gradient-terms))))))
@@ -645,12 +643,12 @@
                       node
                     (let* ((dsvp
                              (fast-scale!
-                              (magicl:transpose
+                              (cl-mpm/utils:transpose
                                (cl-mpm/shape-function::assemble-dsvp-3d
-                                (cl-mpm::gradient-push-forwards
-                                 grads
-                                 (cl-mpm/mesh::cell-deformation-gradient cell))
-                                ;; grads
+                                ;; (cl-mpm::gradient-push-forwards
+                                ;;  grads
+                                ;;  (cl-mpm/mesh::cell-deformation-gradient cell))
+                                grads
                                 ))
                               fact)))
                       (let ((ghost-force
@@ -737,7 +735,7 @@
         mesh
       (declare (double-float h ghost-factor))
       ;; (cl-mpm::filter-cells sim)
-      (cl-mpm::update-cells sim)
+      ;; (cl-mpm::update-cells sim)
       (locate-ghost-elements sim)
       (cl-mpm::iterate-over-cells
        mesh
@@ -753,8 +751,7 @@
                              (when (cl-mpm/mesh::in-bounds-cell mesh index-b)
                                (apply-ghost-cells-accel mesh cell
                                                         (cl-mpm/mesh::get-cell mesh index-b)
-                                                        ghost-factor)))))))))
-      )))
+                                                        ghost-factor))))))))))))
 
 ;; (defun test-markup (sim)
 ;;   (let* ((index (list 10 10 0))
@@ -897,16 +894,27 @@
     (when ghost-factor
       ;; (cl-mpm::reset-node-displacement sim)
       ;; (cl-mpm::update-nodes sim)
-      (cl-mpm::update-cells sim)
+      ;; (cl-mpm::update-cells sim)
       ;; (cl-mpm::apply-bcs mesh bcs dt)
       ;; (dotimes )
       ;;Standard
       ;; (iterative-ghost sim)
-
-      (cl-mpm/ghost::apply-ghost-accel sim ghost-factor)
-      ;; (cl-mpm/ghost::apply-ghost sim ghost-factor)
-      (update-node-forces-ghost sim dt)
-      (cl-mpm::apply-bcs mesh bcs dt))))
+      (cl-mpm::iterate-over-nodes
+       mesh
+       (lambda (n)
+         (when (cl-mpm/mesh::node-active n)
+           (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-ghost-force n)))))
+      (dotimes (i 10)
+        (cl-mpm::iterate-over-nodes
+         mesh
+         (lambda (n)
+           (when (cl-mpm/mesh::node-active n)
+             (cl-mpm/fastmaths:fast-scale! (cl-mpm/mesh::node-ghost-force n) 0d0))))
+        (cl-mpm/ghost::apply-ghost-accel sim ghost-factor)
+        (update-node-forces-ghost sim dt)
+        (cl-mpm::apply-essential-bcs sim)
+        )
+      )))
 
 (defun estimate-ul-enhancement (cell)
   (with-accessors ((df cl-mpm/mesh::cell-deformation-gradient))

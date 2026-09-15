@@ -133,7 +133,8 @@
                                          (incf substeps))
                                        (incf total-iter)
                                        (decf dt-accumulator (cl-mpm::sim-dt sim)))))
-                           (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
+                           ;; (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
+                           (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm/setup::estimate-elastic-dt sim)))
                            (funcall post-iter-step sim)
                            (funcall plotter sim)
                            (when save-vtk-loadstep

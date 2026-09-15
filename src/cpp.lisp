@@ -53,8 +53,8 @@
                                  0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
                                  0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
                                  ))
-                               (magicl:transpose v)
-                               (magicl:transpose df))))
+                               (cl-mpm/utils:transpose v)
+                               (cl-mpm/utils:transpose df))))
 
       ;;Enforce symmetry
       (multiple-value-bind (lf vf)
@@ -82,7 +82,7 @@
                                0d0 (the double-float (log (the double-float lf1))) 0d0
                                0d0 0d0 (the double-float (log (the double-float lf2))))
                               )
-                             (magicl:transpose vf)))
+                             (cl-mpm/utils:transpose vf)))
                            0.5d0)
                           strain
                           ))))))
@@ -324,7 +324,7 @@
               (list (the double-float (sqrt (the double-float (nth 0 l)))) 0d0 0d0
                     0d0 (the double-float (sqrt (the double-float (nth 1 l)))) 0d0
                     0d0 0d0 (the double-float (sqrt (the double-float (nth 2 l))))))
-             (magicl:transpose v))
+             (cl-mpm/utils:transpose v))
             )))))
 
 (declaim (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) kirchoff-update))
