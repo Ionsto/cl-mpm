@@ -11,13 +11,6 @@
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
-(defmethod cl-mpm::resolve-split-mp ((mp cl-mpm/particle::particle-erosion))
-  (with-accessors ((eroded-volume cl-mpm/particle::mp-eroded-volume)
-                   (eroded-volume-n cl-mpm/particle::mp-eroded-volume-n))
-      mp
-    (setf eroded-volume-n (/ eroded-volume-n 2)
-          eroded-volume (/ eroded-volume 2))
-    (call-next-method)))
 
 (in-package :cl-mpm/particle)
 (defclass particle-erosion (particle-elastic-damage)
@@ -32,6 +25,15 @@
     :initform 1d0
     :initarg :erosion-modulus)))
 (in-package :cl-mpm/erosion)
+
+
+(defmethod cl-mpm::resolve-split-mp ((mp cl-mpm/particle::particle-erosion))
+  (with-accessors ((eroded-volume cl-mpm/particle::mp-eroded-volume)
+                   (eroded-volume-n cl-mpm/particle::mp-eroded-volume-n))
+      mp
+    (setf eroded-volume-n (/ eroded-volume-n 2)
+          eroded-volume (/ eroded-volume 2))
+    (call-next-method)))
 
 (defclass bc-erode (cl-mpm/bc::bc)
   ((damage-rate
