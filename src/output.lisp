@@ -439,15 +439,25 @@
 (defun add-mp-output (sim type name accessor)
   (assert (position type (list :BOOL :SCALAR :VECTOR :VOIGT :MATRIX)))
   (assert (stringp name))
+  (when (position name (cl-mpm::sim-output-list sim) :key #'second :test #'string=)
+    (format t "Removing existing output with name ~a~%" name)
+    (setf (cl-mpm::sim-output-list sim) (delete-if (lambda (x) (string= name (second x))) (cl-mpm::sim-output-list sim)))
+    )
   (push
    (list type name accessor)
-    (cl-mpm::sim-output-list sim)))
+    (cl-mpm::sim-output-list sim))
+  (values))
+
 (defun add-node-output (sim type name accessor)
   (assert (position type (list :BOOL :SCALAR :VECTOR :VOIGT :MATRIX)))
   (assert (stringp name))
+  (when (position name (cl-mpm::sim-output-list-nodes sim) :key #'second :test #'string=)
+    (format t "Removing existing output with name ~a~%" name)
+    (setf (cl-mpm::sim-output-list-nodes sim) (delete-if (lambda (x) (string= name (second x))) (cl-mpm::sim-output-list-nodes sim))))
   (push
    (list type name accessor)
-   (cl-mpm::sim-output-list-nodes sim)))
+   (cl-mpm::sim-output-list-nodes sim))
+  (values))
 
 
 (defmethod initialize-instance :after ((sim cl-mpm::mpm-sim) &key)
