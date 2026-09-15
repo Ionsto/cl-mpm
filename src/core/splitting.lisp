@@ -3,6 +3,11 @@
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
 
+(defgeneric resolve-split-mp (mp))
+
+(defmethod resolve-split-mp ((mp cl-mpm/particle::particle))
+  )
+
 (defun copy-particle (original &rest initargs &key &allow-other-keys)
   "Function for copying a particle, allowing for re-initialising members"
   (let* ((class (class-of original))
@@ -103,6 +108,7 @@
                                    :true-domain (cl-mpm/utils:matrix-copy new-domain)
                                    ))))
           (dolist (mp mps)
+            (resolve-split-mp mp)
             (setf (cl-mpm/particle::mp-volume-0 mp) (/ volume-0 2)))
           mps)))))
 
@@ -183,6 +189,7 @@
           ((and (= nd 3) (> (* af ly) (min lx lz))) :y)
           ((and (= nd 3) (> (* af lz) (min ly lx))) :z)
           (t nil))))))
+
 (defun split-mp (mp h direction)
   "Function to split an mp across a direction
    Directions should be :x,:y,:z "

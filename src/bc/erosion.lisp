@@ -11,6 +11,14 @@
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
+(defmethod cl-mpm::resolve-split-mp ((mp cl-mpm/particle::particle-erosion))
+  (with-accessors ((eroded-volume cl-mpm/particle::mp-eroded-volume)
+                   (eroded-volume-n cl-mpm/particle::mp-eroded-volume-n))
+      mp
+    (setf eroded-volume-n (/ eroded-volume-n 2)
+          eroded-volume (/ eroded-volume 2))
+    (call-next-method)))
+
 (in-package :cl-mpm/particle)
 (defclass particle-erosion (particle-elastic-damage)
   ((eroded-volume
@@ -25,20 +33,27 @@
     :initarg :erosion-modulus)))
 (in-package :cl-mpm/erosion)
 
-(defclass bc-erode (cl-mpm/buoyancy::bc-scalar)
+(defclass bc-erode (cl-mpm/bc::bc)
   ((damage-rate
     :initform 1d0
     :initarg :damage-rate
     :accessor bc-water-damage-damage-rate)))
 
-(defun make-bc-erode (sim &key (rate 1d0)
+(defclass bc-erode-surface (bc-erode cl-mpm/buoyancy::bc-scalar)
+  ())
+
+(defclass bc-erode-uniform (bc-erode)
+  ())
+
+
+(defun make-bc-erode-surface (sim &key (rate 1d0)
                             (clip-func (lambda (pos) t))
                             (scalar-func (lambda (pos) 1d0))
                             (enable t)
                             )
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
-    (make-instance 'bc-erode
+    (make-instance 'bc-erode-surface
                    :index nil
                    :damage-rate rate
                    :damage-volume nil
@@ -51,14 +66,14 @@
 (defmethod mp-erosion-enhancment ((mp cl-mpm/particle::particle))
   1d0)
 
-(defun apply-erosion (bc mesh dt)
+(defun apply-erosion-surface (bc mesh dt)
   (with-accessors ((sim cl-mpm/buoyancy::bc-buoyancy-sim)
                    (clip-func cl-mpm/buoyancy::bc-buoyancy-clip-func)
                    (scalar-func cl-mpm/buoyancy::bc-scalar-func)
                    (datum cl-mpm/buoyancy::bc-buoyancy-datum)
                    (rate bc-water-damage-damage-rate))
       bc
-    (when (cl-mpm/buoyancy::bc-enable bc)
+    (when (cl-mpm/bc::bc-enable bc)
       (cl-mpm/buoyancy::locate-mps-cells sim clip-func)
       (cl-mpm/buoyancy::apply-scalar
        sim
@@ -108,7 +123,7 @@
                (setf erode (+ erode-n weathering))
                ))))))))
 
-(defmethod cl-mpm/bc::apply-sim-bc (sim (bc bc-erode) dt)
+(defmethod cl-mpm/bc::apply-sim-bc (sim (bc bc-erode-surface) dt)
   (apply-erosion bc (cl-mpm:sim-mesh sim) dt))
 
 (defmethod cl-mpm::new-loadstep :after ((sim cl-mpm::mpm-sim))
@@ -132,3 +147,36 @@
       mp
     (setf k-n k)
     (call-next-method)))
+
+
+(defun apply-erosion-uniform (sim bc mesh dt)
+  (with-accessors ((rate bc-water-damage-damage-rate))
+      bc
+    (when (cl-mpm/bc::bc-enable bc)
+      (cl-mpm:iterate-over-mps
+       (cl-mpm:sim-mps sim)
+       (lambda (mp)
+         (when (typep mp 'cl-mpm/particle::particle-erosion)
+           (with-accessors ((volume cl-mpm/particle::mp-volume)
+                            (mass cl-mpm/particle::mp-mass)
+                            (erode cl-mpm/particle::mp-eroded-volume)
+                            (erode-n cl-mpm/particle::mp-eroded-volume-n)
+                            (erosion-modulus cl-mpm/particle::mp-erosion-modulus))
+               mp
+             (declare (double-float volume mass erode erosion-modulus erode erode-n))
+             (let ((weathering rate))
+               (declare (double-float weathering))
+               (setf weathering (* weathering volume (mp-erosion-enhancment mp)))
+               (setf weathering (* (/ weathering erosion-modulus) dt))
+               (setf erode (+ erode-n weathering))))))))))
+
+(defmethod cl-mpm/bc::apply-sim-bc (sim (bc bc-erode-uniform) dt)
+  (apply-erosion-uniform sim bc (cl-mpm:sim-mesh sim) dt))
+
+(defun make-bc-erode-uniform (sim &key (rate 1d0) (enable t))
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (make-instance 'bc-erode-uniform
+                   :index nil
+                   :damage-rate rate
+                   :enable enable)))

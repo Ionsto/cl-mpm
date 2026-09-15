@@ -29,7 +29,10 @@
     :accessor bc-node
     :initarg :node
     :initform nil)
-   )
+   (bc-enable
+    :accessor bc-enable
+    :initarg :enable
+    :initform t))
   (:documentation "A boundary condition that applies some operation at an index"))
 
 (defclass bc-fixed (bc)

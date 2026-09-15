@@ -1212,7 +1212,8 @@
                         (or
                          (not
                           (cl-mpm/mesh::node-agg node))
-                         (cl-mpm/mesh::node-interior node)))
+                         ;; (cl-mpm/mesh::node-interior node)
+                         ))
                    (with-accessors ((node-active  cl-mpm/mesh:node-active)
                                     (pmod cl-mpm/mesh::node-pwave)
                                     (mass cl-mpm/mesh::node-mass)
@@ -1229,6 +1230,8 @@
              #'min))
       (when enable-agg
         (let ((agg-inner (expt (/ (cl-mpm/aggregate::estimate-aggregated-cfl sim) h) 2)))
+          (when (< agg-inner inner-factor)
+            (format t "Aggregated CFL is restrictive~%"))
           ;; (format t "~E ~E ~%" inner-factor agg-inner)
           (setf inner-factor (min inner-factor agg-inner))))
       (if (< inner-factor most-positive-double-float)
