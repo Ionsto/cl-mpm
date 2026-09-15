@@ -24,7 +24,7 @@
   )
 (defparameter *enable-plastic-damage* nil)
 (defparameter *delay-time* 1d5)
-(defparameter *delay-exponent* 4d0)
+(defparameter *delay-exponent* 2d0)
 (defparameter *enable-viscosity* nil)
 (defparameter *length-scaler* 1d0)
 (defparameter *gf* 10000d0)
@@ -43,7 +43,8 @@
 
 
 (defmethod cl-mpm/erosion::mp-erosion-enhancment ((mp cl-mpm/particle::particle-ice-erodable))
-  (+ 1d0 (* 10 (cl-mpm/particle::mp-damage mp)))
+  ;; (+ 1d0 (* 10 (cl-mpm/particle::mp-damage mp)))
+  (expt (cl-mpm/particle::mp-damage mp) 2)
   ;; (+ 1d0 (* 10 (cl-mpm/particle::mp-strain-plastic-vm mp)))
   )
 
@@ -145,6 +146,7 @@
      ;; :colour-func (lambda (mp) (if (> (cl-mpm/particle::mp-damage-ybar mp) 0.1d6) 1d0 0d0))
      )))
 
+(defparameter *bc-melange* nil)
 
 (declaim (notinline setup))
 (defun setup (&key (refine 1) (mps 2)
@@ -398,20 +400,25 @@
     ;; (setf (cl-mpm/penalty::bc-penalty-stiffness-scale *floor-bc*) 1d0)
 
     (defparameter *bc-erode*
-      (cl-mpm/erosion::make-bc-erode
+      (cl-mpm/erosion::make-bc-erode-uniform
        *sim*
        :enable nil
-       :rate 1d0
-       :scalar-func (lambda (pos)
-                      1d0
-                      ;; (min 1d0 (exp (* 0.5d0 (- (cl-mpm/utils:varef pos 1) datum))))
-                      )
-       :clip-func (lambda (pos)
-                    (and
-                     (>= datum (cl-mpm/utils:varef pos 1))
-                     (<= (- datum (* 0.25d0 start-height)) (cl-mpm/utils:varef pos 1))
-                     ;; (>= (cl-mpm/utils:varef pos 1) (+ offset mesh-resolution) )
-                     ))))
+       :rate 1d-3)
+      ;; (cl-mpm/erosion::make-bc-erode
+      ;;  *sim*
+      ;;  :enable nil
+      ;;  :rate 1d0
+      ;;  :scalar-func (lambda (pos)
+      ;;                 1d0
+      ;;                 ;; (min 1d0 (exp (* 0.5d0 (- (cl-mpm/utils:varef pos 1) datum))))
+      ;;                 )
+      ;;  :clip-func (lambda (pos)
+      ;;               (and
+      ;;                (>= datum (cl-mpm/utils:varef pos 1))
+      ;;                (<= (- datum (* 0.25d0 start-height)) (cl-mpm/utils:varef pos 1))
+      ;;                ;; (>= (cl-mpm/utils:varef pos 1) (+ offset mesh-resolution) )
+      ;;                )))
+      )
     (when use-penalty
       (cl-mpm:add-bcs-force-list
        *sim*
@@ -435,9 +442,9 @@
            ;; :back '(0 0 0)
            )
           ))
-    ;; (cl-mpm:add-bcs-force-list
-    ;;  *sim*
-    ;;  *bc-erode*)
+    (cl-mpm:add-bcs-force-list
+     *sim*
+     *bc-erode*)
     (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
     (cl-mpm/output:add-mp-output
      *sim*
@@ -564,17 +571,17 @@
   (let* ((mps 3)
          (dt 1d3)
          (total-time 1d10)
-         (H 500d0)
-         (ice-aspect 6d0)
+         (H 900d0)
+         (ice-aspect 4d0)
          (density 918d0)
-         (explicit-dt-scale 0.45d0)
+         (explicit-dt-scale 0.5d0)
          (water-damping 1d0)
          (friction 0.5d0)
          (floatation-ratio 0.76d0)
          (output-dir "./output/"))
     (defparameter *length-scaler* 1d0)
     (setup
-     :refine 0.25
+     :refine 0.125
      ;; :multigrid-refines 0
      :friction friction
      :bench-length (* 0d0 H)
@@ -586,14 +593,16 @@
      :elastic-static nil
      :melange nil
      :aspect ice-aspect
-     :slope 0.05d0
+     :slope 0d0
      :floatation-ratio floatation-ratio
      :use-penalty t
      ;; :extra-offset 2
      :stick-base nil)
 
     (cl-mpm/output:add-mp-output *sim* :SCALAR "def-aspect" #'cl-mpm/dynamic-relaxation::compute-deformation-aspect-2d)
-    ;; (cl-mpm/output:add-mp-output *sim* :SCALAR "eroded" #'cl-mpm/particle::mp-eroded-volume)
+    (cl-mpm/output:add-mp-output *sim* :SCALAR "eroded"
+                                 (lambda (mp)
+                                   (/ (cl-mpm/particle::mp-eroded-volume mp) (cl-mpm/particle::mp-mass mp))))
     (cl-mpm/output:add-mp-output *sim* :SCALAR "boundary" #'cl-mpm/particle::mp-boundary)
     (cl-mpm/output:add-mp-output *sim* :SCALAR "vm-plastic-inc" #'cl-mpm/particle::mp-strain-plastic-vm-inc)
 
@@ -685,6 +694,7 @@
        :enable-plastic t
        :enable-damage t
        :plotter (lambda (sim)
+                  (format t "Agg CFL ~E - ~E~%" (cl-mpm/aggregate::estimate-aggregated-cfl *sim*) (cl-mpm/setup::estimate-elastic-dt *sim*))
                   (plot-domain)
                   (vgplot:title (format nil "Step ~D - Time ~F - oobf ~E - ~A"
                                         step
@@ -700,18 +710,20 @@
                   (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
                   (incf step))
        ;; :explicit-conv-criteria 1d-2
-       :elastic-dt-margin 1d2
-       :explicit-mass-scaling nil
-       :explicit-damping-factor 1d-4
-       :explicit-dt-scale 0.45d0
-       :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
-       ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-usf
-       ;; :elastic-dt-margin 1d4
+
+       ;; :elastic-dt-margin 1d2
        ;; :explicit-mass-scaling nil
-       ;; :explicit-dt-scale 10d0
-       ;; :explicit-damping-factor 0d-3
-       ;; ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-implicit-dynamic
-       ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
+       ;; :explicit-damping-factor 1d-4
+       ;; :explicit-dt-scale explicit-dt-scale
+       ;; :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
+
+       ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-usf
+       :elastic-dt-margin 1d4
+       :explicit-mass-scaling nil
+       :explicit-dt-scale 10d0
+       :explicit-damping-factor 0d-3
+       ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-implicit-dynamic
+       :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
        ;; :elastic-solver ;'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
        ;; 'cl-mpm/dynamic-relaxation::mpm-sim-octree-quasi-static
        ;; :initial-quasi-static t
@@ -719,18 +731,18 @@
        (lambda (sim)
          ;; (cl-mpm::domain-sort-mps *sim*)
          (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) water-damping
-         (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) t))
+         (setf (cl-mpm/bc::bc-enable *bc-erode*) t))
        :setup-quasi-static
        (lambda (sim)
          (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-9)
          (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic)
            (setf (cl-mpm/dynamic-relaxation::sim-true-damping *sim*) (* 1d-4 (cl-mpm/setup::estimate-critical-damping *sim*))))
-         (cl-mpm::remove-mps-func
-          *sim*
-          (lambda (mp)
-            (and
-             (typep mp 'cl-mpm/particle::particle-damage)
-             (> (cl-mpm/particle::mp-damage mp) 0.99d0))))
+         ;; (cl-mpm::remove-mps-func
+         ;;  *sim*
+         ;;  (lambda (mp)
+         ;;    (and
+         ;;     (typep mp 'cl-mpm/particle::particle-damage)
+         ;;     (> (cl-mpm/particle::mp-damage mp) 0.99d0))))
          ;; (cl-mpm::reset-grid (cl-mpm:sim-mesh *sim*) :reset-displacement t)
          ;; (cl-mpm/dynamic-relaxation::pre-step *sim*)
          ;; (cl-mpm::check-mps *sim*)
@@ -885,11 +897,11 @@
     ;;  :VECTOR
     ;;  "bf"
     ;;  #'cl-mpm/particle::mp-body-force)
-    (push (list :SCALAR "water-pressure" #'cl-mpm/particle::mp-pressure) (cl-mpm::sim-output-list *sim*))
-    (push (list :SCALAR "water-pressure-damage"
-                (lambda (mp) (*
-                              (cl-mpm/particle::mp-damage mp)
-                              (cl-mpm/particle::mp-pressure mp)))) (cl-mpm::sim-output-list *sim*))
+    ;; (push (list :SCALAR "water-pressure" #'cl-mpm/particle::mp-pressure) (cl-mpm::sim-output-list *sim*))
+    ;; (push (list :SCALAR "water-pressure-damage"
+    ;;             (lambda (mp) (*
+    ;;                           (cl-mpm/particle::mp-damage mp)
+    ;;                           (cl-mpm/particle::mp-pressure mp)))) (cl-mpm::sim-output-list *sim*))
     (cl-mpm/output:add-node-output
      *sim*
      :SCALAR
