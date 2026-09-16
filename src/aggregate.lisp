@@ -203,6 +203,44 @@
   ;;     (iterate-over-cell-patch-3d mesh position ring-size func))
   )
 
+;; (defun get-best-cell (mesh position
+;;                       &key (exclude nil)
+;;                         (filter (lambda (c) (declare (ignore c)) t)))
+;;   (let* ((closest-elem nil)
+;;          (dist 0d0)
+;;          (pos position))
+;;     (flet ((check-cell (cell)
+;;              (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+;;                               (index cl-mpm/mesh::cell-index)
+;;                               (centroid cl-mpm/mesh::cell-centroid)
+;;                               (active cl-mpm/mesh::cell-active)
+;;                               (volume cl-mpm/mesh::cell-volume)
+;;                               (volume-t cl-mpm/mesh::cell-volume-current)
+;;                               (agg cl-mpm/mesh::cell-agg)
+;;                               )
+;;                  cell
+;;                (when (and
+;;                       (cl-mpm/mesh::cell-active cell)
+;;                       (not (cl-mpm/mesh::cell-partial cell))
+;;                       (not (cl-mpm/mesh::cell-agg cell))
+;;                       ;; (> volume (* volume-t volume-ratio-min))
+;;                       (not (eq cell exclude))
+;;                       (funcall filter cell))
+;;                  (let ((dist-tr ;; (cl-mpm/fastmaths::diff-norm pos centroid)
+;;                          (/ volume volume-t)
+;;                                 ))
+;;                    (when (or
+;;                           (not closest-elem)
+;;                           (> dist dist-tr))
+;;                      (setf dist dist-tr
+;;                            closest-elem cell)))))))
+;;       (iterate-over-cell-patch
+;;        mesh
+;;        position
+;;        2
+;;        #'check-cell))
+;;     closest-elem))
+
 (defun get-closest-cell (mesh position
                          &key (exclude nil)
                            (filter (lambda (c) (declare (ignore c)) t)))
@@ -228,9 +266,8 @@
                       ;; (> volume (* volume-t volume-ratio-min))
                       (not (eq cell exclude))
                       (funcall filter cell))
-                 (let ((dist-tr (cl-mpm/fastmaths::diff-norm
-                                 pos
-                                 centroid)))
+                 (let ((dist-tr ;; (cl-mpm/fastmaths::diff-norm pos centroid)
+                         (/ volume volume-t)))
                    (when (or
                           (not closest-elem)
                           (> dist dist-tr))
@@ -352,51 +389,55 @@
              (cl-mpm/mesh::cell-aggregate-element node) nil
              (cl-mpm/mesh::cell-interior node) nil)))
 
-    ;;First set all outside nodes as aggregate
-    (cl-mpm::iterate-over-cells
-     mesh
-     (lambda (cell)
-       (with-accessors ((partial cl-mpm/mesh::cell-partial)
-                        (nodes cl-mpm/mesh::cell-nodes)
-                        (agg cl-mpm/mesh::cell-agg)
-                        (neighbours cl-mpm/mesh::cell-cartesian-neighbours)
-                        (volume cl-mpm/mesh::cell-volume)
-                        (active cl-mpm/mesh::cell-active))
-           cell
-         ;; (let ((volume-ratio-min 0.25d0)
-         ;;       (volume-t (expt (cl-mpm/mesh::mesh-resolution mesh) (cl-mpm/mesh:mesh-nd mesh))))
-         ;;   (when (< volume (* volume-t volume-ratio-min))
-         ;;     (setf agg t)))
-         (when (and active partial)
-           (setf agg t)
-           ;;Set all our neighbours to also be aggregate
-           (loop for n in neighbours
-                 do (setf (cl-mpm/mesh::cell-agg n) t))))))
-    ;;Next set any nodes on agg elements to be agg
-    (cl-mpm::iterate-over-cells
-     mesh
-     (lambda (cell)
-       (with-accessors ((nodes cl-mpm/mesh::cell-nodes)
-                        (agg cl-mpm/mesh::cell-agg)
-                        (active cl-mpm/mesh::cell-active))
-           cell
-         ;;Set all aggregated nodes
-         (when (and active agg)
-           (loop for n across nodes
-                 do (when (cl-mpm/mesh::node-active n)
-                      (setf (cl-mpm/mesh::node-agg n) t)))))))
+    ;; ;;First set all outside nodes as aggregate
+    ;; (cl-mpm::iterate-over-cells
+    ;;  mesh
+    ;;  (lambda (cell)
+    ;;    (with-accessors ((partial cl-mpm/mesh::cell-partial)
+    ;;                     (nodes cl-mpm/mesh::cell-nodes)
+    ;;                     (agg cl-mpm/mesh::cell-agg)
+    ;;                     (neighbours cl-mpm/mesh::cell-cartesian-neighbours)
+    ;;                     (volume cl-mpm/mesh::cell-volume)
+    ;;                     (active cl-mpm/mesh::cell-active))
+    ;;        cell
 
-    (when nil
-      (let ((volume-ratio 0.25d0))
+    ;;      ;; (let ((volume-ratio-min 0.5d0)
+    ;;      ;;       (volume-t (expt (cl-mpm/mesh::mesh-resolution mesh) (cl-mpm/mesh:mesh-nd mesh))))
+    ;;      ;;   (when (< volume (* volume-t volume-ratio-min))
+    ;;      ;;     (pprint "VRatio agg")
+    ;;      ;;     (setf agg t)))
+
+    ;;      (when (and active partial)
+    ;;        (setf agg t)
+    ;;        ;;Set all our neighbours to also be aggregate
+    ;;        (loop for n in neighbours
+    ;;              do (setf (cl-mpm/mesh::cell-agg n) t))))))
+    ;; ;;Next set any nodes on agg elements to be agg
+    ;; (cl-mpm::iterate-over-cells
+    ;;  mesh
+    ;;  (lambda (cell)
+    ;;    (with-accessors ((nodes cl-mpm/mesh::cell-nodes)
+    ;;                     (agg cl-mpm/mesh::cell-agg)
+    ;;                     (active cl-mpm/mesh::cell-active))
+    ;;        cell
+    ;;      ;;Set all aggregated nodes
+    ;;      (when (and active agg)
+    ;;        (loop for n across nodes
+    ;;              do (when (cl-mpm/mesh::node-active n)
+    ;;                   (setf (cl-mpm/mesh::node-agg n) t)))))))
+
+    (when t
+      (let ((volume-ratio 0.01d0))
         (cl-mpm::iterate-over-nodes
          mesh
          (lambda (node)
            (with-accessors ((active cl-mpm/mesh::node-active)
-                            (agg cl-mpm/mesh::node-agg))
+                            (agg cl-mpm/mesh::node-agg)
+                            (volume cl-mpm/mesh::node-volume)
+                            (volume-t cl-mpm/mesh::node-volume-true))
                node
-             (when (and active
-                        (< (cl-mpm/mesh::node-volume node)
-                           (* volume-ratio (cl-mpm/mesh::node-volume-true node))))
+             (declare (double-float volume volume-t volume-ratio))
+             (when (and active (< volume (* volume-ratio volume-t)))
                (setf (cl-mpm/mesh::node-agg node) t))))))
       (cl-mpm::iterate-over-cells
        mesh
@@ -406,8 +447,7 @@
                           (active cl-mpm/mesh::cell-active))
              cell
            ;;Set all aggregated nodes
-           (when (and active
-                      (not cell-agg))
+           (when (and active (not cell-agg))
              (let ((agg t))
                (loop for n across nodes
                      do (when (and (cl-mpm/mesh::node-active n)
