@@ -267,10 +267,10 @@
                       (not (eq cell exclude))
                       (funcall filter cell))
                  (let ((dist-tr ;; (cl-mpm/fastmaths::diff-norm pos centroid)
-                         (/ volume volume-t)))
+                         (/ volume-t volume)))
                    (when (or
                           (not closest-elem)
-                          (> dist dist-tr))
+                          (< dist dist-tr))
                      (setf dist dist-tr
                            closest-elem cell)))))))
       (iterate-over-cell-patch
