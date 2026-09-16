@@ -22,6 +22,8 @@
    #:fast-scale
    #:fast-zero
    #:fast-sum
+   #:fast-@-matrix-matrix
+   #:fast-@
    #:mag
    ))
 
@@ -1151,6 +1153,24 @@
                   )))))
   (values))
 
+(defun fast-@-matrix-n (&rest mats)
+  (let ((arg-c (length mats)))
+    (cond
+      ((= arg-c 1)
+       (first mats))
+      ((= arg-c 2)
+       (fast-@-matrix-matrix (first mats) (second mats)))
+      (t
+       (let* ((temp-1 (cl-mpm/utils:matrix-zeros))
+              (temp-2 (cl-mpm/utils:matrix-zeros))
+              (current temp-1)
+              (other temp-2))
+         (cl-mpm/utils:matrix-copy-into (first mats) temp-1)
+         (dolist (m (rest mats))
+           (fast-@-matrix-matrix current m other)
+           (rotatef current other))
+         current)))))
+
 (defun fast-@-matrix-vector (mat vec &optional res)
   (let ((res (if res
                  (fast-zero-vector res)
@@ -1274,6 +1294,9 @@
                   (magicl::ncols b)))))
     (@-arbt-arb-lisp a b res)
     res))
+
+(defun fast-@ (&rest mats)
+  (reduce #'fast-@-arb-arb mats))
 
 (defun fast-@-arb-arb (a b &key  (res nil) (multithreaded nil))
   (let ((res (if res

@@ -717,35 +717,7 @@
                  (incf oobf-num doobf-num)
                  (incf oobf-denom doobf-denom)
                  (incf power dpower)
-                 (incf energy denergy))))))
-        ;; (cl-mpm/aggregate::iterate-over-dimensions-serial
-        ;;  (cl-mpm/mesh::mesh-nd mesh)
-        ;;  (lambda (d)
-        ;;    (let* ((f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-internal-force d))
-        ;;           (f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
-        ;;           (E (cl-mpm/aggregate::sim-global-e sim))
-        ;;           (ma (cl-mpm/aggregate::sim-global-ma sim))
-        ;;           (vi (magicl:@ (cl-mpm/utils:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-velocity d)))
-        ;;           (disp (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-displacment d)))
-        ;;      (incf oobf-num (cl-mpm/fastmaths::mag-squared
-        ;;                      (cl-mpm/aggregate::apply-internal-bcs
-        ;;                       sim
-        ;;                       (magicl:@ (cl-mpm/utils:transpose E)
-        ;;                                 (cl-mpm/fastmaths::fast-.+
-        ;;                                  f-int
-        ;;                                  f-ext))
-        ;;                       d
-        ;;                       )))
-        ;;      (incf oobf-denom (cl-mpm/fastmaths::mag-squared
-        ;;                        (cl-mpm/aggregate::apply-internal-bcs
-        ;;                         sim
-        ;;                         (magicl:@ (cl-mpm/utils:transpose E) f-ext)
-        ;;                         d)))
-        ;;      (incf power (cl-mpm/fastmaths:dot
-        ;;                   disp f-ext))
-        ;;      (incf energy (* 0.5d0 (cl-mpm/utils::mtref (magicl:@ (cl-mpm/utils:transpose vi) ma vi) 0 0)))
-        ;;      )))
-        )
+                 (incf energy denergy)))))))
       (let ((oobf 0d0)
             (oobf-num (sqrt oobf-num))
             (oobf-denom (sqrt oobf-denom))

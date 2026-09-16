@@ -165,15 +165,14 @@
                             collect
                             (let* ((rot (cl-mpm/utils::rotation-matrix angle))
                                    (origin-vec (cl-mpm/utils:vector-from-list offset))
-                                   (position-vec (magicl:from-list (list (* (nth 0 spacing) x)
+                                   (position-vec (cl-mpm/utils:vector-from-list (list (* (nth 0 spacing) x)
                                                                          (* (nth 1 spacing) y)
-                                                                         (* (nth 2 spacing) z))
-                                                               '(3 1) :type 'double-float))
-                               (size-vec (magicl:from-list spacing '(3 1) :type 'double-float))
+                                                                         (* (nth 2 spacing) z))))
+                               (size-vec (cl-mpm/utils:vector-from-list spacing))
                                (position-vec (cl-mpm/fastmaths::fast-.+ origin-vec
-                                                        (magicl:@ rot position-vec)))
+                                                        (cl-mpm/fastmaths::fast-@-matrix-vector rot position-vec)))
                                )
-                          (flet ((lisp-list (m) (loop for i from 0 to 2 collect (magicl:tref m i 0))))
+                          (flet ((lisp-list (m) (loop for i from 0 to 2 collect (cl-mpm/utils:varef m i))))
                             (apply #'cl-mpm::make-particle
                                    (append (list 3 constructor)
                                            args
@@ -211,21 +210,6 @@
   (let*  ((data (apply #'make-block-mps-list offset size mps constructor args)))
     (make-mps-from-list data)))
 
-
-(defun make-column-mps (size mp-spacing constructor &rest args)
-  (let* ((mp-spacing-x (first mp-spacing))
-        (mp-spacing-y (second mp-spacing))
-        (data (loop for i from 0 to (- size 1) collect
-                    (apply constructor (append '(2) args
-                                               (list
-                                                 :position (list (/ mp-spacing-x 2d0)
-                                                            (+ (/ mp-spacing-y 2d0) (* mp-spacing-y i)))
-                                                 :volume (* mp-spacing-x mp-spacing-y)
-                                                 :size (magicl:from-list (list mp-spacing-x mp-spacing-y) '(2 1))))))))
-    (make-array (length data) :initial-contents data)))
-
-(defun make-column-mps-elastic (element-count spacing E nu)
-  (make-column-mps element-count spacing 'cl-mpm::make-particle-elastic E nu))
 
 (defun node-to-mp-pos (position res mps)
   (mapcar #'+ (list (* res (+ (/ 1 (* 2 mps))))
@@ -373,10 +357,10 @@
 
 (defun rectangle-sdf (position size)
   (lambda (pos)
-    (let* ((pos (magicl:from-list (list (varef pos 0) (varef pos 1)) '(2 1) :type 'double-float))
-           (position (magicl:from-list position '(2 1) :type 'double-float))
-           (size-vec (magicl:from-list size '(2 1) :type 'double-float))
-           (dist-vec (magicl:.- (magicl:map! #'abs (magicl:.- pos position)) size-vec)))
+    (let* ((pos (cl-mpm/utils:vector-from-list (list (varef pos 0) (varef pos 1) 0d0)))
+           (position (cl-mpm/utils:vector-from-list (list (first position) (second position) 0d0)))
+           (size-vec (cl-mpm/utils:vector-from-list (list (first size) (second size) 0d0)))
+           (dist-vec (cl-mpm/fastmaths::fast-.- (magicl:map! #'abs (cl-mpm/fastmaths::fast-.- pos position)) size-vec)))
       (+
        (sqrt (magicl::sum (magicl:map (lambda (x) (let ((x (max 0d0 x))) (* x x))) dist-vec)))
        (min 0d0
@@ -386,7 +370,7 @@
 (defun guassian-sdf (position sigma shift  &key (transform-matrix (cl-mpm/utils:matrix-eye 1d0)))
   (let ((pos-vec (cl-mpm/utils:vector-from-list position)))
     (lambda (pos)
-      (let* ((dist-vec (magicl:@ transform-matrix (magicl:.- pos-vec pos)))
+      (let* ((dist-vec (cl-mpm/fastmaths::fast-@-matrix-vector transform-matrix (cl-mpm/fastmaths:fast-.- pos-vec pos)))
              (distance (cl-mpm/fastmaths::mag dist-vec)))
         (- (- (exp (- (expt (/ distance (* (sqrt 2) sigma)) 2))) shift))))))
 
@@ -395,7 +379,7 @@
         (pos-vec (cl-mpm/utils:vector-from-list position)))
     (lambda (pos)
       (let* ((dist-vec (cl-mpm/fastmaths::fast-.*
-                        (magicl:@ transform-matrix (magicl:.- pos-vec pos))
+                        (cl-mpm/fastmaths::fast-@-matrix-vector transform-matrix (cl-mpm/fastmaths:fast-.- pos-vec pos))
                         (cl-mpm/utils:vector-from-list (list 1d0 aspect 1d0))))
              (distance (cl-mpm/fastmaths:mag dist-vec)))
         (- distance x-l)))))
@@ -406,12 +390,12 @@
 (defun line-sdf (position a b width)
   (let* ((start (vector-from-list a))
          (end (vector-from-list b))
-         (pa (magicl:.- position start))
-         (ba (magicl:.- end start))
+         (pa (cl-mpm/fastmaths:fast-.- position start))
+         (ba (cl-mpm/fastmaths:fast-.- end start))
          (h (min 1d0 (max 0d0 (/ (cl-mpm/fastmaths::dot pa ba)
                                  (cl-mpm/fastmaths::dot ba ba)
                                  ))))
-         (v (magicl:.- pa (magicl:scale ba h))))
+         (v (cl-mpm/fastmaths:fast-.- pa (cl-mpm/fastmaths::fast-scale ba h))))
     (- (sqrt (cl-mpm/fastmaths::dot v v)) width)))
 (defun plane-sdf (position normal distance)
   (- distance (cl-mpm/fastmaths::dot position (cl-mpm/fastmaths::norm normal))))

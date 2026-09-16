@@ -54,9 +54,10 @@
                    do
                       (setf (nth i l) (max (nth i l) 0d0)))
              (cl-mpm/utils:matrix-to-voigt
-              (magicl:@ v
-                        (cl-mpm/utils::matrix-from-diag l)
-                        (cl-mpm/utils:transpose v)))))
+              (cl-mpm/fastmaths::fast-@-matrix-n
+               v
+               (cl-mpm/utils::matrix-from-diag l)
+               (cl-mpm/utils:transpose v)))))
 
          (i1 (cl-mpm/utils:trace-voigt strain))
          (j2
@@ -184,30 +185,6 @@
           (sqrt (* E (max 0d0 (- (/ (- se_1 se_0) ddamage))))))
         0d0)))
 
-;; (let* ((strain (cl-mpm/utils:voigt-from-list (list
-;;                                               1d0 1d0 1d0
-;;                                               0d0 0d0 1d0
-;;                                               )))
-;;        (E 1d0)
-;;        (nu 0d0)
-;;        (de (cl-mpm/constitutive::linear-elastic-matrix E nu))
-;;        (stress (magicl:@ de strain))
-;;        (kt-r 1d0)
-;;        (kc-r 1d0)
-;;        (g-r 1d0))
-;;   ;; (pprint (degredation-function stress
-;;   ;;                               0.1d0
-;;   ;;                               1d0
-;;   ;;                               1d0
-;;   ;;                               1d0
-;;   ;;                               ))
-;;   (pprint (* 0.5d0
-;;              (cl-mpm/fastmaths:dot
-;;               stress
-;;               strain)))
-;;   ;(pprint (criterion-y stress strain damage E kt-r kc-r g-r))
-;;   (pprint (volumetric-deviatoric-norm strain E nu kt-r kc-r g-r))
-;;   )
 
 
 (defun criterion-dp-shear-coheasion (stress angle)
@@ -555,10 +532,10 @@
                    do
                       (setf (nth i l) (max (nth i l) 0d0)))
              (cl-mpm/utils:matrix-to-voigt
-              (magicl:@ v
+              (cl-mpm/fastmaths::fast-@-matrix-n v
                         (cl-mpm/utils::matrix-from-diag l)
                         (cl-mpm/utils:transpose v))))))
-    (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain+ (magicl:@ de strain+)))))
+    (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain+ (cl-mpm/fastmaths::fast-@-arb-arb de strain+)))))
     ))
 
 (defun tensile-energy-norm-pressure (strain E nu de pressure)
@@ -570,11 +547,11 @@
                    do
                       (setf (nth i l) (max (+ (nth i l) ep) 0d0)))
              (cl-mpm/utils:matrix-to-voigt
-              (magicl:@
+              (cl-mpm/fastmaths::fast-@-matrix-n
                v
                (cl-mpm/utils::matrix-from-diag l)
                (cl-mpm/utils:transpose v))))))
-    (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain+ (magicl:@ de strain+)))))))
+    (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain+ (cl-mpm/fastmaths::fast-@-arb-arb de strain+)))))))
 
 (declaim (ftype (function (magicl::matrix/double-float double-float) double-float)
                 criterion-mohr-coloumb-rankine-stress-tensile))
