@@ -270,15 +270,20 @@
                          (/ volume-t volume)))
                    (when (or
                           (not closest-elem)
-                          (< dist dist-tr))
+                          (> dist dist-tr))
                      (setf dist dist-tr
                            closest-elem cell)))))))
       (iterate-over-cell-patch
        mesh
        position
-       2
+       1
        #'check-cell)
       (unless closest-elem
+        (iterate-over-cell-patch
+         mesh
+         position
+         2
+         #'check-cell)
         ;; (iterate-over-cell-patch
         ;;  mesh
         ;;  position
