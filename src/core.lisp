@@ -130,6 +130,29 @@
      (lambda (cell)
        (filter-cell mesh cell dt)))))
 
+(defun update-cell-volumes (mesh cell dt)
+  "Update cell data, useful for ghost penalty"
+  (when t ;; (and (cl-mpm/mesh::cell-active cell))
+    (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                     (active cl-mpm/mesh::cell-active)
+                     (partial cl-mpm/mesh::cell-partial)
+                     (neighbours cl-mpm/mesh::cell-neighbours)
+                     (index cl-mpm/mesh::cell-index)
+                     (nodes cl-mpm/mesh::cell-nodes)
+                     (df cl-mpm/mesh::cell-deformation-gradient)
+                     (disp cl-mpm/mesh::cell-displacement)
+                     (centroid cl-mpm/mesh::cell-centroid)
+                     (trial-pos cl-mpm/mesh::cell-trial-centroid))
+        cell
+      (setf (cl-mpm/mesh::cell-volume-current cell) 0d0)
+      (cl-mpm::iterate-over-neighbours-point-linear
+       mesh
+       centroid
+       (lambda (mesh node weight grads)
+         (declare (double-float weight))
+         (when (cl-mpm::node-active node)
+           (incf (cl-mpm/mesh::cell-volume-current cell) (* weight (cl-mpm/mesh::node-volume node)))))))))
+
 (defun update-cell (mesh cell dt)
   "Update cell data, useful for ghost penalty"
   (when (and

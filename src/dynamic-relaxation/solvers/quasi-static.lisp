@@ -234,6 +234,7 @@
     (cl-mpm::apply-essential-bcs sim)
     ;; (cl-mpm::compact-mesh-active sim)
     (cl-mpm::filter-cells sim)
+    ;; (cl-mpm::update-cells sim)
     (when ghost-factor
       (cl-mpm/ghost::build-ghost-cache sim))
     (cl-mpm::apply-essential-bcs sim)
