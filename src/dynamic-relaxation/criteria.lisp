@@ -182,8 +182,7 @@
          (lambda (&rest args)
            (if args
                (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) (first args) (second args))
-               (list 0d0 0d0 0d0 0d0))
-           ))
+               (list 0d0 0d0 0d0 0d0))))
       (declare (double-float energy oobf-num oobf-denom power))
       (when sim-agg
         (cl-mpm/aggregate::iterate-over-dimensions-with-mutex
@@ -192,12 +191,11 @@
            (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))
                   (f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
                   (f-rct (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-reaction-force d))
-                  ;; (f-ext (cl-mpm/fastmaths::fast-.+ f-ext f-rct))
                   (ma (cl-mpm/aggregate::sim-global-ma sim))
                   (mv (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-mass))
                   (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d))
-                  (disp (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-displacment d)))
-
+                  (disp (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-displacment d))
+                  )
              (let ((doobf-num (cl-mpm/fastmaths::mag-squared
                                ;; res
                                (cl-mpm/aggregate::aggregate-vec sim res d)

@@ -17,9 +17,15 @@
                           (max-damage-inc 0.6d0)
                           (max-plastic-inc 10d0)
                           (max-deformation-gradient 10d0)
+                          (min-tangent-ratio 1d-2)
                           (stagger-damage nil)
                           (plotter (lambda (sim))))
-  (let ((total-i 0))
+  (let ((total-i 0)
+        (r-0 nil)
+        (r-n nil)
+        (r-n1 nil)
+        (t0 nil)
+        (rsteps 0))
     (handler-bind
         ((cl-mpm/errors:error-simulation
            (lambda (c)
@@ -36,7 +42,6 @@
         (progn
           (let* ((oobf-crit   conv-criteria)
                  (energy-crit 1d0)
-                 ;; (crit (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
                  (damage-crit conv-criteria-damage)
                  (dconv (if enable-damage damage-crit 0d0))
                  (stagger-iters 0))
@@ -68,6 +73,33 @@
                                      :conv-steps sub-conv-steps
                                      :convergance-criteria
                                      (lambda (sim f o)
+                                       (format t "Data ~A ~A ~A ~A~%" o r-n r-n1 t0)
+                                       (if r-n
+                                           (progn
+                                             (unless t0
+                                               (setf t0 (/ (- o r-n) substeps)))
+                                             (rotatef r-n r-n1)
+                                             (setf r-n o)
+                                             (when (= t0 0d0)
+                                               (setf r-n nil)
+                                               (setf r-n1 nil)
+                                               (setf t0 nil)))
+                                           (setf r-n o))
+
+                                       (when (and r-n r-n1)
+                                         (let* ((tn (/ (- r-n r-n1) substeps))
+                                                (ratio (/ tn t0)))
+                                           (format t "Current tangent ~E - initial tangent ~E - ratio ~E~%"
+                                                   tn
+                                                   t0
+                                                   ratio)
+                                           (when (or (< ratio min-tangent-ratio)
+                                                     (and
+                                                      (> tn 0d0)
+                                                      (> t0 0d0)))
+                                             (format t "Current tangent dropped below specified ratio~%")
+                                             (error 'cl-mpm/errors::error-simulation)
+                                             )))
                                        (setf dconv (compute-damage-delta sim))
                                        (and
                                         (convergence-criteria sim)
@@ -114,6 +146,13 @@
                                        ;;     (setf dconv dconv-1)))
                                        (refine-mesh sim)))
                                     (when enable-damage
+                                      (unless (cl-mpm:sim-enable-damage sim)
+                                        (setf
+                                         r-n nil
+                                         r-n1 nil
+                                         r-0 nil
+                                         t0 nil
+                                         rsteps 0))
                                       (setf (cl-mpm:sim-enable-damage sim) enable-damage)
                                       (cl-mpm/damage::calculate-damage
                                        sim

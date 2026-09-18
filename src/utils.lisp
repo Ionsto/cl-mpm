@@ -97,9 +97,6 @@
 
 (defun svd (mat)
   (multiple-value-bind (u s vt) (magicl:svd mat)
-    ;; (pprint u)
-    ;; (pprint s)
-    ;; (pprint vt)
     (values (ensure-column-major u) (ensure-column-major s) (ensure-column-major vt))))
 
 (declaim (inline eig)
@@ -821,30 +818,24 @@
 (declaim (inline stretch-to-skew)
          (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) stretch-to-skew))
 (defun stretch-to-skew (stretch result)
-  ;; (magicl:.- stretch (cl-mpm/utils:transpose stretch) result)
-  ;; (loop for i from 0 below 3
-  ;;       do
-  ;;          (setf (mtref result  i 0) 0d0))
-  ;; (unless result
-  ;;   (setf result (cl-mpm/utils:voigt-zeros)))
-  (setf (mtref result  0 0)
-        0)
-  (setf (mtref result  1 0)
-        0)
-  (setf (mtref result  2 0)
-        0)
+  (setf (varef result 0)
+        0d0)
+  (setf (varef result 1)
+        0d0)
+  (setf (varef result 2)
+        0d0)
   ;; Since off diagonal components get halved, then voigt doubles them this is net 1d0
-  (setf (mtref result 3 0)
+  (setf (varef result 3)
         (- (the double-float (mtref stretch 2 1))
-                  (the double-float (mtref stretch 1 2))))
-  (setf (mtref result 4 0)
+           (the double-float (mtref stretch 1 2))))
+  (setf (varef result 4)
         (- (the double-float (mtref stretch 0 2))
-                  (the double-float (mtref stretch 2 0))))
-  (setf (mtref result 5 0)
+           (the double-float (mtref stretch 2 0))))
+  (setf (varef result 5)
         (- (the double-float (mtref stretch 0 1))
-                  (the double-float (mtref stretch 1 0))))
+           (the double-float (mtref stretch 1 0))))
 
-  (values))
+  result)
 
 
 (declaim
@@ -1023,8 +1014,11 @@
 (defun object-pool-grab (pool)
   (let ((thread-index (get-worker-index)))
     (progn
-      (when (>= (lparallel:kernel-worker-count) (length (object-pool-pool pool)))
-        (pprint "Rebuilt pool")
+      (when (> ;; (lparallel:kernel-worker-count)
+               (get-worker-size)
+               (length (object-pool-pool pool)))
+        (format t "~D - ~D ~%" (get-worker-size) (length (object-pool-pool pool)))
+        (format t "Rebuilt object pool~%")
         (rebuild-object-pool pool))
       (aref (object-pool-pool pool) thread-index))))
 
@@ -1038,17 +1032,19 @@
   (let ((ws (get-worker-size)))
     (when (> ws (length (object-pool-pool pool)))
       ;;Trigger a re-build
-      (sb-thread:with-mutex ((object-pool-lock pool))
-        (when (> ws (length (object-pool-pool pool)))
-          (let* ((prev-pool (object-pool-pool pool))
-                 (wc (the fixnum ws))
-                 (new-pool (make-array (1+ wc) :element-type t)))
-            (loop for i from 0 below (length new-pool)
-                  do (setf (aref new-pool i)
-                           (if (< i (length prev-pool))
-                               (aref prev-pool i)
-                               (funcall (object-pool-constructor pool)))))
-            (setf (object-pool-pool pool) new-pool)))))))
+      (rebuild-object-pool pool)
+      ;; (sb-thread:with-mutex ((object-pool-lock pool))
+      ;;   (when (> ws (length (object-pool-pool pool)))
+      ;;     (let* ((prev-pool (object-pool-pool pool))
+      ;;            (wc (the fixnum ws))
+      ;;            (new-pool (make-array (1+ wc) :element-type t)))
+      ;;       (loop for i from 0 below (length new-pool)
+      ;;             do (setf (aref new-pool i)
+      ;;                      (if (< i (length prev-pool))
+      ;;                          (aref prev-pool i)
+      ;;                          (funcall (object-pool-constructor pool)))))
+      ;;       (setf (object-pool-pool pool) new-pool))))
+      )))
 
 (defun get-worker-index ()
   (let ((ls (or (lparallel:kernel-worker-index)
@@ -1062,6 +1058,35 @@
     (aref (object-pool-pool pool) thread-index)))
 
 
+;; (defmacro make-with-object-pool (name construtor)
+;;   `(defmacro ,name (&body func)
+;;        (let ((pool-sym (gensym))
+;;              (pool-count 0))
+;;          (let ((new-func
+;;                  (sb-walker::walk-form
+;;                   (first func)
+;;                   nil
+;;                   (lambda (subform context env)
+;;                     (typecase subform
+;;                       (list
+;;                        (cond
+;;                          ((string= (first subform) 'GRAB-NEW);(equal (first subform) 'GRAB-NEW)
+;;                           (incf pool-count)
+;;                           ``(aref (cl-mpm/utils::object-pool-grab ,,pool-sym) ,,(- pool-count 1)))
+;;                          (t subform)))
+;;                       (t subform))))))
+;;            ``(let ((,,pool-sym
+;;                      (cl-mpm/utils::make-object-pool
+;;                       :constructor (lambda ()
+;;                                      (make-array ,,pool-count
+;;                                                  :initial-contents
+;;                                                  (loop repeat ,,pool-count
+;;                                                        collect ,constructor))))))
+;;                ,,new-func
+;;               )))))
+
+;; (make-with-object-pool with-arb-pool (arb-vector 0))
+;; (make-with-object-pool with-vector-pool (vector-zeros))
 
 (defmacro with-arb-pool (&body func)
   (let ((pool-sym (gensym))
@@ -1086,6 +1111,57 @@
                                            :initial-contents
                                            (loop repeat ,pool-count
                                                  collect (cl-mpm/utils::arb-vector 0)))))))
+         ,new-func
+         ))))
+(defmacro with-vector-pool (&body func)
+  (let ((pool-sym (gensym))
+        (pool-count 0))
+    (let ((new-func
+            (sb-walker::walk-form
+                     (first func)
+                     nil
+                     (lambda (subform context env)
+                       (typecase subform
+                         (list
+                          (cond
+                            ((string= (first subform) 'GRAB-NEW-VECTOR);(equal (first subform) 'GRAB-NEW)
+                             (incf pool-count)
+                             `(aref (cl-mpm/utils::object-pool-grab ,pool-sym) ,(- pool-count 1)))
+                            (t subform)))
+                         (t subform))))))
+      `(let ((,pool-sym
+               (cl-mpm/utils::make-object-pool
+                :constructor (lambda ()
+                               (make-array ,pool-count
+                                           :initial-contents
+                                           (loop repeat ,pool-count
+                                                 collect (cl-mpm/utils::vector-zero)))))))
+         ,new-func
+         ))))
+
+(defmacro with-voigt-pool (&body func)
+  (let ((pool-sym (gensym))
+        (pool-count 0))
+    (let ((new-func
+            (sb-walker::walk-form
+                     (first func)
+                     nil
+                     (lambda (subform context env)
+                       (typecase subform
+                         (list
+                          (cond
+                            ((string= (first subform) 'GRAB-NEW-VOIGT);(equal (first subform) 'GRAB-NEW)
+                             (incf pool-count)
+                             `(aref (cl-mpm/utils::object-pool-grab ,pool-sym) ,(- pool-count 1)))
+                            (t subform)))
+                         (t subform))))))
+      `(let ((,pool-sym
+               (cl-mpm/utils::make-object-pool
+                :constructor (lambda ()
+                               (make-array ,pool-count
+                                           :initial-contents
+                                           (loop repeat ,pool-count
+                                                 collect (cl-mpm/utils::voigt-zero)))))))
          ,new-func
          ))))
 
@@ -1467,13 +1543,7 @@
                     (sb-thread:make-thread
                      (lambda (thread-number current-age)
                        (declare (fixnum current-age))
-                       (let (;; (lparallel.kernel::*worker*
-                             ;;   (lparallel.kernel::make-worker-instance
-                             ;;    :thread nil
-                             ;;    :tasks (lparallel.kernel::make-spin-queue)
-                             ;;    :index thread-number))
-                             (*worker-index* thread-number)
-                             )
+                       (let ((*worker-index* thread-number))
                          (loop
                            while (not *workers-kill*)
                            do
@@ -1486,29 +1556,15 @@
                                         (handler-bind
                                             ((error
                                                (lambda (c)
-                                                 ;; (trivial-backtrace:print-backtrace c)
                                                  (format t "Thread threw error: ~a~%" c)
                                                  (sb-thread:with-mutex (*worker-error-lock*)
                                                    (setf *workers-nesting* nil)
-                                                   ;; (trivial-backtrace:print-backtrace c)
                                                    (format t "Thread threw error: ~a~%" c)
                                                    (push c *worker-error-list*))
                                                  (return-from trial-exec))))
                                           (let ((iter (sb-ext:atomic-incf (aref *workers-counter* 0))))
                                             (when (< iter *workers-chunk-count*)
-                                              (funcall *workers-func* iter)))))
-                                      ;; (handler-case
-                                      ;;     (let ((iter (sb-ext:atomic-incf (aref *workers-counter* 0))))
-                                      ;;       (when (< iter *workers-chunk-count*)
-                                      ;;         (funcall *workers-func* iter)))
-                                      ;;   (error (c)
-                                      ;;     (format t "Thread threw error: ~a~%" c)
-                                      ;;     (sb-thread:with-mutex (*worker-error-lock*)
-                                      ;;       (setf *workers-nesting* nil)
-                                      ;;       (trivial-backtrace:print-backtrace c)
-                                      ;;       (format t "Thread threw error: ~a~%" c)
-                                      ;;       (push c *worker-error-list*))))
-                                      ))
+                                              (funcall *workers-func* iter)))))))
                                   (sb-thread:signal-semaphore *workers-run*))
                                 (sb-thread:signal-semaphore *workers-finish*)
                                 )))
@@ -1595,8 +1651,7 @@
           total-size
           ,job-sym
           :parts (get-parts)
-          ))))
-  )
+          )))))
 
 
 (defun resize-vector (mat size)

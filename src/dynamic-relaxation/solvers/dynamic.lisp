@@ -370,12 +370,9 @@
     (cl-mpm::apply-essential-bcs sim)
 
     (cl-mpm::apply-force-bcs sim dt-loadstep)
-    (cl-mpm::update-stress mesh mps (* 1d0 dt-loadstep) fbar)
+    (cl-mpm::update-stress mesh mps dt-loadstep fbar)
     (cl-mpm/damage::calculate-damage sim dt-loadstep)
 
-    ;; (cl-mpm::apply-force-bcs sim (* 1d0 dt-loadstep))
-    ;; (cl-mpm::update-stress mesh mps (* 1d0 dt-loadstep) fbar)
-    ;; (cl-mpm/damage::calculate-damage sim (* 1d0 dt-loadstep))
     (cl-mpm::p2g-force-fs sim)
     ;; (when ghost-factor
     ;;   (cl-mpm/ghost::apply-ghost sim ghost-factor)
@@ -387,8 +384,6 @@
     (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-nodes sim)
     (cl-mpm::update-filtered-cells sim)
-    ;; (cl-mpm::update-dynamic-stats sim)
-    ;; (cl-mpm::g2p mesh mps 1d0 0d0 :TRIAL)
     (cl-mpm::update-dynamic-stats sim)
     (incf solve-count)))
 

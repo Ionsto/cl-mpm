@@ -614,10 +614,11 @@
                         :density (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))
                         :mesh mesh)
                        (bc-penalty-contact-points bc)))
-                    (setf (cl-mpm/particle::mp-penalty-stiffness mp)
-                          (max
-                           (cl-mpm/particle::mp-penalty-stiffness mp)
-                           (* epsilon (+ 2d0 friction)))))
+                    ;; (setf (cl-mpm/particle::mp-penalty-stiffness mp)
+                    ;;       (max
+                    ;;        (cl-mpm/particle::mp-penalty-stiffness mp)
+                    ;;        (* epsilon (+ 2d0 friction))))
+                    )
                   normal-force))
               0d0))))))
 
@@ -761,10 +762,11 @@
                           :density (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))
                           :mesh mesh)
                          (bc-penalty-contact-points bc)))
-                      (setf (cl-mpm/particle::mp-penalty-stiffness mp)
-                            (max
-                             (cl-mpm/particle::mp-penalty-stiffness mp)
-                             (* epsilon (+ 2d0 friction)))))
+                      ;; (setf (cl-mpm/particle::mp-penalty-stiffness mp)
+                      ;;       (max
+                      ;;        (cl-mpm/particle::mp-penalty-stiffness mp)
+                      ;;        (* epsilon (+ 2d0 friction))))
+                      )
                     normal-force))
                 0d0))))))
 )
@@ -1298,15 +1300,13 @@
 
 (defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc cl-mpm/penalty::bc-penalty))
   (let* ((mesh (cl-mpm:sim-mesh sim))
-         (mps (cl-mpm:sim-mps sim))
-         (nd (cl-mpm/mesh::mesh-nd mesh))
-         (stiffness-scale (bc-penalty-stiffness-scale bc))
-         )
-    (let ((contacts (get-contact-points bc)))
+         (stiffness-scale (bc-penalty-stiffness-scale bc)))
+    (let* ((contacts (get-contact-points bc))
+           (contact-count (length contacts)))
       ;; (format t "Contacts ~D~%" (length contacts))
-      (when (> (length contacts) 0)
+      (when (> contact-count 0)
         ;; (format t "Contacts ~D~%" (length (bc-penalty-contact-points bc)))
-        (cl-mpm/utils::bpdotimes (i (length contacts))
+        (cl-mpm/utils::bpdotimes (i contact-count)
           (let ((contact (aref contacts i)))
             (iterate-over-neighbours-point-linear
              mesh
@@ -1317,17 +1317,19 @@
                                 (node-mass cl-mpm/mesh::node-mass)
                                 (node-lock cl-mpm/mesh::node-lock))
                    node
-                 (declare (double-float node-mass node-volume svp))
+                 (declare (double-float node-mass node-volume svp node-mass stiffness-scale svp))
                  (when node-active
                    (sb-thread:with-mutex (node-lock)
                      (setf
                       node-mass
                       (+
                        node-mass
-                       (*
-                        stiffness-scale
-                        svp
-                        (dr-contact-point-stiffness contact)))))))))))))))
+                       (the double-float
+                            (*
+                             stiffness-scale
+                             svp
+                             (the double-float
+                                  (dr-contact-point-stiffness contact)))))))))))))))))
 
 (declaim (notinline assemble-penalty-stiffness-matrix))
 (defun assemble-penalty-stiffness-matrix (sim)
@@ -1383,12 +1385,21 @@
 
 (declaim (notinline reset-penalty))
 (defun reset-penalty (sim)
+  (declare (cl-mpm::mpm-sim sim))
   ;; (setf (fill-pointer (bc-penalty-contact-points bc)) 0)
   (cl-mpm:iterate-over-mps
    (sim-mps sim)
    (lambda (mp)
-     (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-penalty-frictional-force mp))
-     (setf (cl-mpm/particle::mp-penalty-stiffness mp) (* 0.99d0 (cl-mpm/particle::mp-penalty-stiffness mp))))))
+     (with-accessors (;; (pen-stiff cl-mpm/particle::mp-penalty-stiffness)
+                      )
+         mp
+       ;; (declare (double-float pen-stiff))
+       (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-penalty-frictional-force mp))
+       ;; (setf pen-stiff
+       ;;       (* 0.99d0
+       ;;          (the double-float
+       ;;               pen-stiff)))
+       ))))
 
 ;; (defun finalise-penalty (sim)
 ;;   (cl-mpm:iterate-over-mps

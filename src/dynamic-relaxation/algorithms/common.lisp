@@ -156,6 +156,7 @@
                                       (max-damage-inc 0.6d0)
                                       (max-plastic-inc 1d0)
                                       (max-deformation-gradient 10d0)
+                                      (min-tangent-ratio 1d-3)
                                       (damping 1d0)
                                       (staggered-steps 500)
                                       (sub-conv-steps 50)
@@ -170,7 +171,12 @@
          (energy-crit 1d0)
          (damage-crit crit)
          (dconv damage-crit)
-         (total-i 0))
+         (total-i 0)
+         (r-0 nil)
+         (r-n nil)
+         (r-n1 nil)
+         (rsteps 0)
+         )
     (setf
      (cl-mpm/dynamic-relaxation::sim-convergence-critera sim) crit
      (cl-mpm:sim-enable-damage sim) nil)
@@ -202,6 +208,17 @@
                                :substeps substeps
                                :convergance-criteria
                                (lambda (sim f o)
+                                 (if r-0
+                                     (if r-n
+                                         (progn
+                                           (rotatef r-n r-n1)
+                                           (setf r-n o))
+                                         (setf r-n o))
+                                     (setf r-0 o))
+                                 (incf rsteps)
+                                 (when (and r-n r-n1)
+                                   (let ()
+                                     (format t "Current tangent ~E - secant ~E~%" (- r-n r-n1) (/ (- r-0 r-n)))))
                                  (if convergence-criteria
                                      (funcall convergence-criteria sim)
                                      (and

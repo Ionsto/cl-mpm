@@ -11,18 +11,14 @@
            (expt
             (/
              ;; (the double-float (max 0d0 (- y (max k k0))))
-             (the double-float (max 0d0 (- y (max k))))
-             ;; (the double-float (max 0d0 (- y k)))
+             ;; (the double-float (max 0d0 (- y (max k))))
+             (the double-float (max 0d0 (- y k)))
              (max
               k0
               (sqrt
                (*
                 k0
-                k))
-              )
-             ;; (max
-             ;;  k0
-             ;;  k)
+                k)))
              ) n)))
    tau))
 

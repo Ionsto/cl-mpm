@@ -915,13 +915,15 @@
                    (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (p-mod cl-mpm/particle::mp-p-modulus))
       mp
+    ;; (apply-gill-damage mp)
     (apply-vol-pressure-degredation
      mp
      dt
      (*
       -1d0
       (cl-mpm/particle::mp-biot-coefficent mp)
-      (/ p 1)))))
+      (/ p 1)))
+    ))
 
 
 (defmethod cl-mpm/particle::compute-mp-energy-release ((mp cl-mpm/particle::particle-ice-brittle))

@@ -713,9 +713,11 @@ Calls the function with the mesh mp and node"
 
 ;; (declaim (notinline length-localisation))
 (defun length-localisation (local-length local-length-damaged damage)
+  (declare (double-float local-length local-length-damaged damage)
+           (ignore local-length-damaged))
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
   ;; (* local-length (max (- 1d0 damage) 1d-10))
-  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  (* local-length (max (the double-float (sqrt (- 1d0 damage))) 1d-10))
   ;; (* local-length (max (expt (- 1d0 damage) 2) 1d-10))
   ;; (* local-length (max (- 1d0 damage) 1d-10))
   ;; local-length
@@ -817,10 +819,11 @@ Calls the function with the mesh mp and node"
      mps
      (lambda (mp)
        (when (typep mp 'cl-mpm/particle:particle-damage)
-         (let (;; (stress (cl-mpm/particle::mp-undamaged-stress mp))
-               (stress (cl-mpm/constitutive::linear-elastic-mat
-                        (cl-mpm/particle::mp-strain-n mp)
-                        (cl-mpm/particle::mp-elastic-matrix mp))))
+         (let ((stress (cl-mpm/particle::mp-undamaged-stress mp))
+               ;; (stress (cl-mpm/constitutive::linear-elastic-mat
+               ;;          (cl-mpm/particle::mp-strain-n mp)
+               ;;          (cl-mpm/particle::mp-elastic-matrix mp)))
+               )
            (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils::voight-to-matrix stress))
              (setf (cl-mpm/particle::mp-stress-eigenvalues mp) l)
              (setf (cl-mpm/particle::mp-stress-eigenvectors mp) v))))))

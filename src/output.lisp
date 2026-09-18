@@ -659,8 +659,8 @@
 
               ;; (save-parameter-cells "volume-c" (cl-mpm/mesh::cell-volume-current cell))
               ;; (save-parameter-cells "volume" (cl-mpm/mesh::cell-volume cell))
-              ;; (save-parameter-cells "volume-ratio" (/ (cl-mpm/mesh::cell-volume-current cell)
-              ;;                                         (cl-mpm/mesh::cell-volume cell)))
+              (save-parameter-cells "volume-ratio" (/ (cl-mpm/mesh::cell-volume-current cell)
+                                                      (cl-mpm/mesh::cell-volume cell)))
               (save-parameter-cells "active" (if (cl-mpm/mesh::cell-active cell) 1 0))
               (save-parameter-cells "partial" (if (cl-mpm/mesh::cell-partial cell) 1 0))
               (save-parameter-cells "ghost" (if (cl-mpm/mesh::cell-ghost-element cell) 1 0))

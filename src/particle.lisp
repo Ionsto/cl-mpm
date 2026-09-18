@@ -88,6 +88,15 @@
 ;;       ))
 
 ;;   )
+;; (defstruct particle-core
+;;   (position (cl-mpm/utils:vector-zeros) :type MAGICL:MATRIX/DOUBLE-FLOAT)
+;;   (size
+;;     :type magicl:matrix/double-float
+;;     :initarg :size
+;;     :initform (cl-mpm/utils:vector-zeros))
+;;   )
+
+(declaim (inline (setf mp-penalty-stiffness)))
 
 (defclass particle ()
   (;; (nd

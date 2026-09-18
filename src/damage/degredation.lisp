@@ -449,3 +449,73 @@
               (*
                deg
                (cl-mpm/particle::compute-p-modulus mp)))))))
+
+
+(defun apply-gill-damage (mp)
+  (with-accessors ((angle cl-mpm/particle::mp-friction-angle)
+                   (strain cl-mpm/particle::mp-strain)
+                   (e cl-mpm/particle::mp-e)
+                   (nu cl-mpm/particle::mp-nu)
+                   (damage cl-mpm/particle::mp-damage-tension)
+                   (stress-u cl-mpm/particle::mp-undamaged-stress)
+                   (stress cl-mpm/particle::mp-stress)
+                   (stretch cl-mpm/particle::mp-stretch-tensor)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain))
+      mp
+    (when (> damage 0d0)
+      (let ((G (cl-mpm/utils::calculate-shear-modulus e nu)))
+        (multiple-value-bind (ls vs) (cl-mpm/utils:eig (cl-mpm/utils::voight-to-matrix stress-u))
+          (multiple-value-bind (l v) (cl-mpm/utils:eig (cl-mpm/utils::voigt-to-matrix strain))
+            (let* ((chi
+                     ;; -1d0
+                     (* 1d0
+                        (if (> (cl-mpm/fastmaths::dot
+                                (cl-mpm/utils::matrix-column vs 1)
+                                (cl-mpm/utils::stretch-to-skew
+                                 stretch
+                                 (cl-mpm/utils:voigt-zeros)))
+                               0d0)
+                            1d0
+                            -1d0))
+                     )
+                   (mult chi)
+                   ;; (mult (if (> chi 0.5d0) 1d0 -1d0))
+                   )
+              ;; (pprint chi)
+              (let ((m (cl-mpm/fastmaths:fast-.+
+                        (cl-mpm/fastmaths::fast-scale (cl-mpm/utils::matrix-column v 0) (cos angle))
+                        (cl-mpm/fastmaths::fast-scale (cl-mpm/utils::matrix-column v 2) (* mult (sin angle)))))
+                    (n (cl-mpm/fastmaths:fast-.+
+                        (cl-mpm/fastmaths::fast-scale (cl-mpm/utils::matrix-column v 0) (* -1d0 mult (sin angle)))
+                        (cl-mpm/fastmaths::fast-scale (cl-mpm/utils::matrix-column v 2) (cos angle)))))
+                (let* ((nn (cl-mpm/utils:matrix-to-voight (cl-mpm/fastmaths::fast-@-arb-arb n (cl-mpm/utils:transpose m))))
+                       (eps-n (cl-mpm/fastmaths:dot strain nn)))
+                  (if t ;;(> eps-n 0d0)
+                      (let* (;; (damage 1d0)
+                             (a
+                               (cl-mpm/utils:matrix-to-voight
+                                (cl-mpm/fastmaths:fast-.+
+                                 (cl-mpm/fastmaths::fast-@-arb-arb n (cl-mpm/utils:transpose m))
+                                 (cl-mpm/fastmaths::fast-@-arb-arb m (cl-mpm/utils:transpose n))))
+                               )
+                             (de-t (cl-mpm/fastmaths::fast-scale!
+                                    (cl-mpm/fastmaths::fast-@-arb-arb
+                                     a
+                                     (cl-mpm/utils:transpose a)
+                                     )
+                                    G)))
+                        ;; (pprint stress-u)
+                        ;; (pprint (cl-mpm/fastmaths::fast-@-tensor-voigt de-t strain))
+                        (cl-mpm/fastmaths::fast-.-
+                         stress-u
+                         (cl-mpm/fastmaths::fast-scale!
+                          (cl-mpm/fastmaths::fast-@-tensor-voigt
+                           de-t
+                           strain)
+                          damage)
+                         stress))
+                      (progn
+                        (cl-mpm/utils:voigt-copy-into stress-u stress)
+                        (cl-mpm/fastmaths::fast-scale! stress (- 1d0 damage)))))
+                (cl-mpm/fastmaths::fast-scale! stress (/ 1d0 j))
+                ))))))))
