@@ -184,32 +184,29 @@
   )
 
 (defun compute-corner-displaced (mesh corner)
-  (let ((corner-disp (cl-mpm/utils::vector-zeros)))
-    (cl-mpm::iterate-over-neighbours-point-linear
-     mesh
-     corner
-     (lambda (mesh node svp grads)
-       (with-accessors ((node-disp cl-mpm/mesh::node-displacment)
-                        (node-active  cl-mpm/mesh:node-active))
-           node
-         (when node-active
-           (cl-mpm/fastmaths:fast-fmacc corner-disp node-disp svp)))))
-    (cl-mpm/fastmaths::fast-.+ corner corner-disp corner-disp)
-    corner-disp))
+  ;; (let ((corner-disp (cl-mpm/utils::vector-zeros)))
+  ;;   (cl-mpm::iterate-over-neighbours-point-linear
+  ;;    mesh
+  ;;    corner
+  ;;    (lambda (mesh node svp grads)
+  ;;      (with-accessors ((node-disp cl-mpm/mesh::node-displacment)
+  ;;                       (node-active  cl-mpm/mesh:node-active))
+  ;;          node
+  ;;        (when node-active
+  ;;          (cl-mpm/fastmaths:fast-fmacc corner-disp node-disp svp)))))
+  ;;   (cl-mpm/fastmaths::fast-.+ corner corner-disp corner-disp)
+  ;;   corner-disp)
+  (cl-mpm/particle::corner-trial-position corner)
+  )
 
 (defun calculate-val-gimp (mesh mp func)
   (declare (function func))
   ;; (funcall func (cl-mpm/particle::mp-position-trial mp))
-  (cl-mpm::iterate-over-corners
-   mesh
+  (cl-mpm/particle::iterate-over-mp-corners
    mp
    (lambda (c)
-     (let ((c (cl-mpm/fastmaths::fast-scale!
-               (cl-mpm/fastmaths::fast-.+
-                (cl-mpm/particle::mp-position mp)
-                c)
-               0.5d0)))
-       (let ((pos (compute-corner-displaced mesh c)))
+     (let ()
+       (let ((pos (cl-mpm/particle::corner-trial-position c)))
          (funcall func pos))))))
 
 (defun calculate-val-scalar-mp-gimp (mesh mp func)
@@ -951,6 +948,7 @@
       (cl-mpm::iterate-over-mps
        mps
        (lambda (mp)
+         (cl-mpm::update-corners mesh mp)
          (compute-mp-displacement mesh mp)))
 
       (apply-force-mps-3d

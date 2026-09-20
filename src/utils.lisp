@@ -84,17 +84,9 @@
         (setf (mtref trans j i) (mtref arb i j))))
     trans))
 
-(declaim (inline eig)
+(declaim (inline svd)
          (ftype (function (magicl:matrix/double-float)
-                          (values list magicl:matrix/double-float)) eig))
-(defun eig (mat)
-  "Real eigen-decomposition"
-  (magicl:self-adjoint-eig mat)
-  ;; (magicl:hermitian-eig mat)
-  ;; (multiple-value-bind (l v) (magicl:eig mat)
-  ;;   (values l (magicl:.realpart v)))
-  )
-
+                          (values list magicl:matrix/double-float)) sbd))
 (defun svd (mat)
   (multiple-value-bind (u s vt) (magicl:svd mat)
     (values (ensure-column-major u) (ensure-column-major s) (ensure-column-major vt))))
@@ -1135,7 +1127,7 @@
                                (make-array ,pool-count
                                            :initial-contents
                                            (loop repeat ,pool-count
-                                                 collect (cl-mpm/utils::vector-zero)))))))
+                                                 collect (cl-mpm/utils::vector-zeros)))))))
          ,new-func
          ))))
 
@@ -1161,7 +1153,7 @@
                                (make-array ,pool-count
                                            :initial-contents
                                            (loop repeat ,pool-count
-                                                 collect (cl-mpm/utils::voigt-zero)))))))
+                                                 collect (cl-mpm/utils::voigt-zeros)))))))
          ,new-func
          ))))
 
@@ -1558,8 +1550,8 @@
                                                (lambda (c)
                                                  (format t "Thread threw error: ~a~%" c)
                                                  (sb-thread:with-mutex (*worker-error-lock*)
-                                                   (setf *workers-nesting* nil)
                                                    (format t "Thread threw error: ~a~%" c)
+                                                   (setf *workers-nesting* nil)
                                                    (push c *worker-error-list*))
                                                  (return-from trial-exec))))
                                           (let ((iter (sb-ext:atomic-incf (aref *workers-counter* 0))))
@@ -1624,10 +1616,7 @@
           (when *worker-error-list*
             (let ((er (first *worker-error-list*)))
               (setf *worker-error-list* nil)
-              (error er))
-            ;; (dolist (er *worker-error-list*)
-            ;;   (error er))
-            ))
+              (error er))))
         (setf *workers-nesting* nil)))
   (values))
 

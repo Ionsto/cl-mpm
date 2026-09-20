@@ -490,7 +490,7 @@
                         (cl-mpm/fastmaths::fast-scale (cl-mpm/utils::matrix-column v 2) (cos angle)))))
                 (let* ((nn (cl-mpm/utils:matrix-to-voight (cl-mpm/fastmaths::fast-@-arb-arb n (cl-mpm/utils:transpose m))))
                        (eps-n (cl-mpm/fastmaths:dot strain nn)))
-                  (if t ;;(> eps-n 0d0)
+                  (if (< eps-n 0d0)
                       (let* (;; (damage 1d0)
                              (a
                                (cl-mpm/utils:matrix-to-voight

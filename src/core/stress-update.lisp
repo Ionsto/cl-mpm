@@ -63,8 +63,7 @@
              (when node-active
                (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-disp stretch-tensor)
                (when fbar
-                 (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-disp stretch-tensor-fbar))))))))
-    ))
+                 (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-disp stretch-tensor-fbar))))))))))
 
 ;Could include this in p2g but idk
 

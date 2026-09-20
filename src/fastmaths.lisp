@@ -133,6 +133,7 @@
    (the double-float (expt (- (aref a 1) (aref b 1)) 2))
    (the double-float (expt (- (aref a 2) (aref b 2)) 2))))
 
+(declaim (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) double-float)))
 (defun diff-norm (a b)
   (simd-diff-norm (cl-mpm/utils:fast-storage a)
                   (cl-mpm/utils:fast-storage b)))

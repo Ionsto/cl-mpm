@@ -96,7 +96,6 @@
 ;;     :initform (cl-mpm/utils:vector-zeros))
 ;;   )
 
-(declaim (inline (setf mp-penalty-stiffness)))
 
 (defclass particle ()
   (;; (nd
@@ -226,19 +225,6 @@
      :accessor mp-strain-rate
      :initarg :strain-rate
      :initform (cl-mpm/utils:voigt-zeros))
-   (velocity-rate
-    :accessor mp-velocity-rate
-    :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :accessor mp-velocity-rate
-    :initform (cl-mpm/utils::voigt-zeros))
-   (eng-strain-rate
-    :accessor mp-eng-strain-rate
-    :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (cl-mpm/utils:voigt-zeros))
-   (vorticity
-    :accessor mp-vorticity
-    :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (cl-mpm/utils::voigt-zeros))
    (deformation-gradient
      :accessor mp-deformation-gradient
      :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -278,13 +264,11 @@
      :type double-float
      :accessor mp-gravity
      :initform 0d0;-9.8d0
-     :initarg :gravity
-     )
+     :initarg :gravity)
    (pressure
     :type double-float
     :accessor mp-pressure
-    :initform 0d0
-    )
+    :initform 0d0)
    (pressure-datum
     :type double-float
     :accessor mp-pressure-datum
@@ -398,20 +382,10 @@
     :accessor mp-penalty-contact
     :type boolean
     :initform nil)
-   (penalty-energy
-    :accessor mp-penalty-energy
-    :type double-float
-    :initform 0d0
-    )
-   (penalty-stiffness
-    :accessor mp-penalty-stiffness
-    :type double-float
-    :initform 0d0)
    (penalty-contact-point
     :accessor mp-penalty-contact-point
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (cl-mpm/utils::vector-zeros))
-   )
+    :initform (cl-mpm/utils::vector-zeros)))
   (:documentation "A single material point"))
 
 ;; (defun mp-mass (mp)
@@ -1084,15 +1058,6 @@
    (damage-increment
     :accessor mp-damage-increment
     :type DOUBLE-FLOAT
-    :initform 0d0
-    )
-   (d-energy-n
-    :accessor mp-d-energy-n
-    :type DOUBLE-FLOAT
-    :initform 0d0)
-   (d-energy
-    :accessor mp-d-energy
-    :type DOUBLE-FLOAT
     :initform 0d0)
    (undamaged-stress
     :accessor mp-undamaged-stress
@@ -1122,8 +1087,7 @@
     :accessor mp-damage-ybar
     :type DOUBLE-FLOAT
     :initform 0d0
-    :initarg :damage-ybar
-    )
+    :initarg :damage-ybar)
    (damage-ybar-prev
     :accessor mp-damage-ybar-prev
     :type DOUBLE-FLOAT
@@ -1170,6 +1134,14 @@
     :initform nil
     ;:initform (cl-mpm/utils::vector-zeros)
     )
+   (average-damage
+    :accessor mp-av-damage
+    :type DOUBLE-FLOAT
+    :initform 0d0)
+   (average-damage-gradient
+    :accessor mp-av-damage-gradient
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:matrix-zeros))
    (enable-damage
     :accessor mp-enable-damage
     :initarg :enable-damage
@@ -1255,8 +1227,6 @@
                    (y-prev    cl-mpm/particle::mp-damage-y-local-prev)
                    (volume    cl-mpm/particle::mp-volume)
                    (volume-n    cl-mpm/particle::mp-volume-n)
-                   (d-energy cl-mpm/particle::mp-d-energy)
-                   (d-energy-n cl-mpm/particle::mp-d-energy-n)
                    )
       mp
     ;; (cl-mpm/utils:matrix-copy-into def def-0)
@@ -1266,8 +1236,6 @@
     (setf ybar-prev ybar)
     (setf y-prev y)
     (setf damage-n damage)
-    (setf d-energy-n d-energy)
-    ;; (setf volume-n volume)
     (call-next-method)))
 
 

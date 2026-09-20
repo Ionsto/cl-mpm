@@ -7,6 +7,8 @@
 (define-condition error-erosion-criteria (non-convergence-error)
   ((max-erosion-inc :initarg :max-erosion-inc :reader max-erosion-inc)))
 
+;; (defparameter *max-erosion-per-step* )
+
 (defmethod convergence-check :after ((sim cl-mpm::mpm-sim))
   (cl-mpm:iterate-over-mps
    (cl-mpm:sim-mps sim)
@@ -15,6 +17,6 @@
        (let ((inc (/ (- (cl-mpm/particle::mp-eroded-volume mp)
                         (cl-mpm/particle::mp-eroded-volume-n mp))
                      (cl-mpm/particle::mp-mass mp))))
-         (when (> inc 0.5d0)
+         (when (> inc 0.25d0)
            (format t "Erosion criteria exceeded~%")
            (error (make-instance 'error-erosion-criteria :max-erosion-inc inc))))))))

@@ -377,54 +377,50 @@
                (velocity-rate velocity-rate) ;Note strain rate is actually strain increment through dt
                (strain-plastic strain-plastic)
                (def deformation-gradient)
-               (vorticity vorticity)
                (D stretch-tensor)
                (stress stress)
                (temp true-visc)
                (plastic-stress plastic-stress)
-               (eng-strain-rate eng-strain-rate)
                (visc-plastic visc-plastic)
                (visc-glen visc-glen)
                (time-averaged-visc time-averaged-visc)
                (p p-modulus))
       mp
     (declare (double-float E visc-factor visc-power))
-    (flet ((inv (x) (/ 1d0 (the double-float x))))
-      (let* (;(eng-strain-rate (cl-mpm/fastmaths::fast-.* (magicl:map (lambda (x) (* x (exp x))) strain) velocity-rate
-                                        ;                            (cl-mpm/utils:stress-from-list '(1d0 1d0 0.5d0))))
-             (estrain (cl-mpm/constitutive::effective-strain-rate eng-strain-rate))
-             (viscosity-diff (/ 6.5d8 (* 2d0 (expt 10d-3 2))))
-             (viscosity-glen (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
-             (viscosity-plastic (/ plastic-stress (+ 1d-40 (* 2d0 estrain))))
-             (viscosity (+ 1d-40 (inv (+ ;(inv viscosity-diff)
-                                         (inv viscosity-glen)
-                                         (inv viscosity-plastic)))))
-             ;; (viscosity viscosity-glen)
-             )
-        ;; stress
-        ;; (print viscosity-glen)
-        ;; ;; (print viscosity-plastic)
-        ;; (setf p
-        ;;       (* (/ E (* (+ 1 nu) (- 1 nu))) (/ 1d12 viscosity)))
-        (setf temp viscosity)
-        (setf visc-plastic viscosity-plastic
-              visc-glen viscosity-glen)
-        (incf time-averaged-visc viscosity)
-        ;; (setf stress-u
-        ;;       (cl-mpm/constitutive:maxwell-exp-v strain-rate stress E nu de visc-u dt))
-        ;; (setf stress
-        ;;       (cl-mpm/constitutive:maxwell-exp-v strain-rate stress E nu de viscosity dt))
+    ;; (flet ((inv (x) (/ 1d0 (the double-float x))))
+    ;;   (let* ((estrain (cl-mpm/constitutive::effective-strain-rate eng-strain-rate))
+    ;;          (viscosity-diff (/ 6.5d8 (* 2d0 (expt 10d-3 2))))
+    ;;          (viscosity-glen (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
+    ;;          (viscosity-plastic (/ plastic-stress (+ 1d-40 (* 2d0 estrain))))
+    ;;          (viscosity (+ 1d-40 (inv (+ ;(inv viscosity-diff)
+    ;;                                      (inv viscosity-glen)
+    ;;                                      (inv viscosity-plastic)))))
+    ;;          )
+    ;;     ;; stress
+    ;;     ;; (print viscosity-glen)
+    ;;     ;; ;; (print viscosity-plastic)
+    ;;     ;; (setf p
+    ;;     ;;       (* (/ E (* (+ 1 nu) (- 1 nu))) (/ 1d12 viscosity)))
+    ;;     (setf temp viscosity)
+    ;;     (setf visc-plastic viscosity-plastic
+    ;;           visc-glen viscosity-glen)
+    ;;     (incf time-averaged-visc viscosity)
+    ;;     ;; (setf stress-u
+    ;;     ;;       (cl-mpm/constitutive:maxwell-exp-v strain-rate stress E nu de visc-u dt))
+    ;;     ;; (setf stress
+    ;;     ;;       (cl-mpm/constitutive:maxwell-exp-v strain-rate stress E nu de viscosity dt))
 
-        (cl-mpm/fastmaths::fast-.+
-         stress
-         (objectify-stress-logspin
-          (if (> viscosity 0d0)
-              (cl-mpm/constitutive::maxwell-exp-inc strain-rate stress E nu de viscosity dt)
-              (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
-          stress
-          def
-          vorticity
-          D))))))
+    ;;     (cl-mpm/fastmaths::fast-.+
+    ;;      stress
+    ;;      (objectify-stress-logspin
+    ;;       (if (> viscosity 0d0)
+    ;;           (cl-mpm/constitutive::maxwell-exp-inc strain-rate stress E nu de viscosity dt)
+    ;;           (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
+    ;;       stress
+    ;;       def
+    ;;       vorticity
+    ;;       D))))
+    ))
 
 (defmethod constitutive-model ((mp particle-glen-damage) strain dt)
   "Function for modeling stress intergrated viscoplastic norton-hoff material"
@@ -464,7 +460,6 @@
                    (enable-viscosity mp-enable-viscosity)
                    (enable-damage mp-enable-damage)
                    (D mp-stretch-tensor)
-                   (vorticity mp-vorticity)
                    (initiation-stress mp-initiation-stress)
                    (ductility-I mp-ductility)
                    (ductility-II mp-ductility-mode-2)
@@ -475,8 +470,6 @@
                    (kc-r mp-k-compressive-residual-ratio)
                    (kt-r mp-k-tensile-residual-ratio)
                    (g-r mp-shear-residual-ratio)
-
-                   (eng-strain-rate mp-eng-strain-rate)
                    (visc-factor mp-visc-factor)
                    (visc-power mp-visc-power)
                    (true-visc mp-true-visc)
@@ -922,8 +915,7 @@
      (*
       -1d0
       (cl-mpm/particle::mp-biot-coefficent mp)
-      (/ p 1)))
-    ))
+      (/ p 1)))))
 
 
 (defmethod cl-mpm/particle::compute-mp-energy-release ((mp cl-mpm/particle::particle-ice-brittle))

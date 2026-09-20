@@ -157,7 +157,6 @@
 
 (defmethod cl-mpm/damage::set-mp-damage ((mp cl-mpm/particle::particle-damage) d)
   (let ((k (cl-mpm/damage::find-k-damage-mp mp d)))
-    ;; (pprint k)
     (setf (cl-mpm/particle::mp-history-stress mp) k)
     (setf (cl-mpm/particle::mp-history-stress-n mp) k)
     (cl-mpm/damage::compute-damage mp)
@@ -584,9 +583,11 @@
       mp
     (declare (double-float damage k ybar))
     (setf damage
-          (cl-mpm/damage::damage-response-exponential-peerlings-residual
-           k
-           E init-stress ductility residual-strength))))
+          (max
+           damage-n
+           (cl-mpm/damage::damage-response-exponential-peerlings-residual
+            k
+            E init-stress ductility residual-strength)))))
 
 (defmethod cl-mpm/damage::update-damage ((mp cl-mpm/particle::particle-elastic-damage) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)

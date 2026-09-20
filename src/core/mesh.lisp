@@ -855,6 +855,12 @@
        (in-bounds-1d mesh (aref pos 1) 1)
        (in-bounds-1d mesh (aref pos 2) 2)))
 
+(defun in-bounds-values (mesh x y z)
+  "Check a position (list) is inside a mesh"
+  (and (in-bounds-1d mesh x 0)
+       (in-bounds-1d mesh y 1)
+       (in-bounds-1d mesh z 2)))
+
 (defun in-bounds-mp (mesh pos)
   (declare (optimize (speed 3))
            (list pos))

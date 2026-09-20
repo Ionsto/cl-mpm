@@ -442,7 +442,7 @@
     ;;                   (setf (cl-mpm/mesh::node-agg n) t)))))))
 
     (when t
-      (let ((volume-ratio 0.01d0))
+      (let ((volume-ratio 0.1d0))
         (cl-mpm::iterate-over-nodes
          mesh
          (lambda (node)

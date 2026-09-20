@@ -15,10 +15,11 @@
              (the double-float (max 0d0 (- y k)))
              (max
               k0
-              (sqrt
-               (*
-                k0
-                k)))
+              ;; (sqrt
+              ;;  (*
+              ;;   k0
+              ;;   k))
+              )
              ) n)))
    tau))
 

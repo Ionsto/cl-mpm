@@ -73,7 +73,7 @@
                                      :conv-steps sub-conv-steps
                                      :convergance-criteria
                                      (lambda (sim f o)
-                                       (format t "Data ~A ~A ~A ~A~%" o r-n r-n1 t0)
+                                       ;; (format t "Data ~A ~A ~A ~A~%" o r-n r-n1 t0)
                                        (if r-n
                                            (progn
                                              (unless t0
@@ -98,7 +98,7 @@
                                                       (> tn 0d0)
                                                       (> t0 0d0)))
                                              (format t "Current tangent dropped below specified ratio~%")
-                                             (error 'cl-mpm/errors::error-simulation)
+                                             ;; (error 'cl-mpm/errors::error-simulation)
                                              )))
                                        (setf dconv (compute-damage-delta sim))
                                        (and

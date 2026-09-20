@@ -245,20 +245,28 @@
                    ;;     k0
                    ;;     tau
                    ;;     tau-exp)))
-                   (cl-mpm/damage::auto-refine-substepper
+                   (cl-mpm/damage::delay-integrate-explicit
                     k-n
                     ybar-prev
                     ybar
                     dt
-                    (lambda (k y0 y1 s-dt)
-                      (cl-mpm/damage::huen-integration
-                       k
-                       y0
-                       y1
-                       k0
-                       tau
-                       tau-exp
-                       s-dt)))
+                    k0
+                    tau
+                    tau-exp)
+                   ;; (cl-mpm/damage::auto-refine-substepper
+                   ;;  k-n
+                   ;;  ybar-prev
+                   ;;  ybar
+                   ;;  dt
+                   ;;  (lambda (k y0 y1 s-dt)
+                   ;;    (cl-mpm/damage::huen-integration
+                   ;;     k
+                   ;;     y0
+                   ;;     y1
+                   ;;     k0
+                   ;;     tau
+                   ;;     tau-exp
+                   ;;     s-dt)))
                    ))))
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))

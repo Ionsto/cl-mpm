@@ -98,7 +98,7 @@
                  (progn
                    (setf fnorm 0d0)
                    (optional-time
-                    nil
+                    t
                     ;; t
                     (dotimes (j substeps)
                       (cl-mpm:update-sim sim)
