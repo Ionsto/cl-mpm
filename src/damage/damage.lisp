@@ -379,7 +379,7 @@
 
 
 
-(defparameter *standard-bell-curve* nil)
+(defparameter *standard-bell-curve* t)
 (declaim
  (inline weight-func)
  (ftype (function (double-float
