@@ -156,6 +156,37 @@
 (defmethod calculate-damage ((sim cl-mpm::mpm-sim) dt)
   )
 
+(defun update-damage-mps (sim dt)
+  (with-accessors ((mps cl-mpm::sim-mps))
+      sim
+    (cl-mpm:iterate-over-mps
+     mps
+     (lambda (mp)
+       (when (typep mp 'cl-mpm/particle:particle-damage)
+         (update-damage mp dt))))))
+
+(defun update-localisation (sim dt)
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh)
+                   (enable-damage cl-mpm::sim-enable-damage)
+                   (delocal-counter sim-damage-delocal-counter)
+                   (delocal-counter-max sim-damage-delocal-counter-max)
+                   (non-local-damage cl-mpm::sim-nonlocal-damage))
+      sim
+    (when enable-damage
+      (if non-local-damage
+          (progn
+            (when (sim-enable-length-localisation sim)
+              (update-localisation-lengths sim))
+            (cond
+              ((cl-mpm/damage::sim-enable-ekl sim)
+               (delocalise-damage-ekl sim))
+              ((cl-mpm/damage::sim-enable-stress-based-length sim)
+               (delocalise-damage-stress sim))
+              (t
+               (delocalise-damage sim))))
+          (localise-damage mesh mps dt)))))
+
 (defmethod calculate-damage ((sim mpm-sim-damage) dt)
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
@@ -182,24 +213,8 @@
          (when (typep mp 'cl-mpm/particle:particle-damage)
            (damage-model-calculate-y mp dt))))
 
-      ;; (g2p-damage sim)
-      (if non-local-damage
-          (progn
-            (when (sim-enable-length-localisation sim)
-              (update-localisation-lengths sim))
-            (cond
-              ((cl-mpm/damage::sim-enable-ekl sim)
-               (delocalise-damage-ekl sim))
-              ((cl-mpm/damage::sim-enable-stress-based-length sim)
-               (delocalise-damage-stress sim))
-              (t
-               (delocalise-damage sim))))
-          (localise-damage mesh mps dt))
-      (cl-mpm:iterate-over-mps
-       mps
-       (lambda (mp)
-         (when (typep mp 'cl-mpm/particle:particle-damage)
-           (update-damage mp dt)))))
+      (update-localisation sim dt)
+      (update-damage-mps sim dt))
 
     (cl-mpm:iterate-over-mps
      mps
@@ -436,23 +451,24 @@
     (declare (double-float length da da-other))
     (weight-func (diff-squared mp-a mp-b) (the double-float (cl-mpm/particle::mp-true-local-length mp-b)))))
 
-(defun weight-func-mps-trapezium (mesh mp-a mp-b length)
+(defun weight-func-mps-trapezium (mesh mp-a mp-b pos-a pos-b length)
   (declare (ignore mesh))
   (let ((da (cl-mpm/particle::mp-av-damage mp-a))
         (da-other (cl-mpm/particle::mp-av-damage mp-b)))
     (declare (double-float length da da-other))
-    (weight-func (diff-squared mp-a mp-b)
-                 (the double-float
-                      (* length
-                         (the double-float
-                              (/
-                               (max
-                                1d-9
-                                (* 2d0
-                                   (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 da)))))
-                                   (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 da-other)))))))
-                               (+ (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 da)))))
-                                  (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 da-other)))))))))))))
+    (weight-func
+     (cl-mpm/fastmaths::diff-norm pos-a pos-b)
+     (the double-float
+          (* length
+             (the double-float
+                  (/
+                   (max
+                    1d-9
+                    (* 2d0
+                       (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 da)))))
+                       (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 da-other)))))))
+                   (+ (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 da)))))
+                      (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 da-other)))))))))))))
 ;; (let* ((length 1d0)
 ;;        (da 0.5d0)
 ;;        (da-other 0.5d0)
@@ -704,9 +720,10 @@ Calls the function with the mesh mp and node"
  (ftype (function (cl-mpm/mesh::mesh
                    cl-mpm/particle:particle-damage
                    double-float
+                   boolean
                    ) double-float)
         calculate-delocalised-damage))
-(defun calculate-delocalised-damage (mesh mp length)
+(defun calculate-delocalised-damage (mesh mp length length-localisation)
   (let ((damage-inc 0d0)
         (mass-total 0d0)
         (true-length (cl-mpm/particle::mp-true-local-length mp)))
@@ -722,12 +739,10 @@ Calls the function with the mesh mp and node"
          (declare (double-float length ll))
          (when t
            (flet ((selected-weight (mp mp-other pos-a pos-b)
-                    (weight-func-mps-geometric mesh mp mp-other
-                                               pos-a pos-b
-                                               ;; (cl-mpm/particle::mp-position mp)
-                                               ;; (cl-mpm/particle::mp-position mp-other)
-                                               length)
-                    ))
+                    (if length-localisation
+                        ;; (weight-func-mps-trapezium mesh mp mp-other pos-a pos-b length)
+                        (weight-func (cl-mpm/fastmaths::diff-norm pos-a pos-b) length)
+                        (weight-func (cl-mpm/fastmaths::diff-norm pos-a pos-b) length))))
              (let* (
                     ;;Nodally averaged local funcj
                     ;; (weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll))))
@@ -1031,7 +1046,7 @@ Calls the function with the mesh mp and node"
                           (damage cl-mpm/particle::mp-damage)
                           (local-length-t cl-mpm/particle::mp-local-length))
              mp
-           (setf damage-ybar (calculate-delocalised-damage mesh mp local-length-t)))))))
+           (setf damage-ybar (calculate-delocalised-damage mesh mp local-length-t (sim-enable-length-localisation sim))))))))
   (values))
 
 (defgeneric delocalise-damage-stress (sim))
@@ -1249,6 +1264,7 @@ Calls the function with the mesh mp and node"
             #'+)))
     (declare (double-float delta-ds delta-incs))
     (if (> delta-incs 0d0)
+        ;; (the double-float (sqrt delta-ds))
         (the double-float (sqrt (/ delta-ds delta-incs)))
         0d0)))
 

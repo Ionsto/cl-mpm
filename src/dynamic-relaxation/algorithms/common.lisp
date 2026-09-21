@@ -177,6 +177,7 @@
          (r-n1 nil)
          (r-0 nil)
          (t0 nil)
+         (rsteps 0)
          )
     (setf
      (cl-mpm/dynamic-relaxation::sim-convergence-critera sim) crit
@@ -218,7 +219,11 @@
                                  (if r-n
                                      (progn
                                        (unless t0
-                                         (setf t0 (/ (- o r-0) substeps)))
+                                         (setf t0
+                                               (log (/ o r-0))
+                                               ;; (/ (- o r-0) substeps)
+                                               ))
+                                       (incf rsteps)
                                        (rotatef r-n r-n1)
                                        (setf r-n o)
                                        (when (= t0 0d0)
@@ -229,8 +234,13 @@
                                        (setf r-n o)
                                        (unless r-0
                                          (setf r-0 o))))
+                                 ;; (pprint "Hello")
+                                 (format t "~A ~A ~%" r-n r-n1)
                                  (when (and r-n r-n1)
-                                   (let* ((tn (/ (- r-n r-0) substeps))
+                                   (let* (;; (tn (/ (- r-n r-0) (* rsteps substeps)))
+                                          (tn ;; (/ (log (- r-n r-n1) 10) substeps)
+                                            (log (/ r-n r-n1))
+                                              )
                                           (ratio (/ tn t0)))
                                      (format t "Current tangent ~E - initial tangent ~E - ratio ~E~%"
                                              tn
@@ -245,7 +255,19 @@
                                        )))
 
                                  (when (cl-mpm::sim-enable-damage sim)
-                                   (setf dconv (compute-damage-delta sim)))
+                                   ;; (setf dconv (compute-damage-delta sim))
+                                   ;; (loop for d from 1 to 100
+                                   ;;       when (>= dconv 1d-9)
+                                   ;;         do (progn
+                                   ;;              (cl-mpm/damage::calculate-damage
+                                   ;;               sim
+                                   ;;               (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
+                                   ;;              (setf dconv (compute-damage-delta sim))
+                                   ;;              (cl-mpm:sim-format sim t "step ~D/~D - d-conv ~E~%" stagger-i d dconv)
+                                   ;;              ;; (save-conv-step sim output-dir *total-iter* global-step 0d0 (cl-mpm::sim-stats-oobf sim) 0d0)
+                                   ;;              (incf *total-iter*)))
+                                   (setf dconv (compute-damage-delta sim))
+                                   (cl-mpm:sim-format sim t "d-conv ~E~%" dconv))
                                  (if convergence-criteria
                                      (funcall convergence-criteria sim)
                                      (and
@@ -271,7 +293,8 @@
                                        r-0 nil
                                        r-n nil
                                        r-n1 nil
-                                       t0 nil))
+                                       t0 nil
+                                       rsteps 0))
                                     (setf (cl-mpm:sim-enable-damage sim) enable-damage)
                                     (cl-mpm/damage::calculate-damage
                                      sim

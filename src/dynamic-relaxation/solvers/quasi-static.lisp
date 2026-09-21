@@ -11,7 +11,7 @@
        (lambda (node)
          (when (cl-mpm/mesh:node-active node)
            (setf (cl-mpm/mesh:node-mass node) 0d0))))
-      (let ((mass-scale (the double-float (/ 1d0 (the (double-float ) (cl-mpm::sim-dt-scale sim))))))
+      (let ((mass-scale (the double-float (/ 1d0 (the double-float (cl-mpm::sim-dt-scale sim))))))
         (declare (double-float mass-scale))
         (cl-mpm::iterate-over-mps
          mps
@@ -86,6 +86,7 @@
            (mass-scale (the double-float (/ 1d0 (the double-float (cl-mpm::sim-dt-scale sim))))))
       (declare (double-float h mass-scale)
                (fixnum nd))
+      ;; (pprint "Hello")
       (cl-mpm::iterate-over-mps
        mps
        (lambda (mp)
@@ -371,6 +372,21 @@
     (cl-mpm::apply-force-bcs sim dt-loadstep)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
     (cl-mpm/damage::calculate-damage sim dt-loadstep)
+    ;; (when (cl-mpm::sim-enable-damage sim)
+    ;;   (let ((dconv (compute-damage-delta sim)))
+    ;;     (when (> dconv 0d0)
+    ;;       ;; (format t "Internal update ~D ~E~%" 0 dconv)
+    ;;       (cl-mpm/damage::update-localisation sim dt-loadstep)
+    ;;       (cl-mpm/damage::update-damage-mps sim dt-loadstep)
+    ;;       (setf dconv (compute-damage-delta sim))
+    ;;       (loop for i from 1 below 100
+    ;;             while (> dconv 1d-9)
+    ;;             do (progn
+    ;;                  (format t "Internal update ~D ~E~%" i dconv)
+    ;;                  (cl-mpm/damage::update-localisation sim dt-loadstep)
+    ;;                  (cl-mpm/damage::update-damage-mps sim dt-loadstep)
+    ;;                  (setf dconv (compute-damage-delta sim))
+    ;;                  )))))
     (cl-mpm::p2g-force-fs sim)
     (when ghost-factor
       (cl-mpm/ghost::apply-ghost-cached sim)
@@ -559,6 +575,7 @@
                  (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
                  (cl-mpm/aggregate::project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d)))))))
       (when (= (mod solve-count damping-update-count) 0)
+        ;; (pprint "!Hello")
         (setf damping (the double-float (cl-mpm/dynamic-relaxation::dr-estimate-damping sim))))
       (when (sim-kinetic-damping sim)
         (setf damping 0d0))
