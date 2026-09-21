@@ -1141,7 +1141,7 @@
    (average-damage-gradient
     :accessor mp-av-damage-gradient
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (cl-mpm/utils:matrix-zeros))
+    :initform (cl-mpm/utils:vector-zeros))
    (enable-damage
     :accessor mp-enable-damage
     :initarg :enable-damage

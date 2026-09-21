@@ -1037,9 +1037,9 @@
            )
   "Check bounds and get node"
   (policy-cond:policy-if (> safety speed)
-                         (if (in-bounds-array mesh pos)
+                         (if (in-bounds-values mesh x y z)
                              (aref (mesh-nodes mesh) x y z)
-                             (error (format nil "Access grid out of bounds at: ~a" pos)))
+                             (error (format nil "Access grid out of bounds at: ~A ~A ~A" x y z)))
                          (aref (the (simple-array T (* * *)) (mesh-nodes mesh)) x y z)))
 
 (declaim (inline get-cell)

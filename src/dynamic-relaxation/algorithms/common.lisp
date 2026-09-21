@@ -156,7 +156,7 @@
                                       (max-damage-inc 0.6d0)
                                       (max-plastic-inc 1d0)
                                       (max-deformation-gradient 10d0)
-                                      (min-tangent-ratio 1d-3)
+                                      (min-tangent-ratio 1d-2)
                                       (damping 1d0)
                                       (staggered-steps 500)
                                       (sub-conv-steps 50)
@@ -234,7 +234,7 @@
                                                 (> tn 0d0)
                                                 (> t0 0d0)))
                                        (format t "Current tangent dropped below specified ratio~%")
-                                       (error 'cl-mpm/errors::error-simulation)
+                                       ;; (error 'cl-mpm/errors::error-simulation)
                                        )))
                                  (if convergence-criteria
                                      (funcall convergence-criteria sim)

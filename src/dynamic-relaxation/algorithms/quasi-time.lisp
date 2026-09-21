@@ -79,6 +79,7 @@
                                            (progn
                                              (unless t0
                                                (setf t0 (/ (- o r-0) substeps)))
+                                             (incf rsteps)
                                              (rotatef r-n r-n1)
                                              (setf r-n o)
                                              (when (= t0 0d0)
@@ -101,11 +102,15 @@
                                               r-0 nil
                                               t0 nil
                                               rsteps 0)
-                                             (when (= bad-initial-tangents 5)
-                                               (error 'cl-mpm/errors::error-simulation)))
+                                             ;; (when (= bad-initial-tangents 5)
+                                             ;;   (error 'cl-mpm/errors::error-simulation))
+                                             )
 
                                        (when (and r-n r-n1)
-                                         (let* ((tn (/ (- r-n r-0) substeps))
+                                         (let* ((tn (/ (- r-n r-n1)
+                                                       substeps
+                                                       ;; (* rsteps substeps)
+                                                       ))
                                                 (ratio (/ tn t0)))
                                            (format t "Current tangent ~E - initial tangent ~E - ratio ~E~%"
                                                    tn

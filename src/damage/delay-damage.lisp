@@ -17,7 +17,7 @@
               k0
               (the double-float
                    (sqrt
-                    (the double-float 
+                    (the double-float
                          (*
                           k0
                           k))))
