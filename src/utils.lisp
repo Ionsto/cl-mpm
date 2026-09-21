@@ -560,35 +560,49 @@
                             ezx eyz ezz))))
 
 (declaim (inline voigt-to-matrix)
-         (ftype (function (magicl:matrix/double-float)
+         (ftype (function (magicl:matrix/double-float &optional magicl:matrix/double-float)
                           magicl:matrix/double-float) voigt-to-matrix))
-(defun voigt-to-matrix (vec)
-  (let* ( (exx (mtref vec 0 0))
-          (eyy (mtref vec 1 0))
-          (ezz (mtref vec 2 0))
-          (eyz (* 0.5d0 (the double-float (mtref vec 3 0))))
-          (ezx (* 0.5d0 (the double-float (mtref vec 4 0))))
-          (exy (* 0.5d0 (the double-float (mtref vec 5 0))))
-          )
-    (matrix-from-list (list exx exy ezx
-                            exy eyy eyz
-                            ezx eyz ezz))))
+(defun voigt-to-matrix (vec &optional (result nil))
+  (let ((result  (if result result (cl-mpm/utils:matrix-zeros))))
+    (let* ( (exx (varef vec 0))
+            (eyy (varef vec 1))
+            (ezz (varef vec 2))
+            (eyz (* 0.5d0 (the double-float (varef vec 3))))
+            (ezx (* 0.5d0 (the double-float (varef vec 4))))
+            (exy (* 0.5d0 (the double-float (varef vec 5)))))
+      (declare (double-float exx eyy ezz eyz ezx exy))
+      (setf
+       (varef result 0) exx
+       (varef result 1) exy
+       (varef result 2) ezx
+       (varef result 3) exy
+       (varef result 4) eyy
+       (varef result 5) eyz
+       (varef result 6) ezx
+       (varef result 7) eyz
+       (varef result 8) ezz)
+      result)))
 
 (declaim (inline matrix-to-voigt)
-         (ftype (function (magicl:matrix/double-float)
+         (ftype (function (magicl:matrix/double-float &optional magicl:matrix/double-float)
                           magicl:matrix/double-float) matrix-to-voigt))
-(defun matrix-to-voigt (matrix)
-  (let* ( (exx (mtref matrix 0 0))
-          (eyy (mtref matrix 1 1))
-          (ezz (mtref matrix 2 2))
-          (exy (mtref matrix 1 0))
-          (exz (mtref matrix 2 0))
-          (ezy (mtref matrix 2 1))
-          )
-    (voigt-from-list (list exx eyy ezz
-                           (* 2d0 ezy)
-                           (* 2d0 exz)
-                           (* 2d0 exy)))))
+(defun matrix-to-voigt (matrix &optional (result nil))
+  (let ((result (if result result (voigt-zeros))))
+    (let* ((exx (mtref matrix 0 0))
+           (eyy (mtref matrix 1 1))
+           (ezz (mtref matrix 2 2))
+           (exy (mtref matrix 1 0))
+           (exz (mtref matrix 2 0))
+           (ezy (mtref matrix 2 1)))
+      (setf
+       (varef result 0) exx
+       (varef result 1) eyy
+       (varef result 2) ezz
+       (varef result 3) (* 2d0 ezy)
+       (varef result 4) (* 2d0 exz)
+       (varef result 5) (* 2d0 exy))
+      result
+      )))
 (defun matrix-to-voigt-inplace (matrix vec)
   (let* ( (exx (mtref matrix 0 0))
           (eyy (mtref matrix 1 1))
@@ -1096,7 +1110,7 @@
                        (typecase subform
                          (list
                           (cond
-                            ((string= (first subform) 'GRAB-NEW);(equal (first subform) 'GRAB-NEW)
+                            ((string= (first subform) 'GRAB-NEW)
                              (incf pool-count)
                              `(aref (cl-mpm/utils::object-pool-grab ,pool-sym) ,(- pool-count 1)))
                             (t subform)))
@@ -1133,8 +1147,7 @@
                                            :initial-contents
                                            (loop repeat ,pool-count
                                                  collect (cl-mpm/utils::vector-zeros)))))))
-         ,new-func
-         ))))
+         ,new-func))))
 
 (defmacro with-voigt-pool (&body func)
   (let ((pool-sym (gensym))
@@ -1159,6 +1172,31 @@
                                            :initial-contents
                                            (loop repeat ,pool-count
                                                  collect (cl-mpm/utils::voigt-zeros)))))))
+         ,new-func
+         ))))
+(defmacro with-matrix-pool (&body func)
+  (let ((pool-sym (gensym))
+        (pool-count 0))
+    (let ((new-func
+            (sb-walker::walk-form
+                     (first func)
+                     nil
+                     (lambda (subform context env)
+                       (typecase subform
+                         (list
+                          (cond
+                            ((string= (first subform) 'GRAB-NEW-MATRIX)
+                             (incf pool-count)
+                             `(aref (cl-mpm/utils::object-pool-grab ,pool-sym) ,(- pool-count 1)))
+                            (t subform)))
+                         (t subform))))))
+      `(let ((,pool-sym
+               (cl-mpm/utils::make-object-pool
+                :constructor (lambda ()
+                               (make-array ,pool-count
+                                           :initial-contents
+                                           (loop repeat ,pool-count
+                                                 collect (cl-mpm/utils::matrix-zeros)))))))
          ,new-func
          ))))
 

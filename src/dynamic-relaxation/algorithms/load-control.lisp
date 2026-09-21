@@ -15,6 +15,7 @@
                            (post-iter-step (lambda (sub-iter oobf energy)))
                            (pre-step (lambda ()))
                            (plotter (lambda (sim)))
+                           (stagger-damage :MONOLITH)
                            (enable-damage t)
                            (enable-plastic t)
                            (save-vtk-dr t)
@@ -61,6 +62,7 @@
                        :dt-scale dt-scale
                        :substeps substeps
                        :damping damping
+                       :stagger-damage stagger-damage
                        :sub-conv-steps conv-steps
                        :max-plastic-inc max-plastic-inc
                        :post-iter-step
@@ -100,7 +102,7 @@
                            (enable-damage t)
                            (enable-plastic t)
                            (save-vtk-dr t)
-                           (stagger-damage nil)
+                           (stagger-damage :MONOLITH)
                            (save-vtk-loadstep t)
                            (max-adaptive-steps 5)
                            (min-adaptive-steps 0)

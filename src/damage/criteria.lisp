@@ -525,18 +525,23 @@
     (sqrt (max 0d0 (* E energy)))
     ))
 
-(defun tensile-energy-norm (strain E de)
-  (let* ((strain+
-           (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain))
-             (loop for i from 0 to 2
-                   do
-                      (setf (nth i l) (max (nth i l) 0d0)))
-             (cl-mpm/utils:matrix-to-voigt
-              (cl-mpm/fastmaths::fast-@-matrix-n v
-                        (cl-mpm/utils::matrix-from-diag l)
-                        (cl-mpm/utils:transpose v))))))
-    (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain+ (cl-mpm/fastmaths::fast-@-arb-arb de strain+)))))
-    ))
+(cl-mpm/utils::with-matrix-pool
+    (cl-mpm/utils::with-voigt-pool
+        (defun tensile-energy-norm (strain E de)
+          (let* ((strain+
+                   (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain (grab-new-matrix)))
+                     (loop for i from 0 to 2
+                           do (setf (nth i l) (max (nth i l) 0d0)))
+                     (cl-mpm/utils:matrix-to-voigt
+                      (cl-mpm/fastmaths::fast-@-matrix-n
+                       v
+                       (cl-mpm/utils::matrix-from-diag l)
+                       (cl-mpm/utils:transpose v))
+
+                      (grab-new-voigt)
+                      ))))
+            (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain+ (cl-mpm/fastmaths::fast-@-arb-arb de strain+)))))
+            ))))
 
 (defun tensile-energy-norm-pressure (strain E nu de pressure)
   (let* ((K (/ E (* 3d0 (- 1d0 (* 2d0 nu)))))
