@@ -220,7 +220,7 @@
                                      (progn
                                        (unless t0
                                          (setf t0
-                                               (log (/ o r-0))
+                                               (/ (log (/ o r-0)) substeps)
                                                ;; (/ (- o r-0) substeps)
                                                ))
                                        (incf rsteps)
@@ -238,9 +238,10 @@
                                  (format t "~A ~A ~%" r-n r-n1)
                                  (when (and r-n r-n1)
                                    (let* (;; (tn (/ (- r-n r-0) (* rsteps substeps)))
-                                          (tn ;; (/ (log (- r-n r-n1) 10) substeps)
-                                            (log (/ r-n r-n1))
-                                              )
+                                          (tn
+                                            (/ (log (/ r-n r-0)) (* rsteps substeps))
+                                            ;; (/ (log (/ r-n r-n1)) substeps)
+                                            )
                                           (ratio (/ tn t0)))
                                      (format t "Current tangent ~E - initial tangent ~E - ratio ~E~%"
                                              tn
