@@ -4,6 +4,16 @@
         :cl-mpm/utils))
 (in-package :cl-mpm/examples/damage/biaxial)
 
+;;  469.083 seconds of real time
+;;  1098.184667 seconds of total run time (619.848381 user, 478.336286 system)
+;;  [ Real times consist of 3.835 seconds GC time, and 465.248 seconds non-GC time. ]
+;;  [ Run times consist of 9.971 seconds GC time, and 1088.214 seconds non-GC time. ]
+;;  234.11% CPU
+;;  31 lambdas converted
+;;  1,970,145,957,528 processor cycles
+;;  5 page faults
+;;  541,694,273,840 bytes consed
+
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
@@ -226,20 +236,20 @@
            (normal (cl-mpm/utils:vector-from-list '(0d0 -1d0 0d0)))
            (epsilon (* (cl-mpm/particle::calculate-p-wave-modulus E nu) epsilon-scale)))
       (defparameter *penalty*
-        (cl-mpm/penalty::make-bc-penalty-distance-point
+        (cl-mpm/penalty::make-bc-penalty-displacment
          *sim*
-         normal
-         (cl-mpm/utils:vector-from-list (list (+ offset (* 0.5 width)) height 0d0))
-         width
-         epsilon
-         0d0
-         0d0
-         ;; :clip-function (lambda (p) (cl-mpm/penalty::clip-radial
-         ;;                             p
-         ;;                             normal
-         ;;                             (cl-mpm/utils:vector-from-list (list offset height 0d0))
-         ;;                             penalty-width)
-         ))
+         (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))
+         epsilon)
+        ;; (cl-mpm/penalty::make-bc-penalty-distance-point
+        ;;  *sim*
+        ;;  normal
+        ;;  (cl-mpm/utils:vector-from-list (list (+ offset (* 0.5 width)) height 0d0))
+        ;;  width
+        ;;  epsilon
+        ;;  0d0
+        ;;  0d0
+        ;;  )
+        )
       ;; (defparameter *penalty*
       ;;   ;; (cl-mpm/penalty::make-bc-penalty-displacment
       ;;   ;;  *sim*
@@ -305,43 +315,53 @@
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
 
     (vgplot:close-all-plots)
-    (time
-     (cl-mpm/dynamic-relaxation::run-adaptive-load-control
-      *sim*
-      :output-dir output-dir
-      :plotter (lambda (sim)
-                 (plot-domain))
-      :loading-function (lambda (i)
-                          (setf current-disp (* i total-disp))
-                          (cl-mpm/penalty::bc-set-displacement
-                           *penalty*
-                           (cl-mpm/utils:vector-from-list (list 0d0 current-disp 0d0))))
-      :post-conv-step (lambda (sim)
-                        (push current-disp *data-disp*)
-                        (let ((load (get-load)))
-                          (format t "Load ~E~%" load)
-                          (push load *data-load*))
-                        ;; (plot-load-disp)
-                        (save-csv csv-dir csv-filename *data-disp* *data-load*)
-                        ;; (output-disp-data output-dir)
-                        (incf step))
-      :load-steps lstps
-      :enable-plastic enable-plastic
-      :enable-damage enable-damage
-      :damping (sqrt 2d0)
-      :min-adaptive-steps 0
-      :max-adaptive-steps 10
-      :adaption-constant 4
-      :max-damage-inc 0.90d0
-      ;; :min-damage-inc 0.1d0
-      :substeps (round (* refine 40))
-      ;; :sub-conv-steps 50
-      :sub-conv-steps 10000
-      :criteria 1d-6
-      :stagger-damage nil
-      :save-vtk-dr t
-      :save-vtk-loadstep t
-      :dt-scale 0.9d0))))
+    (let ((x (list ))
+          (r (list ))
+          (iters 0)
+          )
+      (time
+       (cl-mpm/dynamic-relaxation::run-adaptive-load-control
+        *sim*
+        :output-dir output-dir
+        :plotter (lambda (sim)
+                   (push iters x)
+                   (push (cl-mpm::sim-stats-oobf *sim*) r)
+                   (incf iters)
+                   (vgplot:semilogy x r)
+                   ;; (plot-domain)
+                   )
+        :loading-function (lambda (i)
+                            (setf current-disp (* i total-disp))
+                            (cl-mpm/penalty::bc-set-displacement
+                             *penalty*
+                             (cl-mpm/utils:vector-from-list (list 0d0 current-disp 0d0))))
+        :post-conv-step (lambda (sim)
+                          (push current-disp *data-disp*)
+                          (let ((load (get-load)))
+                            (format t "Load ~E~%" load)
+                            (push load *data-load*))
+                          ;; (plot-load-disp)
+                          (save-csv csv-dir csv-filename *data-disp* *data-load*)
+                          ;; (output-disp-data output-dir)
+                          (incf step))
+        :load-steps lstps
+        :enable-plastic enable-plastic
+        :enable-damage enable-damage
+        :damping (sqrt 2d0)
+        :min-adaptive-steps 0
+        :max-adaptive-steps 10
+        :adaption-constant 4
+        :max-damage-inc 0.90d0
+        ;; :min-damage-inc 0.1d0
+        :substeps (round (* refine 80))
+        ;; :sub-conv-steps 50
+        :stagger-damage :MONOLITH
+        :sub-conv-steps 10000
+        :criteria 1d-6
+        :stagger-damage nil
+        :save-vtk-dr t
+        :save-vtk-loadstep t
+        :dt-scale 1d0)))))
 
 (defun damage-refinement-criteria (sim mesh c)
   (let ((damage 0d0)
@@ -380,18 +400,27 @@
   (cl-mpm/utils::set-workers 12)
   (let ((name "geometric"))
     (dolist (bell (list t))
-      (dolist (length (list t))
-        (dolist (refine (list 1))
+      (dolist (length (list nil))
+        (dolist (refine (list 1 2 4))
           (setup :mps 3
                  :refine refine
                  :enable-fbar t
                  :angle 30d0
-                 :angle-r 0d0
+                 :angle-r 00d0
                  :gf (* 40d0)
-                 :kt (- 1d0 1d-9)
+                 :kt (- 1d0 1d-6)
                  :model :MC
-                 :local-length (/ 0.01d0 refine)
+                 :local-length 0.020d0
                  :oversize-factor (- 1d0 1d-2))
+          (cl-mpm/output::add-mp-output *sim* :SCALAR "damage-inc-crit"
+                                        (lambda (mp)
+                                          (if (> (cl-mpm/particle::mp-damage mp) 0d0)
+                                              (/
+                                               (abs (- (cl-mpm/particle::mp-damage-prev-trial mp)
+                                                       (cl-mpm/particle::mp-damage mp)))
+                                               (cl-mpm/particle::mp-damage mp)
+                                               )
+                                              0d0)))
 
 
           ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static :refinement 0)
@@ -409,15 +438,16 @@
           (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) length)
 
           ;; (break)
-          (ignore-errors
-           (run :output-dir
-                ;; (format nil "./output-~D_ekl/" refine)
-                (format nil "./output-~D_~A_bell2_~A_ll_~A/" refine name cl-mpm/damage::*standard-bell-curve* (cl-mpm/damage::sim-enable-length-localisation *sim*))
-                :lstps 20
-                :enable-plastic nil
-                :enable-damage t
-                :total-disp -3d-3
-                :refine refine)))))))
+          ;; (ignore-errors)
+          (run :output-dir
+               ;; (format nil "./output-~D_ekl/" refine)
+               (format nil "./output-~D_~A_bell2_~A_ll_~A/" refine name cl-mpm/damage::*standard-bell-curve* (cl-mpm/damage::sim-enable-length-localisation *sim*))
+               :lstps 10
+               :tensile t
+               :enable-plastic nil
+               :enable-damage t
+               :total-disp -3d-3
+               :refine refine))))))
 
 
 ;; (defun test-plastic ()
