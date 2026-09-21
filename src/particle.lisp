@@ -1130,9 +1130,9 @@
     :initform 1d0)
    (damage-position
     :accessor mp-damage-position
-    ;:type MAGICL:MATRIX/DOUBLE-FLOAT
+    ;; :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform nil
-    ;:initform (cl-mpm/utils::vector-zeros)
+    ;; :initform (cl-mpm/utils::vector-zeros)
     )
    (average-damage
     :accessor mp-av-damage
@@ -1149,7 +1149,10 @@
    (damage-domain-update-rate
     :accessor mp-damage-domain-update-rate
     :initarg :damage-domain-rate
-    :initform 0d0))
+    :initform 0d0)
+   (mp-local-list
+    :accessor mp-local-list
+    :initform (make-array 0 :fill-pointer 0 :adjustable t)))
   (:documentation "A material point with a damage tensor"))
 
 

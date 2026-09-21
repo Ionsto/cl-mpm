@@ -25,7 +25,8 @@
         (r-n nil)
         (r-n1 nil)
         (t0 nil)
-        (rsteps 0))
+        (rsteps 0)
+        (bad-initial-tangents 2))
     (handler-bind
         ((cl-mpm/errors:error-simulation
            (lambda (c)
@@ -77,29 +78,55 @@
                                        (if r-n
                                            (progn
                                              (unless t0
-                                               (setf t0 (/ (- o r-n) substeps)))
+                                               (setf t0 (/ (- o r-0) substeps)))
                                              (rotatef r-n r-n1)
                                              (setf r-n o)
                                              (when (= t0 0d0)
                                                (setf r-n nil)
                                                (setf r-n1 nil)
                                                (setf t0 nil)))
-                                           (setf r-n o))
+                                           (progn
+                                             (setf r-n o)
+                                             (unless r-0
+                                               (setf r-0 o))))
+
+                                           (when (and
+                                                  t0
+                                                  (> t0 0d0))
+                                             (incf bad-initial-tangents)
+                                             (format t "Initial tangent ~E - ~D~%" t0 bad-initial-tangents)
+                                             (setf
+                                              r-n nil
+                                              r-n1 nil
+                                              r-0 nil
+                                              t0 nil
+                                              rsteps 0)
+                                             (when (= bad-initial-tangents 5)
+                                               (error 'cl-mpm/errors::error-simulation)))
 
                                        (when (and r-n r-n1)
-                                         (let* ((tn (/ (- r-n r-n1) substeps))
+                                         (let* ((tn (/ (- r-n r-0) substeps))
                                                 (ratio (/ tn t0)))
                                            (format t "Current tangent ~E - initial tangent ~E - ratio ~E~%"
                                                    tn
                                                    t0
                                                    ratio)
                                            (when (or (< ratio min-tangent-ratio)
-                                                     (and
-                                                      (> tn 0d0)
-                                                      (> t0 0d0)))
+                                                     )
                                              (format t "Current tangent dropped below specified ratio~%")
-                                             ;; (error 'cl-mpm/errors::error-simulation)
-                                             )))
+                                             (error 'cl-mpm/errors::error-simulation)
+                                             )
+                                           ;; (when (and
+                                           ;;        (> tn 0d0)
+                                           ;;        (> t0 0d0))
+                                           ;;   (setf
+                                           ;;    r-n nil
+                                           ;;    r-n1 nil
+                                           ;;    r-0 nil
+                                           ;;    t0 nil
+                                           ;;    rsteps 0)
+                                           ;;   )
+                                           ))
                                        (setf dconv (compute-damage-delta sim))
                                        (and
                                         (convergence-criteria sim)
@@ -326,8 +353,7 @@
                                           (cl-mpm::reset-node-displacement sim)
                                           (cl-mpm:sim-format sim t "quasi-time terminated as too many dt refinemets are required~%")
                                           (loop-finish))
-                                        (incf current-adaptivity))))
-                                )
+                                        (incf current-adaptivity)))))
                            finally (progn
                                      (cl-mpm:sim-format sim t "finished with ~d dt adaptions - stagger iters ~d~%" (- i 1) stagger-iters)
                                      (when (= i 1)

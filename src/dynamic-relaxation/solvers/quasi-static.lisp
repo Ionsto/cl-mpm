@@ -331,7 +331,7 @@
       sim
     (call-next-method)
     (setf delocal-counter -1)
-    (cl-mpm/damage::update-delocalisation-list mesh mps)))
+    (cl-mpm/damage::update-delocalisation-list sim)))
 
 
 

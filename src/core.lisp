@@ -1088,7 +1088,8 @@ This modifies the dt of the simulation in the process
                    do (vector-push-extend bc bcs)))
            (setf bcs new-bcs)))
       (cl-mpm/bc::bc
-       (vector-push-extend new-bcs bcs)))))
+       (vector-push-extend new-bcs bcs)
+       (setf bcs bcs)))))
 (defun add-bcs-force-list (sim new-bcs)
   "Add bcs that apply forces, ordered in a FILO"
   (with-accessors ((bcs-force-list cl-mpm:sim-bcs-force-list))

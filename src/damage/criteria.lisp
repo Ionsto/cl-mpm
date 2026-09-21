@@ -1,7 +1,7 @@
 (in-package :cl-mpm/damage)
 
 (defun modified-vm-stress (stress k init-stress)
-  (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
+  (multiple-value-bind (s_1 s_2 s_3) (fast-principal-stresses-3d stress)
     (let ((i1 (+ s_1 s_2 s_3)))
       (* 0.5d0
          (+
@@ -15,7 +15,7 @@
 
 (defun criterion-modified-vm (strain k E nu)
   ;; (assert (< nu 0.5d0))
-  ;; (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d strain))
+  ;; (multiple-value-bind (s_1 s_2 s_3) (fast-principal-stresses-3d strain))
   (let ((i1 (cl-mpm/utils:trace-voigt strain)
           ;; (+ s_1 s_2 s_3)
             )
@@ -31,7 +31,7 @@
                  (* (/ (* 12d0 k) (expt (- 1d0 nu) 2)) j2)))))))
 
 (defun criterion-mc (strain angle E nu)
-  (multiple-value-bind (e_1 e_2 e_3) (principal-stresses-3d
+  (multiple-value-bind (e_1 e_2 e_3) (fast-principal-stresses-3d
                                       ;; strain
                                       (magicl:scale!
                                         ;(cl-mpm/utils::voigt-contra->covar strain)
@@ -82,12 +82,12 @@
          ;;   )
          )
     ))
-(defun criterion-effective-principal-stress (stress pressure)
-  (multiple-value-bind (s1 s2 s3) (principal-stresses-3d stress)
+(defun criterion-effective-fast-principal-stress (stress pressure)
+  (multiple-value-bind (s1 s2 s3) (fast-principal-stresses-3d stress)
     (- (max s1 s2 s3) pressure))
   )
-(defun criterion-effective-principal-strain (strain E pressure)
-  (- (criterion-max-principal-strain strain E) pressure))
+(defun criterion-effective-fast-principal-strain (strain E pressure)
+  (- (criterion-max-fast-principal-strain strain E) pressure))
 
 ;;Chalk brittle
 
@@ -329,7 +329,7 @@
     (sqrt (* 3d0 j2))))
 
 ;; (defun modified-vm-criterion (stress nu k)
-;;   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
+;;   (multiple-value-bind (s_1 s_2 s_3) (fast-principal-stresses-3d stress)
 ;;     (declare (double-float nu k s_1 s_2 s_3))
 ;;     (let* ((j2 (cl-mpm/constitutive::voigt-j2
 ;;                 (cl-mpm/utils::deviatoric-voigt stress)))
@@ -344,35 +344,35 @@
 ;;       s_1
 ;;       )))
 (defun smooth-rankine-criterion (stress)
-  (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
+  (multiple-value-bind (s_1 s_2 s_3) (fast-principal-stresses-3d stress)
      (sqrt
       (+ (expt (max 0d0 s_1) 2)
          (expt (max 0d0 s_2) 2)
          (expt (max 0d0 s_3) 2)))
      ))
 (defun criterion-rankine (stress)
-  (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
+  (multiple-value-bind (s_1 s_2 s_3) (fast-principal-stresses-3d stress)
     (max s_1 s_2 s_3)))
 
 (defun criterion-rankine-smooth (stress)
-  (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
+  (multiple-value-bind (s_1 s_2 s_3) (fast-principal-stresses-3d stress)
     (sqrt
      (+ (expt (max 0d0 s_1) 2)
         (expt (max 0d0 s_2) 2)
         (expt (max 0d0 s_3) 2)))))
 
-(defun criterion-max-principal-stress (stress)
-  (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
+(defun criterion-max-fast-principal-stress (stress)
+  (multiple-value-bind (s_1 s_2 s_3) (fast-principal-stresses-3d stress)
     (declare (double-float s_1 s_2 s_3))
     (max 0d0 s_1 s_2 s_3)))
 
-(defun criterion-max-principal-strain (strain E)
-  (multiple-value-bind (s_1 s_2 s_3) (principal-strains strain)
+(defun criterion-max-fast-principal-strain (strain E)
+  (multiple-value-bind (s_1 s_2 s_3) (fast-principal-strains strain)
     (declare (double-float s_1 s_2 s_3))
     (* E (max 0d0 s_1 s_2 s_3))))
 ;; (defun modified-vm-strain (strain nu k E)
 ;;   (multiple-value-bind (e1 e2 e3)
-;;       (principal-stresses-3d
+;;       (fast-principal-stresses-3d
 ;;        (magicl:.*
 ;;         strain
 ;;         (cl-mpm/utils:voigt-from-list
@@ -398,14 +398,14 @@
 ;;                                   )))))))
 ;;       s_)))
 
-(defun principal-strains (strains)
+(defun fast-principal-strains (strains)
   (multiple-value-bind (l v) (cl-mpm/utils::eig (voigt-to-matrix strains))
     (declare (ignore v))
     (setf l (sort l #'>))
     (values (nth 0 l) (nth 1 l) (nth 2 l))))
 
 (defun criterion-mohr-coloumb (strain angle E nu)
-  (multiple-value-bind (e1 e2 e3) (principal-strains strain)
+  (multiple-value-bind (e1 e2 e3) (fast-principal-strains strain)
     (let ((a (/ (sin angle)
                 (- 1d0 (* 2 nu))))
           (G (/ E (* 2 (- 1d0 nu))))
@@ -423,7 +423,7 @@
       )))
 
 (defun criterion-mohr-coloumb-3d (stress angle)
-  (multiple-value-bind (s1 s2 s3) (principal-stresses-3d stress)
+  (multiple-value-bind (s1 s2 s3) (fast-principal-stresses-3d stress)
     (declare (double-float angle s1 s2 s3))
     (let ((tang (tan angle))
           (cang (cos angle)))
@@ -435,7 +435,7 @@
           )))))
 
 (defun criterion-mohr-coloumb-stress (stress angle)
-  (multiple-value-bind (s1 s2 s3) (principal-stresses-3d stress)
+  (multiple-value-bind (s1 s2 s3) (fast-principal-stresses-3d stress)
     (declare (double-float angle s1 s2 s3))
     (let ()
       (* 0.5d0
@@ -445,7 +445,7 @@
 
 (defun criterion-mohr-coloumb-stress-tensile (stress angle)
   (declare (double-float angle))
-  (multiple-value-bind (s1 s2 s3) (principal-stresses-3d stress)
+  (multiple-value-bind (s1 s2 s3) (fast-principal-stresses-3d stress)
     (declare (double-float angle s1 s2 s3))
     (let ((k (/ (+ 1d0 (sin angle))
                 (- 1d0 (sin angle)))))
@@ -459,7 +459,7 @@
              k)))))
 
 (defun criterion-mohr-coloumb-stress-will (stress angle)
-  (multiple-value-bind (s1 s2 s3) (principal-stresses-3d stress)
+  (multiple-value-bind (s1 s2 s3) (fast-principal-stresses-3d stress)
     (declare (double-float angle s1 s2 s3))
     (let ((k (/ (+ 1d0 (sin angle))
                 (- 1d0 (sin angle)))))
@@ -557,7 +557,7 @@
                 criterion-mohr-coloumb-rankine-stress-tensile))
 (defun criterion-mohr-coloumb-rankine-stress-tensile (stress angle)
   (declare (double-float angle))
-  (multiple-value-bind (s1 s2 s3) (principal-stresses-3d stress)
+  (multiple-value-bind (s1 s2 s3) (fast-principal-stresses-3d stress)
     (declare (double-float angle s1 s2 s3))
     (max
      0d0
@@ -566,12 +566,14 @@
      s3
      (let ((k (/ (+ 1d0 (sin angle))
                  (- 1d0 (sin angle)))))
-       (/
-        (max
-         (- (* k s1) s3)
-         (- (* k s1) s2)
-         (- (* k s2) s3))
-          k)))))
+       (declare (double-float k))
+       (the double-float
+            (/
+             (max
+              (- (* k s1) s3)
+              (- (* k s1) s2)
+              (- (* k s2) s3))
+             k))))))
 
 
 

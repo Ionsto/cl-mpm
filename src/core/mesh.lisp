@@ -1016,7 +1016,7 @@
   (policy-cond:policy-if (> safety speed)
                          (if (in-bounds mesh pos)
                              (apply #'aref (mesh-nodes mesh) pos)
-                               (error (format nil "Access grid out of bounds at: ~a" pos)))
+                             (error (format nil "Access grid out of bounds at: ~a" pos)))
                          (apply #'aref
                                 (mesh-nodes mesh)
                                 pos)))
@@ -1028,6 +1028,19 @@
                              (aref (mesh-nodes mesh) (aref pos 0) (aref pos 1))
                              (error (format nil "Access grid out of bounds at: ~a" pos)))
                          (aref (mesh-nodes mesh) (aref pos 0) (aref pos 1))))
+
+
+(declaim (inline get-node-values)
+         (ftype (function (mesh fixnum fixnum fixnum) (or node null)) get-node-values))
+(defun get-node-values (mesh x y z)
+  (declare (fixnum x y z)
+           )
+  "Check bounds and get node"
+  (policy-cond:policy-if (> safety speed)
+                         (if (in-bounds-array mesh pos)
+                             (aref (mesh-nodes mesh) x y z)
+                             (error (format nil "Access grid out of bounds at: ~a" pos)))
+                         (aref (the (simple-array T (* * *)) (mesh-nodes mesh)) x y z)))
 
 (declaim (inline get-cell)
          (ftype (function (mesh list) (or cell null)) get-cell))

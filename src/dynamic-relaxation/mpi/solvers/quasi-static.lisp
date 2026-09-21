@@ -179,7 +179,7 @@
     (unless initial-setup
       (pre-step sim)
       (setf (cl-mpm/damage::sim-damage-delocal-counter-max sim) -1)
-      (cl-mpm/damage::update-delocalisation-list mesh mps))
+      (cl-mpm/damage::update-delocalisation-list sim))
     (cl-mpm/penalty::reset-penalty sim)
     (setf dt 1d0)
     (cl-mpm::reset-nodes-force sim)

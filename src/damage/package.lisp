@@ -1,6 +1,7 @@
 (defpackage :cl-mpm/damage
   (:use :cl
-   :cl-mpm/utils)
+   :cl-mpm/utils
+        :cl-mpm/fastmaths)
   (:export
    #:mpm-sim-damage
    #:calculate-damage

@@ -156,7 +156,7 @@
                                       (max-damage-inc 0.6d0)
                                       (max-plastic-inc 1d0)
                                       (max-deformation-gradient 10d0)
-                                      (min-tangent-ratio 1d-2)
+                                      (min-tangent-ratio 1d-3)
                                       (damping 1d0)
                                       (staggered-steps 500)
                                       (sub-conv-steps 50)
@@ -174,6 +174,7 @@
          (total-i 0)
          (r-n nil)
          (r-n1 nil)
+         (r-0 nil)
          (t0 nil)
          )
     (setf
@@ -210,16 +211,19 @@
                                  (if r-n
                                      (progn
                                        (unless t0
-                                         (setf t0 (/ (- o r-n) substeps)))
+                                         (setf t0 (/ (- o r-0) substeps)))
                                        (rotatef r-n r-n1)
                                        (setf r-n o)
                                        (when (= t0 0d0)
                                          (setf r-n nil)
                                          (setf r-n1 nil)
                                          (setf t0 nil)))
-                                     (setf r-n o))
+                                     (progn
+                                       (setf r-n o)
+                                       (unless r-0
+                                         (setf r-0 o))))
                                  (when (and r-n r-n1)
-                                   (let* ((tn (/ (- r-n r-n1) substeps))
+                                   (let* ((tn (/ (- r-n r-0) substeps))
                                           (ratio (/ tn t0)))
                                      (format t "Current tangent ~E - initial tangent ~E - ratio ~E~%"
                                              tn
@@ -230,7 +234,7 @@
                                                 (> tn 0d0)
                                                 (> t0 0d0)))
                                        (format t "Current tangent dropped below specified ratio~%")
-                                       ;; (error 'cl-mpm/errors::error-simulation)
+                                       (error 'cl-mpm/errors::error-simulation)
                                        )))
                                  (if convergence-criteria
                                      (funcall convergence-criteria sim)
@@ -250,6 +254,7 @@
                                   (progn
                                     (unless (cl-mpm:sim-enable-damage sim)
                                       (setf
+                                       r-0 nil
                                        r-n nil
                                        r-n1 nil
                                        t0 nil))

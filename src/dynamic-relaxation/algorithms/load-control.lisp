@@ -104,8 +104,9 @@
                            (save-vtk-loadstep t)
                            (max-adaptive-steps 5)
                            (min-adaptive-steps 0)
-                           (compute-zero-loadstep nil)
                            (adaption-constant 2)
+                           (adaption-easy-steps 2)
+                           (compute-zero-loadstep nil)
                            (max-damage-inc 0.3d0)
                            (max-plastic-inc nil)
                            (max-deformation-gradient 10d0)
@@ -131,8 +132,7 @@
                                        (* load percent)))))
       (setf (cl-mpm::sim-dt-scale sim) dt-scale)
       (let* ((initial-load-step-size (/ (- 1d0 initial-load) load-steps))
-             (prev-steps-easy (list t t))
-             (prev-step-iter 0)
+             (easy-step-counter 0)
              (load-step-size initial-load-step-size)
              (current-load initial-load)
              (current-adaptivity 0))
@@ -188,9 +188,9 @@
                                   (when save-vtk-dr
                                     (save-vtks-dr-step sim output-dir step trial-step i-total))
                                   (incf *total-iter* substeps)
+                                  (cl-mpm/utils::kill-errors)
                                   (cl-mpm::reset-loadstep sim)
-                                  (values nil 0)
-                                  )
+                                  (values nil 0))
                                 ;; (error (c)
                                 ;;   (cl-mpm:sim-format sim t "A non simulation error was thrown!")
                                 ;;   (princ c)
@@ -200,7 +200,7 @@
                                 ;;   (values nil 0))
                                 )))
                        (let ((quasi-conv nil))
-                         (loop for i from 0 to max-adaptive-steps
+                         (loop for i from 0 to (- max-adaptive-steps current-adaptivity)
                                while (not quasi-conv)
                                do (progn
                                     (setf load-step-size
@@ -212,31 +212,28 @@
                                     (cl-mpm:sim-format sim t "Load step size ~E adapted by ~D~%" load-step-size current-adaptivity)
                                     (setf quasi-conv (trial-solve i))
                                     (unless quasi-conv
-                                      (cl-mpm:sim-format sim t "Failed conv, adapting~%" )
-                                      (incf current-adaptivity))
-                                    (if (or (= current-adaptivity max-adaptive-steps))
-                                        (progn
-                                          (loop-finish))))
+                                      (setf easy-step-counter 0)
+                                      (if (= current-adaptivity max-adaptive-steps)
+                                          (progn
+                                            (cl-mpm::reset-node-displacement sim)
+                                            (cl-mpm:sim-format sim t "quasi-time terminated as too many dt refinemets are required~%")
+                                            (loop-finish))
+                                          (incf current-adaptivity))))
                                finally (progn
-                                         (cl-mpm:sim-format sim t "Finished with ~D adaptions- conv ~A~%" (- i 1) quasi-conv)
-                                         (when (> min-damage-inc 0d0)
-                                           (format t "Easy damage inc criteria ~E true ~E~%" min-damage-inc (damage-increment-criteria sim)))
+                                         (cl-mpm:sim-format sim t "finished with ~d dt adaptions~%" (- i 1))
+                                         (when (= i 1)
+                                           (incf easy-step-counter))
+                                         (cl-mpm:sim-format sim t "easy steps ~D~%" easy-step-counter)
                                          (when (and (= i 1)
-                                                    (if (> min-damage-inc 0d0)
-                                                        (< (damage-increment-criteria sim) min-damage-inc)
-                                                        t))
-                                           (setf (nth (mod prev-step-iter (length prev-steps-easy)) prev-steps-easy) t)
-                                           (cl-mpm:sim-format sim t "Potential adaption easy steps ~A~%" prev-steps-easy)
-                                           (when (every #'identity prev-steps-easy)
-                                             (setf current-adaptivity
-                                                   (max min-adaptive-steps
-                                                        (- current-adaptivity 1)))))
-                                         ))
-                         (unless quasi-conv;(>= current-adaptivity max-adaptive-steps)
+                                                    (> easy-step-counter adaption-easy-steps))
+                                           (setf current-adaptivity
+                                                 (max min-adaptive-steps
+                                                      (- current-adaptivity 1))))))
+                         (unless quasi-conv
                            (cl-mpm:sim-format sim t "Solve failed completly~%" )
                            (setf (cl-mpm::sim-run-sim sim) nil
-                                 finished nil))
-                         ))))
+                                 finished nil)))
+                         )))
                  (incf current-load load-step-size)
                  (funcall post-conv-step sim)
                  (cl-mpm::finalise-loadstep sim)

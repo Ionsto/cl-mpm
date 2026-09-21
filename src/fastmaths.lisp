@@ -25,6 +25,7 @@
    #:fast-@-matrix-matrix
    #:fast-@
    #:mag
+   #:fast-principal-stresses-3d
    ))
 
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -126,14 +127,30 @@
  (ftype (function ((simple-array double-float (3))
                    (simple-array double-float (3))) double-float) simd-diff-norm))
 (defun simd-diff-norm (a b)
-  (declare (type (simple-array double-float (3)) a b))
-  (declare (optimize (speed 3) (safety 0)))
-  (+
-   (the double-float (expt (- (aref a 0) (aref b 0)) 2))
-   (the double-float (expt (- (aref a 1) (aref b 1)) 2))
-   (the double-float (expt (- (aref a 2) (aref b 2)) 2))))
+  (declare (type (simple-array double-float (3)) a b)
+           (optimize (speed 3) (safety 0))
+           )
+  ;; (let ((temp
+  ;;         (sb-simd-avx:f64.2-
+  ;;          (sb-simd-avx:f64.2-aref a 0)
+  ;;          (sb-simd-avx:f64.2-aref b 0))))
+  ;;   ;; (sb-simd-avx::f64.2-horizontal+ (sb-simd-avx::f64.2* temp temp))
+  ;;   )
+    ;; (incf (aref a 2) (aref b 2))
+  (let ((d0 (- (aref a 0) (aref b 0)))
+        (d1 (- (aref a 1) (aref b 1)))
+        (d2 (- (aref a 2) (aref b 2))))
+    (declare (double-float d0 d1 d2))
+    (the double-float
+         (+
+          (* d0 d0)
+          (* d1 d1)
+          (* d2 d2)))))
 
-(declaim (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) double-float)))
+(declaim
+ (inline diff-norm)
+ (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) double-float)
+                diff-norm))
 (defun diff-norm (a b)
   (simd-diff-norm (cl-mpm/utils:fast-storage a)
                   (cl-mpm/utils:fast-storage b)))
@@ -1603,9 +1620,9 @@
          (a00 (aref s 0))
          (a11 (aref s 1))
          (a22 (aref s 2))
-         (a01 (* 0.5d0 (aref s 5)))
-         (a02 (* 0.5d0 (aref s 4)))
-         (a12 (* 0.5d0 (aref s 3)))
+         (a01 (* 1d0 (aref s 5)))
+         (a02 (* 1d0 (aref s 4)))
+         (a12 (* 1d0 (aref s 3)))
          )
     (declare (double-float a00 a01 a02 a11 a12 a22))
     (let ((maxAbsElement (max (abs a00) (abs a01) (abs a02) (abs a12) (abs a22) (abs a11))))
@@ -1940,3 +1957,9 @@
 ;;                         (aref values c)
 ;;                         (aref vec-s (aref cols c)))))))))
 ;;     res))
+
+
+(defun fast-principal-stresses-3d (stress)
+  (multiple-value-bind (s3 s2 s1) (eigenvalues-3x3 stress)
+    (declare (ignore v))
+    (values s1 s2 s3)))

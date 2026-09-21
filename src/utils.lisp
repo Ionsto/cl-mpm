@@ -877,6 +877,11 @@
     (declare (ignore v))
     (setf l (sort l #'>))
     (values (nth 0 l) (nth 1 l) (nth 2 l))))
+;; (defun principal-stresses-3d (stress)
+;;   (multiple-value-bind (l v) (cl-mpm/utils::eig (voight-to-matrix stress))
+;;     (declare (ignore v))
+;;     (setf l (sort l #'>))
+;;     (values (nth 0 l) (nth 1 l) (nth 2 l))))
 
 (defun principal-strains-3d (strain)
   (multiple-value-bind (l v) (eig (voigt-to-matrix strain))

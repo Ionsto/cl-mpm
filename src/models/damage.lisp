@@ -155,7 +155,7 @@
           damage-prev damage)
     (call-next-method)))
 
-(defmethod cl-mpm/damage::set-mp-damage ((mp cl-mpm/particle::particle-damage) d)
+(defmethod cl-mpm/damage::set-mp-damage ((mp cl-mpm/particle::particle-elastic-damage) d)
   (let ((k (cl-mpm/damage::find-k-damage-mp mp d)))
     (setf (cl-mpm/particle::mp-history-stress mp) k)
     (setf (cl-mpm/particle::mp-history-stress-n mp) k)
@@ -581,7 +581,7 @@
                    (residual-strength cl-mpm/particle::mp-residual-strength)
                    (ductility cl-mpm/particle::mp-ductility))
       mp
-    (declare (double-float damage k ybar))
+    (declare (double-float damage k ybar damage-n))
     (setf damage
           (max
            damage-n
@@ -600,7 +600,7 @@
                      (k-n cl-mpm/particle::mp-history-stress-n)
                      (ductility cl-mpm/particle::mp-ductility))
         mp
-      (declare (double-float damage damage-inc k ybar dt))
+      (declare (double-float damage damage-n damage-inc k k-n ybar ybar-prev dt))
       (setf (cl-mpm/particle::mp-damage-prev-trial mp) (cl-mpm/particle::mp-damage mp))
       ;;Damage increment holds the delocalised driving factor
       (setf k
