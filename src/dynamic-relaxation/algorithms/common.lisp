@@ -248,13 +248,13 @@
                                              tn
                                              t0
                                              ratio)
-                                     (when (or (< ratio min-tangent-ratio)
-                                               (and
-                                                (> tn 0d0)
-                                                (> t0 0d0)))
+                                     (when (and min-tangent-ratio
+                                                (or (< ratio min-tangent-ratio)
+                                                    (and
+                                                     (> tn 0d0)
+                                                     (> t0 0d0))))
                                        (format t "Current tangent dropped below specified ratio~%")
-                                       ;; (error 'cl-mpm/errors::error-simulation)
-                                       )))
+                                       (error 'cl-mpm/errors::error-simulation))))
 
                                  (when (cl-mpm::sim-enable-damage sim)
                                    ;; (setf dconv (compute-damage-delta sim))

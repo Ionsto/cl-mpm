@@ -108,6 +108,7 @@
                            (min-adaptive-steps 0)
                            (adaption-constant 2)
                            (adaption-easy-steps 2)
+                           (min-tangent-ratio nil)
                            (compute-zero-loadstep nil)
                            (max-damage-inc 0.3d0)
                            (max-plastic-inc nil)
@@ -168,6 +169,7 @@
                                       :max-plastic-inc max-plastic-inc
                                       :max-deformation-gradient max-deformation-gradient
                                       :stagger-damage stagger-damage
+                                      :min-tangent-ratio min-tangent-ratio
                                       :post-iter-step
                                       (lambda (i-g energy oobf)
                                         (incf i-total)
