@@ -110,9 +110,7 @@
                    (average-damage cl-mpm/particle::mp-av-damage))
       mp
     (declare (double-float ll average-damage))
-    ;; (setf
-    ;;  average-damage
-    ;;  (calculate-average-damage mesh mp ll))
+    ;;  (calculate-average-damage mesh mp ll)
     (calculate-average-damage-grads mesh mp ll)
     (setf tll
           (length-localisation
@@ -487,14 +485,14 @@
 ;;                  ))))
 ;;      )))
 
-(cl-mpm/utils::with-vector-pool 
-    (defun weight-func-mps-gradient-trapezium (mesh mp-a mp-b length)
+(cl-mpm/utils::with-vector-pool
+    (defun weight-func-mps-gradient-trapezium (mesh mp-a mp-b pos-a pos-b length)
       (declare (ignore mesh))
       (let* ((da (cl-mpm/particle::mp-av-damage mp-a))
              (da-other (cl-mpm/particle::mp-av-damage mp-b))
              (delta (cl-mpm/fastmaths:fast-.-
-                     (cl-mpm/particle::mp-position mp-b)
-                     (cl-mpm/particle::mp-position mp-a)
+                     pos-b
+                     pos-a
                      (grab-new-vector)))
              (diff (cl-mpm/fastmaths::mag delta))
              (step-size (/ diff 3d0)))
@@ -677,7 +675,7 @@ Calls the function with the mesh mp and node"
            (incf damage-average (* d weight m))))))
     (when (> volume-average 0d0)
       (setf damage-average (the double-float (/ damage-average volume-average))))
-    damage-average))
+    (setf (cl-mpm/particle::mp-av-damage mp) damage-average)))
 
 
 (defun calculate-average-damage-grads (mesh mp length)
@@ -706,8 +704,7 @@ Calls the function with the mesh mp and node"
            (cl-mpm/fastmaths:fast-fmacc
             damage-grads
             diff
-            (* d grad-weight))))
-       ))
+            (* d grad-weight))))))
     (when (> volume-average 0d0)
       ;; (cl-mpm/fastmaths::fast-scale! damage-grads (the double-float (/ 1d0 volume-average)))
       (setf damage-average (the double-float (/ damage-average volume-average))))
@@ -741,7 +738,9 @@ Calls the function with the mesh mp and node"
            (flet ((selected-weight (mp mp-other pos-a pos-b)
                     (if length-localisation
                         ;; (weight-func-mps-trapezium mesh mp mp-other pos-a pos-b length)
-                        (weight-func (cl-mpm/fastmaths::diff-norm pos-a pos-b) length)
+                        (weight-func-mps-geometric mesh mp mp-other pos-a pos-b length)
+                        ;; (weight-func-mps-gradient-trapezium mesh mp mp-other pos-a pos-b length)
+                        ;; (weight-func (cl-mpm/fastmaths::diff-norm pos-a pos-b) length)
                         (weight-func (cl-mpm/fastmaths::diff-norm pos-a pos-b) length))))
              (let* (
                     ;;Nodally averaged local funcj
@@ -1046,7 +1045,11 @@ Calls the function with the mesh mp and node"
                           (damage cl-mpm/particle::mp-damage)
                           (local-length-t cl-mpm/particle::mp-local-length))
              mp
-           (setf damage-ybar (calculate-delocalised-damage mesh mp local-length-t (sim-enable-length-localisation sim))))))))
+           (setf damage-ybar (calculate-delocalised-damage
+                              mesh
+                              mp
+                              local-length-t
+                              (sim-enable-length-localisation sim))))))))
   (values))
 
 (defgeneric delocalise-damage-stress (sim))

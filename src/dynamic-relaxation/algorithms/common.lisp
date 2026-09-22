@@ -191,6 +191,7 @@
     (case stagger-damage
       (:MONOLITH (setf (cl-mpm::sim-enable-damage sim) enable-damage))
       (:HYBRID (setf (cl-mpm::sim-enable-damage sim) nil))
+      (:HYBRID-FULL (setf (cl-mpm::sim-enable-damage sim) nil))
       (:FULL (setf (cl-mpm::sim-enable-damage sim) nil))
       (t (setf (cl-mpm::sim-enable-damage sim) nil)))
     ;; (setf (cl-mpm::sim-enable-damage sim) nil)
@@ -271,13 +272,16 @@
                                    (cl-mpm:sim-format sim t "d-conv ~E~%" dconv))
                                  (if convergence-criteria
                                      (funcall convergence-criteria sim)
-                                     (and
-                                      (<= o (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
-                                      (convergence-criteria sim)
-                                      (if (cl-mpm::sim-enable-damage sim)
-                                          (< dconv damage-crit)
-                                          t)
-                                      )))
+                                     (if (cl-mpm::sim-enable-damage sim)
+                                         (and
+                                          (<= o (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
+                                          (convergence-criteria sim)
+                                          (< dconv damage-crit))
+                                         (and
+                                          (if (and enable-damage (eq stagger-damage :HYBRID))
+                                              (<= o 1d-1)
+                                              (<= o (cl-mpm/dynamic-relaxation::sim-convergence-critera sim)))
+                                          (convergence-criteria sim)))))
                                :conv-steps sub-conv-steps
                                :damping-factor damping
                                :post-iter-step

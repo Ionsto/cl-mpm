@@ -96,8 +96,7 @@
                           (values list magicl:matrix/double-float)) eig))
 (defun eig (mat)
   "Real eigen-decomposition"
-  (magicl:self-adjoint-eig mat)
-  )
+  (magicl:self-adjoint-eig mat))
 
 
 (defmacro check-nan-matrix (mat &rest body)
