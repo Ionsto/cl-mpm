@@ -92,7 +92,7 @@
                            (initial-load 0d0)
                            (substeps 50)
                            (sub-conv-steps 50)
-                           (damping 1d0)
+                           (damping (sqrt 2d0))
                            (kinetic-damping nil)
                            (criteria 1d-3)
                            (post-conv-step (lambda (sim)))

@@ -379,10 +379,10 @@
     ;;       (cl-mpm/damage::update-localisation sim dt-loadstep)
     ;;       (cl-mpm/damage::update-damage-mps sim dt-loadstep)
     ;;       (setf dconv (compute-damage-delta sim))
-    ;;       (loop for i from 1 below 100
+    ;;       (loop for i from 1 below 10
     ;;             while (> dconv 1d-9)
     ;;             do (progn
-    ;;                  (format t "Internal update ~D ~E~%" i dconv)
+    ;;                  ;; (format t "Internal update ~D ~E~%" i dconv)
     ;;                  (cl-mpm/damage::update-localisation sim dt-loadstep)
     ;;                  (cl-mpm/damage::update-damage-mps sim dt-loadstep)
     ;;                  (setf dconv (compute-damage-delta sim))

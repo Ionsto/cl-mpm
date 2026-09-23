@@ -1112,9 +1112,7 @@
     :initform 1d0)
    (damage-position
     :accessor mp-damage-position
-    ;; :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform nil
-    ;; :initform (cl-mpm/utils::vector-zeros)
     )
    (average-damage
     :accessor mp-av-damage

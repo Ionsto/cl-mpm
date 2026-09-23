@@ -283,41 +283,43 @@
 
 (defun local-list-add-particle (mesh mp)
   "A function for putting an MP into the nodal MP lookup table"
-  (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp))))
-    (if (cl-mpm/mesh:in-bounds mesh node-id)
-      (let ((node (cl-mpm/mesh:get-node mesh node-id)))
-        (if (cl-mpm/particle::mp-damage-position mp)
-            (cl-mpm/utils::copy-into (cl-mpm/particle:mp-position mp) (cl-mpm/particle::mp-damage-position mp))
-            (setf (cl-mpm/particle::mp-damage-position mp) (cl-mpm/utils::vector-copy (cl-mpm/particle:mp-position mp))))
-        (sb-thread:with-mutex ((cl-mpm/mesh:node-lock node))
-          (vector-push-extend mp (the (vector t *) (cl-mpm/mesh::node-local-list node)))))
-      (error "Could not add damage MP to local list as it is out of bounds"))))
+  (when (typep mp 'cl-mpm/particle::particle-damage)
+    (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp))))
+      (if (cl-mpm/mesh:in-bounds mesh node-id)
+          (let ((node (cl-mpm/mesh:get-node mesh node-id)))
+            (if (cl-mpm/particle::mp-damage-position mp)
+                (cl-mpm/utils::copy-into (cl-mpm/particle:mp-position mp) (cl-mpm/particle::mp-damage-position mp))
+                (setf (cl-mpm/particle::mp-damage-position mp) (cl-mpm/utils::vector-copy (cl-mpm/particle:mp-position mp))))
+            (sb-thread:with-mutex ((cl-mpm/mesh:node-lock node))
+              (vector-push-extend mp (the (vector t *) (cl-mpm/mesh::node-local-list node)))))
+          (error "Could not add damage MP to local list as it is out of bounds")))))
 
 (defun local-list-remove-particle (mesh mp)
   "A function for removing an MP into the nodal MP lookup table"
-  (flet ((remove-mp-ll (node)
-           (with-accessors ((ll cl-mpm/mesh::node-local-list)
-                            (lock cl-mpm/mesh:node-lock)
-                            ) node
-             (if (position mp ll)
-                 (progn
-                   (sb-thread:with-mutex (lock)
-                     (setf ll (delete mp ll)))
-                   t)
-                 nil))))
-    ;;Check if the particle has been inserted by checking nil equality of damage position
-    (if (cl-mpm/particle::mp-damage-position mp)
-        (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle::mp-damage-position mp))))
-          (if (cl-mpm/mesh:in-bounds mesh node-id)
-            (let ((node (cl-mpm/mesh:get-node mesh node-id)))
-              (when (not (remove-mp-ll node))
-                  (cl-mpm::iterate-over-nodes
-                   mesh
-                   (lambda (node)
-                     (remove-mp-ll node))))
-              t)
-            nil))
-        nil)))
+  (when (typep mp 'cl-mpm/particle::particle-damage)
+    (flet ((remove-mp-ll (node)
+             (with-accessors ((ll cl-mpm/mesh::node-local-list)
+                              (lock cl-mpm/mesh:node-lock)
+                              ) node
+               (if (position mp ll)
+                   (progn
+                     (sb-thread:with-mutex (lock)
+                       (setf ll (delete mp ll)))
+                     t)
+                   nil))))
+      ;;Check if the particle has been inserted by checking nil equality of damage position
+      (if (cl-mpm/particle::mp-damage-position mp)
+          (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle::mp-damage-position mp))))
+            (if (cl-mpm/mesh:in-bounds mesh node-id)
+                (let ((node (cl-mpm/mesh:get-node mesh node-id)))
+                  (when (not (remove-mp-ll node))
+                    (cl-mpm::iterate-over-nodes
+                     mesh
+                     (lambda (node)
+                       (remove-mp-ll node))))
+                  t)
+                nil))
+          nil))))
 
 (declaim (notinline update-delocalisation-list))
 (defgeneric update-delocalisation-list (sim))

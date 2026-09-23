@@ -113,6 +113,7 @@
                                                            (slot-value dummy-mp 'cl-mpm/particle::damage-y-local) (mpi-object-damage-mp-y mp)
                                                            (slot-value dummy-mp 'cl-mpm/particle::true-local-length) (mpi-object-damage-mp-local-length mp)
                                                            (slot-value dummy-mp 'cl-mpm/particle::average-damage) (mpi-object-damage-mp-average-damage mp)
+                                                           (slot-value dummy-mp 'cl-mpm/particle::damage-position) nil
                                                            )
                                                      (vector-push-extend
                                                       dummy-mp
