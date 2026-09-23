@@ -155,8 +155,7 @@
 (defun partial-rebuild-mp-local-list (sim)
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
-                   (dhalo cl-mpm/mpi::mpm-sim-mpi-halo-damage-size)
-                   )
+                   (dhalo cl-mpm/mpi::mpm-sim-mpi-halo-damage-size))
       sim
     (cl-mpm::iterate-over-mps
      mps

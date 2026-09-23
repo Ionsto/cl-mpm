@@ -129,6 +129,7 @@
   (with-accessors ((k    cl-mpm/particle::mp-history-stress)
                    (k-n    cl-mpm/particle::mp-history-stress-n)
                    (y cl-mpm/particle::mp-damage-y-local)
+                   (y-prev    cl-mpm/particle::mp-damage-y-local-prev)
                    (ybar cl-mpm/particle::mp-damage-ybar)
                    (damage    cl-mpm/particle::mp-damage)
                    (damage-prev    cl-mpm/particle::mp-damage-prev-trial)
@@ -140,7 +141,7 @@
           damage damage-n
           damage-prev damage
           damage-inc 0d0
-          y 0d0
+          y y-prev
           ybar 0d0)
     (cl-mpm/damage::compute-damage mp)
     (call-next-method)))

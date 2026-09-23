@@ -33,13 +33,14 @@
   (with-accessors ((ybar      cl-mpm/particle::mp-damage-ybar)
                    (ybar-prev cl-mpm/particle::mp-damage-ybar-prev)
                    (y         cl-mpm/particle::mp-damage-y-local)
-                   ;; (y-prev    cl-mpm/particle::mp-damage-y-local-prev)
+                   (y-prev    cl-mpm/particle::mp-damage-y-local-prev)
                    (damage    cl-mpm/particle::mp-damage)
                    (damage-n  cl-mpm/particle::mp-damage-n)
                    (stress cl-mpm/particle::mp-undamaged-stress))
       mp
     (declare (double-float ybar ybar-prev damage damage-n))
     (setf ybar ybar-prev)
+    (setf y y-prev)
     (setf damage damage-n)
     (cl-mpm/fastmaths::fast-zero stress)
     (cl-mpm/damage::compute-damage mp)
@@ -615,7 +616,7 @@ Calls the function with the mesh mp and node"
 (defparameter *enable-reflect-z* nil)
 
 (declaim
- (inline iterate-over-neighour-mps)
+ (inline iterate-over-neighbour-mps)
  (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle::particle
                                              double-float function)
                           (values))
@@ -630,7 +631,7 @@ Calls the function with the mesh mp and node"
     (declare (double-float length) ((vector t *) local-list)
              ;; (magicl::matrix/double-float pos)
              )
-    (funcall func mp 0d0)
+    (funcall func mp)
     ;; (dotimes (i (length (cl-mpm/particle::mp-local-list mp)))
     ;;   (let ((mp-other (aref (cl-mpm/particle::mp-local-list mp) i)))
     ;;     (funcall func mp-other (the double-float (sqrt (the double-float (cl-mpm/fastmaths::diff-norm pos (cl-mpm/particle::mp-position mp-other)))))))
