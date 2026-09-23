@@ -133,11 +133,13 @@
          pos
          length
          (lambda (node)
-           (loop for mp-other across (cl-mpm/mesh::node-local-list node)
+           (loop for mp-other across (the (vector t *) (cl-mpm/mesh::node-local-list node))
+                              ;; (cl-mpm/mesh::node-local-list node)
                  do (let ((distance (cl-mpm/fastmaths::diff-norm pos (cl-mpm/particle::mp-position mp-other))))
                       (declare (double-float distance len-squared))
                       (when (and (< distance len-squared)
-                                 (> distance 0d0))
+                                 (> distance 0d0)
+                                 (not (eq mp mp-other)))
                         (vector-push-extend mp-other local-list)))))))))
   )
 
@@ -814,9 +816,9 @@ Calls the function with the mesh mp and node"
                                                weight m)))))))
                  (reflect-axis 0 *enable-reflect-x*)
                  (reflect-axis 1 *enable-reflect-y*)
-                 (reflect-axis 2 *enable-reflect-z*)))))))
-     (when (> mass-total 0d0)
-       (setf damage-inc (the double-float (/ damage-inc mass-total)))))
+                 (reflect-axis 2 *enable-reflect-z*))))))))
+    (when (> mass-total 0d0)
+      (setf damage-inc (the double-float (/ damage-inc mass-total))))
     damage-inc))
 
 (defun compute-effective-length-stress (stress init-stress direction length)
