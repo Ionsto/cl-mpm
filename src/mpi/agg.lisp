@@ -20,42 +20,42 @@
              (cl-mpm/mesh::cell-aggregate-element node) nil
              (cl-mpm/mesh::cell-interior node) nil)))
 
-    ;; ;;First set all outside nodes as aggregate
-    ;; (cl-mpm::iterate-over-cells
-    ;;  mesh
-    ;;  (lambda (cell)
-    ;;    (with-accessors ((partial cl-mpm/mesh::cell-partial)
-    ;;                     (nodes cl-mpm/mesh::cell-nodes)
-    ;;                     (agg cl-mpm/mesh::cell-agg)
-    ;;                     (neighbours cl-mpm/mesh::cell-cartesian-neighbours)
-    ;;                     (active cl-mpm/mesh::cell-active))
-    ;;        cell
-    ;;      (when (and active
-    ;;                 partial
-    ;;                 (in-computational-domain sim (cl-mpm/mesh::cell-centroid cell)))
-    ;;        (setf agg t)
-    ;;        ;;Set all our neighbours to also be aggregate
-    ;;        (loop for n in neighbours
-    ;;              do
-    ;;                 (when (in-computational-domain sim (cl-mpm/mesh::cell-centroid n))
-    ;;                   (setf (cl-mpm/mesh::cell-agg n) t)))))))
-    ;; ;;Next set any nodes on agg elements to be agg
-    ;; (cl-mpm::iterate-over-cells
-    ;;  mesh
-    ;;  (lambda (cell)
-    ;;    (with-accessors ((nodes cl-mpm/mesh::cell-nodes)
-    ;;                     (agg cl-mpm/mesh::cell-agg)
-    ;;                     (active cl-mpm/mesh::cell-active))
-    ;;        cell
-    ;;      ;;Set all aggregated nodes
-    ;;      (when (and active agg
-    ;;                 ;; (in-computational-domain sim (cl-mpm/mesh::cell-centroid cell))
-    ;;                 )
-    ;;        (loop for n across nodes
-    ;;              do (when (and (cl-mpm/mesh::node-active n)
-    ;;                            (in-computational-domain sim (cl-mpm/mesh::node-position n)))
-    ;;                   (setf (cl-mpm/mesh::node-agg n) t)))))))
-    (when t
+    ;;First set all outside nodes as aggregate
+    (cl-mpm::iterate-over-cells
+     mesh
+     (lambda (cell)
+       (with-accessors ((partial cl-mpm/mesh::cell-partial)
+                        (nodes cl-mpm/mesh::cell-nodes)
+                        (agg cl-mpm/mesh::cell-agg)
+                        (neighbours cl-mpm/mesh::cell-cartesian-neighbours)
+                        (active cl-mpm/mesh::cell-active))
+           cell
+         (when (and active
+                    partial
+                    (in-computational-domain sim (cl-mpm/mesh::cell-centroid cell)))
+           (setf agg t)
+           ;;Set all our neighbours to also be aggregate
+           (loop for n in neighbours
+                 do
+                    (when (in-computational-domain sim (cl-mpm/mesh::cell-centroid n))
+                      (setf (cl-mpm/mesh::cell-agg n) t)))))))
+    ;;Next set any nodes on agg elements to be agg
+    (cl-mpm::iterate-over-cells
+     mesh
+     (lambda (cell)
+       (with-accessors ((nodes cl-mpm/mesh::cell-nodes)
+                        (agg cl-mpm/mesh::cell-agg)
+                        (active cl-mpm/mesh::cell-active))
+           cell
+         ;;Set all aggregated nodes
+         (when (and active agg
+                    ;; (in-computational-domain sim (cl-mpm/mesh::cell-centroid cell))
+                    )
+           (loop for n across nodes
+                 do (when (and (cl-mpm/mesh::node-active n)
+                               (in-computational-domain sim (cl-mpm/mesh::node-position n)))
+                      (setf (cl-mpm/mesh::node-agg n) t)))))))
+    (when nil
       (let ((volume-ratio 0.1d0))
         (cl-mpm::iterate-over-nodes
          mesh
