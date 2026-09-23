@@ -133,14 +133,15 @@
          pos
          length
          (lambda (node)
-           (loop for mp-other across (the (vector t *) (cl-mpm/mesh::node-local-list node))
-                              ;; (cl-mpm/mesh::node-local-list node)
-                 do (let ((distance (cl-mpm/fastmaths::diff-norm pos (cl-mpm/particle::mp-position mp-other))))
-                      (declare (double-float distance len-squared))
-                      (when (and (< distance len-squared)
-                                 (> distance 0d0)
-                                 (not (eq mp mp-other)))
-                        (vector-push-extend mp-other local-list)))))))))
+           (when (> (length (cl-mpm/mesh::node-local-list node)) 0)
+             (loop for mp-other across (the (vector t *) (cl-mpm/mesh::node-local-list node))
+                   ;; (cl-mpm/mesh::node-local-list node)
+                   do (let ((distance (cl-mpm/fastmaths::diff-norm pos (cl-mpm/particle::mp-position mp-other))))
+                        (declare (double-float distance len-squared))
+                        (when (and (< distance len-squared)
+                                   (> distance 0d0)
+                                   (not (eq mp mp-other)))
+                          (vector-push-extend mp-other local-list))))))))))
   )
 
 (defun setup-mp-local-list (sim)
@@ -613,8 +614,10 @@ Calls the function with the mesh mp and node"
     ;;   (let ((mp-other (aref (cl-mpm/particle::mp-local-list mp) i)))
     ;;     (funcall func mp-other (the double-float (sqrt (the double-float (cl-mpm/fastmaths::diff-norm pos (cl-mpm/particle::mp-position mp-other)))))))
     ;;   )
-    (loop for mp-other across (cl-mpm/particle::mp-local-list mp)
-          do (funcall func mp-other (the double-float (sqrt (the double-float (cl-mpm/fastmaths::diff-norm pos (cl-mpm/particle::mp-position mp-other)))))))
+    (when (> (length (cl-mpm/particle::mp-local-list mp)) 0)
+      (loop for mp-other across (cl-mpm/particle::mp-local-list mp)
+            do (progn
+                 (funcall func mp-other (the double-float (sqrt (the double-float (cl-mpm/fastmaths::diff-norm pos (cl-mpm/particle::mp-position mp-other)))))))))
     ;; (iterate-over-damage-bounds
     ;;  mesh
     ;;  pos

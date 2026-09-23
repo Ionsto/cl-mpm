@@ -1136,6 +1136,8 @@
     :accessor mp-local-list
     :initform (make-array 0 :fill-pointer 0 :adjustable t)))
   (:documentation "A material point with a damage tensor"))
+(defmethod cl-mpm::resolve-split-mp ((mp particle-damage))
+  (setf (cl-mpm/particle::mp-local-list mp) (make-array 0 :adjustable t :fill-pointer 0)))
 
 
 
