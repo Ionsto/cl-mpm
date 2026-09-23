@@ -98,13 +98,18 @@
   (declare (double-float GF R ft E k))
   (let* ((e0 (/ ft E))
          (ef (+ (/ GF (* k R E e0)) (/ e0 2d0))))
-    (- (* 2d0 (/ ef e0)) 1d0)))
+    (- (* 2d0 (/ ef e0)) 1d0)
+    ;; (+ (/ GF (* k R e_0)) (/ e0 2d0))
+    )
+  )
 
-(defun gf-from-ductility (ductility R ft E &optional (k 1d0))
+(defun gf-from-ductility (ductility R ft E &optional (k 2d0))
   (declare (double-float ductility R ft E k))
   "Sanity check for estimating fracture energy from ductility and elastic parameters"
-  (let ((e0 (/ ft E)))
-    (/ (* ductility R E (expt e0 2))
+  (let* ((e0 (/ ft E))
+         (ef (* (+ 1d0 ductility) e0)))
+    (format t "~E ~E~%" e0 ef)
+    (/ (* ductility k R E (expt e0 2))
        2d0)))
 
 (defun compute-oversize-factor-residual (damage-final E init-stress ductility residual)

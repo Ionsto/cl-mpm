@@ -439,8 +439,8 @@
               (the double-float
                    (sqrt
                     (the double-float
-                         (* (the double-float (sqrt (- 1d0 da)))
-                            (the double-float (sqrt (- 1d0 da-other)))))))))))))
+                         (* (the double-float (sqrt (min 1d0 (max 0d0 (- 1d0 da)))))
+                            (the double-float (sqrt (min 1d0 (max 0d0 (- 1d0 da-other)))))))))))))))
 
 (defun weight-func-mps-scatter (mesh mp-a mp-b length)
   (declare (ignore mesh))
@@ -723,14 +723,15 @@ Calls the function with the mesh mp and node"
 (defun calculate-delocalised-damage (mesh mp length length-localisation)
   (let ((damage-inc 0d0)
         (mass-total 0d0)
-        (true-length (cl-mpm/particle::mp-true-local-length mp)))
+        ;(true-length (cl-mpm/particle::mp-true-local-length mp))
+        )
     (declare (double-float damage-inc mass-total true-length))
     (iterate-over-neighour-mps
      mesh mp length
      (lambda (mp-other dist)
        (with-accessors ((d cl-mpm/particle::mp-damage)
                         (m cl-mpm/particle:mp-volume)
-                        (ll cl-mpm/particle::mp-true-local-length)
+                        ;;(ll cl-mpm/particle::mp-true-local-length)
                         (p cl-mpm/particle:mp-position))
            mp-other
          (declare (double-float length ll))

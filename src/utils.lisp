@@ -870,20 +870,20 @@
                             (sin angle) (cos angle) 0d0
                             0d0 0d0 1d0))))
 
-(defmacro time-form (it form)
-  `(progn
-     (declaim (optimize speed))
-     (let* ((iterations ,it)
-            (start (get-internal-real-time)))
-       (dotimes (i ,it)
-         ,form)
-       (let* ((end (get-internal-real-time))
-              (units internal-time-units-per-second)
-              (dt (/ (- end start) (* iterations units)))
-              )
-         (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
-         (format t "Throughput: ~f~%" (/ 1 dt))
-         dt))))
+(defun time-form (it form)
+  (progn
+    (declaim (optimize speed))
+    (let* ((iterations it)
+           (start (get-internal-real-time)))
+      (dotimes (i it)
+        (funcall form))
+      (let* ((end (get-internal-real-time))
+             (units internal-time-units-per-second)
+             (dt (/ (- end start) (* iterations units)))
+             )
+        (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
+        (format t "Throughput: ~f~%" (/ 1 dt))
+        dt))))
 
 (defun principal-stresses-3d (stress)
   (multiple-value-bind (l v) (eig (voight-to-matrix stress))
@@ -1137,6 +1137,10 @@
                             ((string= (first subform) 'GRAB-NEW-VECTOR);(equal (first subform) 'GRAB-NEW)
                              (incf pool-count)
                              `(aref (cl-mpm/utils::object-pool-grab ,pool-sym) ,(- pool-count 1)))
+                            ;; ((string= (first subform) 'GRAB-ZERO-VECTOR);(equal (first subform) 'GRAB-NEW)
+                            ;;  (incf pool-count)
+                            ;;  `(cl-mpm/fastmaths::fast-zero (aref (cl-mpm/utils::object-pool-grab ,pool-sym) ,(- pool-count 1))))
+
                             (t subform)))
                          (t subform))))))
       `(let ((,pool-sym

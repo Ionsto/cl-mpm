@@ -214,12 +214,9 @@
 
 (defmethod constitutive-model ((mp particle-elastic-damage) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
-  (with-slots ((E E)
-               (nu nu)
-               (de elastic-matrix)
+  (with-slots ((de elastic-matrix)
                (stress stress)
                (stress-undamaged undamaged-stress)
-               (def deformation-gradient)
                (damage damage))
       mp
     (declare (double-float damage))

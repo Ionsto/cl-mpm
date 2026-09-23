@@ -4,7 +4,6 @@
 (defun apply-isotropic-degredation (mp)
   (with-accessors ((damage        cl-mpm/particle::mp-damage)
                    (undamaged-stress        cl-mpm/particle::mp-undamaged-stress)
-                   (def cl-mpm/particle::mp-deformation-gradient)
                    (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (stress        cl-mpm/particle::mp-stress)
                    (enable-damage cl-mpm/particle::mp-enable-damage)

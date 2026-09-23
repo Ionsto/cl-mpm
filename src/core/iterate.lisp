@@ -1360,20 +1360,19 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       (loop for y from -1d0 to 1d0 by 2d0
             do (update 0d0 y)))))
 
-(cl-mpm/utils::with-arb-pool
+(cl-mpm/utils::with-vector-pool
   (defun iterate-over-midpoints-2d (mesh mp func)
     (declare (cl-mpm/particle::particle mp)
              (function func))
-    (let ((v (grab-new))
+    (let ((v (grab-new-vector))
           (position (cl-mpm/particle:mp-position mp))
           (domain (cl-mpm/particle::mp-domain-size mp)))
-      (cl-mpm/utils::resize-vector v 3)
       (flet ((update (x y)
                (let (
                      (corner (cl-mpm/utils:vector-zeros)))
                  (declare (double-float x y))
                  (setf (varef v 0) (* (varef domain 0) x 0.5d0)
-                       (varef v 1) (* (varef domain 1) x 0.5d0)
+                       (varef v 1) (* (varef domain 1) y 0.5d0)
                        (varef v 2) 0d0)
                  (cl-mpm/fastmaths::fast-.+-vector
                   position
