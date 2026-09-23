@@ -33,6 +33,10 @@
     :accessor sim-enable-stress-based-length
     :initarg :enable-stress-based-length
     :initform nil)
+   (dirty-local-list
+    :type boolean
+    :accessor sim-dirty-local-list
+    :initform nil)
    (enable-ekl
     :type boolean
     :accessor sim-enable-ekl

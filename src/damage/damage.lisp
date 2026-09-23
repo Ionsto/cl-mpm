@@ -110,8 +110,8 @@
                    (average-damage cl-mpm/particle::mp-av-damage))
       mp
     (declare (double-float ll average-damage))
-    ;;  (calculate-average-damage mesh mp ll)
-    (calculate-average-damage-grads mesh mp ll)
+     (calculate-average-damage mesh mp ll)
+    ;; (calculate-average-damage-grads mesh mp ll)
     (setf tll
           (length-localisation
            ll
@@ -603,19 +603,20 @@ Calls the function with the mesh mp and node"
 (defparameter *enable-reflect-y* nil)
 (defparameter *enable-reflect-z* nil)
 
-(defun iterate-over-neighour-mps (mesh mp length func)
+(defun iterate-over-neighbour-mps (mesh mp length func)
   "Search for mps in a patch sized 2*length, then return the "
   (declare (double-float length)
            (function func))
-  (let ((pos (cl-mpm/particle::mp-position mp)))
-    (declare (double-float length))
+  (let ((pos (cl-mpm/particle::mp-position mp))
+        (local-list (cl-mpm/particle::mp-local-list mp)))
+    (declare (double-float length) ((vector t *) local-list))
     (funcall func mp 0d0)
     ;; (dotimes (i (length (cl-mpm/particle::mp-local-list mp)))
     ;;   (let ((mp-other (aref (cl-mpm/particle::mp-local-list mp) i)))
     ;;     (funcall func mp-other (the double-float (sqrt (the double-float (cl-mpm/fastmaths::diff-norm pos (cl-mpm/particle::mp-position mp-other)))))))
     ;;   )
-    (when (> (length (cl-mpm/particle::mp-local-list mp)) 0)
-      (loop for mp-other across (cl-mpm/particle::mp-local-list mp)
+    (when (> (length local-list) 0)
+      (loop for mp-other across local-list
             do (progn
                  (funcall func mp-other (the double-float (sqrt (the double-float (cl-mpm/fastmaths::diff-norm pos (cl-mpm/particle::mp-position mp-other)))))))))
     ;; (iterate-over-damage-bounds
@@ -644,7 +645,7 @@ Calls the function with the mesh mp and node"
      length
      (lambda (node)
        (declare (cl-mpm/mesh::node node))
-       (loop for mp-other across (cl-mpm/mesh::node-local-list node)
+       (loop for mp-other across (the (vector t *) (cl-mpm/mesh::node-local-list node))
              do
                 (with-accessors ((d cl-mpm/particle::mp-damage)
                                  (m cl-mpm/particle:mp-volume)
@@ -667,15 +668,15 @@ Calls the function with the mesh mp and node"
   (let ((damage-average 0d0)
         (volume-average 0d0))
     (declare (double-float damage-average))
-    (iterate-over-neighour-mps
+    (iterate-over-neighbour-mps
      mesh mp length
      (lambda (mp-other dist)
        (with-accessors ((d cl-mpm/particle::mp-damage)
                         (m cl-mpm/particle:mp-volume)
                         (p cl-mpm/particle:mp-position))
            mp-other
-         (declare (double-float d m length))
-         (let ((weight (weight-func-mps mesh mp mp-other length)))
+         (declare (double-float d m length dist))
+         (let ((weight (weight-func (expt dist 2) length)))
            (declare (double-float weight m d damage-average volume-average))
            (incf volume-average (* weight m))
            (incf damage-average (* d weight m))))))
@@ -691,7 +692,7 @@ Calls the function with the mesh mp and node"
         (p (cl-mpm/particle::mp-position mp)))
     (declare (double-float damage-average))
     (cl-mpm/fastmaths:fast-zero damage-grads)
-    (iterate-over-neighour-mps
+    (iterate-over-neighbour-mps
      mesh mp length
      (lambda (mp-other dist)
        (with-accessors ((d cl-mpm/particle::mp-damage)
@@ -732,7 +733,7 @@ Calls the function with the mesh mp and node"
         ;(true-length (cl-mpm/particle::mp-true-local-length mp))
         )
     (declare (double-float damage-inc mass-total))
-    (iterate-over-neighour-mps
+    (iterate-over-neighbour-mps
      mesh mp length
      (lambda (mp-other dist)
        (with-accessors ((d cl-mpm/particle::mp-damage)
@@ -868,7 +869,7 @@ Calls the function with the mesh mp and node"
         (mass-total 0d0)
         )
     (declare (double-float damage-inc mass-total))
-    (iterate-over-neighour-mps
+    (iterate-over-neighbour-mps
      mesh mp length
      (lambda (mp-other dist)
        (with-accessors ((d cl-mpm/particle::mp-damage)
@@ -1116,23 +1117,30 @@ Calls the function with the mesh mp and node"
             when (and
                   (typep mp 'cl-mpm/particle:particle-damage)
                   (funcall func mp))
-              do (local-list-remove-particle mesh mp))
+              do (progn
+                   (setf (cl-mpm/damage::sim-dirty-local-list sim) t)
+                   (local-list-remove-particle mesh mp)))
       (call-next-method))))
 
 (defmethod cl-mpm::remove-mps-func :after ((sim mpm-sim-damage) func)
   (with-accessors ((mesh cl-mpm::sim-mesh)
                    (mps cl-mpm::sim-mps))
       sim
-    (setup-mp-local-list sim)))
+    (when (cl-mpm/damage::sim-dirty-local-list sim)
+      (setf (cl-mpm/damage::sim-dirty-local-list sim) nil)
+      (setup-mp-local-list sim))))
 
 (defmethod cl-mpm::sim-add-mp ((sim mpm-sim-damage) mp)
   (when (typep mp 'cl-mpm/particle::particle-damage)
+    (setf (cl-mpm/damage::sim-dirty-local-list sim) t)
     (local-list-add-particle (cl-mpm:sim-mesh sim) mp))
   (call-next-method))
 
 (defmethod cl-mpm::add-mps-finalise ((sim mpm-sim-damage))
   ;; (format t "Re-setup mps~%")
-  (setup-mp-local-list sim))
+  (when (cl-mpm/damage::sim-dirty-local-list sim)
+    (setf (cl-mpm/damage::sim-dirty-local-list sim) nil)
+    (setup-mp-local-list sim)))
 
 (defmethod (setf cl-mpm::sim-mps) (mps (sim cl-mpm/damage::mpm-sim-damage))
   (call-next-method))
@@ -1471,7 +1479,7 @@ Calls the function with the mesh mp and node"
           (mass-total 0d0)
           (length (* 1d0 (cl-mpm/particle::mp-local-length mp))))
       (declare (double-float damage-inc mass-total))
-      (iterate-over-neighour-mps
+      (iterate-over-neighbour-mps
        mesh mp length
        (lambda (mp-other dist)
          (with-accessors ((d cl-mpm/particle::mp-damage)
@@ -1517,7 +1525,7 @@ Calls the function with the mesh mp and node"
           (mass-total 0d0)
           (length (* 1d0 (cl-mpm/particle::mp-local-length mp))))
       (declare (double-float mass-total))
-      (iterate-over-neighour-mps
+      (iterate-over-neighbour-mps
        mesh mp length
        (lambda (mp-other dist)
          (with-accessors ((d cl-mpm/particle::mp-damage)
@@ -1562,7 +1570,7 @@ Calls the function with the mesh mp and node"
              (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils::voight-to-matrix stress))
                (setf (cl-mpm/particle::mp-stress-eigenvalues mp) l)
                (setf (cl-mpm/particle::mp-stress-eigenvectors mp) v))))))
-      (iterate-over-neighour-mps
+      (iterate-over-neighbour-mps
        mesh mp length
        (lambda (mp-other dist)
          (with-accessors ((d cl-mpm/particle::mp-damage)
