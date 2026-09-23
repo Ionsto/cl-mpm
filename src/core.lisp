@@ -1080,7 +1080,7 @@ This modifies the dt of the simulation in the process
   (add-mps-finalise sim))
 
 (defgeneric add-mps-finalise (sim))
-(defmethod add-mps-finalise (sim))
+(defmethod add-mps-finalise ((sim cl-mpm::mpm-sim)))
 
 (defun add-bcs (sim new-bcs)
   "Add nodal essential bcs"

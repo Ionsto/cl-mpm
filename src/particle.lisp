@@ -489,25 +489,7 @@
       (setf
        (mtref domain-true 0 0) (varef domain 0)
        (mtref domain-true 1 1) (varef domain 1)
-       (mtref domain-true 2 2) (varef domain 2)))
-    ;; (let ((i 0))
-    ;;   ;; (setf corners (make-array 8 :fill-pointer 8 :element-type 'corner :initial-element (make-corner)))
-    ;;   (loop for z in (list -1d0 1d0)
-    ;;         do (loop for y in (list -1d0 1d0)
-    ;;                  do (loop for x from (-1d0 1d0)
-    ;;                           do (let ((corner (cl-mpm/utils:vector-zeros)))
-    ;;                                ;; (cl-mpm/fastmaths::fast-.+-vector
-    ;;                                ;;  position
-    ;;                                ;;  (cl-mpm/fastmaths::fast-scale!
-    ;;                                ;;   (cl-mpm/fastmaths:fast-.*
-    ;;                                ;;    (vector-from-list (list x y z))
-    ;;                                ;;    domain) 0.5d0) corner)
-    ;;                                (setf
-    ;;                                 (aref corners i)
-    ;;                                 (make-corner
-    ;;                                  :offset (vector-from-list (list x y z))))
-    ;;                                (incf i))))))
-    ))
+       (mtref domain-true 2 2) (varef domain 2)))))
 
 
 
