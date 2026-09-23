@@ -150,6 +150,7 @@
   (float damage cl-mpm/particle::mp-damage)
   (float y cl-mpm/particle::mp-damage-y-local)
   (float local-length cl-mpm/particle::mp-true-local-length)
+  (float average-damage cl-mpm/particle::mp-av-damage)
   ))
 
 (make-mpi-ser

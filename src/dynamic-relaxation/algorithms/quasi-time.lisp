@@ -18,7 +18,7 @@
                           (max-plastic-inc 10d0)
                           (max-deformation-gradient 10d0)
                           (min-tangent-ratio 1d-2)
-                          (stagger-damage nil)
+                          (stagger-damage :HYBRID)
                           (plotter (lambda (sim))))
   (let ((total-i 0)
         (r-0 nil)
@@ -49,8 +49,15 @@
           (when (equal (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
             (reset-mp-velocity sim))
           (set-mp-plastic-damage sim :enable-damage enable-damage :enable-plastic enable-plastic)
-          (setf (cl-mpm:sim-enable-damage sim) nil)
-          (setf (cl-mpm:sim-enable-damage sim) enable-damage)
+          (unless stagger-damage
+            (setf (cl-mpm:sim-enable-damage sim) nil))
+          (case stagger-damage
+            (:MONOLITH (setf (cl-mpm::sim-enable-damage sim) enable-damage))
+            (:HYBRID (setf (cl-mpm::sim-enable-damage sim) nil))
+            (:HYBRID-FULL (setf (cl-mpm::sim-enable-damage sim) nil))
+            (:FULL (setf (cl-mpm::sim-enable-damage sim) nil))
+            (t (setf (cl-mpm::sim-enable-damage sim) nil)))
+
           (format t "Checkpoint passed~%")
           (setf (cl-mpm::sim-stats-oobf sim) oobf-crit)
           (let ((alt-conv-crit nil))
@@ -128,12 +135,35 @@
                                            )
                                          ))
                                      (setf dconv (compute-damage-delta sim))
-                                     (and
-                                      (convergence-criteria sim)
-                                      (<= o (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
-                                      (if (cl-mpm::sim-enable-damage sim)
-                                          (< dconv damage-crit)
-                                          t)))
+                                     (let ((ccrit (cl-mpm/dynamic-relaxation::sim-convergence-critera sim)))
+                                       (declare (double-float ccrit))
+                                       (and
+                                        (convergence-criteria sim)
+                                        (if enable-damage
+                                            ;; No damage just check conv crit
+                                            (and
+                                             (<= o (cl-mpm/dynamic-relaxation::sim-convergence-critera sim)))
+                                            ;;Sometimes check d-conv if damage
+                                            (if (cl-mpm::sim-enable-damage sim)
+                                                ;;Current on damage monolith step - check dconv
+                                                (and
+                                                 (<= o (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
+                                                 (< dconv damage-crit))
+                                                ;;Not on monolithic step
+                                                (and
+                                                 (if (and enable-damage (eq stagger-damage :HYBRID))
+                                                     ;;First step - converge to minimal criteria
+                                                     (<= o (sqrt ccrit))
+                                                     ;;Solve to a full criteria i.e. hybrid-full or full
+                                                     (<= o ccrit))
+                                                 (convergence-criteria sim))))))
+                                     ;; (and
+                                     ;;  (convergence-criteria sim)
+                                     ;;  (<= o (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
+                                     ;;  (if (cl-mpm::sim-enable-damage sim)
+                                     ;;      (< dconv damage-crit)
+                                     ;;      t))
+                                     )
                                    :damping-factor damping
                                    :post-iter-step
                                    (lambda (i e o)
@@ -198,11 +228,14 @@
                                                      (setf dconv (compute-damage-delta sim))
                                                      (cl-mpm:sim-format sim t "step ~D/~D - d-conv ~E~%" stagger-i d dconv)
                                                      (save-conv-step sim output-dir *total-iter* global-step 0d0 (cl-mpm::sim-stats-oobf sim) 0d0)
-                                                     (incf *total-iter*)
+                                                     ;; (incf *total-iter*)
                                                      (check-damage-increment sim :max-damage-inc max-damage-inc)
                                                      ))
-                                        (when stagger-damage
-                                          (setf (cl-mpm:sim-enable-damage sim) nil)))
+                                        (when (eq stagger-damage :FULL)
+                                          (setf (cl-mpm:sim-enable-damage sim) nil))
+                                        ;; (when stagger-damage
+                                        ;;   (setf (cl-mpm:sim-enable-damage sim) nil))
+                                        )
                                       ;; (cl-mpm:update-sim sim)
                                       ;; (cl-mpm::update-dynamic-stats sim)
                                       (setf dconv dconv-1)))

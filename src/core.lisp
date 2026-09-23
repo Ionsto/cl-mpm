@@ -1064,17 +1064,23 @@ This modifies the dt of the simulation in the process
 
 
 (defgeneric add-mps (sim mps-array))
-(defmethod add-mps (sim mps-array)
+(defmethod add-mps ((sim cl-mpm::mpm-sim) mps-array)
   (with-accessors ((mps cl-mpm:sim-mps))
       sim
-      (if (> (length mps) 0)
-          (progn
-            (loop for mp across mps-array
-                  do (sim-add-mp sim mp)))
-          (progn
-            (setf (cl-mpm:sim-mps sim) (make-array (length mps-array) :adjustable t :fill-pointer 0))
-            (loop for mp across mps-array
-                  do (sim-add-mp sim mp))))))
+    (if (> (length mps) 0)
+        (progn
+          (loop for mp across mps-array
+                do (sim-add-mp sim mp)))
+        (progn
+          (setf (cl-mpm:sim-mps sim) (make-array (length mps-array) :adjustable t :fill-pointer 0))
+          (loop for mp across mps-array
+                do (sim-add-mp sim mp))))))
+
+(defmethod add-mps :after ((sim cl-mpm:mpm-sim) mps-array)
+  (add-mps-finalise sim))
+
+(defgeneric add-mps-finalise (sim))
+(defmethod add-mps-finalise (sim))
 
 (defun add-bcs (sim new-bcs)
   "Add nodal essential bcs"

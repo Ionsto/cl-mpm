@@ -162,7 +162,7 @@
                                       (sub-conv-steps 50)
                                       (save-vtk-dr t)
                                       (convergence-criteria nil)
-                                      (stagger-damage :FULL)
+                                      (stagger-damage :HYBRID-FULL)
                                       )
   (let* ((damage-prev (get-damage sim))
          (damage damage-prev)

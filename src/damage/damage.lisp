@@ -1114,11 +1114,17 @@ Calls the function with the mesh mp and node"
       (call-next-method)
       (setup-mp-local-list sim))))
 
+(defmethod cl-mpm::remove-mps-func :after ((sim mpm-sim-damage) func)
+  (with-accessors ((mesh cl-mpm::sim-mesh)
+                   (mps cl-mpm::sim-mps))
+      sim
+    (setup-mp-local-list sim)))
+
 (defmethod cl-mpm::sim-add-mp ((sim mpm-sim-damage) mp)
   (when (typep mp 'cl-mpm/particle::particle-damage)
     (local-list-add-particle (cl-mpm:sim-mesh sim) mp))
   (call-next-method))
-(defmethod add-mps :after (sim mps-array)
+(defmethod cl-mpm::add-mps-finalise (sim)
   (setup-mp-local-list sim))
 
 (defmethod (setf cl-mpm::sim-mps) (mps (sim cl-mpm/damage::mpm-sim-damage))
@@ -1456,14 +1462,13 @@ Calls the function with the mesh mp and node"
           (data-weights (list))
           (damage-inc 0d0)
           (mass-total 0d0)
-          (length (* 1d0 (cl-mpm/particle::mp-true-local-length mp))))
+          (length (* 1d0 (cl-mpm/particle::mp-local-length mp))))
       (declare (double-float damage-inc mass-total))
       (iterate-over-neighour-mps
        mesh mp length
        (lambda (mp-other dist)
          (with-accessors ((d cl-mpm/particle::mp-damage)
                           (m cl-mpm/particle:mp-volume)
-                          (ll cl-mpm/particle::mp-true-local-length)
                           (p cl-mpm/particle:mp-position))
              mp-other
            (when t
@@ -1471,7 +1476,15 @@ Calls the function with the mesh mp and node"
                     (cl-mpm/particle::mp-position mp-other)
                     (cl-mpm/particle::mp-position mp)
                     ) data-positions)
-             (let* ((weight (weight-func-mps mesh mp mp-other (sqrt (* length ll)))))
+             (let* ((weight
+                      (if (cl-mpm/damage::sim-enable-length-localisation sim)
+                          (weight-func-mps-geometric mesh mp mp-other
+                                                     (cl-mpm/particle::mp-position mp)
+                                                     (cl-mpm/particle::mp-position mp-other)
+                                           length)
+                          (weight-func (cl-mpm/fastmaths::diff-norm (cl-mpm/particle::mp-position mp)
+                                                                    (cl-mpm/particle::mp-position mp-other)
+                                                                    ) length))))
                (declare (double-float weight m d mass-total damage-inc))
                (incf mass-total (* weight m))
                (incf damage-inc

@@ -479,14 +479,14 @@
                                                 (slot-value mp 'cl-mpm/particle::cached-nodes)
                                                 (make-array 8 :fill-pointer 0 :element-type 'cl-mpm/particle::node-cache :initial-element (cl-mpm/particle::make-empty-node-cache)))
                                                ;; (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)
-                                               (when (slot-exists-p mp 'cl-mpm/particle::damage-position)
-                                                 (setf (cl-mpm/particle::mp-damage-position mp) nil))
+                                               (when (typep mp 'cl-mpm/particle::mp-damage)
+                                                 (setf
+                                                  (cl-mpm/particle::mp-damage-position mp) nil
+                                                  (slot-value mp 'cl-mpm/particle::mp-local-list)
+                                                  (make-array 0 :fill-pointer 0 :adjustable t)))
                                                (cl-mpm::sim-add-mp sim mp)
-                                               ;; (vector-push-extend mp mps)
-                                               ))))))))))))))))
-  ;; (cl-mpi:mpi-barrier)
-  )
-;  )
+                                               ))))))
+                             (cl-mpm::add-mps-finalise sim))))))))))))
 
 (defvar *mutex-code* (cl-store:register-code 110 'sb-thread:mutex))
 (cl-store:defstore-cl-store (obj sb-thread:mutex stream)
@@ -499,6 +499,7 @@
   (let ((slots-list (call-next-method)))
     (declare (list slots-list))
     (setf slots-list (remove 'cl-mpm/particle::cached-nodes slots-list :key 'c2mop:slot-definition-name))
+    (setf slots-list (remove 'cl-mpm/particle::mp-local-list slots-list :key 'c2mop:slot-definition-name))
     slots-list))
 
 ;; (cl-store::defstore-cl-store (obj cl-mpm/particle::particle stream)

@@ -228,8 +228,8 @@
             do (loop for new-mp in (split-mp mp h direction)
                      do (progn
                           (ensure-mp-in-domain sim mp)
-                          (sim-add-mp sim new-mp))))))
-  )
+                          (sim-add-mp sim new-mp))))
+      (add-mps-finalise sim))))
 
 (defun ensure-mp-in-domain (sim mp)
   "Ensure that MP domain is entirely within the simulation domain"
@@ -281,7 +281,8 @@
       (loop for mp across mps-to-split
             for direction in split-direction
             do (loop for new-mp in (split-mp mp h direction)
-                     do (sim-add-mp sim new-mp))))))
+                     do (sim-add-mp sim new-mp)))
+      (add-mps-finalise sim))))
 
 (defun split-mps-vector (sim criteria)
   "Split mps that fail an arbritary criteria"
@@ -313,4 +314,6 @@
             do (loop for new-mp in (split-vector mp (funcall criteria mp))
                      do (progn
                           (ensure-mp-in-domain sim mp)
-                          (sim-add-mp sim new-mp)))))))
+                          (sim-add-mp sim new-mp))))
+      (add-mps-finalise sim)
+      )))
