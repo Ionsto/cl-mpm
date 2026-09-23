@@ -117,7 +117,7 @@
     (iterate-over-neighour-mps
      mesh mp
      (cl-mpm/particle::mp-local-length mp)
-     (lambda (mp-other dist)
+     (lambda (mp-other)
        (with-accessors ((d cl-mpm/particle::mp-damage)
                         (m cl-mpm/particle:mp-volume)
                         (ll cl-mpm/particle::mp-local-length)

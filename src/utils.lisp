@@ -1018,8 +1018,7 @@
                              (aref prev-pool i)
                              (funcall (object-pool-constructor pool)))))
 
-          (setf (object-pool-pool pool) new-pool)
-          )))))
+          (setf (object-pool-pool pool) new-pool))))))
 
 (defun object-pool-grab (pool)
   (let ((thread-index (get-worker-index)))
@@ -1033,7 +1032,7 @@
       (aref (object-pool-pool pool) thread-index))))
 
 (defun get-worker-size ()
-  (let ((ls (lparallel:kernel-worker-count)))
+  (let ((ls *worker-count*))
     (if ls
         (the fixnum (1+ (the fixnum ls)))
         1)))
@@ -1134,9 +1133,9 @@
                        (typecase subform
                          (list
                           (cond
-                            ((string= (first subform) 'GRAB-NEW-VECTOR);(equal (first subform) 'GRAB-NEW)
+                            ((string= (first subform) 'GRAB-NEW-VECTOR)
                              (incf pool-count)
-                             `(aref (cl-mpm/utils::object-pool-grab ,pool-sym) ,(- pool-count 1)))
+                             `(aref (the (vector t *) (cl-mpm/utils::object-pool-grab ,pool-sym)) ,(- pool-count 1)))
                             ;; ((string= (first subform) 'GRAB-ZERO-VECTOR);(equal (first subform) 'GRAB-NEW)
                             ;;  (incf pool-count)
                             ;;  `(cl-mpm/fastmaths::fast-zero (aref (cl-mpm/utils::object-pool-grab ,pool-sym) ,(- pool-count 1))))

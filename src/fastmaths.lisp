@@ -128,8 +128,7 @@
                    (simple-array double-float (3))) double-float) simd-diff-norm))
 (defun simd-diff-norm (a b)
   (declare (type (simple-array double-float (3)) a b)
-           (optimize (speed 3) (safety 0))
-           )
+           (optimize (speed 3) (safety 0)))
   ;; (let ((temp
   ;;         (sb-simd-avx:f64.2-
   ;;          (sb-simd-avx:f64.2-aref a 0)
@@ -143,9 +142,9 @@
     (declare (double-float d0 d1 d2))
     (the double-float
          (+
-          (* d0 d0)
-          (* d1 d1)
-          (* d2 d2)))))
+          (the double-float (* d0 d0))
+          (the double-float (* d1 d1))
+          (the double-float (* d2 d2))))))
 
 (declaim
  (inline diff-norm)
