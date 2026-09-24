@@ -282,7 +282,7 @@
                                             (convergence-criteria sim)
                                             (< dconv damage-crit))
                                            (and
-                                            (if (and enable-damage (eq stagger-damage :HYBRID))
+                                            (if (and enable-damage (equal stagger-damage :HYBRID))
                                                 (<= o (sqrt ccrit))
                                                 (<= o ccrit))
                                             (convergence-criteria sim))))))
@@ -295,13 +295,15 @@
                                  (check-damage-increment sim :max-damage-inc max-damage-inc)
                                  (check-plastic-increment sim :max-plastic-inc max-plastic-inc)
                                  (funcall post-iter-step i e o)
-                                 (when (eq stagger-damage :MONOLITH-QS)
+                                 (when (equal stagger-damage :MONOLITH-QS)
                                    (when enable-damage
-                                     (unless (cl-mpm::sim-enable-damage sim)
-                                       (setf dconv damage-crit)
-                                       (setf (cl-mpm:sim-enable-damage sim)
-                                             (< (cl-mpm::sim-stats-oobf sim) crit)))))
-                                 ))
+                                     (if (< (cl-mpm::sim-stats-oobf sim) crit)
+                                         (progn
+                                           (when (not (cl-mpm:sim-enable-damage sim))
+                                             (setf dconv damage-crit))
+                                           (setf (cl-mpm:sim-enable-damage sim) t))
+                                         (progn
+                                           (setf (cl-mpm:sim-enable-damage sim) nil)))))))
                               ;; (when (eq stagger-damage :MONOLITH-QS)
                               ;;   (when enable-damage
                               ;;     (setf (cl-mpm:sim-enable-damage sim)
