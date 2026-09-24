@@ -40,8 +40,7 @@
                    (ps-vm cl-mpm/particle::mp-strain-plastic-vm))
       mp
     (let ((stress undamaged-stress)
-          (ps-y (sqrt (* E (expt ps-vm 2))))
-          )
+          (ps-y (sqrt (* E (expt ps-vm 2)))))
       (setf
        y
        (+
@@ -168,7 +167,7 @@
         :kc-res-ratio kc
         :psi 0d0;(cl-mpm/utils:deg-to-rad angle-r)
         :plastic-damage-evolution nil
-        :residual-strength (- 1d0 1d-9)
+        :residual-strength (- 1d0 1d-3)
 
         ;; :phi (cl-mpm/utils:deg-to-rad angle)
         ;; :phi-r (cl-mpm/utils:deg-to-rad angle-r)
@@ -194,14 +193,14 @@
        ))
     (let ((angle 45d0)
           (scale 4d0))
-      (cl-mpm/setup::refine-sdf
-       *sim*
-       (cl-mpm/setup::ellipse-sdf
-        (list (* width 1.5d0) (* height 0.5d0) 0d0)
-        (* 2d-3 scale)
-        (* 2d-3 scale)
-        :transform-matrix (cl-mpm/utils::rotation-matrix angle))
-       :refine 1)
+      ;; (cl-mpm/setup::refine-sdf
+      ;;  *sim*
+      ;;  (cl-mpm/setup::ellipse-sdf
+      ;;   (list (* width 1.5d0) (* height 0.5d0) 0d0)
+      ;;   (* 2d-3 scale)
+      ;;   (* 2d-3 scale)
+      ;;   :transform-matrix (cl-mpm/utils::rotation-matrix angle))
+      ;;  :refine 1)
       (cl-mpm/setup::apply-sdf
        *sim*
         (cl-mpm/setup::ellipse-sdf
@@ -211,16 +210,19 @@
          :transform-matrix (cl-mpm/utils::rotation-matrix angle))
        (lambda (mp sdf)
          (when (<= sdf 0d0)
-           (cl-mpm/damage::set-mp-damage mp 0.90d0)))))
+           (cl-mpm/damage::set-mp-damage mp 0.99d0)))))
 
 
     (setf (cl-mpm::sim-gravity *sim*) 0d0)
-    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-15)
+
+    (cl-mpm/setup::set-mass-filter *sim* density :proportion 0d-15)
+
     (cl-mpm/setup::setup-bcs
      *sim*
      :left '(0 nil nil)
      :right '(0 nil nil)
      :bottom '(nil 0 nil))
+
     (cl-mpm::add-bcs
      *sim*
      (cl-mpm/bc::make-bc-fixed
@@ -317,6 +319,7 @@
     (vgplot:close-all-plots)
     (let ((x (list ))
           (r (list ))
+          (data-d (list ))
           (iters 0)
           )
       (time
@@ -326,8 +329,11 @@
         :plotter (lambda (sim)
                    (push iters x)
                    (push (cl-mpm::sim-stats-oobf *sim*) r)
+                   (push (cl-mpm/damage::sim-stats-damage-residual *sim*) data-d)
                    (incf iters)
-                   (vgplot:semilogy x r)
+                   (vgplot:semilogy x r "Residual"
+                                    x data-d "Damage"
+                                    )
                    ;; (plot-domain)
                    )
         :loading-function (lambda (i)
@@ -351,17 +357,19 @@
         :min-adaptive-steps 0
         :max-adaptive-steps 10
         :adaption-constant 4
-        :max-damage-inc 0.90d0
+        :max-damage-inc 1.10d0
         ;; :min-damage-inc 0.1d0
-        :substeps (round (* refine 80))
+        :substeps (round (* refine 50))
+        :sub-conv-steps 500
         ;; :sub-conv-steps 50
-        :stagger-damage :MONOLITH
-        :sub-conv-steps 10000
-        :criteria 1d-6
-        :stagger-damage nil
+        ;; :stagger-damage :MONOLITH-QS
+        :stagger-damage :HYBRID-FULL
+        ;; :stagger-damage :FULL
+        ;; :min-tangent-ratio 1d-2
+        :criteria 1d-3
         :save-vtk-dr t
         :save-vtk-loadstep t
-        :dt-scale 1d0)))))
+        :dt-scale 0.9d0)))))
 
 (defun damage-refinement-criteria (sim mesh c)
   (let ((damage 0d0)
@@ -397,57 +405,62 @@
     ))
 
 (defun test ()
-  (cl-mpm/utils::set-workers 12)
-  (let ((name "geometric"))
-    (dolist (bell (list t))
-      (dolist (length (list nil))
-        (dolist (refine (list 1 2 4))
-          (setup :mps 3
-                 :refine refine
-                 :enable-fbar t
-                 :angle 30d0
-                 :angle-r 00d0
-                 :gf (* 40d0)
-                 :kt (- 1d0 1d-6)
-                 :model :MC
-                 :local-length 0.020d0
-                 :oversize-factor (- 1d0 1d-2))
-          (cl-mpm/output::add-mp-output *sim* :SCALAR "damage-inc-crit"
-                                        (lambda (mp)
-                                          (if (> (cl-mpm/particle::mp-damage mp) 0d0)
-                                              (/
-                                               (abs (- (cl-mpm/particle::mp-damage-prev-trial mp)
-                                                       (cl-mpm/particle::mp-damage mp)))
-                                               (cl-mpm/particle::mp-damage mp)
-                                               )
-                                              0d0)))
+  (cl-mpm/utils::set-workers 16)
+  (dolist (refine (list 2))
+    (setup :mps 3
+           :refine refine
+           :enable-fbar nil
+           :angle 30d0
+           :angle-r 00d0
+           :gf (* 40d0)
+           :kt (- 1d0 1d-6)
+           :model :RANKINE
+           :local-length 10d-3
+           :oversize-factor (- 1d0 1d-2))
+    (cl-mpm/output::add-mp-output *sim* :SCALAR "damage-inc-crit"
+                                  (lambda (mp)
+                                    (if (> (cl-mpm/particle::mp-damage mp) 0d0)
+                                        (/
+                                         (abs (- (cl-mpm/particle::mp-damage-prev-trial mp)
+                                                 (cl-mpm/particle::mp-damage mp)))
+                                         (cl-mpm/particle::mp-damage mp)
+                                         )
+                                        0d0)))
+    (cl-mpm/output:add-mp-output *sim* :SCALAR "ll-length"
+                                 (lambda (mp)
+                                   (length (cl-mpm/particle::mp-local-list mp))))
+    (let ((particle 'cl-mpm/particle::particle-fpd-isotropic))
+      (cl-mpm::iterate-over-mps
+       (cl-mpm:sim-mps *sim*)
+       (lambda (mp)
+         (change-class mp particle))))
 
+    ;; (cl-mpm/output:add-node-output
+    ;;  *sim*
+    ;;  :VECTOR
+    ;;  "force-frct"
+    ;;  #'cl-mpm/mesh::node-reaction-force)
 
-          ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static :refinement 0)
-          (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree)
-            (setf (cl-mpm/dynamic-relaxation::sim-intra-mesh-aggregation *sim*) t)
-            (setf (cl-mpm/dynamic-relaxation::sim-octree-refinement-criteria *sim*)
-                  (lambda (sim mesh c)
-                    (damage-refinement-criteria sim mesh c))))
+    ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static :refinement 0)
+    (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree)
+      (setf (cl-mpm/dynamic-relaxation::sim-intra-mesh-aggregation *sim*) t)
+      (setf (cl-mpm/dynamic-relaxation::sim-octree-refinement-criteria *sim*)
+            (lambda (sim mesh c)
+              (damage-refinement-criteria sim mesh c))))
 
-          (setf (cl-mpm::sim-gravity *sim*) 0d0)
+    (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
 
-          (setf cl-mpm/damage::*standard-bell-curve* bell)
-          (setf (cl-mpm/damage::sim-enable-ekl *sim*) nil)
-          (setf (cl-mpm/damage::sim-enable-stress-based-length *sim*) nil)
-          (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) length)
-
-          ;; (break)
-          ;; (ignore-errors)
-          (run :output-dir
-               ;; (format nil "./output-~D_ekl/" refine)
-               (format nil "./output-~D_~A_bell2_~A_ll_~A/" refine name cl-mpm/damage::*standard-bell-curve* (cl-mpm/damage::sim-enable-length-localisation *sim*))
-               :lstps 10
-               :tensile t
-               :enable-plastic nil
-               :enable-damage t
-               :total-disp -3d-3
-               :refine refine))))))
+    ;; (break)
+    ;; (ignore-errors)
+    (run :output-dir
+         ;; (format nil "./output-~D_ekl/" refine)
+         (format nil "./output-~D/" refine)
+         :lstps 5
+         :tensile nil
+         :enable-plastic nil
+         :enable-damage t
+         :total-disp -2d-3
+         :refine refine)))
 
 
 ;; (defun test-plastic ()
@@ -537,15 +550,16 @@
 ;;                ))))))
 
 (defun test-tension-compression ()
-  (let ((refine 2)
-        (mps 4))
+  (cl-mpm/utils:set-workers 12)
+  (let ((refine 1)
+        (mps 3))
     (dolist (tension (list
                       nil
-                      ;; t
+                      t
                       ))
       (setup :mps mps
              :refine refine
-             :enable-fbar t
+             :enable-fbar nil
              :multigrid-refines 0
              :gf 60d0
              :angle 15d0
@@ -553,7 +567,7 @@
              :kt (- 1d0 1d-9)
              :kc 0d0
              )
-      (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+      (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
       ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
       (run :output-dir (format nil "./output-~D-~A/" refine (if tension "tension" "compression"))
            :refine refine
@@ -599,9 +613,7 @@
   (let ((refine 1)
         (mps 3))
     (dolist (model (list
-                    :PRINC-STRAIN
                     :RANKINE
-                    :RANKINE-SMOOTH
                     :DP
                     :MC
                     :SE
@@ -612,13 +624,20 @@
              :angle 30d0
              :angle-r 00d0
              :model model)
+      (let ((particle 'cl-mpm/particle::particle-fpd-isotropic))
+        (cl-mpm::iterate-over-mps
+         (cl-mpm:sim-mps *sim*)
+         (lambda (mp)
+           (change-class mp particle))))
       ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
       ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
       (run :output-dir (format nil "./output-~A-~D/" model refine)
            :refine refine
            :enable-plastic nil
            :enable-damage t
-           :tensile nil))))
+           :tensile nil
+           :total-disp -5d-3
+           ))))
 
 (defun test-agg ()
   (let ((refine 0.5))
@@ -640,28 +659,28 @@
            ;; :enable-plastic t
            :refine refine))))
 
-(defun test-models ()
-  (dolist (refine (list 1))
-    (dolist (type (list :NORMAL :EKL :LL))
-      (setup :mps 3
-             :refine refine
-             :enable-fbar t
-             :angle 16d0
-             :angle-r 0d0
-             :gf 40d0
-             :kt 1d0
-             :local-length 1d-2
-             )
-      (case type
-        (:NORMAL )
-        (:EKL (setf (cl-mpm/damage::sim-enable-ekl *sim*) t))
-        (:LL (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t))
-        )
-      ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
-      ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
-      (run :output-dir (format nil "./output-~A-~D/" type refine)
-           :enable-plastic nil
-           :refine refine))))
+;; (defun test-models ()
+;;   (dolist (refine (list 1))
+;;     (dolist (type (list :NORMAL :EKL :LL))
+;;       (setup :mps 3
+;;              :refine refine
+;;              :enable-fbar t
+;;              :angle 16d0
+;;              :angle-r 0d0
+;;              :gf 40d0
+;;              :kt 1d0
+;;              :local-length 1d-2
+;;              )
+;;       (case type
+;;         (:NORMAL )
+;;         (:EKL (setf (cl-mpm/damage::sim-enable-ekl *sim*) t))
+;;         (:LL (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t))
+;;         )
+;;       ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+;;       ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
+;;       (run :output-dir (format nil "./output-~A-~D/" type refine)
+;;            :enable-plastic nil
+;;            :refine refine))))
 
 (defun test-angle ()
    (dolist (refine (list 1))
@@ -796,3 +815,27 @@
 ;;     ;;    ;;    ))
 ;;     ;;    ))
 ;;     ))
+
+;; (cl-mpm/utils::with-vector-pool
+;;     (defun test ()
+;;       (cl-mpm/utils:set-workers 1)
+;;       ;; (grab-new-vector)
+;;       (time
+;;        (cl-mpm/utils::bpdotimes (i 10000)
+;;                                 ;; (cl-mpm/utils:vector-zeros)
+;;                                 (grab-new-vector)
+;;                                 ;; (cl-mpm/fastmaths::fast-.+
+;;                                 ;;  (grab-new-vector)
+;;                                 ;;  (grab-new-vector)
+;;                                 ;;  (grab-new-vector)
+;;                                 ;;  ;; (cl-mpm/utils:vector-zeros)
+;;                                 ;;  ;; (cl-mpm/utils:vector-zeros)
+;;                                 ;;  )
+;;                                 ))))
+
+
+;; (let ((a (cl-mpm/utils:vector-zeros))
+;;       (b (cl-mpm/utils:vector-zeros)))
+;;   (time (dotimes (i 1000)
+;;           (cl-mpm/fastmaths::diff-norm
+;;            a b))))
