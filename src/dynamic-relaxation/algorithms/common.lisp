@@ -297,8 +297,10 @@
                                  (funcall post-iter-step i e o)
                                  (when (eq stagger-damage :MONOLITH-QS)
                                    (when enable-damage
-                                     (setf (cl-mpm:sim-enable-damage sim)
-                                           (< (cl-mpm::sim-stats-oobf sim) crit))))
+                                     (unless (cl-mpm::sim-enable-damage sim)
+                                       (setf dconv damage-crit)
+                                       (setf (cl-mpm:sim-enable-damage sim)
+                                             (< (cl-mpm::sim-stats-oobf sim) crit)))))
                                  ))
                               ;; (when (eq stagger-damage :MONOLITH-QS)
                               ;;   (when enable-damage
