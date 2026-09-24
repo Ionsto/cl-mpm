@@ -479,7 +479,7 @@
                                                 (slot-value mp 'cl-mpm/particle::cached-nodes)
                                                 (make-array 8 :fill-pointer 0 :element-type 'cl-mpm/particle::node-cache :initial-element (cl-mpm/particle::make-empty-node-cache)))
                                                ;; (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)
-                                               (when (slot-exists-p mp 'cl-mpm/particle::mp-local-list)
+                                               (when (typep mp 'cl-mpm/particle::particle-damage);; (slot-exists-p mp 'cl-mpm/particle::mp-local-list)
                                                  (slot-value mp 'cl-mpm/particle::mp-local-list)
                                                  (make-array 0 :fill-pointer 0 :adjustable t))
                                                (when (slot-exists-p mp 'cl-mpm/particle::damage-position)
