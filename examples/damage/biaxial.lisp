@@ -122,7 +122,8 @@
 
     (setf h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
     (let* (;; (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 40d3 angle))
-           (init-stress 46d3)
+           ;; (init-stress 46d3)
+           (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 40d3 15d0))
            ;; (L 10d-3)
            ;; (L h)
            (L local-length)
@@ -362,8 +363,8 @@
         :substeps (round (* refine 50))
         :sub-conv-steps 500
         ;; :sub-conv-steps 50
-        ;; :stagger-damage :MONOLITH-QS
-        :stagger-damage :HYBRID-FULL
+        :stagger-damage :MONOLITH-QS
+        ;; :stagger-damage :HYBRID-FULL
         ;; :stagger-damage :FULL
         ;; :min-tangent-ratio 1d-2
         :criteria 1d-3
@@ -412,7 +413,7 @@
            :enable-fbar nil
            :angle 30d0
            :angle-r 00d0
-           :gf (* 40d0)
+           :gf (* 30d0)
            :kt (- 1d0 1d-6)
            :model :RANKINE
            :local-length 10d-3
@@ -620,7 +621,7 @@
                     ))
       (setup :mps mps
              :refine refine
-             :gf 40d0
+             :gf 30d0
              :angle 30d0
              :angle-r 00d0
              :model model)
@@ -631,7 +632,7 @@
            (change-class mp particle))))
       ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
       ;; (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
-      (run :output-dir (format nil "./output-~A-~D/" model refine)
+      (run :output-dir (format nil "./output-stag-~A-~D/" model refine)
            :refine refine
            :enable-plastic nil
            :enable-damage t
