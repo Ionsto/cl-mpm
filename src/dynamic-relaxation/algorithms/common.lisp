@@ -192,6 +192,7 @@
       (:MONOLITH (setf (cl-mpm::sim-enable-damage sim) enable-damage))
       (:HYBRID (setf (cl-mpm::sim-enable-damage sim) nil))
       (:HYBRID-FULL (setf (cl-mpm::sim-enable-damage sim) nil))
+      (:MONOLITH-QS (setf (cl-mpm::sim-enable-damage sim) nil))
       (:FULL (setf (cl-mpm::sim-enable-damage sim) nil))
       (t (setf (cl-mpm::sim-enable-damage sim) nil)))
     ;; (setf (cl-mpm::sim-enable-damage sim) nil)
@@ -269,6 +270,7 @@
                                    ;;              ;; (save-conv-step sim output-dir *total-iter* global-step 0d0 (cl-mpm::sim-stats-oobf sim) 0d0)
                                    ;;              (incf *total-iter*)))
                                    (setf dconv (compute-damage-delta sim))
+                                   (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv)
                                    (cl-mpm:sim-format sim t "d-conv ~E~%" dconv))
                                  (let ((ccrit (cl-mpm/dynamic-relaxation::sim-convergence-critera sim)))
                                    (declare (double-float ccrit))
@@ -292,7 +294,16 @@
                                  (check-deformation-gradient sim :max-deformation-gradient max-deformation-gradient)
                                  (check-damage-increment sim :max-damage-inc max-damage-inc)
                                  (check-plastic-increment sim :max-plastic-inc max-plastic-inc)
-                                 (funcall post-iter-step i e o)))
+                                 (funcall post-iter-step i e o)
+                                 (when (eq stagger-damage :MONOLITH-QS)
+                                   (when enable-damage
+                                     (setf (cl-mpm:sim-enable-damage sim)
+                                           (< (cl-mpm::sim-stats-oobf sim) crit))))
+                                 ))
+                              ;; (when (eq stagger-damage :MONOLITH-QS)
+                              ;;   (when enable-damage
+                              ;;     (setf (cl-mpm:sim-enable-damage sim)
+                              ;;           (< (cl-mpm::sim-stats-oobf sim) crit))))
                               (if enable-damage
                                   (progn
                                     (unless (cl-mpm:sim-enable-damage sim)
@@ -308,6 +319,7 @@
                                      (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
                                     (let ((dconv-1 (compute-damage-delta sim)))
                                       (setf dconv dconv-1)
+                                      (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv)
                                       (cl-mpm:sim-format sim t "step ~D/~D - d-conv ~E ~A~%" stagger-i 0 dconv stagger-damage)
                                       (when t;stagger-damage
                                         (format t "Staggered damage step damage~%")
@@ -318,6 +330,7 @@
                                                       sim
                                                       (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
                                                      (setf dconv (compute-damage-delta sim))
+                                                     (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv)
                                                      (cl-mpm:sim-format sim t "step ~D/~D - d-conv ~E~%" stagger-i d dconv)
                                                      ;; (save-conv-step sim output-dir *total-iter* global-step 0d0 (cl-mpm::sim-stats-oobf sim) 0d0)
                                                      ;; (incf *total-iter*)
@@ -327,7 +340,9 @@
                                           (setf (cl-mpm:sim-enable-damage sim) nil)))
                                       ;; (cl-mpm:update-sim sim)
                                       ;; (cl-mpm::update-dynamic-stats sim)
-                                      (setf dconv dconv-1)))
+                                      (setf dconv dconv-1)
+                                      (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv)
+                                      ))
                                   (setf dconv 0d0)))))
                  (setf additional-conv (convergence-check sim)))))
     (when (>= dconv damage-crit)

@@ -61,14 +61,7 @@
                                          (+ (the double-float (abs (cl-mpm/utils::mtref stiff 0 0)))
                                             (the double-float (abs (cl-mpm/utils::mtref stiff 0 1))))
                                          (+ (the double-float (abs (cl-mpm/utils::mtref stiff 1 0)))
-                                            (the double-float (abs (cl-mpm/utils::mtref stiff 1 1)))))
-                                        ;; (max
-                                        ;;  (+ (the double-float (abs (cl-mpm/utils::mtref stiff 0 0)))
-                                        ;;     (the double-float (abs (cl-mpm/utils::mtref stiff 1 0))))
-                                        ;;  (+ (the double-float (abs (cl-mpm/utils::mtref stiff 0 1)))
-                                        ;;     (the double-float (abs (cl-mpm/utils::mtref stiff 1 1)))))
-                                        )))
-                                 ))))))))))))))))))
+                                            (the double-float (abs (cl-mpm/utils::mtref stiff 1 1))))))))))))))))))))))))))
 
 (defun map-stiffness-quasi-static (sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)
@@ -379,14 +372,21 @@
     ;;       (cl-mpm/damage::update-localisation sim dt-loadstep)
     ;;       (cl-mpm/damage::update-damage-mps sim dt-loadstep)
     ;;       (setf dconv (compute-damage-delta sim))
-    ;;       (loop for i from 1 below 10
+    ;;       (loop for i from 1 below 100
     ;;             while (> dconv 1d-9)
     ;;             do (progn
-    ;;                  ;; (format t "Internal update ~D ~E~%" i dconv)
+    ;;                  (format t "Internal update ~D ~E~%" i dconv)
     ;;                  (cl-mpm/damage::update-localisation sim dt-loadstep)
     ;;                  (cl-mpm/damage::update-damage-mps sim dt-loadstep)
     ;;                  (setf dconv (compute-damage-delta sim))
-    ;;                  )))))
+    ;;                  (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv)
+    ;;                  ))
+    ;;       (cl-mpm:iterate-over-mps
+    ;;        mps
+    ;;        (lambda (mp)
+    ;;          (when (typep mp 'cl-mpm/particle:particle-damage)
+    ;;            (cl-mpm/particle::post-damage-step mp dt))
+    ;;          (values))))))
     (cl-mpm::p2g-force-fs sim)
     (when ghost-factor
       (cl-mpm/ghost::apply-ghost-cached sim)
@@ -548,33 +548,68 @@
                 f)
                (cl-mpm/utils::resize-vector work-vec (cl-mpm/utils::sparse-matrix-nrows e))
                (cl-mpm/utils::resize-vector work-vec-agg (cl-mpm/utils::sparse-matrix-nrows et))
+               ;; (let* ((acc
+               ;;          (cl-mpm/linear-solver::solve-conjugant-gradients
+               ;;           (lambda (v)
+               ;;             (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
+               ;;              e
+               ;;              v
+               ;;              bcs
+               ;;              bcs-int
+               ;;              work-vec
+               ;;              )
+               ;;             (cl-mpm/fastmaths::fast-.*
+               ;;              sma
+               ;;              work-vec
+               ;;              work-vec)
+               ;;             (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
+               ;;              et
+               ;;              work-vec
+               ;;              bcs-int
+               ;;              bcs
+               ;;              work-vec-agg))
+               ;;           f
+               ;;           :tol 1d-15
+               ;;           :max-iters 10000
+               ;;           :mask bcs-int)))
+               ;;   (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
+               ;;   (cl-mpm/aggregate::project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d))
                (let* ((acc
-                        (cl-mpm/linear-solver::solve-conjugant-gradients
-                         (lambda (v)
-                           (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
-                            e
-                            v
-                            bcs
-                            bcs-int
-                            work-vec
-                            )
-                           (cl-mpm/fastmaths::fast-.*
-                            sma
-                            work-vec
-                            work-vec)
-                           (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
-                            et
-                            work-vec
-                            bcs-int
-                            bcs
-                            work-vec-agg))
-                         f
-                         :tol 1d-15
-                         :max-iters 10000
-                         :mask bcs-int
-                         )))
+                        ;; (cl-mpm/utils::arb-vector (cl-mpm/utils::sparse-matrix-nrows et))
+                        (grab-new)
+                           ))
+                 (cl-mpm/utils::resize-vector acc (cl-mpm/utils::sparse-matrix-nrows et))
+                 ;; (cl-mpm/fastmaths::fast-zero acc)
+                 ;; (pprint (cl-mpm/utils::nrows acc))
+                 ;; (pprint (cl-mpm/utils::nrows f))
+                 ;; (pprint acc)
+                 (cl-mpm/linear-solver::solve-conjugant-gradients
+                  (lambda (v)
+                    (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
+                     e
+                     v
+                     bcs
+                     bcs-int
+                     work-vec
+                     )
+                    (cl-mpm/fastmaths::fast-.*
+                     sma
+                     work-vec
+                     work-vec)
+                    (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
+                     et
+                     work-vec
+                     bcs-int
+                     bcs
+                     work-vec-agg))
+                  f
+                  :tol 1d-35
+                  :max-iters 10000
+                  :mask bcs-int
+                  :result acc)
                  (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
-                 (cl-mpm/aggregate::project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d)))))))
+                 (cl-mpm/aggregate::project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d))
+               )))))
       (when (= (mod solve-count damping-update-count) 0)
         ;; (pprint "!Hello")
         (setf damping (the double-float (cl-mpm/dynamic-relaxation::dr-estimate-damping sim))))

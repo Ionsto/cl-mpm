@@ -864,8 +864,7 @@
   dot))
 (defun dot-vector (a b)
   (let ((a-s (cl-mpm/utils:fast-storage a))
-        (b-s (cl-mpm/utils:fast-storage b))
-        )
+        (b-s (cl-mpm/utils:fast-storage b)))
     (declare ((simple-array double-float (3)) a-s b-s))
     (+
      (the double-float (expt (- (aref a-s 0) (aref b-s 0)) 2))

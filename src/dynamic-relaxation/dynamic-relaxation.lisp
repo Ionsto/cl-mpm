@@ -364,8 +364,6 @@
                           (if (and (cl-mpm/mesh:node-active node)
                                    (not (cl-mpm/mesh::node-agg node)))
                               (progn
-                                (when (not (typep (cl-mpm/mesh:node-mass node) 'double-float))
-                                  (break))
                                 (*
                                  (the double-float (cl-mpm/mesh:node-mass node))
                                  (the double-float (cl-mpm/fastmaths::mag-squared

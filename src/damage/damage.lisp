@@ -63,18 +63,18 @@
       0d0))
 
 (defun principal-stresses (stress)
-  (cl-mpm/fastmaths::fast-principal-stresses-3d stress)
+  ;; (cl-mpm/fastmaths::fast-principal-stresses-3d stress)
   ;; (multiple-value-bind (l v) (cl-mpm/utils::eig (voight-to-matrix stress))
   ;;   (declare (ignore v))
   ;;   (values (apply #'max l) (apply #'min l)))
   )
 
 (defun principal-stresses-3d (stress)
-  (cl-mpm/fastmaths::fast-principal-stresses-3d stress)
-  ;; (multiple-value-bind (l v) (cl-mpm/utils::eig (voight-to-matrix stress))
-  ;;   (declare (ignore v))
-  ;;   (setf l (sort l #'>))
-  ;;   (values (nth 0 l) (nth 1 l) (nth 2 l)))
+  ;; (cl-mpm/fastmaths::fast-principal-stresses-3d stress)
+  (multiple-value-bind (l v) (cl-mpm/utils::eig (voight-to-matrix stress))
+    (declare (ignore v))
+    (setf l (sort l #'>))
+    (values (nth 0 l) (nth 1 l) (nth 2 l)))
   )
 
 (defun damage-profile (damage damage-crit)
@@ -224,7 +224,6 @@
       (update-localisation sim dt)
       (update-damage-mps sim dt)
       )
-
     (cl-mpm:iterate-over-mps
      mps
      (lambda (mp)
@@ -339,8 +338,8 @@
                  ;;New particle - needs to be added to the mesh
                  (local-list-add-particle mesh mp)
                  ;; Already inserted mesh - sanity check to see if it should be recalled
-                 (let* ((delta (cl-mpm/fastmaths::diff-norm (cl-mpm/particle:mp-position mp)
-                                                            (cl-mpm/particle::mp-damage-position mp))))
+                 (let* ((delta (cl-mpm/fastmaths::diff-mag (cl-mpm/particle:mp-position mp)
+                                                           (cl-mpm/particle::mp-damage-position mp))))
                    (declare (double-float delta h))
                    (when (> delta (/ h 16d0))
                      (when (not (equal
@@ -408,8 +407,7 @@
         ;;     (the double-float (expt (- 1d0 (/ dist-squared r-s)) 2))
         ;;     (the double-float (expt (- 1d0 (expt (/ dist-squared r-s) 2)) 2)))
         ;; (the double-float (exp (the double-float (* 1d0 (/ (- dist-squared) (* 2d0 length length))))))
-        0d0))
-  )
+        0d0)))
 (defun weight-func-grads (dist-squared length)
   (if (< dist-squared (* length length))
       (let ((dist (sqrt dist-squared)))
@@ -569,8 +567,11 @@ Calls the function with the mesh mp and node"
   (declare (optimize (speed 3)))
   (declare (function func)
            (double-float length))
-  (let* ((node-id (cl-mpm/mesh:position-to-index mesh pos))
-         (node-reach (the fixnum (ceiling (* length 1d0) (the double-float (cl-mpm/mesh:mesh-resolution mesh))))))
+  (let* ((h (the double-float (cl-mpm/mesh:mesh-resolution mesh)))
+         (node-id (cl-mpm/mesh:position-to-index mesh pos))
+         (node-reach (the fixnum (ceiling (+ length
+                                             (/ h 16d0))
+                                          h))))
     (declare (dynamic-extent node-id))
     (destructuring-bind (ix iy iz) node-id
       (declare (fixnum ix iy)

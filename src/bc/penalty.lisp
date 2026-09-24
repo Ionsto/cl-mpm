@@ -595,11 +595,6 @@
                         :contact-area contact-area
                         :stiffness (*
                                     0.5d0
-                                    ;; epsilon
-                                    ;; (sqrt (+
-                                    ;;        (expt epsilon 2)
-                                    ;;        (expt (* friction epsilon) 2)
-                                    ;;        ))
                                     (+
                                      epsilon
                                      (if (> dt 0d0)
@@ -650,8 +645,6 @@
                   (sb-thread:with-mutex (debug-mutex)
                     (incf debug-load normal-force))
                   (setf (cl-mpm/particle::corner-contact corner) t)
-
-                  ;; (setf (cl-mpm/particle::mp-penalty-contact-point mp) trial-point)
 
                   (let* ((mp-disp-inc disp-inc)
                          (force (cl-mpm/utils:vector-zeros))

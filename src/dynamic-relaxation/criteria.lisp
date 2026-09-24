@@ -175,7 +175,8 @@
                    (list
                     (* 0.5d0 mass (cl-mpm/fastmaths::mag-squared vel))
                     (cl-mpm/fastmaths::mag-squared res)
-                    (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+ f-ext f-rct))
+                    ;; (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+ f-ext f-rct))
+                    (+ (cl-mpm/fastmaths::mag-squared f-ext) (cl-mpm/fastmaths::mag-squared f-rct))
                     ;; (cl-mpm/fastmaths::mag-squared f-ext)
                     (cl-mpm/fastmaths:dot disp f-ext))))
                (list 0d0 0d0 0d0 0d0)))
@@ -184,6 +185,9 @@
                (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) (first args) (second args))
                (list 0d0 0d0 0d0 0d0))))
       (declare (double-float energy oobf-num oobf-denom power))
+      ;; (format t "nonagg ~E ~E ~E~%" oobf-num oobf-denom (sqrt (/ oobf-num oobf-denom)))
+      ;; (setf oobf-num 0d0
+      ;;       oobf-denom 0d0)
       (when sim-agg
         (cl-mpm/aggregate::iterate-over-dimensions-with-mutex
          (cl-mpm/mesh::mesh-nd mesh)
@@ -214,6 +218,8 @@
                  (incf oobf-denom doobf-denom)
                  (incf power dpower)
                  (incf energy denergy)))))))
+
+      ;; (format t "nonagg ~E ~E ~E~%" oobf-num oobf-denom (sqrt (/ oobf-num oobf-denom)))
 
       (let ((oobf 0d0)
             (oobf-num (sqrt oobf-num))

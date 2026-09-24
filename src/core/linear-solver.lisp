@@ -139,71 +139,70 @@
         (setf (varef pre r) (varef pre r))))
     pre))
 
-(defun solve-conjugant-gradients (A-operator b &key (tol 1d-9) (max-iters 10000) (mask nil))
-  (declare (function a-operator))
-  (let ()
-  (labels ((mask-op (x)
-             (if nil;mask
-                 (cl-mpm/fastmaths:fast-.* x mask)
-                 x))
-           (mask-inplace (x)
-               (when mask
-                   (cl-mpm/fastmaths:fast-.* x mask x)))
-           (operation (x)
-             (funcall a-operator x))
-           )
-    (mask-inplace b)
-    (let ((vector-size (nrows b))
-          (b-norm (cl-mpm/fastmaths::mag b)))
-      ;; (pprint b-norm)
-      (if (or (= b-norm 0d0) (= (nrows b) 0))
-          ;;Trivial case of 0 being the answer
-          (cl-mpm/utils::arb-matrix vector-size 1)
-          ;;Nontrivial case
-          (let* ((x (cl-mpm/utils::arb-matrix vector-size 1))
-                 (r (fast-.- b (operation x)))
-                 (p (cl-mpm/utils::deep-copy r))
-                 (ap (cl-mpm/utils::arb-matrix vector-size 1))
-                 (rs-old (cl-mpm/fastmaths::mag-squared r))
-                 (crit tol)
-                 (rs-new crit)
-                 (residual crit))
-            (loop for i from 0 to max-iters
-                  while (>= residual crit)
-                  do
-                     (progn
-                       ;; (mask-inplace p)
-                       (setf ap (operation p))
-                       ;; (mask-inplace ap)
-                       (let ((alpha
-                               (/
-                                rs-old
-                                (dot p ap))))
-                         (fast-.+ x (fast-scale p alpha) x)
-                         (fast-.- r (fast-scale ap alpha) r)
-                         ;; (setf r (mask-op (fast-.- b (operation x))))
-                         (mask-inplace x)
-                         ;; (mask-inplace r)
-                         (setf rs-new (cl-mpm/fastmaths::mag-squared r))
-                         ;(setf residual (/ rs-new b-norm))
-                         (setf residual (/ (sqrt rs-new) b-norm))
-                         ;; (setf residual rs-new)
-                         (unless (< residual crit)
-                           (setf p
-                                 (fast-.+
-                                  r
-                                  (fast-scale p (/ rs-new rs-old))))
-                           ;; (mask-inplace p)
-                           )
-                         (when (= (mod (1+ i) (round (* max-iters 0.1d0))) 0)
-                           (format t "CG Iter ~D ~E ~E ~E~%" i rs-old rs-new residual))
-                         (setf rs-old rs-new)))
-                  finally (progn
-                            ;; (format t "Solved in ~D iters ~E~%" i residual)
-                            (when (> residual crit)
-                              (error "Conjugate gradients didn't converge"))))
-            (mask-inplace x)
-            x))))))
+(cl-mpm/utils::with-arb-pool
+    (defun solve-conjugant-gradients (A-operator b &key (tol 1d-9) (max-iters 10000) (mask nil) (result nil))
+      (declare (function a-operator))
+      (let ()
+        (labels ((mask-inplace (x)
+                   (when mask
+                     (cl-mpm/fastmaths:fast-.* x mask x)))
+                 (operation (x)
+                   (funcall a-operator x)))
+          (mask-inplace b)
+          (let ((vector-size (nrows b))
+                (b-norm (cl-mpm/fastmaths::mag b)))
+            ;; (pprint b-norm)
+            (if (or (= b-norm 0d0) (= (nrows b) 0))
+                ;;Trivial case of 0 being the answer
+                (if result (cl-mpm/fastmaths::fast-zero result) (cl-mpm/utils::arb-vector vector-size))
+                ;;Nontrivial case
+                (let* ((x (if result (cl-mpm/fastmaths::fast-zero result) (cl-mpm/utils::arb-vector vector-size)))
+                       (r (fast-.- b (operation x) ;; (cl-mpm/utils::resize-vector (grab-new) vector-size)
+                                   ))
+                       (p
+                         (cl-mpm/utils::deep-copy r)
+                         ;; (cl-mpm/utils::copy-into r (cl-mpm/utils::resize-vector (grab-new) vector-size))
+                          )
+                       (ap nil)
+                       (rs-old (cl-mpm/fastmaths::mag-squared r))
+                       (crit tol)
+                       (rs-new crit)
+                       (residual crit))
+                  (loop for i from 0 to max-iters
+                        while (>= residual crit)
+                        do
+                           (progn
+                             ;; (mask-inplace p)
+                             (setf ap (operation p))
+                             ;; (mask-inplace ap)
+                             (let ((alpha
+                                     (/
+                                      rs-old
+                                      (dot p ap))))
+                               (fast-.+ x (fast-scale p alpha) x)
+                               (fast-.- r (fast-scale ap alpha) r)
+                               (mask-inplace x)
+                               ;; (mask-inplace r)
+                               (setf rs-new (cl-mpm/fastmaths::mag-squared r))
+                                        ;(setf residual (/ rs-new b-norm))
+                               (setf residual (/ (sqrt rs-new) b-norm))
+                               ;; (setf residual rs-new)
+                               (unless (< residual crit)
+                                 (setf p
+                                       (fast-.+
+                                        r
+                                        (fast-scale p (/ rs-new rs-old))))
+                                 ;; (mask-inplace p)
+                                 )
+                               (when (= (mod (1+ i) (round (* max-iters 0.1d0))) 0)
+                                 (format t "CG Iter ~D ~E ~E ~E~%" i rs-old rs-new residual))
+                               (setf rs-old rs-new)))
+                        finally (progn
+                                  ;; (format t "Solved in ~D iters ~E~%" i residual)
+                                  (when (> residual crit)
+                                    (error "Conjugate gradients didn't converge"))))
+                  (mask-inplace x)
+                  x)))))))
 
 (defun reduce-with-bcs (mat bcs-r bcs-c)
   (let ((bc-map-r (make-array (magicl:nrows bcs-r) :fill-pointer 0))
@@ -714,4 +713,9 @@
   (let ((A (cl-mpm/utils::voigt-to-matrix (cl-mpm/utils:voigt-from-list (list 1d0 2d0 3d0 4d0 5d0 6d0))))
         (b (cl-mpm/utils:vector-from-list (list 1d0 2d0 3d0))))
     (pprint (magicl:linear-solve A B))
-    (pprint (solve-conjugant-gradients (lambda (x) (magicl:@ A x)) b :tol 1d-15 :max-iters 1000))))
+    (pprint (solve-conjugant-gradients (lambda (x) (magicl:@ A x)) b :tol 1d-15 :max-iters 1000))
+    (time (dotimes (i 100000)
+            (magicl:linear-solve A B)))
+    (time (dotimes (i 100000)
+            (solve-conjugant-gradients (lambda (x) (cl-mpm/fastmaths::fast-@-arb-arb A x)) b :tol 1d-15 :max-iters 1000)))
+    ))

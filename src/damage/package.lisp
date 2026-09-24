@@ -13,7 +13,11 @@
 (in-package :cl-mpm/damage)
 
 (defclass mpm-sim-damage (cl-mpm::mpm-sim)
-  ((delocal-counter
+  ((damage-residual
+    :type double-float
+    :accessor sim-stats-damage-residual
+    :initform 0d0)
+   (delocal-counter
     :accessor sim-damage-delocal-counter
     :type fixnum
     :initarg :delocal-counter
