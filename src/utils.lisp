@@ -543,10 +543,10 @@
           )))
 
 (declaim (inline voight-to-matrix)
-         (ftype (function (magicl:matrix/double-float)
+         (ftype (function (magicl:matrix/double-float &optional magicl:matrix/double-float)
                           magicl:matrix/double-float) voight-to-matrix))
 
-(defun voight-to-matrix (vec)
+(defun voight-to-matrix (vec &optional (result nil))
   "Stress format voight to matrix"
   (let* ((exx (mtref vec 0 0))
          (eyy (mtref vec 1 0))
@@ -554,9 +554,22 @@
          (eyz (mtref vec 3 0))
          (ezx (mtref vec 4 0))
          (exy (mtref vec 5 0)))
-    (matrix-from-list (list exx exy ezx
-                            exy eyy eyz
-                            ezx eyz ezz))))
+    (if result
+        (progn
+          (setf
+           (varef result 0) exx
+           (varef result 1) exy
+           (varef result 2) ezx
+           (varef result 3) exy
+           (varef result 4) eyy
+           (varef result 5) eyz
+           (varef result 6) ezx
+           (varef result 7) eyz
+           (varef result 8) ezz)
+          result)
+        (matrix-from-list (list exx exy ezx
+                                exy eyy eyz
+                                ezx eyz ezz)))))
 
 (declaim (inline voigt-to-matrix)
          (ftype (function (magicl:matrix/double-float &optional magicl:matrix/double-float)
@@ -859,9 +872,17 @@
                             0d0 0d0 v3))))
 
 (declaim
- (ftype (function (double-float) magicl::matrix/double-float) voigt-eye))
-(defun voigt-eye (value)
-  (voigt-from-list (list value value value 0d0 0d0 0d0)))
+ (ftype (function (double-float &optional magicl::matrix/double-float) magicl::matrix/double-float) voigt-eye))
+(defun voigt-eye (value &optional (result nil))
+  (let ((result (if result result (cl-mpm/utils:voigt-zeros))))
+    (setf
+     (varef result 0) value
+     (varef result 1) value
+     (varef result 2) value
+     (varef result 3) 0d0
+     (varef result 4) 0d0
+     (varef result 5) 0d0)
+    result))
 
 (defun rotation-matrix (degrees)
   (declare (double-float degrees))

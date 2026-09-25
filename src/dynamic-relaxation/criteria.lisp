@@ -556,11 +556,12 @@
             sim
             (lambda (mp)
               (with-accessors ((volume cl-mpm/particle::mp-volume)
-                               (stress cl-mpm/particle::mp-stress-kirchoff)
+                               (stress cl-mpm/particle::mp-stress)
                                (damage-inc cl-mpm/particle::mp-damage-increment)
+                               (j cl-mpm/particle::mp-deformation-jacobian-strain)
                                (strain cl-mpm/particle::mp-strain))
                   mp
-                (* 0.5d0 volume (cl-mpm/fastmaths:dot stress strain)))))))
+                (* 0.5d0 (/ volume j) (cl-mpm/fastmaths:dot stress strain)))))))
     energy))
 
 (defun estimate-static-oobf-mass-scaled (sim)

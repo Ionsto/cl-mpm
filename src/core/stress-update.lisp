@@ -280,15 +280,15 @@
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
            (optimize (speed 3) (safety 0) (debug 0)))
   (let ((stress (cl-mpm/particle:mp-stress mp))
-        (stress-kirchoff (cl-mpm/particle::mp-stress-kirchoff mp))
+        ;; (stress-kirchoff (cl-mpm/particle::mp-stress-kirchoff mp))
         (strain (cl-mpm/particle:mp-strain mp))
         (def    (cl-mpm/particle:mp-deformation-gradient mp)))
-    (declare (magicl:matrix/double-float stress stress-kirchoff strain def))
+    (declare (magicl:matrix/double-float stress strain def))
     (progn
       (calculate-strain-rate-disp mesh mp dt fbar)
       (update-strain-kirchoff mesh mp dt fbar)
-      (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
-      (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
+      (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress)
+      ;; (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
       (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (cl-mpm/particle::mp-deformation-jacobian-strain mp))))))
 
 (defun update-stress-kirchoff-dynamic-relaxation (mesh mp dt fbar)
@@ -326,7 +326,7 @@
   "Update stress for a single mp"
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
   (with-accessors ((stress cl-mpm/particle:mp-stress)
-                   (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
+                   ;; (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
                    (volume cl-mpm/particle:mp-volume)
                    (strain cl-mpm/particle:mp-strain)
                    (def    cl-mpm/particle:mp-deformation-gradient)
@@ -335,7 +335,7 @@
                    (strain-rate cl-mpm/particle:mp-strain-rate)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    ) mp
-    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate)
+    (declare (magicl:matrix/double-float stress strain def strain-rate)
              (double-float volume))
     (progn
       (progn
@@ -343,10 +343,9 @@
         ;; (calculate-strain-rate mesh mp dt)
         (calculate-strain-rate mesh mp dt fbar)
         ;; Turn cauchy stress to kirchoff
-        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
         ;; Update our strains
         (update-strain-kirchoff-dynamic-relaxation-incremental mesh mp dt fbar)
-        (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
+        (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress)
         ;; Turn kirchoff stress to cauchy
         (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
         ))))
@@ -356,7 +355,6 @@
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
            (optimize (speed 3) (safety 0) (debug 0)))
   (with-accessors ((stress cl-mpm/particle:mp-stress)
-                   (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
                    (volume cl-mpm/particle:mp-volume)
                    (volume-0 cl-mpm/particle::mp-volume-0)
                    (strain cl-mpm/particle:mp-strain)
@@ -364,24 +362,22 @@
                    (strain-rate cl-mpm/particle:mp-strain-rate)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    ) mp
-    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate)
+    (declare (magicl:matrix/double-float stress strain def strain-rate)
              (double-float volume))
     (progn
       (progn
         ;; (calculate-strain-rate mesh mp dt)
         ;; Turn cauchy stress to kirchoff
-        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
         ;; Update our strains
         (update-strain-kirchoff-noupdate mesh mp dt fbar)
         ;; (scale-domain-size mesh mp)
         ;; Update our kirchoff stress with constitutive model
-        (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
+        (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress)
         ;; (cl-mpm/constitutive::linear-elastic-mat strain (cl-mpm/particle::mp-elastic-matrix mp) stress-kirchoff)
         ;; Check volume constraint!
         (when (<= volume 0d0)
           (error 'cl-mpm/errors:error-volume-negative))
         ;; Turn kirchoff stress to cauchy
-        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
         (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
         ))))
 
@@ -390,13 +386,12 @@
   "Update stress for a single mp"
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
   (with-accessors ((stress cl-mpm/particle:mp-stress)
-                   (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
                    (volume cl-mpm/particle:mp-volume)
                    (strain cl-mpm/particle:mp-strain)
                    (def    cl-mpm/particle:mp-deformation-gradient)
                    (strain-rate cl-mpm/particle:mp-strain-rate)
                    ) mp
-    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate))
+    (declare (magicl:matrix/double-float stress strain def strain-rate))
     (progn
       ;;   ;;For no FBAR we need to update our strains
       (progn
