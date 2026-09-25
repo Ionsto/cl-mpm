@@ -20,8 +20,7 @@
                     (the double-float
                          (*
                           k0
-                          k))))
-              )
+                          k)))))
              ) n)))
    tau))
 

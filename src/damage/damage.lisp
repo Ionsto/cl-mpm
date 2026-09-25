@@ -513,8 +513,11 @@
               (the double-float
                    (sqrt
                     (the double-float
+                         ;; (* (the double-float (min 1d0 (max 0d0 (- 1d0 da))))
+                         ;;    (the double-float (min 1d0 (max 0d0 (- 1d0 da-other)))))
                          (* (the double-float (sqrt (min 1d0 (max 0d0 (- 1d0 da)))))
-                            (the double-float (sqrt (min 1d0 (max 0d0 (- 1d0 da-other)))))))))))))))
+                            (the double-float (sqrt (min 1d0 (max 0d0 (- 1d0 da-other))))))
+                         )))))))))
 
 (defun weight-func-mps-scatter (mesh mp-a mp-b pos-a pos-b length)
   (declare (ignore mesh))
@@ -865,7 +868,7 @@ Calls the function with the mesh mp and node"
                    ) double-float)
         calculate-delocalised-damage))
 
-(defconstant +damage-average-energy+ nil)
+(defconstant +damage-average-energy+ t)
 (defun calculate-delocalised-damage (mesh mp length length-localisation)
   (let ((damage-inc 0d0)
         (mass-total 0d0)
@@ -885,9 +888,9 @@ Calls the function with the mesh mp and node"
          (when t
            (flet ((selected-weight (mp mp-other pos-a pos-b)
                     (if length-localisation
-                        ;; (weight-func-mps-trapezium mesh mp mp-other pos-a pos-b length)
+                        (weight-func-mps-trapezium mesh mp mp-other pos-a pos-b length)
                         ;; (weight-func-mps-scatter mesh mp mp-other pos-a pos-b length)
-                        (weight-func-mps-geometric mesh mp mp-other pos-a pos-b length)
+                        ;; (weight-func-mps-geometric mesh mp mp-other pos-a pos-b length)
                         ;; (weight-func-mps-gradient-trapezium mesh mp mp-other pos-a pos-b length)
                         ;; (weight-func (cl-mpm/fastmaths::diff-norm pos-a pos-b) length)
                         (weight-func (cl-mpm/fastmaths::diff-norm pos-a pos-b) length))))
