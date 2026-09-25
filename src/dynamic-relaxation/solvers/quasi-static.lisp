@@ -368,19 +368,18 @@
     ;; (when (cl-mpm::sim-enable-damage sim)
     ;;   (let ((dconv (compute-damage-delta sim)))
     ;;     (when (> dconv 0d0)
-    ;;       ;; (format t "Internal update ~D ~E~%" 0 dconv)
     ;;       (cl-mpm/damage::update-localisation sim dt-loadstep)
     ;;       (cl-mpm/damage::update-damage-mps sim dt-loadstep)
     ;;       (setf dconv (compute-damage-delta sim))
-    ;;       (loop for i from 1 below 100
+    ;;       (loop for i from 1 below 10
     ;;             while (> dconv 1d-9)
     ;;             do (progn
     ;;                  (format t "Internal update ~D ~E~%" i dconv)
-    ;;                  (cl-mpm/damage::update-localisation sim dt-loadstep)
-    ;;                  (cl-mpm/damage::update-damage-mps sim dt-loadstep)
+    ;;                  (dotimes (i 10)
+    ;;                    (cl-mpm/damage::update-localisation sim dt-loadstep)
+    ;;                    (cl-mpm/damage::update-damage-mps sim dt-loadstep))
     ;;                  (setf dconv (compute-damage-delta sim))
-    ;;                  (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv)
-    ;;                  ))
+    ;;                  (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv)))
     ;;       (cl-mpm:iterate-over-mps
     ;;        mps
     ;;        (lambda (mp)
@@ -473,7 +472,7 @@
                             bcs
                             work-vec-agg))
                          f
-                         :tol 1d-15
+                         :tol 1d-35
                          :max-iters 10000
                          :mask bcs-int)))
                  (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
@@ -603,7 +602,7 @@
                      bcs
                      work-vec-agg))
                   f
-                  :tol 1d-35
+                  :tol 1d-15
                   :max-iters 10000
                   :mask bcs-int
                   :result acc)

@@ -182,6 +182,14 @@
 (defclass cl-mpm/particle::particle-fpd-spectral-strain (cl-mpm/particle::particle-plastic-damage-frictional)
   ())
 
+
+(defclass cl-mpm/particle::particle-fpd-gill (cl-mpm/particle::particle-plastic-damage-frictional)
+  ())
+
+
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-fpd-gill) dt)
+  (cl-mpm/damage::apply-gill-damage mp))
+
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-fpd-tcs) dt)
   (cl-mpm/damage::apply-tcs-degredation mp))
 

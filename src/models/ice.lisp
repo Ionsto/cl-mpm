@@ -90,6 +90,10 @@
     :accessor mp-trial-strain
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:voigt-zeros))
+   (p-wave-elastoplastic
+    :accessor mp-p-wave-elastoplastic
+    :type double-float
+    :initform 0d0)
    (damage-pressure
     :accessor mp-damage-pressure
     :initarg :damage-tension
@@ -101,12 +105,18 @@
    (biot-coefficent
     :accessor mp-biot-coefficent
     :initarg :biot-coeff
-    :initform 1d0))
-
+    :initform 1d0)
+   (mass-0
+    :accessor mp-mass-0
+    :initform 0d0
+    :initarg :mass))
   (:default-initargs
    :enable-viscosity nil
    :viscosity 1d13)
   (:documentation "An ice damage model with a quasi-brittle damage model"))
+
+;; (defmethod (setf cl-mpm/particle::mp-mass) :after (v (p particle-ice-brittle))
+;;   (setf (cl-mpm/particle::mp-mass-0 p) v))
 
 (defclass particle-ice-delayed (particle-ice-brittle)
   (
@@ -322,6 +332,7 @@
               (setf ps-vm (+ ps-vm-1 inc))
               (setf ps-vm-inc inc)))
           ))
+    (setf (cl-mpm/particle::mp-p-wave-elastoplastic mp) p-wave)
     (cl-mpm/utils:voigt-copy-into stress-u stress)
     stress))
 
@@ -864,11 +875,12 @@
                    (enable-damage cl-mpm/particle::mp-enable-damage))
       mp
     (declare (double-float damage damage-t damage-c damage-s j pressure))
-    (let* ((undamaged-stress (cl-mpm/fastmaths:fast-scale-voigt
-                              undamaged-stress
-                              (/ 1d0 j)))
+    (let* (;; (undamaged-stress (cl-mpm/fastmaths:fast-scale-voigt
+           ;;                    undamaged-stress
+           ;;                    (/ 1d0 j)))
            (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
            (pressure (* pressure damage))
+           (exponant 1)
            ;; (pind (- p pressure))
            (pind p)
            (p-deg 0d0)
@@ -876,16 +888,18 @@
       (declare (double-float damage-t damage-c damage-s p-deg))
       (setf
        p-deg
-       (if (> pind 0d0)
-           (- 1d0 damage-t)
-           (- 1d0 damage-c)))
+       (expt
+        (if (> pind 0d0)
+            (- 1d0 damage-t)
+            (- 1d0 damage-c)) exponant))
       (setf p (* p p-deg))
       (setf stress
             (cl-mpm/fastmaths:fast-.+
              ;; (cl-mpm/constitutive::voight-eye p)
              (cl-mpm/constitutive::voight-eye (- p pressure))
-             (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage-s))
+             (cl-mpm/fastmaths:fast-scale! s (expt (- 1d0 damage-s) exponant))
              stress))
+      (cl-mpm/fastmaths:fast-scale! stress (/ 1d0 j))
       (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
              (G (/ e (* 2 (+ 1d0 nu))))
              (P-0 (+ K (* 4/3 G))))
@@ -894,8 +908,9 @@
         (setf G (* G (- 1d0 damage-s)))
         (setf p-mod
               (max
-               (* 1d-6 P-0)
-               (* (max 1d-6 (expt (/ (+ K (* 4/3 G)) P-0) 1)) p-mod)))))))
+               (* 1d-3 P-0)
+               (* (max 1d-3 (expt (/ (+ K (* 4/3 G)) P-0) 1))
+                  (cl-mpm/particle::mp-p-wave-elastoplastic mp))))))))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-brittle) dt)
   (with-accessors ((p cl-mpm/particle::mp-pressure)
@@ -906,16 +921,37 @@
                    (damage cl-mpm/particle::mp-damage)
                    (enable-damage cl-mpm/particle::mp-enable-damage)
                    (j cl-mpm/particle::mp-deformation-jacobian-strain)
+                   (e cl-mpm/particle::mp-e)
+                   (nu cl-mpm/particle::mp-nu)
                    (p-mod cl-mpm/particle::mp-p-modulus))
       mp
-    ;; (apply-gill-damage mp)
+    ;; (cl-mpm/damage::apply-tensile-strain-degredation mp)
+    ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
+    ;; (cl-mpm/damage::apply-gill-damage mp)
+    ;; (cl-mpm/damage::apply-isotropic-degredation mp)
+    ;; (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
+    ;;        (G (/ e (* 2 (+ 1d0 nu))))
+    ;;        (P-0 (+ K (* 4/3 G))))
+    ;;   (declare (double-float K G P-0 e nu))
+    ;;   (setf p-mod
+    ;;         (max
+    ;;          (* 1d-3 P-0)
+    ;;          (* (- 1d0 damage) (cl-mpm/particle::mp-p-wave-elastoplastic mp)))))
     (apply-vol-pressure-degredation
      mp
      dt
      (*
       -1d0
       (cl-mpm/particle::mp-biot-coefficent mp)
-      (/ p 1)))))
+      (/ p 1)))
+    ;; (let ((max-deg 0.99d0))
+    ;;   (declare (double-float max-deg damage))
+    ;;   (setf (cl-mpm/particle::mp-mass mp)
+    ;;         (the double-float
+    ;;              (*
+    ;;               (- 1d0 (* max-deg damage))
+    ;;               (the double-float (cl-mpm/particle::mp-mass-0 mp))))))
+    ))
 
 
 (defmethod cl-mpm/particle::compute-mp-energy-release ((mp cl-mpm/particle::particle-ice-brittle))

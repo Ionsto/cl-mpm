@@ -156,6 +156,7 @@
                           (max-deformation-gradient 10d0)
                           (max-damage-inc 0.6d0)
                           (min-damage-inc 0d0)
+                          (stagger-damage :HYBRID)
                           (setup-quasi-static (lambda (sim)))
                           (setup-dynamic (lambda (sim)))
                           (elastic-solver 'mpm-sim-quasi-static)
@@ -268,7 +269,8 @@
                                                      :max-damage-inc max-damage-inc
                                                      :max-plastic-inc max-plastic-inc
                                                      :max-deformation-gradient max-deformation-gradient
-                                                     :stagger-damage nil
+                                                     ;; :stagger-damage nil
+                                                     :stagger-damage stagger-damage
                                                      :save-vtk-dr save-vtk-dr)
                                   (setf quasi-conv conv
                                         stagger-iters inc-steps)

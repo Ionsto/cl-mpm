@@ -65,7 +65,7 @@
                    (nu cl-mpm/particle::mp-nu)
                    (de cl-mpm/particle::mp-elastic-matrix))
       mp
-    (when t;(> damage 0.0d0)
+    (when (> damage 0.0d0)
       (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils::voigt-to-matrix strain))
         (let* ()
           ;; (pprint l)
@@ -74,7 +74,7 @@
                      ;;Tensile damage -> unbounded
                      (when (> sii 0d0)
                        (setf (nth i l)
-                             (* (nth i l) (- 1d0 damage))))))
+                             (* (nth i l) (expt (- 1d0 damage) 1))))))
           ;; (pprint strain)
           (let (;; (strain+ (cl-mpm/utils:matrix-to-voigt
                 ;;           (magicl:@
@@ -450,6 +450,37 @@
                (cl-mpm/particle::compute-p-modulus mp)))))))
 
 
+(defun get-gill-chi (mp)
+  (with-accessors ((angle cl-mpm/particle::mp-friction-angle)
+                   (strain cl-mpm/particle::mp-strain)
+                   (e cl-mpm/particle::mp-e)
+                   (nu cl-mpm/particle::mp-nu)
+                   (damage cl-mpm/particle::mp-damage-tension)
+                   (stress-u cl-mpm/particle::mp-undamaged-stress)
+                   (stress cl-mpm/particle::mp-stress)
+                   (stretch cl-mpm/particle::mp-stretch-tensor)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain))
+      mp
+    (multiple-value-bind (ls vs) (cl-mpm/utils:eig (cl-mpm/utils::voight-to-matrix stress-u))
+      (multiple-value-bind (l v) (cl-mpm/utils:eig (cl-mpm/utils::voigt-to-matrix strain))
+        (let* ((skew (cl-mpm/utils::stretch-to-skew
+                      stretch
+                      (cl-mpm/utils:voigt-zeros)))
+               (chi
+                 ;; -1d0
+                 (* 1d0
+                    (if (> (cl-mpm/fastmaths::dot
+                            (cl-mpm/utils::matrix-column vs 1)
+                            (cl-mpm/utils::vector-from-list (list (* -2d0 (varef skew 3))
+                                                                  (* 2d0 (varef skew 4))
+                                                                  (* -2d0 (varef skew 5)))))
+                           0d0)
+                        1d0
+                        -1d0))
+                 )
+               )
+          (* chi 1d3))))))
+
 (defun apply-gill-damage (mp)
   (with-accessors ((angle cl-mpm/particle::mp-friction-angle)
                    (strain cl-mpm/particle::mp-strain)
@@ -465,14 +496,17 @@
       (let ((G (cl-mpm/utils::calculate-shear-modulus e nu)))
         (multiple-value-bind (ls vs) (cl-mpm/utils:eig (cl-mpm/utils::voight-to-matrix stress-u))
           (multiple-value-bind (l v) (cl-mpm/utils:eig (cl-mpm/utils::voigt-to-matrix strain))
-            (let* ((chi
+            (let* ((skew (cl-mpm/utils::stretch-to-skew
+                          stretch
+                          (cl-mpm/utils:voigt-zeros)))
+                   (chi
                      ;; -1d0
-                     (* 1d0
+                     (* -1d0
                         (if (> (cl-mpm/fastmaths::dot
                                 (cl-mpm/utils::matrix-column vs 1)
-                                (cl-mpm/utils::stretch-to-skew
-                                 stretch
-                                 (cl-mpm/utils:voigt-zeros)))
+                                (cl-mpm/utils::vector-from-list (list (* -2d0 (varef skew 3))
+                                                                      (* 2d0 (varef skew 4))
+                                                                      (* -2d0 (varef skew 5)))))
                                0d0)
                             1d0
                             -1d0))

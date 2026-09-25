@@ -51,7 +51,7 @@
                        ;;Start at point a and step through to b
                        (step-point (cl-mpm/utils::vector-copy pos-a))
                        ;;Resolution of our midpoint integration
-                       (step-size (/ h 1d0))
+                       (step-size (/ h 2d0))
                        (damage-n (get-damage step-point)))
                   (cl-mpm/fastmaths:fast-scale! step-norm (/ 1d0 length))
                   (labels ((deg-func (damage)
@@ -111,11 +111,10 @@
   (values))
 
 (defun calculate-delocalised-damage-ekl (mesh mp length)
-  (let ((damage-inc 0d0)
-        (mass-total 0d0))
-    (declare (double-float damage-inc mass-total))
-    (iterate-over-neighour-mps
-     mesh mp
+  (let ((vals (make-array 2 :element-type 'double-float)))
+    (iterate-over-neighbour-mps
+     mesh
+     mp
      (cl-mpm/particle::mp-local-length mp)
      (lambda (mp-other)
        (with-accessors ((d cl-mpm/particle::mp-damage)
@@ -124,14 +123,37 @@
                         (p cl-mpm/particle:mp-position))
            mp-other
          (let ((weight (weight-func-mps-damaged mesh mp mp-other (cl-mpm/particle::mp-local-length mp))))
-           (declare (double-float weight m d mass-total damage-inc))
-           (incf mass-total (* weight m))
-           (incf damage-inc
+           (declare (double-float weight m d))
+           (incf (aref vals 1) (* weight m))
+           (incf (aref vals 0)
                  (* (the double-float (cl-mpm/particle::mp-damage-y-local mp-other))
                     weight m))))))
-    (when (> mass-total 0d0)
-      (setf damage-inc (/ damage-inc mass-total)))
-    damage-inc))
+    (when (> (aref vals 1) 0d0)
+      (setf (aref vals 0) (/ (aref vals 0) (aref vals 1))))
+    (aref vals 0))
+  ;; (let ((damage-inc 0d0)
+  ;;       (mass-total 0d0)
+  ;;       (vals (make-array 2 :element-type 'double-float)))
+  ;;   (declare (double-float damage-inc mass-total))
+  ;;   (iterate-over-neighbour-mps
+  ;;    mesh mp
+  ;;    (cl-mpm/particle::mp-local-length mp)
+  ;;    (lambda (mp-other)
+  ;;      (with-accessors ((d cl-mpm/particle::mp-damage)
+  ;;                       (m cl-mpm/particle:mp-volume)
+  ;;                       (ll cl-mpm/particle::mp-local-length)
+  ;;                       (p cl-mpm/particle:mp-position))
+  ;;          mp-other
+  ;;        (let ((weight (weight-func-mps-damaged mesh mp mp-other (cl-mpm/particle::mp-local-length mp))))
+  ;;          (declare (double-float weight m d mass-total damage-inc))
+  ;;          (incf mass-total (* weight m))
+  ;;          (incf damage-inc
+  ;;                (* (the double-float (cl-mpm/particle::mp-damage-y-local mp-other))
+  ;;                   weight m))))))
+  ;;   (when (> mass-total 0d0)
+  ;;     (setf damage-inc (/ damage-inc mass-total)))
+  ;;   damage-inc)
+  )
 
 
 (defun calculate-debug-ekl (mesh mp length)

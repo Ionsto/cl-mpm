@@ -105,6 +105,24 @@
   ;; (criterion-dp-tensile stress angle)
   )
 
+(defun criterion-dp-tensile-circ (stress angle)
+  "Return some drucker-prager damage criterion from a stress level and and angle (radians)"
+  (let ((p (cl-mpm/utils::trace-voigt stress))
+        (j2 (cl-mpm/constitutive::voigt-j2
+             (cl-mpm/utils::deviatoric-voigt stress)))
+        ;; (A (/ (* 6 (cos angle))
+        ;;       (* (sqrt 3) (- 3d0 (sin angle)))))
+        ;; (B (/ (* 2 (sin angle))
+        ;;       (* (sqrt 3) (- 3d0 (sin angle)))))
+        (B (* 3d0 (sin angle)))
+        ;; (B (/ (* (sin angle))
+        ;;       (sqrt (+ 9d0 (* 3d0 (expt (sin angle) 2))))))
+        )
+    (* (/ 1d0
+          (- (/ 1d0 (sqrt 3)) B))
+       (+ (* B p) (sqrt j2)))))
+
+
 (defun criterion-dp-coheasion (stress angle)
   "Return some drucker-prager damage criterion from a stress level and and angle (radians)"
   (let ((p (cl-mpm/utils::trace-voigt stress))
@@ -576,10 +594,44 @@
             (/
              (max
               (- (* k s1) s3)
-              (- (* k s1) s2)
-              (- (* k s2) s3))
+              ;; (- (* k s1) s2)
+              ;; (- (* k s2) s3)
+              )
              k))))))
 
 
 
+
+
+(defun criterion-generalised-y (mp)
+  (let ()
+    (with-accessors ((volume cl-mpm/particle::mp-volume)
+                     (stress cl-mpm/particle::mp-stress)
+                     (strain cl-mpm/particle::mp-strain)
+                     (damage cl-mpm/particle::mp-damage)
+                     (e cl-mpm/particle::mp-e)
+                     (j cl-mpm/particle::mp-deformation-jacobian-strain)
+                     (k cl-mpm/particle::mp-history-stress)
+                     )
+        mp
+      (let ((d0 damage)
+            (eps 1d-9)
+            (d1 (+ damage 1d-15))
+            (e-d-n 0d0)
+            (e-d 0d0))
+        (declare (double-float volume j))
+        (when (> d1 1d0)
+          (setf d1 (sqrt d0))
+          (setf eps (- d1 d0)))
+        ;; (setf k k-n)
+        (cl-mpm/damage::set-mp-damage mp d1)
+        (cl-mpm/damage::compute-damage mp)
+        (cl-mpm/particle::post-damage-step mp 1d0)
+        (setf e-d-n (* 0.5d0 volume j (cl-mpm/fastmaths:dot stress strain)))
+        ;; (setf k k-temp)
+        (cl-mpm/damage::set-mp-damage mp d0)
+        (cl-mpm/damage::compute-damage mp)
+        (cl-mpm/particle::post-damage-step mp 1d0)
+        (setf e-d (* 0.5d0 volume j (cl-mpm/fastmaths:dot stress strain)))
+        (sqrt (* E (max 0d0 (- e-d e-d-n))))))))
 
