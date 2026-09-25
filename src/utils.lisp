@@ -1047,8 +1047,8 @@
       (when (> ;; (lparallel:kernel-worker-count)
                (get-worker-size)
                (length (object-pool-pool pool)))
-        (format t "~D - ~D ~%" (get-worker-size) (length (object-pool-pool pool)))
-        (format t "Rebuilt object pool~%")
+        ;; (format t "~D - ~D ~%" (get-worker-size) (length (object-pool-pool pool)))
+        ;; (format t "Rebuilt object pool~%")
         (rebuild-object-pool pool))
       (aref (object-pool-pool pool) thread-index))))
 

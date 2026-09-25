@@ -603,12 +603,11 @@
       (declare (double-float damage damage-n damage-inc k k-n ybar ybar-prev dt))
       (setf (cl-mpm/particle::mp-damage-prev-trial mp) (cl-mpm/particle::mp-damage mp))
       ;;Damage increment holds the delocalised driving factor
-      (when t;;(> ybar (+ k-n 1d0))
-        (setf k
-              (max
-               k-n
-               ybar-prev
-               ybar)))
+      (setf k
+            (max
+             k-n
+             ;; ybar-prev
+             ybar))
       (cl-mpm/damage::compute-damage mp)
       (setf damage-inc (min 1d0 (- damage damage-n)))
       (values))))
