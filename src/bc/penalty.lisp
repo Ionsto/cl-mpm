@@ -562,7 +562,7 @@
                     (cl-mpm::iterate-over-neighbours-point-linear
                      mesh
                      trial-point
-                     (lambda (mesh node svp grads)
+                     (lambda ( node svp grads)
                        (with-accessors ((node-ext-force cl-mpm/mesh::node-external-force)
                                         (node-int-force cl-mpm/mesh::node-internal-force)
                                         (node-damp-force cl-mpm/mesh::node-damping-force)
@@ -703,7 +703,7 @@
                       (cl-mpm::iterate-over-neighbours-point-linear
                        mesh
                        trial-point
-                       (lambda (mesh node svp grads)
+                       (lambda (node svp grads)
                          (with-accessors ((node-ext-force cl-mpm/mesh::node-external-force)
                                           (node-int-force cl-mpm/mesh::node-internal-force)
                                           (node-damp-force cl-mpm/mesh::node-damping-force)
@@ -790,7 +790,7 @@
     (cl-mpm::iterate-over-neighbours-point-linear
      mesh
      corner
-     (lambda (mesh node svp grads)
+     (lambda ( node svp grads)
        (with-accessors ((node-disp cl-mpm/mesh::node-displacment)
                         (node-active  cl-mpm/mesh:node-active))
            node
@@ -803,7 +803,7 @@
     (cl-mpm::iterate-over-neighbours-point-linear
      mesh
      point
-     (lambda (mesh node svp grads)
+     (lambda ( node svp grads)
        (with-accessors ((node-vel cl-mpm/mesh::node-velocity)
                         (node-active  cl-mpm/mesh:node-active))
            node
@@ -816,7 +816,7 @@
     (cl-mpm::iterate-over-neighbours-point-linear
      mesh
      point
-     (lambda (mesh node svp grads)
+     (lambda ( node svp grads)
        (with-accessors ((node-mass cl-mpm/mesh::node-mass)
                         (node-active  cl-mpm/mesh:node-active))
            node
@@ -1134,7 +1134,7 @@
           ;;   (iterate-over-neighbours-point-linear
           ;;    mesh
           ;;    (dr-contact-point-position contact)
-          ;;    (lambda (mesh node svp grads)
+          ;;    (lambda ( node svp grads)
           ;;      (with-accessors ((node-active cl-mpm/mesh:node-active)
           ;;                       (node-volume cl-mpm/mesh::node-volume)
           ;;                       (node-pmod cl-mpm/mesh::node-pwave)
@@ -1293,7 +1293,7 @@
             (iterate-over-neighbours-point-linear
              mesh
              (dr-contact-point-position contact)
-             (lambda (mesh node svp grads)
+             (lambda ( node svp grads)
                (with-accessors ((node-active cl-mpm/mesh:node-active)
                                 (node-volume cl-mpm/mesh::node-volume)
                                 (node-mass cl-mpm/mesh::node-mass)
@@ -1370,7 +1370,7 @@
                   (cl-mpm::iterate-over-neighbours-point-linear
                    mesh
                    trial-point
-                   (lambda (mesh node svp grads)
+                   (lambda ( node svp grads)
                      (with-accessors ((node-ext-force cl-mpm/mesh::node-external-force)
                                       (node-lock  cl-mpm/mesh:node-lock)
                                       (node-active  cl-mpm/mesh:node-active))

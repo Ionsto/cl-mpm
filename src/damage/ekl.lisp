@@ -24,7 +24,7 @@
                      (cl-mpm::iterate-over-neighbours-point-linear
                       mesh
                       true-pos
-                      (lambda (m node weight grads)
+                      (lambda (node weight grads)
                         (declare (double-float damage weight))
                         (if (cl-mpm/mesh::node-active node)
                             (incf damage

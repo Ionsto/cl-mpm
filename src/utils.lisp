@@ -1121,6 +1121,7 @@
 (defmacro with-arb-pool (&body func)
   (let ((pool-sym (gensym))
         (pool-count 0))
+    (declare (fixnum pool-count))
     (let ((new-func
             (sb-walker::walk-form
                      (first func)
@@ -1132,6 +1133,13 @@
                             ((string= (first subform) 'GRAB-NEW)
                              (incf pool-count)
                              `(aref (cl-mpm/utils::object-pool-grab ,pool-sym) ,(- pool-count 1)))
+                            ((string= (first subform) 'GRAB-NEW-VECTOR)
+                             (incf pool-count)
+                             `(cl-mpm/utils::resize-vector (aref (cl-mpm/utils::object-pool-grab ,pool-sym) ,(- pool-count 1)) 3)
+                             )
+                            ((string= (first subform) 'GRAB-NEW-VOIGT)
+                             (incf pool-count)
+                             `(cl-mpm/utils::resize-vector (aref (cl-mpm/utils::object-pool-grab ,pool-sym) ,(- pool-count 1)) 6))
                             (t subform)))
                          (t subform))))))
       `(let ((,pool-sym

@@ -170,7 +170,7 @@
                                       (* direction 0.5d0 (aref domain-storage d)))
                                 (iterate-over-neighbours-point-linear
                                  mesh corner
-                                 (lambda (mesh node svp grads)
+                                 (lambda (node svp grads)
                                    (declare (double-float dt svp))
                                    (with-accessors ((vel cl-mpm/mesh:node-velocity)
                                                     (disp cl-mpm/mesh::node-displacment)
@@ -337,7 +337,7 @@
              (let ((disp (cl-mpm/utils:vector-zeros)))
                (iterate-over-neighbours-point-linear
                 mesh corner
-                (lambda (mesh node svp grads)
+                (lambda (node svp grads)
                   (declare (double-float dt svp))
                   (with-accessors ((vel cl-mpm/mesh:node-velocity))
                       node
@@ -371,7 +371,7 @@
              (let ((disp (cl-mpm/utils:vector-zeros)))
                (iterate-over-neighbours-point-linear-3d
                 mesh corner
-                (lambda (mesh node svp grads)
+                (lambda (node svp grads)
                   (declare (double-float dt svp))
                   (with-accessors ((vel cl-mpm/mesh:node-velocity))
                       node
@@ -429,7 +429,7 @@
              (let ((disp (cl-mpm/utils:vector-zeros)))
                (iterate-over-neighbours-point-linear
                 mesh corner
-                (lambda (mesh node svp grads)
+                (lambda (node svp grads)
                   (declare (double-float dt svp))
                   (with-accessors ((active cl-mpm/mesh::node-active)
                                    (n-disp cl-mpm/mesh::node-displacment))

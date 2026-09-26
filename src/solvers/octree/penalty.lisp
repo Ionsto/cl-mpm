@@ -112,7 +112,7 @@
             (iterate-over-neighbours-point-linear
              mesh
              (dr-contact-point-position contact)
-             (lambda (mesh node svp grads)
+             (lambda (node svp grads)
                (with-accessors ((node-active cl-mpm/mesh:node-active)
                                 (node-volume cl-mpm/mesh::node-volume)
                                 (node-mass cl-mpm/mesh::node-mass)

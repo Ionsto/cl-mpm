@@ -87,7 +87,7 @@
     (cl-mpm::iterate-over-neighbours-point-linear
      mesh
      point
-     (lambda (mesh node weight grads)
+     (lambda (node weight grads)
        (when (cl-mpm/mesh::node-active node)
          (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads (cl-mpm/mesh::node-displacment node) df))))
     dF))
@@ -148,7 +148,7 @@
       (cl-mpm::iterate-over-neighbours-point-linear
        mesh
        centroid
-       (lambda (mesh node weight grads)
+       (lambda (node weight grads)
          (declare (double-float weight))
          (when (cl-mpm::node-active node)
            (incf (cl-mpm/mesh::cell-volume-current cell) (* weight (cl-mpm/mesh::node-volume node)))))))))
@@ -181,7 +181,7 @@
         (cl-mpm::iterate-over-neighbours-point-linear
          mesh
          centroid
-         (lambda (mesh node weight grads)
+         (lambda (node weight grads)
            (declare (double-float weight))
            (when (cl-mpm::node-active node)
              ;; (incf w weight)
@@ -1387,7 +1387,7 @@ This modifies the dt of the simulation in the process
     (cl-mpm::iterate-over-neighbours-point-linear
      mesh
      pos
-     (lambda (mesh node svp grads)
+     (lambda (node svp grads)
        (with-accessors ((node-disp cl-mpm/mesh::node-displacment)
                         (node-active  cl-mpm/mesh:node-active))
            node

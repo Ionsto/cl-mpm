@@ -13,22 +13,23 @@
    #:make-bc-buoyancy-clip
    ))
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
                                         ;    #:make-shape-function
 (in-package :cl-mpm/buoyancy)
 
 
-(defparameter *trial-position* t)
+(defconstant +trial-position+ t)
 
 
 (defun get-mp-position (mp)
-  (if *trial-position*
+  (if +trial-position+
       (cl-mpm/particle::mp-position-trial mp)
       (cl-mpm/particle::mp-position mp)))
 
 (defun get-cell-position (cell)
-  (if *trial-position*
+  (if +trial-position+
       (cl-mpm/mesh::cell-trial-centroid cell)
       (cl-mpm/mesh::cell-centroid cell)))
 
@@ -217,7 +218,8 @@
      (lambda (pos)
        (incf val (funcall func pos))
        (incf count)))
-    (setf val (/ val count))
+    (when (> count 0)
+      (setf val (/ val count)))
     val))
 
 (defun calculate-val-stress-mp-gimp (mesh mp func &optional (result nil))
@@ -231,7 +233,8 @@
      (lambda (pos)
        (cl-mpm/fastmaths::fast-.+ val (funcall func pos temp) val)
        (incf count)))
-    (cl-mpm/fastmaths::fast-scale! val (/ 1d0 count))
+    (when (> count 0)
+      (cl-mpm/fastmaths::fast-scale! val (/ 1d0 count)))
     val))
 
 (defun calculate-val-force-mp-gimp (mesh mp func &optional (result nil))
@@ -246,7 +249,8 @@
      (lambda (pos)
        (cl-mpm/fastmaths::fast-.+ val (funcall func pos temp) val)
        (incf count)))
-    (cl-mpm/fastmaths::fast-scale! val (/ 1d0 count))
+    (when (> count 0)
+      (cl-mpm/fastmaths::fast-scale! val (/ 1d0 count)))
     val))
 
 (declaim (ftype (function (cl-mpm/mesh::cell function) (values)) calculate-val-cell))
@@ -1018,8 +1022,7 @@
           (if node
               (with-accessors ((active cl-mpm/mesh:node-active)
                                (boundary cl-mpm/mesh::node-boundary-node)
-                               (scalar cl-mpm/mesh::node-boundary-scalar)
-                               )
+                               (scalar cl-mpm/mesh::node-boundary-scalar))
                   node
                 (declare (double-float scalar))
                 (if (cl-mpm/mpi::in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) 1)
@@ -1054,11 +1057,9 @@
         (apply-buoyancy
          sim
          (lambda (pos res)
-           ;; (cl-mpm/utils:voigt-zeros)
            (buoyancy-virtual-stress (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) res)
            )
          (lambda (pos res)
-           ;; (cl-mpm/utils:vector-zeros)
            (buoyancy-virtual-div (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) res)
            )
          (lambda (pos datum)
@@ -1091,7 +1092,7 @@
                      mp-boundary 0d0)))))
         ;;Populate pressure on MPs
         (let ((gravity (cl-mpm::sim-gravity sim)))
-          (declare (double-float rho gravity datum))
+          (declare (double-float rho gravity datum dt))
           (cl-mpm:iterate-over-mps
            mps
            (lambda (mp)
@@ -1133,23 +1134,16 @@
                              (if (< (varef pos 1) datum) 1d0 0d0)
                              biot
                              damage
-                             ;; (cl-mpm/particle::get-volumetric-damage mp)
-                             ;; rho
                              (- rho (/ mp-mass mp-volume-0))
-                             ;; (- rho (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp)))
-                             ;; (- rho 918d0)
                              gravity))))))
+
                (cl-mpm::iterate-over-neighbours
                 mesh mp
                 (lambda (node svp grads fsvp fgrad)
                   (declare (double-float mp-boundary svp damage rho datum))
-                  (when t
-                    (when node
-                      (setf mp-datum datum
-                            mp-head rho)
-                      (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))))))))))
+                  (incf mp-boundary (* -1d0 svp (the double-float (cl-mpm/mesh::node-boundary-scalar node))))))))))
 
-        (when (> dt 0d0)
+        (when (> (the double-float dt) 0d0)
           (let ((damping (bc-viscous-damping bc)))
             (cl-mpm:iterate-over-nodes
              mesh
@@ -1166,19 +1160,17 @@
                                   (lock cl-mpm/mesh::node-lock)
                                   (boundary-scalar cl-mpm/mesh::node-boundary-scalar))
                      node
+                   (declare (double-float dt damping rho boundary-scalar))
                    (sb-thread:with-mutex (lock)
-                     (cl-mpm/fastmaths:fast-.-
+                     (cl-mpm/fastmaths:fast-fmacc
                       force
-                      (cl-mpm/fastmaths:fast-scale-vector
-                       (cl-mpm/fastmaths::fast-scale-vector
-                        disp
-                        (/ 1d0 dt))
-                       (*
-                        1/2
-                        damping
-                        rho
-                        (sqrt (max 0d0 boundary-scalar))))
-                      force)))))))))
+                      disp
+                      (*
+                       (/ 1d0 dt)
+                       1/2
+                       damping
+                       rho
+                       (the double-float (sqrt (max 0d0 boundary-scalar)))))))))))))
       )))
 
 (defun apply-viscous-damping ())
@@ -1217,7 +1209,7 @@
     (cl-mpm::iterate-over-neighbours-point-linear
      mesh
      point
-     (lambda (mesh node weight grads)
+     (lambda (node weight grads)
        (when (cl-mpm/mesh::node-active node)
          (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads (cl-mpm/mesh::node-displacment node) df))))
     dF))
@@ -1332,16 +1324,11 @@
                     (when node-boundary
                       (setf any-boundary t))))))
              (when any-boundary
-               (let* ((mp-stress (grab-new))
-                      (mp-div (grab-new))
-                      (grads-vec (grab-new))
-                      (f-stress (grab-new))
-                      (f-div (grab-new)))
-                 (cl-mpm/utils::resize-vector mp-stress 6)
-                 (cl-mpm/utils::resize-vector mp-div 3)
-                 (cl-mpm/utils::resize-vector f-stress 3)
-                 (cl-mpm/utils::resize-vector f-div 3)
-                 (cl-mpm/utils::resize-vector grads-vec 3)
+               (let* ((mp-stress (grab-new-voigt))
+                      (mp-div (grab-new-vector))
+                      (grads-vec (grab-new-vector))
+                      (f-stress (grab-new-vector))
+                      (f-div (grab-new-vector)))
                  (funcall func-stress mp mp-stress)
                  (funcall func-div mp mp-div)
                  ;;Iterate over neighbour nodes
@@ -1361,16 +1348,15 @@
                           node
                         (declare (double-float volume svp damage))
                         (when (and node-boundary
-                                   ;; (funcall clip-func node-pos)
                                    )
                           (let ((grads
-                                  (if *trial-position*
+                                  (if +trial-position+
                                       (cl-mpm::gradient-push-forwards-cached grads df-inv)
                                       grads))
                                 (volume
                                   (*
                                    (if damage-volume (- 1d0 damage) 1d0)
-                                   (if *trial-position*
+                                   (if +trial-position+
                                        volume
                                        volume-n))
                                   ))

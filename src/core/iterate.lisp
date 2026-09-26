@@ -474,7 +474,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                               (declare (double-float weight)
                                        (dynamic-extent dist weights))
                               (when (< 0d0 weight)
-                                (funcall func mesh node weight grads))))))))))
+                                (funcall func node weight grads))))))))))
 
 (defun iterate-over-neighbours-point-linear-3d (mesh position func)
   "Iterating over basis functions in 3D"
@@ -505,7 +505,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                         (double-float weight)
                                         (dynamic-extent dist weights))
                                        (when (< 0d0 weight)
-                                         (funcall func mesh node weight grads)))))))))))
+                                         (funcall func node weight grads)))))))))))
 
 (defun iterate-over-neighbours-point-linear-2d (mesh position func)
   "Iterating over basis functions in 3D"
@@ -529,85 +529,19 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (loop for dy fixnum from 0 to 1
                          do
                             (when (cl-mpm/mesh::in-bounds-1d mesh (+ iy dy) 1)
-                              (let* ()
-                                (let ((dist-x (- pos-x (* h (float (+ ix dx) 0d0))))
-                                      (dist-y (- pos-y (* h (float (+ iy dy) 0d0)))))
-                                  (let* ((node (cl-mpm/mesh::get-node-values mesh (+ ix dx) (+ iy dy) 0))
-                                         (weight-x (cl-mpm/shape-function::shape-linear dist-x h))
-                                         (weight-y (cl-mpm/shape-function::shape-linear dist-y h))
-                                         (weight (* weight-x weight-y))
-                                         (grad-x (* weight-y (cl-mpm/shape-function::shape-linear-dsvp dist-x h)))
-                                         (grad-y (* weight-x (cl-mpm/shape-function::shape-linear-dsvp dist-y h)))
-                                         )
-                                    (when (< 0d0 weight)
-                                      (funcall func mesh node weight (cl-mpm/utils::make-gradients grad-x grad-y 0d0))))))))))))))
+                              (let ((dist-x (- pos-x (* h (float (+ ix dx) 0d0))))
+                                    (dist-y (- pos-y (* h (float (+ iy dy) 0d0)))))
+                                (declare (double-float dist-x dist-y))
+                                (let* ((node (cl-mpm/mesh::get-node-values mesh (+ ix dx) (+ iy dy) 0))
+                                       (weight-x (cl-mpm/shape-function::shape-linear dist-x h))
+                                       (weight-y (cl-mpm/shape-function::shape-linear dist-y h))
+                                       (weight (* weight-x weight-y))
+                                       (grad-x (* weight-y (cl-mpm/shape-function::shape-linear-dsvp dist-x h)))
+                                       (grad-y (* weight-x (cl-mpm/shape-function::shape-linear-dsvp dist-y h))))
+                                  (declare (double-float weight-x weight-y grad-x grad-y weight))
+                                  (when (< 0d0 weight)
+                                      (funcall func node weight (cl-mpm/utils::make-gradients grad-x grad-y 0d0)))))))))))))
 
-
-
-;;Broken?
-;; (declaim (inline iterate-over-neighbours-point-linear-simd)
-;;          (ftype (function (cl-mpm/mesh::mesh magicl:matrix/double-float function) (values))
-;;                 iterate-over-neighbours-point-linear-simd)
-;;          )
-;; (defun iterate-over-neighbours-point-linear-simd (mesh position func)
-;;   "A fast implemenntation of 2D linear basis function iteration"
-;;   (declare (cl-mpm/mesh::mesh mesh)
-;;            (magicl:matrix/double-float position)
-;;            (function func))
-;;   (labels ((simd-abs (vec)
-;;            (sb-simd-avx:f64.2-and vec (sb-simd-avx:f64.2-not -0.0d0)))
-;;          ;; (in-bounds-simd (pos)
-;;          ;;   t)
-;;          (linear-weight-simd (dist h)
-;;            (declare (double-float h))
-;;            ;;Add an abs
-;;            (sb-simd-avx:f64.2- 1d0 (sb-simd-avx:f64.2/ (simd-abs dist) h)))
-;;          (linear-grads-simd (dist h)
-;;            (declare (double-float h))
-;;            (sb-simd-avx:f64.2-if (sb-simd-avx:f64.2> dist 0d0) (/ 1d0 h) (/ -1d0 h))
-;;            dist)
-;;          (in-bounds-simd (mesh dist)
-;;            t)
-;;          )
-;;     (progn
-;;       (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
-;;              (pos-vec (sb-simd-avx:f64.2-aref (magicl::matrix/double-float-storage position) 0))
-;;              (pos-index (sb-simd-avx:f64.2-floor
-;;                          (sb-simd-avx:f64.2/ pos-vec h))))
-;;         (declare (sb-simd-avx:f64.2 pos-vec)
-;;                  (double-float h))
-;;         (loop for dx fixnum from 0 to 1
-;;               do (loop for dy fixnum from 0 to 1
-;;                        do (let* ((id-vec
-;;                                    (sb-simd-avx:f64.2+ pos-index (sb-simd-avx:make-f64.2 dx dy)))
-;;                                  ;; (id (mapcar (lambda (x) (truncate x))
-;;                                  ;;             (multiple-value-list (sb-simd-avx:f64.2-values id-vec))))
-;;                                  (id
-;;                                    (append
-;;                                     (mapcar (lambda (x) (truncate (the double-float x)))
-;;                                             (multiple-value-list (sb-simd-avx:f64.2-values id-vec)))
-;;                                     '(0)))
-;;                                  )
-;;                             (declare (dynamic-extent id))
-;;                             (when (cl-mpm/mesh:in-bounds mesh id)
-;;                                 ;(in-bounds-simd mesh id-vec)
-;;                               (let* ((dist (sb-simd-avx:f64.2-
-;;                                             pos-vec
-;;                                             (sb-simd-avx:f64.2* id-vec h)))
-;;                                      (node (cl-mpm/mesh:get-node mesh id))
-;;                                      (weights (linear-weight-simd dist h))
-;;                                      (weight (sb-simd-avx::f64.2-horizontal* weights))
-;;                                      (grads-vec (sb-simd-avx:f64.2*
-;;                                                  (linear-grads-simd dist h)
-;;                                                  (sb-simd-avx:f64.2-shuffle weights weights 1)))
-;;                                      (grads (append (multiple-value-list (sb-simd-avx:f64.2-values grads-vec))
-;;                                                     (list 0d0)
-;;                                                     ))
-;;                                      )
-;;                                 (declare (double-float weight))
-;;                                 (when (< 0d0 weight)
-;;                                   (funcall func mesh node weight grads))))
-;;                             )))))))
 
 
 #+:sb-simd

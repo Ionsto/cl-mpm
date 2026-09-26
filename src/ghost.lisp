@@ -74,7 +74,7 @@
     (cl-mpm::iterate-over-neighbours-point-linear
      mesh
      point
-     (lambda (mesh node weight grads)
+     (lambda (node weight grads)
        (cl-mpm/fastmaths::fast-.+
         (magicl:@
          (cl-mpm/shape-function::assemble-dsvp-3d grads)
