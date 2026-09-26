@@ -129,13 +129,6 @@
 (defun simd-diff-norm (a b)
   (declare (type (simple-array double-float (3)) a b)
            (optimize (speed 3) (safety 0)))
-  ;; (let ((temp
-  ;;         (sb-simd-avx:f64.2-
-  ;;          (sb-simd-avx:f64.2-aref a 0)
-  ;;          (sb-simd-avx:f64.2-aref b 0))))
-  ;;   ;; (sb-simd-avx::f64.2-horizontal+ (sb-simd-avx::f64.2* temp temp))
-  ;;   )
-    ;; (incf (aref a 2) (aref b 2))
   (let ((d0 (- (aref a 0) (aref b 0)))
         (d1 (- (aref a 1) (aref b 1)))
         (d2 (- (aref a 2) (aref b 2))))

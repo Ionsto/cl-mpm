@@ -232,7 +232,32 @@
     (cl-mpm:iterate-over-mps
      mps
      (lambda (mp)
-       (cl-mpm::update-corners mesh mp)))))
+       (cl-mpm::update-corners mesh mp)
+       (with-accessors ((disp-inc cl-mpm/particle::mp-displacement-increment)
+                        (pos cl-mpm/particle::mp-position)
+                        (pos-trial cl-mpm/particle::mp-position-trial))
+           mp
+         (fast-zero disp-inc)
+         (cl-mpm:iterate-over-neighbours
+          mesh
+          mp
+          (lambda (node svp grads fsvp fgrads)
+            (declare
+             (ignore grads fsvp fgrads)
+             (cl-mpm/mesh::node node)
+             (cl-mpm/particle:particle mp)
+             (double-float svp))
+            (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
+                             (node-disp cl-mpm/mesh::node-displacment)
+                             (node-active cl-mpm/mesh:node-active))
+                node
+              (declare (boolean node-active))
+              (when node-active
+                (cl-mpm/fastmaths::fast-fmacc disp-inc node-disp svp)))))
+         (fast-.+
+          pos
+          disp-inc
+          pos-trial))))))
 
 (defmethod update-nodes :after ((sim mpm-sim))
   (update-mps-corners sim))
@@ -243,7 +268,9 @@
    (lambda (n)
      (when t
        ;; (cl-mpm/mesh::node-active n)
-       (cl-mpm/mesh::reset-node-force n)))))
+       (cl-mpm/mesh::reset-node-force n)
+
+       ))))
 
 
 (defgeneric pre-particle-update-hook (particle dt))
