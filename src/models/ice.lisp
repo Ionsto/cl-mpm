@@ -106,6 +106,14 @@
     :accessor mp-biot-coefficent
     :initarg :biot-coeff
     :initform 1d0)
+   (density-degredation-max
+    :accessor mp-density-degredation-max
+    :initform 0d0
+    :initarg :density-degredation-max)
+   (density-degredation-exp
+    :accessor mp-density-degredation-exp
+    :initform 1d0
+    :initarg :density-degredation-exp)
    (mass-0
     :accessor mp-mass-0
     :initform 0d0
@@ -908,7 +916,7 @@
         (setf G (* G (- 1d0 damage-s)))
         (setf p-mod
               (max
-               (* 1d-3 P-0)
+               (* 1d-6 P-0)
                (* (max 1d-3 (expt (/ (+ K (* 4/3 G)) P-0) 1))
                   (cl-mpm/particle::mp-p-wave-elastoplastic mp))))))))
 
@@ -944,14 +952,18 @@
       -1d0
       (cl-mpm/particle::mp-biot-coefficent mp)
       (/ p 1)))
-    ;; (let ((max-deg 0.99d0))
-    ;;   (declare (double-float max-deg damage))
-    ;;   (setf (cl-mpm/particle::mp-mass mp)
-    ;;         (the double-float
-    ;;              (*
-    ;;               (- 1d0 (* max-deg damage))
-    ;;               (the double-float (cl-mpm/particle::mp-mass-0 mp))))))
-    ))
+    (with-accessors ((max-deg cl-mpm/particle::mp-density-degredation-max)
+                     (d-exp cl-mpm/particle::mp-density-degredation-exp)
+                     )
+        mp
+
+      (declare (double-float max-deg damage))
+      (when (> max-deg 0d0)
+        (setf (cl-mpm/particle::mp-mass mp)
+              (the double-float
+                   (*
+                    (- 1d0 (* max-deg (expt damage 1)))
+                    (the double-float (cl-mpm/particle::mp-mass-0 mp)))))))))
 
 
 (defmethod cl-mpm/particle::compute-mp-energy-release ((mp cl-mpm/particle::particle-ice-brittle))

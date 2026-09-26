@@ -521,27 +521,26 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
            (pos-index (cl-mpm/mesh:position-to-index-floor mesh pos-vec)))
       (declare (dynamic-extent pos-index pos-vec)
                (double-float pos-x pos-y h))
-      (destructuring-bind (index-x index-y iz) pos-index
-        (declare (fixnum index-x index-y)
-                 (ignore iz))
+      (destructuring-bind (ix iy iz) pos-index
+        (declare (fixnum ix iy) (ignore iz))
         (loop for dx fixnum from 0 to 1
-              do (loop for dy fixnum from 0 to 1
-                       do (let* ((id (mapcar #'+ pos-index (list dx dy 0))))
-                            (declare (dynamic-extent id))
-                            (when (cl-mpm/mesh:in-bounds mesh id)
-                              ;; (destructuring-bind (dist-x dist-y) (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
-                              (let ((dist-x (- pos-x (float (* h (+ index-x dx)) 0d0)))
-                                    (dist-y (- pos-y (float (* h (+ index-y dy)) 0d0)))
-                                    )
-                                (let* ((node (cl-mpm/mesh:get-node mesh id))
-                                       (weight-x (cl-mpm/shape-function::shape-linear dist-x h))
-                                       (weight-y (cl-mpm/shape-function::shape-linear dist-y h))
-                                       (weight (* weight-x weight-y))
-                                       (grad-x (* weight-y (cl-mpm/shape-function::shape-linear-dsvp dist-x h)))
-                                       (grad-y (* weight-x (cl-mpm/shape-function::shape-linear-dsvp dist-y h)))
-                                       )
-                                  (when (< 0d0 weight)
-                                    (funcall func mesh node weight (cl-mpm/utils::make-gradients grad-x grad-y 0d0)))))))))))))
+              do
+                 (when (cl-mpm/mesh::in-bounds-1d mesh (+ ix dx) 0)
+                   (loop for dy fixnum from 0 to 1
+                         do
+                            (when (cl-mpm/mesh::in-bounds-1d mesh (+ iy dy) 1)
+                              (let* ()
+                                (let ((dist-x (- pos-x (* h (float (+ ix dx) 0d0))))
+                                      (dist-y (- pos-y (* h (float (+ iy dy) 0d0)))))
+                                  (let* ((node (cl-mpm/mesh::get-node-values mesh (+ ix dx) (+ iy dy) 0))
+                                         (weight-x (cl-mpm/shape-function::shape-linear dist-x h))
+                                         (weight-y (cl-mpm/shape-function::shape-linear dist-y h))
+                                         (weight (* weight-x weight-y))
+                                         (grad-x (* weight-y (cl-mpm/shape-function::shape-linear-dsvp dist-x h)))
+                                         (grad-y (* weight-x (cl-mpm/shape-function::shape-linear-dsvp dist-y h)))
+                                         )
+                                    (when (< 0d0 weight)
+                                      (funcall func mesh node weight (cl-mpm/utils::make-gradients grad-x grad-y 0d0))))))))))))))
 
 
 

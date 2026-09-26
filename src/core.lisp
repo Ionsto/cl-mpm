@@ -215,7 +215,7 @@
        (update-cell mesh cell dt)))))
 
 (defgeneric update-nodes (sim))
-(defmethod update-nodes (sim)
+(defmethod update-nodes ((sim mpm-sim))
   (with-accessors ((mesh sim-mesh)
                    (dt sim-dt))
       sim
@@ -224,6 +224,18 @@
      (lambda (node)
        (when (cl-mpm/mesh:node-active node)
          (update-node node dt))))))
+
+(defun update-mps-corners (sim)
+  (with-accessors ((mps sim-mps)
+                   (mesh sim-mesh))
+      sim
+    (cl-mpm:iterate-over-mps
+     mps
+     (lambda (mp)
+       (cl-mpm::update-corners mesh mp)))))
+
+(defmethod update-nodes :after ((sim mpm-sim))
+  (update-mps-corners sim))
 
 (defun reset-nodes-force (sim)
   (cl-mpm::iterate-over-nodes
@@ -1418,26 +1430,27 @@ This modifies the dt of the simulation in the process
                       :offset (vector-from-list (list x 0d0 0d0))))
                     (incf i))))))))
 
-(defun update-corners (mesh mp)
-  (unless (cl-mpm/particle::mp-corners mp)
-    (setup-corners mesh mp))
-  (cl-mpm/particle::iterate-over-mp-corners
-   mp
-   (lambda (corner)
-     (cl-mpm/fastmaths::fast-.+
-      (cl-mpm/particle::mp-position mp)
-      (cl-mpm/fastmaths::fast-scale!
-       (cl-mpm/fastmaths::fast-.*
-        (cl-mpm/particle::mp-domain-size mp)
-        (cl-mpm/particle::corner-offset corner))
-       0.5d0)
-      (cl-mpm/particle::corner-position corner))
-
-     (compute-point-displacement
-      mesh
-      (cl-mpm/particle::corner-position corner)
-      :result (cl-mpm/particle::corner-trial-position corner))
-     (cl-mpm/fastmaths::fast-.+
-      (cl-mpm/particle::corner-position corner)
-      (cl-mpm/particle::corner-trial-position corner)
-      (cl-mpm/particle::corner-trial-position corner)))))
+(cl-mpm/utils::with-vector-pool
+    (defun update-corners (mesh mp)
+      (unless (cl-mpm/particle::mp-corners mp)
+        (setup-corners mesh mp))
+      (cl-mpm/particle::iterate-over-mp-corners
+       mp
+       (lambda (corner)
+         (cl-mpm/fastmaths::fast-.+
+          (cl-mpm/particle::mp-position mp)
+          (cl-mpm/fastmaths::fast-scale!
+           (cl-mpm/fastmaths::fast-.*
+            (cl-mpm/particle::mp-domain-size mp)
+            (cl-mpm/particle::corner-offset corner)
+            (grab-new-vector))
+           0.5d0)
+          (cl-mpm/particle::corner-position corner))
+         (compute-point-displacement
+          mesh
+          (cl-mpm/particle::corner-position corner)
+          :result (cl-mpm/particle::corner-trial-position corner))
+         (cl-mpm/fastmaths::fast-.+
+          (cl-mpm/particle::corner-position corner)
+          (cl-mpm/particle::corner-trial-position corner)
+          (cl-mpm/particle::corner-trial-position corner))))))

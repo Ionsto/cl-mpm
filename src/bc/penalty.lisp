@@ -844,7 +844,6 @@
         (cl-mpm:iterate-over-mps
          mps
          (lambda (mp)
-           (cl-mpm::update-corners mesh mp)
            (when t
              (let ((in-contact nil)
                    (closest-point (make-contact
