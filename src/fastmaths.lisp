@@ -147,6 +147,10 @@
   (simd-diff-norm (cl-mpm/utils:fast-storage a)
                   (cl-mpm/utils:fast-storage b)))
 
+(defun diff-mag-squared (a b)
+  (simd-diff-norm (cl-mpm/utils:fast-storage a)
+                  (cl-mpm/utils:fast-storage b)))
+
 (defun diff-mag (a b)
   (sqrt
    (simd-diff-norm (cl-mpm/utils:fast-storage a)

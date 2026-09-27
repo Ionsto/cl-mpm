@@ -36,7 +36,7 @@
         (cl-mpm/utils::copy-into undamaged-stress stress)
         (cl-mpm/fastmaths:fast-scale! stress (/ 1d0 j))
         (multiple-value-bind (l v) (cl-mpm/utils::eig
-                                    (voight-to-matrix
+                                    (cl-mpm/utils::voight-to-matrix
                                      stress))
 
           (let* ((degredation (expt (- 1d0 damage) 1d0)))
@@ -152,7 +152,7 @@
           (setf K
                 (if (> pind 0d0)
                     (* (- 1d0 damage) K)
-                    (* (- 1d0 0d0) K)))
+                    K))
           (setf G (* G (- 1d0 damage)))
 
           (when (> (cl-mpm/particle::mp-yield-func mp) 0d0)
