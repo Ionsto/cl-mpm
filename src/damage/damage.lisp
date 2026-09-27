@@ -3,6 +3,10 @@
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
+(defconstant +damage-update-UL+ nil)
+(defconstant +damage-average-energy+ nil)
+;; (defconstant +damage-average-energy+ t)
+
 (defun iterate-over-damage-mps (mps func)
   "Helper function for iterating over all nodes in a mesh
    Calls func with only the node"
@@ -417,30 +421,14 @@
 
 
 ;;This is a simd dot product
-(progn
 
-  (defun diff-squared-mat (pos-a pos-b)
-    (let ((pos-a (magicl::matrix/double-float-storage pos-a))
-          (pos-b (magicl::matrix/double-float-storage pos-b)))
-      (values (the double-float (cl-mpm/fastmaths::dot-vector pos-a pos-b)))))
-
-  (defun test-simd-acc (a b)
-    (let (
-          ;; (a (cl-mpm/utils:vector-from-list (list 1d0 2d0 3d0)))
-          ;; (b (cl-mpm/utils:vector-from-list (list -1d0 5d0 8d0)))
-          (a (cl-mpm/utils:vector-from-list (list 0d0 0d0 0d0)))
-          (b (cl-mpm/utils:vector-from-list (list 1d0 1d0 1d0)))
-          )
-      (pprint (diff-squared-mat a b))
-      ))
-
-  (declaim
-   (inline diff-squared)
-   (ftype (function (cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-squared))
-  (defun diff-squared (mp-a mp-b)
-    (cl-mpm/fastmaths::diff-norm
-     (cl-mpm/particle:mp-position mp-a)
-     (cl-mpm/particle:mp-position mp-b))))
+(declaim
+ (inline diff-squared)
+ (ftype (function (cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-squared))
+(defun diff-squared (mp-a mp-b)
+  (cl-mpm/fastmaths::diff-mag-squared
+   (cl-mpm/particle:mp-position mp-a)
+   (cl-mpm/particle:mp-position mp-b)))
 
 
 
@@ -741,6 +729,34 @@ Calls the function with the mesh mp and node"
        (values))))
   (values))
 
+;; (declaim (inline iterate-over-neighbour-mps-weights))
+;; (defun iterate-over-neighbour-mps-weights (mesh mp length func)
+;;   (let ((mp-p (cl-mpm/particle::mp-position mp)))
+;;     (iterate-over-neighbour-mps
+;;      mesh mp length
+;;      (lambda (mp-other)
+;;        (with-accessors ((m cl-mpm/particle::mp-volume-0)
+;;                         (p cl-mpm/particle::mp-position))
+;;            mp-other
+;;          (let ((weight (weight-func (cl-mpm/fastmaths::diff-mag-squared mp-p p) length)))
+;;            (declare (double-float length weight m))
+;;            (funcall func m (* m weight))))
+;;        (values)))))
+
+;; (defun iterate-over-neighbour-mps-weights (mesh mp length func)
+;;   (let ((mp-p (cl-mpm/particle::mp-position mp)))
+;;     (iterate-over-neighbour-mps
+;;      mesh mp length
+;;      (lambda (mp-other)
+;;        (with-accessors ((m cl-mpm/particle::mp-volume-0)
+;;                         (p cl-mpm/particle::mp-position))
+;;            mp-other
+;;          (let ((weight (weight-func (cl-mpm/fastmaths::diff-mag-squared mp-p p) length)))
+;;            (declare (double-float length weight m))
+;;            (funcall func m (* m weight))))
+;;        (values)))))
+
+
 (declaim
  (inline calculate-average-damage)
  (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle::particle double-float) double-float) calculate-average-damage))
@@ -760,9 +776,7 @@ Calls the function with the mesh mp and node"
            mp-other
          (declare (double-float d m length))
          (let ((weight (weight-func (diff-squared mp mp-other) length)))
-           (declare (double-float weight m d
-                                  ;; damage-average volume-average
-                                  ))
+           (declare (double-float weight m d))
            (incf (aref vals 0) (* d weight m))
            (incf (aref vals 1) (* weight m))
            ;; (incf volume-average (* weight m))
@@ -852,8 +866,6 @@ Calls the function with the mesh mp and node"
                    ) double-float)
         calculate-delocalised-damage))
 
-(defconstant +damage-average-energy+ nil)
-;; (defconstant +damage-average-energy+ t)
 
 (defun calculate-delocalised-damage (mesh mp length length-localisation)
   (let ((damage-inc 0d0)

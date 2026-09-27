@@ -245,7 +245,7 @@
    (ftype (function ((simple-array double-float)
                      (simple-array double-float)
                      (simple-array double-float))
-                    (values)) simd- any-))
+                    (values)) simd-any-))
   (defun simd-any- (a b target)
     (declare ((simple-array double-float (*)) a b target))
     (let ((offset 0))
@@ -772,34 +772,46 @@
     (loop for i fixnum from 0 below (length m-s)
           do (setf (aref m-s i) 0d0)))
   m)
+
+
+#+:sb-simd
+(progn
+  (defun fast-zero-vector-simd (m)
+    (let ((m-s (magicl::matrix/double-float-storage m)))
+      (declare ((simple-array double-float (3)) m-s))
+      (setf (sb-simd-avx:f64.2-aref m-s 0) 0d0)
+      (setf (aref m-s 2) 0d0))
+    m)
+  (defun fast-zero-voigt-simd (m)
+    (let ((m-s (magicl::matrix/double-float-storage m)))
+      (declare ((simple-array double-float (6)) m-s))
+      (setf (sb-simd-avx:f64.4-aref m-s 0) 0d0)
+      (setf (sb-simd-avx:f64.2-aref m-s 4) 0d0))
+    m)
+  (defun fast-zero-matrix-simd (m)
+    (let ((m-s (magicl::matrix/double-float-storage m)))
+      (declare ((simple-array double-float (9)) m-s))
+      (setf (sb-simd-avx2:f64.4-aref m-s 0) 0d0)
+      (setf (sb-simd-avx2:f64.4-aref m-s 4) 0d0)
+      (setf (aref m-s 8) 0d0))
+    m)
+  )
+
+
 (declaim
  (inline fast-zero-vector)
  (ftype (function (magicl:matrix/double-float) magicl:matrix/double-float) fast-zero-vector))
 (defun fast-zero-vector (m)
-  #+:sb-simd
-  (let ((m-s (magicl::matrix/double-float-storage m)))
-    (declare ((simple-array double-float (3)) m-s))
-    (setf (sb-simd-avx:f64.2-aref m-s 0) 0d0)
-    (setf (aref m-s 2) 0d0))
+  #+:sb-simd (fast-zero-vector-simd m)
   #-:sb-simd (fast-zero m)
   m)
 (defun fast-zero-voigt (m)
-  #+:sb-simd
-  (let ((m-s (magicl::matrix/double-float-storage m)))
-    (declare ((simple-array double-float (6)) m-s))
-    (setf (sb-simd-avx:f64.4-aref m-s 0) 0d0)
-    (setf (sb-simd-avx:f64.2-aref m-s 4) 0d0)
-    )
+  #+:sb-simd (fast-zero-voigt-simd m)
   #-:sb-simd (fast-zero m)
   m)
+
 (defun fast-zero-matrix (m)
-  #+:sb-simd
-  (let ((m-s (magicl::matrix/double-float-storage m)))
-    (declare ((simple-array double-float (9)) m-s))
-    (setf (sb-simd-avx2:f64.4-aref m-s 0) 0d0)
-    (setf (sb-simd-avx2:f64.4-aref m-s 4) 0d0)
-    (setf (aref m-s 8) 0d0)
-    )
+  #+:sb-simd (fast-zero-matrix-simd m)
   #-:sb-simd (fast-zero m)
   m)
 (defun test-fast-zero ()
@@ -814,32 +826,8 @@
   )
 
 
-(declaim (inline voigt-tensor-reduce-lisp)
-         (ftype (function (magicl:matrix/double-float) (values double-float)) voigt-tensor-reduce-lisp))
-(let ((second-invar (magicl:from-array (make-array 6 :initial-contents '(1d0 1d0 1d0 0.5d0 0.5d0 0.5d0)) '(6 1) :type 'double-float :layout :column-major)))
-  (defun voigt-tensor-reduce-lisp (a)
-     (values (magicl::sum (fast-.* a a second-invar)))))
-
-(declaim (inline voigt-tensor-reduce-simd)
-         (ftype (function (magicl:matrix/double-float) double-float) voigt-tensor-reduce-simd))
-(defun voigt-tensor-reduce-simd (a)
-  "Calculate the product A_{ij}A_{ij}"
-  (let ((arr (magicl::matrix/double-float-storage a)))
-    (declare ((simple-array double-float) arr))
-    (+
-     (* (aref arr 0) (aref arr 0))
-     (* (aref arr 1) (aref arr 1))
-     (* (aref arr 2) (aref arr 2))
-     (* (aref arr 3) (aref arr 3) 0.5d0)
-     (* (aref arr 4) (aref arr 4) 0.5d0)
-     (* (aref arr 5) (aref arr 5) 0.5d0)
-     )))
-
 (defun voigt-tensor-reduce (a)
-  (voigt-tensor-reduce-simd a)
-  ;; #+:sb-simd (voigt-tensor-reduce-simd a)
-  ;; #-:sb-simd (voigt-tensor-reduce-lisp a)
-  )
+  (voigt-j2 a))
 
 (declaim
  (ftype
@@ -851,22 +839,7 @@
   dot))
 (defun dot (a b)
   (the double-float (fast-sum (fast-.* a b))))
-(declaim
- (ftype
-  (function
-   (magicl::matrix/double-float
-    magicl::matrix/double-float
-    )
-   double-float)
-  dot))
-(defun dot-vector (a b)
-  (let ((a-s (cl-mpm/utils:fast-storage a))
-        (b-s (cl-mpm/utils:fast-storage b)))
-    (declare ((simple-array double-float (3)) a-s b-s))
-    (+
-     (the double-float (expt (- (aref a-s 0) (aref b-s 0)) 2))
-     (the double-float (expt (- (aref a-s 1) (aref b-s 1)) 2))
-     (the double-float (expt (- (aref a-s 2) (aref b-s 2)) 2)))))
+
 
 (declaim
  (ftype
@@ -988,13 +961,17 @@
         (expt (- (aref storage 2) (aref storage 0)) 2)))))
 
 (defun voigt-j2 (s)
-  "Calculate j2 invarient from deviatoric stress"
-  (let ((storage (magicl::matrix/double-float-storage s)))
-    (/ (+ (the double-float (dot s s))
-          (the double-float (expt (aref storage 3) 2))
-          (the double-float (expt (aref storage 4) 2))
-          (the double-float (expt (aref storage 5) 2))
-          ) 2d0)))
+  "Calculate j2 invariant from deviatoric stress"
+  (let ((storage (cl-mpm/utils:fast-storage s)))
+    (+
+     (* 0.5d0
+        (+
+         (the double-float (expt (aref storage 0) 2))
+         (the double-float (expt (aref storage 1) 2))
+         (the double-float (expt (aref storage 2) 2))))
+     (the double-float (expt (aref storage 3) 2))
+     (the double-float (expt (aref storage 4) 2))
+     (the double-float (expt (aref storage 5) 2)))))
 
 (defun voigt-von-mises (stress)
   (sqrt (* 3d0 (voigt-j2 (cl-mpm/utils::deviatoric-voigt stress)))))

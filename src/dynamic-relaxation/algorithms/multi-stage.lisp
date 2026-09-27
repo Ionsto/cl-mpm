@@ -17,7 +17,7 @@
                          (criteria 1d-3)
                          (enable-plastic t)
                          (enable-mass-scaling t)
-                         (enable-constant-timestep t)
+                         (enable-constant-timestep nil)
                          (mass-scaler 1d1))
   (declare (double-float damping dt-scale))
 

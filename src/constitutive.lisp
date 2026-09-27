@@ -575,13 +575,8 @@
 
 (declaim (ftype (function (magicl:matrix/double-float) double-float) voigt-j2))
 (defun voigt-j2 (s)
-  "Calculate j2 invarient from deviatoric stress"
-  (let ((storage (magicl::matrix/double-float-storage s)))
-    (/ (+ (the double-float (cl-mpm/fastmaths:dot s s))
-          (the double-float (expt (aref storage 3) 2))
-          (the double-float (expt (aref storage 4) 2))
-          (the double-float (expt (aref storage 5) 2))
-          ) 2d0)))
+  "Calculate j2 invariant from deviatoric stress"
+  (cl-mpm/fastmaths::voigt-j2 s))
 
 (declaim (ftype (function (double-float double-float) double-float) vm-yield-func))
 (defun vm-yield-func (j2 rho)
