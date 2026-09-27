@@ -3,9 +3,20 @@
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
-(defconstant +damage-update-UL+ nil)
+(defconstant +damage-update-ul+ nil)
 (defconstant +damage-average-energy+ nil)
 ;; (defconstant +damage-average-energy+ t)
+
+
+(defun get-mp-position (mp)
+  (if +damage-update-ul+
+      (cl-mpm/particle::mp-position-trial mp)
+      (cl-mpm/particle::mp-position mp)))
+(defun get-mp-volume (mp)
+  (the double-float
+       (if +damage-update-ul+
+           (cl-mpm/particle::mp-volume mp)
+           (cl-mpm/particle::mp-volume-n mp))))
 
 (defun iterate-over-damage-mps (mps func)
   "Helper function for iterating over all nodes in a mesh
@@ -132,9 +143,9 @@
                      (local-list cl-mpm/particle::mp-local-list)
                      (pos cl-mpm/particle::mp-position))
         mp
-      (declare ((vector t *) local-list))
-      (let* ((len-squared (expt length 2)))
-        (declare (double-float length))
+      (declare ((vector t *) local-list) (double-float length))
+      (let* ((length (the double-float (* length 1d0)))
+             (len-squared (expt length 2)))
         (setf (fill-pointer local-list) 0)
         (iterate-over-damage-bounds
          mesh
@@ -427,8 +438,8 @@
  (ftype (function (cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-squared))
 (defun diff-squared (mp-a mp-b)
   (cl-mpm/fastmaths::diff-mag-squared
-   (cl-mpm/particle:mp-position mp-a)
-   (cl-mpm/particle:mp-position mp-b)))
+   (get-mp-position mp-a)
+   (get-mp-position mp-b)))
 
 
 
@@ -770,21 +781,15 @@ Calls the function with the mesh mp and node"
     (iterate-over-neighbour-mps
      mesh mp length
      (lambda (mp-other)
-       (with-accessors ((d cl-mpm/particle::mp-damage)
-                        (m cl-mpm/particle::mp-volume-0)
-                        (p cl-mpm/particle:mp-position))
-           mp-other
+       (let ((m (get-mp-volume mp-other))
+             (d (cl-mpm/particle::mp-damage mp-other)))
          (declare (double-float d m length))
          (let ((weight (weight-func (diff-squared mp mp-other) length)))
            (declare (double-float weight m d))
            (incf (aref vals 0) (* d weight m))
            (incf (aref vals 1) (* weight m))
-           ;; (incf volume-average (* weight m))
-           ;; (incf damage-average (* d weight m))
            ))
        (values)))
-    ;; (when (> volume-average 0d0)
-    ;;   (setf damage-average (the double-float (/ damage-average volume-average))))
     (when (> (aref vals 1) 0d0)
       (setf (aref vals 0) (the double-float (/ (aref vals 0) (aref vals 1)))))
     (setf (cl-mpm/particle::mp-av-damage mp) (aref vals 0))))
@@ -794,67 +799,34 @@ Calls the function with the mesh mp and node"
     (defun calculate-average-damage-grads (mesh mp length)
       (let ((vals (make-array 2 :element-type 'double-float))
             (damage-grads (cl-mpm/particle::mp-av-damage-gradient mp))
-            (p (cl-mpm/particle::mp-position mp)))
+            (p (get-mp-position mp)))
         (declare ((simple-array double-float) vals))
         (cl-mpm/fastmaths::fast-zero damage-grads)
         (iterate-over-neighbour-mps
          mesh mp length
          (lambda (mp-other)
-           (with-accessors ((d cl-mpm/particle::mp-damage)
-                            (m cl-mpm/particle::mp-volume-0)
-                            (p-other cl-mpm/particle:mp-position))
-               mp-other
-             (declare (double-float d m length))
-             (let* ((diff (cl-mpm/fastmaths::fast-.- p-other p (grab-new-vector)))
-                    (dist-squared (cl-mpm/fastmaths::mag-squared diff))
-                    (weight (weight-func dist-squared length))
-                    (grad-weight (weight-func-grads dist-squared length)))
-               (declare (double-float weight m d))
-               (incf (aref vals 0) (* d weight m))
-               (incf (aref vals 1) (* weight m))
-               (when (> dist-squared 0d0)
-                 (cl-mpm/fastmaths:fast-fmacc
-                  damage-grads
-                  diff
-                  (/ (* -1d0 d grad-weight)
-                     (sqrt dist-squared))))))
+           (let ((m (get-mp-volume mp-other))
+                 (p-other (get-mp-position mp-other)))
+             (with-accessors ((d cl-mpm/particle::mp-damage))
+                 mp-other
+               (declare (double-float d m length))
+               (let* ((diff (cl-mpm/fastmaths::fast-.- p-other p (grab-new-vector)))
+                      (dist-squared (cl-mpm/fastmaths::mag-squared diff))
+                      (weight (weight-func dist-squared length))
+                      (grad-weight (weight-func-grads dist-squared length)))
+                 (declare (double-float weight m d))
+                 (incf (aref vals 0) (* d weight m))
+                 (incf (aref vals 1) (* weight m))
+                 (when (> dist-squared 0d0)
+                   (cl-mpm/fastmaths:fast-fmacc
+                    damage-grads
+                    diff
+                    (/ (* -1d0 d grad-weight)
+                       (sqrt dist-squared)))))))
            (values)))
         (when (> (aref vals 1) 0d0)
           (setf (aref vals 0) (the double-float (/ (aref vals 0) (aref vals 1)))))
-        (setf (cl-mpm/particle::mp-av-damage mp) (aref vals 0)))
-      ;; (let ((damage-average 0d0)
-      ;;       (volume-average 0d0)
-      ;;       (damage-grads (cl-mpm/particle::mp-av-damage-gradient mp))
-      ;;       (p (cl-mpm/particle::mp-position mp)))
-      ;;   (declare (double-float damage-average))
-      ;;   (cl-mpm/fastmaths:fast-zero damage-grads)
-      ;;   (iterate-over-neighbour-mps
-      ;;    mesh mp length
-      ;;    (lambda (mp-other)
-      ;;      (with-accessors ((d cl-mpm/particle::mp-damage)
-      ;;                       (m cl-mpm/particle::mp-volume-0)
-      ;;                       (p-other cl-mpm/particle:mp-position))
-      ;;          mp-other
-      ;;        (declare (double-float d m length))
-      ;;        (let* ((weight (weight-func-mps mesh mp mp-other length))
-      ;;               (diff (cl-mpm/fastmaths::fast-.- p-other p))
-      ;;               (dist-squared (cl-mpm/fastmaths::mag-squared diff))
-      ;;               (grad-weight (weight-func-grads dist-squared length))
-      ;;               )
-      ;;          (declare (double-float weight m d damage-average volume-average))
-      ;;          (incf volume-average (* weight m))
-      ;;          (incf damage-average (* d weight m))
-      ;;          (cl-mpm/fastmaths:fast-fmacc
-      ;;           damage-grads
-      ;;           diff
-      ;;           (* d grad-weight))))
-      ;;      (values)))
-      ;;   (when (> volume-average 0d0)
-      ;;     ;; (cl-mpm/fastmaths::fast-scale! damage-grads (the double-float (/ 1d0 volume-average)))
-      ;;     (setf damage-average (the double-float (/ damage-average volume-average))))
-      ;;   (setf (cl-mpm/particle::mp-av-damage mp) damage-average)
-      ;;   )
-      ))
+        (setf (cl-mpm/particle::mp-av-damage mp) (aref vals 0)))))
 
 
 (declaim
@@ -872,109 +844,109 @@ Calls the function with the mesh mp and node"
         (mass-total 0d0)
         (E (cl-mpm/particle::mp-e mp))
         ;(true-length (cl-mpm/particle::mp-true-local-length mp))
-        (vals (make-array 2 :element-type 'double-float)))
+        (vals (make-array 2 :element-type 'double-float))
+        (p (get-mp-position mp)))
     (declare (double-float damage-inc mass-total E)
              ((simple-array double-float) vals))
     (iterate-over-neighbour-mps
      mesh mp length
      (lambda (mp-other)
-       (with-accessors ((d cl-mpm/particle::mp-damage)
-                        (m cl-mpm/particle::mp-volume-0)
-                        (p cl-mpm/particle:mp-position))
-           mp-other
-         (declare (double-float length))
-         (when t
-           (flet ((selected-weight (mp mp-other pos-a pos-b)
-                    (if length-localisation
-                        ;; (weight-func-mps-trapezium mesh mp mp-other pos-a pos-b length)
-                        (weight-func-mps-scatter mesh mp mp-other pos-a pos-b length)
-                        ;; (weight-func-mps-geometric mesh mp mp-other pos-a pos-b length)
-                        ;; (weight-func-mps-gradient-trapezium mesh mp mp-other pos-a pos-b length)
-                        ;; (weight-func (cl-mpm/fastmaths::diff-norm pos-a pos-b) length)
-                        (weight-func (cl-mpm/fastmaths::diff-norm pos-a pos-b) length))))
-             (let* (
-                    ;;Nodally averaged local funcj
-                    ;; (weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll))))
-                    ;; (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
-                    ;;
-                    (weight
-                      (selected-weight mp mp-other
-                                       (cl-mpm/particle::mp-position mp)
-                                       (cl-mpm/particle::mp-position mp-other))
-                      ;; (weight-func-mps mesh mp mp-other (the double-float (sqrt (* true-length ll))))
-                      ;; (weight-func-mps-trapezium mesh mp mp-other length)
-                      ;; (weight-func-mps-gradient-trapezium mesh mp mp-other length)
-                      ;; (weight-func-mps-geometric mesh mp mp-other
-                      ;;                            (cl-mpm/particle::mp-position mp)
-                      ;;                            (cl-mpm/particle::mp-position mp-other)
-                      ;;                            length)
-                      ;; (weight-func-mps-geometric mesh mp mp-other length)
-                      ;; (weight-func-mps-scatter mesh mp mp-other length)
-                      ;; (weight-func-mps mesh mp mp-other (the double-float
-                      ;;                                        (* length
-                      ;;                                           (max
-                      ;;                                            1d-9
-                      ;;                                            (* (the double-float (sqrt (- 1d0 da)))
-                      ;;                                               (the double-float (sqrt (- 1d0 da-other))))))))
-                      ;; (weight-func-mps mesh mp mp-other
-                      ;;                  (the double-float
-                      ;;                       (* length
-                      ;;                          (the double-float
-                      ;;                               (/
-                      ;;                                (max
-                      ;;                                 1d-9
-                      ;;                                 (* 2d0
-                      ;;                                    (the double-float (sqrt (- 1d0 da)))
-                      ;;                                    (the double-float (sqrt (- 1d0 da-other)))))
-                      ;;                                (+ (the double-float (sqrt (- 1d0 da)))
-                      ;;                                   (the double-float (sqrt (- 1d0 da-other)))))))))
-                      ;; (weight-func-mps mesh mp mp-other length)
-                      ;; (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))
-                      ;; (weight-func-mps mesh mp mp-other ll)
-                      ;; (weight-func-mps mesh mp mp-other ll)
-                      ;; (weight-func-mps-damaged mesh mp mp-other
-                      ;;                          (cl-mpm/particle::mp-local-length mp)
-                      ;;                          )
-                      ))
-               (declare (double-float weight m d mass-total damage-inc))
-               (incf ;mass-total
-                (aref vals 1)
-                (* weight m))
-               (incf
-                ;damage-inc
-                (aref vals 0)
-                (*
-                 (if +damage-average-energy+
-                     (the double-float (expt (the double-float (cl-mpm/particle::mp-damage-y-local mp-other)) 2))
-                     (the double-float (the double-float (cl-mpm/particle::mp-damage-y-local mp-other))))
-                 weight m))
-               (macrolet ((reflect-axis (axis enable)
-                            (declare (fixnum axis))
-                            `(when (and ,enable
-                                        (< (magicl:tref (cl-mpm/particle::mp-position mp) ,axis 0) (the double-float (* 0.5d0 length))))
-                               (let ((weight
-                                       (selected-weight mp mp-other
-                                                        (cl-mpm/particle::mp-position mp)
-                                                        (cl-mpm/fastmaths::fast-.* (cl-mpm/particle:mp-position mp-other)
-                                                                                   (cl-mpm/utils::vector-from-list
-                                                                                    (list ,(if (= axis 0) -1d0 0d0)
-                                                                                          ,(if (= axis 1) -1d0 0d0)
-                                                                                          ,(if (= axis 2) -1d0 0d0)
-                                                                                          ))))))
-                                 (declare (double-float weight m d mass-total damage-inc))
-                                 (incf
-                                  (aref vals 1)
-                                  ;; mass-total
-                                  (the double-float (* weight m)))
-                                 (incf
-                                  (aref vals 0)
-                                  ;; damage-inc
-                                  (the double-float
-                                       (* (the double-float (cl-mpm/particle::mp-damage-y-local mp-other))
-                                          weight m)))))))
-                 (reflect-axis 0 *enable-reflect-x*)
-                 (reflect-axis 1 *enable-reflect-y*)
-                 (reflect-axis 2 *enable-reflect-z*))))))
+       (let ((m (get-mp-volume mp-other))
+             (p-other (get-mp-position mp-other)))
+         (with-accessors ((d cl-mpm/particle::mp-damage))
+             mp-other
+           (declare (double-float length))
+           (when t
+             (flet ((selected-weight (mp mp-other pos-a pos-b)
+                      (if length-localisation
+                          ;; (weight-func-mps-trapezium mesh mp mp-other pos-a pos-b length)
+                          (weight-func-mps-scatter mesh mp mp-other pos-a pos-b length)
+                          ;; (weight-func-mps-geometric mesh mp mp-other pos-a pos-b length)
+                          ;; (weight-func-mps-gradient-trapezium mesh mp mp-other pos-a pos-b length)
+                          ;; (weight-func (cl-mpm/fastmaths::diff-norm pos-a pos-b) length)
+                          (weight-func (cl-mpm/fastmaths::diff-norm pos-a pos-b) length))))
+               (let* (
+                      ;;Nodally averaged local funcj
+                      ;; (weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll))))
+                      ;; (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
+                      ;;
+                      (weight
+                        (selected-weight mp mp-other p p-other)
+                        ;; (weight-func-mps mesh mp mp-other (the double-float (sqrt (* true-length ll))))
+                        ;; (weight-func-mps-trapezium mesh mp mp-other length)
+                        ;; (weight-func-mps-gradient-trapezium mesh mp mp-other length)
+                        ;; (weight-func-mps-geometric mesh mp mp-other
+                        ;;                            (cl-mpm/particle::mp-position mp)
+                        ;;                            (cl-mpm/particle::mp-position mp-other)
+                        ;;                            length)
+                        ;; (weight-func-mps-geometric mesh mp mp-other length)
+                        ;; (weight-func-mps-scatter mesh mp mp-other length)
+                        ;; (weight-func-mps mesh mp mp-other (the double-float
+                        ;;                                        (* length
+                        ;;                                           (max
+                        ;;                                            1d-9
+                        ;;                                            (* (the double-float (sqrt (- 1d0 da)))
+                        ;;                                               (the double-float (sqrt (- 1d0 da-other))))))))
+                        ;; (weight-func-mps mesh mp mp-other
+                        ;;                  (the double-float
+                        ;;                       (* length
+                        ;;                          (the double-float
+                        ;;                               (/
+                        ;;                                (max
+                        ;;                                 1d-9
+                        ;;                                 (* 2d0
+                        ;;                                    (the double-float (sqrt (- 1d0 da)))
+                        ;;                                    (the double-float (sqrt (- 1d0 da-other)))))
+                        ;;                                (+ (the double-float (sqrt (- 1d0 da)))
+                        ;;                                   (the double-float (sqrt (- 1d0 da-other)))))))))
+                        ;; (weight-func-mps mesh mp mp-other length)
+                        ;; (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))
+                        ;; (weight-func-mps mesh mp mp-other ll)
+                        ;; (weight-func-mps mesh mp mp-other ll)
+                        ;; (weight-func-mps-damaged mesh mp mp-other
+                        ;;                          (cl-mpm/particle::mp-local-length mp)
+                        ;;                          )
+                        ))
+                 (declare (double-float weight m d mass-total damage-inc))
+                 (incf ;mass-total
+                  (aref vals 1)
+                  (* weight m))
+                 (incf
+                                        ;damage-inc
+                  (aref vals 0)
+                  (*
+                   (if +damage-average-energy+
+                       (the double-float (expt (the double-float (cl-mpm/particle::mp-damage-y-local mp-other)) 2))
+                       (the double-float (the double-float (cl-mpm/particle::mp-damage-y-local mp-other))))
+                   weight m))
+                 (macrolet ((reflect-axis (axis enable)
+                              (declare (fixnum axis))
+                              `(when (and ,enable
+                                          (< (magicl:tref (cl-mpm/particle::mp-position mp) ,axis 0) (the double-float (* 0.5d0 length))))
+                                 (let ((weight
+                                         (selected-weight mp mp-other
+                                                          p
+                                                          (cl-mpm/fastmaths::fast-.*
+                                                           (cl-mpm/particle:mp-position mp-other)
+                                                           (cl-mpm/utils::vector-from-list
+                                                            (list ,(if (= axis 0) -1d0 0d0)
+                                                                  ,(if (= axis 1) -1d0 0d0)
+                                                                  ,(if (= axis 2) -1d0 0d0)
+                                                                  ))))))
+                                   (declare (double-float weight m d mass-total damage-inc))
+                                   (incf
+                                    (aref vals 1)
+                                    ;; mass-total
+                                    (the double-float (* weight m)))
+                                   (incf
+                                    (aref vals 0)
+                                    ;; damage-inc
+                                    (the double-float
+                                         (* (the double-float (cl-mpm/particle::mp-damage-y-local mp-other))
+                                            weight m)))))))
+                   (reflect-axis 0 *enable-reflect-x*)
+                   (reflect-axis 1 *enable-reflect-y*)
+                   (reflect-axis 2 *enable-reflect-z*)))))))
        (values)))
     (when (> ;; mass-total
              (aref vals 1)
@@ -1551,52 +1523,51 @@ Calls the function with the mesh mp and node"
           (data-weights (list))
           (damage-inc 0d0)
           (mass-total 0d0)
+          (p (get-mp-position mp))
           (length (* 1d0 (cl-mpm/particle::mp-local-length mp))))
       (declare (double-float damage-inc mass-total))
       (iterate-over-neighbour-mps
        mesh mp length
        (lambda (mp-other)
-         (with-accessors ((d cl-mpm/particle::mp-damage)
-                          (m cl-mpm/particle::mp-volume-0)
-                          (p cl-mpm/particle:mp-position))
-             mp-other
-           (when t
-             (push (cl-mpm/fastmaths::fast-.-
-                    (cl-mpm/particle::mp-position mp-other)
-                    (cl-mpm/particle::mp-position mp)
-                    ) data-positions)
-             (let* ((weight
-                      (if (cl-mpm/damage::sim-enable-length-localisation sim)
-                          ;; (weight-func-mps-trapezium mesh mp mp-other
-                          ;;                            (cl-mpm/particle::mp-position mp)
-                          ;;                            (cl-mpm/particle::mp-position mp-other)
-                          ;;                            length)
-                          ;; (weight-func-mps-gradient-trapezium mesh mp mp-other
-                          ;;                            (cl-mpm/particle::mp-position mp)
-                          ;;                            (cl-mpm/particle::mp-position mp-other)
-                          ;;                            length)
-                          (weight-func-mps-scatter mesh
+         (let ((m (get-mp-volume mp-other))
+               (p-other (get-mp-position mp-other)))
+           (with-accessors ((d cl-mpm/particle::mp-damage))
+               mp-other
+             (when t
+               (push (cl-mpm/fastmaths::fast-.-
+                      (get-mp-position mp-other)
+                      (get-mp-position mp))
+                     data-positions)
+               (let* ((weight
+                        (if (cl-mpm/damage::sim-enable-length-localisation sim)
+                            ;; (weight-func-mps-trapezium mesh mp mp-other
+                            ;; p
+                            ;; p-other
+                            ;;                            length)
+                            ;; (weight-func-mps-gradient-trapezium mesh mp mp-other
+                            ;; p
+                            ;; p-other
+                            ;;                            length)
+                            (weight-func-mps-scatter mesh
                                                      mp
                                                      mp-other
-                                                     (cl-mpm/particle::mp-position mp)
-                                                     (cl-mpm/particle::mp-position mp-other)
+                                                     p
+                                                     p-other
                                                      length)
-                          ;; (weight-func-mps-geometric mesh
-                          ;;                            mp
-                          ;;                            mp-other
-                          ;;                            (cl-mpm/particle::mp-position mp)
-                          ;;                            (cl-mpm/particle::mp-position mp-other)
-                          ;;                            length)
-                          (weight-func (cl-mpm/fastmaths::diff-norm (cl-mpm/particle::mp-position mp)
-                                                                    (cl-mpm/particle::mp-position mp-other)
-                                                                    ) length))))
-               (declare (double-float weight m d mass-total damage-inc))
-               (incf mass-total (* weight m))
-               (incf damage-inc
-                     (* (the double-float (cl-mpm/particle::mp-damage-y-local mp-other))
-                        weight m))
-               (push (* weight m) data-weights)
-               (setf (cl-mpm/particle::mp-debug-j mp-other) (* weight m)))))))
+                            ;; (weight-func-mps-geometric mesh
+                            ;;                            mp
+                            ;;                            mp-other
+                            ;; p
+                            ;; p-other
+                            ;;                            length)
+                            (weight-func (cl-mpm/fastmaths::diff-norm p p-other) length))))
+                 (declare (double-float weight m d mass-total damage-inc))
+                 (incf mass-total (* weight m))
+                 (incf damage-inc
+                       (* (the double-float (cl-mpm/particle::mp-damage-y-local mp-other))
+                          weight m))
+                 (push (* weight m) data-weights)
+                 (setf (cl-mpm/particle::mp-debug-j mp-other) (* weight m))))))))
       (when (> mass-total 0d0)
         (cl-mpm:iterate-over-mps
          mps
@@ -1615,31 +1586,6 @@ Calls the function with the mesh mp and node"
       mp
       (cl-mpm/particle::mp-local-length mp)
       (lambda (mp-other)
-        ;; (with-accessors ((d cl-mpm/particle::mp-damage)
-        ;;                  (m cl-mpm/particle::mp-volume-0)
-        ;;                  (p cl-mpm/particle:mp-position))
-        ;;     mp-other
-        ;;   (when t
-        ;;     (push (cl-mpm/fastmaths::fast-.-
-        ;;            (cl-mpm/particle::mp-position mp-other)
-        ;;            (cl-mpm/particle::mp-position mp)
-        ;;            ) data-positions)
-        ;;     (let* ((weight
-        ;;              (if (cl-mpm/damage::sim-enable-length-localisation sim)
-        ;;                  (weight-func-mps-geometric mesh mp mp-other
-        ;;                                             (cl-mpm/particle::mp-position mp)
-        ;;                                             (cl-mpm/particle::mp-position mp-other)
-        ;;                                             length)
-        ;;                  (weight-func (cl-mpm/fastmaths::diff-norm (cl-mpm/particle::mp-position mp)
-        ;;                                                            (cl-mpm/particle::mp-position mp-other)
-        ;;                                                            ) length))))
-        ;;       (declare (double-float weight m d mass-total damage-inc))
-        ;;       (incf mass-total (* weight m))
-        ;;       (incf damage-inc
-        ;;             (* (the double-float (cl-mpm/particle::mp-damage-y-local mp-other))
-        ;;                weight m))
-        ;;       (push (* weight m) data-weights)
-        ;;       (setf (cl-mpm/particle::mp-debug-j mp-other) (* weight m)))))
         ))))
   )
 

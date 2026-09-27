@@ -113,7 +113,7 @@
                   :components
                   (;(:file "damage")
                    (:file "plastic")
-                   (:file "concrete")
+                   ;; (:file "concrete")
                    ;; (:file "limestone")
                    ;; (:file "ice")
                    ;(:file "chalk")
@@ -144,6 +144,7 @@
                                (:file "output")
                                (:file "solver")))
                  (:file "models/damage")
+                 (:file "models/concrete")
                  (:file "models/damage-frictional")))))
 (defsystem "cl-mpm/eigenerosion"
   :depends-on ("cl-mpm/magicl"

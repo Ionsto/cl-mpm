@@ -727,9 +727,7 @@
     ;;     (format t "~E ~E ~E~%" s1 s2 s3)
     ;;     (the double-float (expt (the double-float (exp (- lmax))) 1))))
     (let ((lmax (cl-mpm/fastmaths::min-eigenvalue-3x3 eps)))
-      ;; (format t "~E ~%" lmax)
       (the double-float (expt (the double-float (exp (- lmax))) 1)))
-    ;; (the double-float (expt (the double-float (exp (- (varef eps 0)))) 1))
     ))
 
 

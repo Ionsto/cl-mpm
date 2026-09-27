@@ -357,7 +357,8 @@
     (declare (double-float damping-scale damping))
     (unless initial-setup
       (pre-step sim))
-    ;; (format t "Threads are nested ~A~%" cl-mpm/utils::*workers-nesting*)
+    (when cl-mpm/utils::*workers-nesting*
+      (format t "Threads are nested at beginning of step?~A~%" cl-mpm/utils::*workers-nesting*))
     (cl-mpm/penalty::reset-penalty sim)
     (setf dt 1d0)
     (cl-mpm::reset-nodes-force sim)
@@ -547,41 +548,8 @@
                 f)
                (cl-mpm/utils::resize-vector work-vec (cl-mpm/utils::sparse-matrix-nrows e))
                (cl-mpm/utils::resize-vector work-vec-agg (cl-mpm/utils::sparse-matrix-nrows et))
-               ;; (let* ((acc
-               ;;          (cl-mpm/linear-solver::solve-conjugant-gradients
-               ;;           (lambda (v)
-               ;;             (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
-               ;;              e
-               ;;              v
-               ;;              bcs
-               ;;              bcs-int
-               ;;              work-vec
-               ;;              )
-               ;;             (cl-mpm/fastmaths::fast-.*
-               ;;              sma
-               ;;              work-vec
-               ;;              work-vec)
-               ;;             (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
-               ;;              et
-               ;;              work-vec
-               ;;              bcs-int
-               ;;              bcs
-               ;;              work-vec-agg))
-               ;;           f
-               ;;           :tol 1d-15
-               ;;           :max-iters 10000
-               ;;           :mask bcs-int)))
-               ;;   (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
-               ;;   (cl-mpm/aggregate::project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d))
-               (let* ((acc
-                        ;; (cl-mpm/utils::arb-vector (cl-mpm/utils::sparse-matrix-nrows et))
-                        (grab-new)
-                           ))
+               (let* ((acc (grab-new)))
                  (cl-mpm/utils::resize-vector acc (cl-mpm/utils::sparse-matrix-nrows et))
-                 ;; (cl-mpm/fastmaths::fast-zero acc)
-                 ;; (pprint (cl-mpm/utils::nrows acc))
-                 ;; (pprint (cl-mpm/utils::nrows f))
-                 ;; (pprint acc)
                  (cl-mpm/linear-solver::solve-conjugant-gradients
                   (lambda (v)
                     (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked-multithread
@@ -602,7 +570,7 @@
                      bcs
                      work-vec-agg))
                   f
-                  :tol 1d-15
+                  :tol 1d-25
                   :max-iters 10000
                   :mask bcs-int
                   :result acc)

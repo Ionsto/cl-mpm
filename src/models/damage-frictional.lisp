@@ -206,7 +206,29 @@
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-fpd-isotropic) dt)
   ;; (setf (cl-mpm/particle::mp-damage mp) (cl-mpm/particle::mp-damage-tension mp))
-  (cl-mpm/damage::apply-isotropic-degredation mp))
+  ;; (cl-mpm/damage::apply-isotropic-degredation mp)
+  (with-accessors ((damage cl-mpm/particle::mp-damage-tension)
+                   (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
+                   (stress        cl-mpm/particle::mp-stress)
+                   (enable-damage cl-mpm/particle::mp-enable-damage)
+                   (p-mod cl-mpm/particle::mp-p-modulus-0)
+                   (e cl-mpm/particle::mp-e)
+                   (nu cl-mpm/particle::mp-nu))
+      mp
+    (declare (double-float damage j))
+    (when t;(> damage 0.0d0)
+      (cl-mpm/utils:voigt-copy-into undamaged-stress stress)
+      (cl-mpm/fastmaths:fast-scale! stress (/ (- 1d0 damage) j))
+      (cl-mpm/utils::copy-into
+       (cl-mpm/particle::mp-elastic-matrix mp)
+       (cl-mpm/particle::mp-tangent-stiffness mp))
+      (cl-mpm/fastmaths::fast-scale! (cl-mpm/particle::mp-tangent-stiffness mp) (- 1d0 damage))
+      (setf p-mod
+            (*
+             (max 1d-9 (- 1d0 damage))
+             (cl-mpm/particle::compute-p-modulus mp)))))
+  )
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-plastic-damage-frictional-delayed) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)

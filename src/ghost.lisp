@@ -1102,7 +1102,7 @@
                                  (ghost cl-mpm/mesh::node-ghost-force))
                     node
                   (let* ((ghost-stiffness (abs (*
-                                                0.25d0
+                                                0.5d0
                                                 1/3
                                                 ghost-factor
                                                 (expt h -2)

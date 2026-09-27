@@ -15,7 +15,7 @@
     (when (> damage 0.0d0)
       (cl-mpm/utils:voigt-copy-into undamaged-stress stress)
       (cl-mpm/fastmaths:fast-scale! stress (/ (- 1d0 damage) j))
-      (setf (cl-mpm/particle::mp-p-modulus-0 mp)
+      (setf p-mod
             (*
              (max 1d-9 (- 1d0 damage))
              (cl-mpm/particle::compute-p-modulus mp))))))

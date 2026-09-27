@@ -198,7 +198,7 @@
                                  (format t "CG Iter ~D ~E ~E ~E~%" i rs-old rs-new residual))
                                (setf rs-old rs-new)))
                         finally (progn
-                                  ;; (format t "Solved in ~D iters ~E~%" i residual)
+                                  ;; (format t "Solved in ~D iters ~E - ~E~%" i residual b-norm)
                                   (when (> residual crit)
                                     (error "Conjugate gradients didn't converge"))))
                   (mask-inplace x)
