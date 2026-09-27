@@ -170,7 +170,7 @@
                      (vel cl-mpm/particle:mp-velocity)
                      ) mp
       (declare (type double-float volume))
-      (@-dsvp-vec-simd dsvp stress volume f-out))
+      (@-dsvp-vec dsvp stress volume f-out))
     f-out))
 
 (defun det-stress-force-unrolled (stress grads volume &optional f-out)

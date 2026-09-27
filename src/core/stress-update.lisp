@@ -2,9 +2,19 @@
 ;;Various types of stress update
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
+
+
 (declaim (notinline calculate-strain-rate)
          (ftype (function (cl-mpm/mesh::mesh  cl-mpm/particle:particle double-float boolean)) calculate-strain-rate))
 (defun calculate-strain-rate (mesh mp dt fbar)
+  (if fbar
+      (calculate-strain-rate-fbar mesh mp dt)
+      (calculate-strain-rate-nofbar mesh mp dt))
+  (values))
+
+(declaim (notinline calculate-strain-rate-nofbar)
+         (ftype (function (cl-mpm/mesh::mesh  cl-mpm/particle:particle double-float)) calculate-strain-rate-nofbar))
+(defun calculate-strain-rate-nofbar (mesh mp dt)
   "Calculate the strain rate, stretch rate and vorticity"
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
            (optimize (speed 3) (safety 0)))
@@ -15,8 +25,34 @@
              (double-float dt))
         (progn
           (cl-mpm/fastmaths::fast-zero stretch-tensor)
-          (when fbar
-            (cl-mpm/fastmaths::fast-zero stretch-tensor-fbar))
+          (iterate-over-neighbours
+           mesh mp
+           (lambda (node svp grads fsvp fgrads)
+             (declare (ignore svp fsvp))
+             (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
+                              ;; (node-disp cl-mpm/mesh::node-displacment)
+                              (node-active cl-mpm/mesh:node-active))
+                 node
+               (declare (magicl:matrix/double-float node-vel)
+                        (boolean node-active))
+               (when node-active
+                 (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-vel stretch-tensor)))))
+          (cl-mpm/fastmaths:fast-scale! stretch-tensor dt)
+          )))
+(declaim (notinline calculate-strain-rate-fbar)
+         (ftype (function (cl-mpm/mesh::mesh  cl-mpm/particle:particle double-float)) calculate-strain-rate-fbar))
+(defun calculate-strain-rate-fbar (mesh mp dt)
+  "Calculate the strain rate, stretch rate and vorticity"
+  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
+           (optimize (speed 3) (safety 0)))
+  (with-accessors ((stretch-tensor cl-mpm/particle::mp-stretch-tensor)
+                   (stretch-tensor-fbar cl-mpm/particle::mp-stretch-tensor-fbar)
+                   ) mp
+    (declare (magicl:matrix/double-float stretch-tensor stretch-tensor-fbar)
+             (double-float dt))
+        (progn
+          (cl-mpm/fastmaths::fast-zero stretch-tensor)
+          (cl-mpm/fastmaths::fast-zero stretch-tensor-fbar)
           (iterate-over-neighbours
            mesh mp
            (lambda (node svp grads fsvp fgrads)
@@ -29,11 +65,9 @@
                         (boolean node-active))
                (when node-active
                  (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-vel stretch-tensor)
-                 (when fbar
-                   (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-vel stretch-tensor-fbar))))))
+                 (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-vel stretch-tensor-fbar)))))
           (cl-mpm/fastmaths:fast-scale! stretch-tensor dt)
-          (cl-mpm/fastmaths:fast-scale! stretch-tensor-fbar dt)
-          )))
+          (cl-mpm/fastmaths:fast-scale! stretch-tensor-fbar dt))))
 
 (declaim (inline calculate-strain-rate-disp)
          (ftype (function (cl-mpm/mesh::mesh  cl-mpm/particle:particle double-float boolean)) calculate-strain-rate-disp))
@@ -68,27 +102,7 @@
 ;Could include this in p2g but idk
 
 
-(defun calculate-strain-rate-nofbar (mesh mp dt)
-  "Calculate the strain rate, stretch rate and vorticity"
-  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
-           (optimize (speed 3) (safety 0)))
-  (with-accessors ((stretch-tensor cl-mpm/particle::mp-stretch-tensor)) mp
-    (declare (magicl:matrix/double-float stretch-tensor)
-             (double-float dt))
-        (progn
-          (cl-mpm/fastmaths::fast-zero stretch-tensor)
-          (iterate-over-neighbours
-           mesh mp
-           (lambda (node svp grads fsvp fgrads)
-             (declare (ignore mesh mp svp fsvp fgrads))
-             (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
-                              (node-active cl-mpm/mesh:node-active))
-                 node
-               (declare (magicl:matrix/double-float node-vel)
-                        (boolean node-active))
-               (when node-active
-                 (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-vel stretch-tensor)))))
-          (cl-mpm/fastmaths::fast-scale! stretch-tensor dt))))
+
 
 
 (defun make-df (inc)
@@ -132,72 +146,31 @@
         (cl-mpm/utils:matrix-copy-into df df-strain)
         ;;Explicit fbar
         (when fbar
-          (if nil;;t exp: nil Coobs
-              (progn
-                (let ((j-inc (cl-mpm/fastmaths:det-3x3 df))
-                      (j-n 1d0)
-                      (gather-j 0d0)
-                      (nd (cl-mpm/mesh::mesh-nd mesh))
-                      (svp-sum 0d0)
-                      )
-                  (iterate-over-neighbours
-                   mesh mp
-                   (lambda (node svp grads fsvp fgrads)
-                     (with-accessors ((node-active cl-mpm/mesh:node-active)
-                                      (node-j-inc cl-mpm/mesh::node-jacobian-inc)
-                                      (node-volume cl-mpm/mesh::node-volume))
-                         node
-                       (when node-active
-                         (incf svp-sum svp)
-                         ;; (incf gather-j (/ (* svp node-j-inc) node-volume))
-                         (incf gather-j (* svp node-j-inc))
-                         ))))
-                  ;; (setf gather-j (/ gather-j svp-sum))
-
-                  (setf (cl-mpm/particle::mp-debug-j mp) (/ gather-j (* j-inc j-n))
-                        (cl-mpm/particle::mp-debug-j-gather mp) gather-j)
-
-                  (cl-mpm/fastmaths:fast-scale!
-                   df
-                   (expt
-                    (the double-float (/ gather-j (* j-inc j-n)))
-                    (/ 1 nd)))
-                  (ecase nd
-                    (1 (setf (magicl:tref df 1 1) 1d0))
-                    (2 (progn
-                         (setf (magicl:tref df 1 1) 1d0)
-                         (setf (magicl:tref df 2 2) 1d0)))
-                    (3 nil))
-                  )
-                )
-              ;;Coombs fbar
-              (progn
-                (let* ((df-fbar
-                         (cl-mpm/utils::matrix-eye 1d0)
-                         ;; (cl-mpm/utils::object-pool-grab work-pool)
-                                )
-                       (nd (cl-mpm/mesh::mesh-nd mesh)))
-                  (declare (fixnum nd))
-                  (cl-mpm/fastmaths::matrix-reset-identity df-fbar)
-                  (cl-mpm/fastmaths::fast-.+-matrix df-fbar stretch-tensor-fbar df-fbar)
-                  (when (< (cl-mpm/fastmaths:det-3x3 df-fbar) 0d0)
-                    (error 'cl-mpm/errors:error-dF-negative))
-                  (cl-mpm/fastmaths::fast-scale!
-                   df-strain
-                   (expt
-                    (the double-float (/ (cl-mpm/fastmaths:det-3x3 df-fbar)
-                                         (cl-mpm/fastmaths:det-3x3 df-strain)))
-                    (the double-float (/ 1d0 nd))))
-                  (ecase nd
-                    (1
-                     (progn
-                       (setf (cl-mpm/utils:mtref df-strain 1 1) 1d0)
-                       (setf (cl-mpm/utils:mtref df-strain 2 2) 1d0))
-                     )
-                    (2 (progn
-                         (setf (cl-mpm/utils:mtref df-strain 2 2) 1d0)))
-                    (3 nil))
-                  ))))
+          (let* ((df-fbar
+                   (cl-mpm/utils::matrix-eye 1d0)
+                   ;; (cl-mpm/utils::object-pool-grab work-pool)
+                   )
+                 (nd (cl-mpm/mesh::mesh-nd mesh)))
+            (declare (fixnum nd))
+            (cl-mpm/fastmaths::matrix-reset-identity df-fbar)
+            (cl-mpm/fastmaths::fast-.+-matrix df-fbar stretch-tensor-fbar df-fbar)
+            (when (< (cl-mpm/fastmaths:det-3x3 df-fbar) 0d0)
+              (error 'cl-mpm/errors:error-dF-negative))
+            (cl-mpm/fastmaths::fast-scale!
+             df-strain
+             (expt
+              (the double-float (/ (cl-mpm/fastmaths:det-3x3 df-fbar)
+                                   (cl-mpm/fastmaths:det-3x3 df-strain)))
+              (the double-float (/ 1d0 nd))))
+            (ecase nd
+              (1
+               (progn
+                 (setf (cl-mpm/utils:mtref df-strain 1 1) 1d0)
+                 (setf (cl-mpm/utils:mtref df-strain 2 2) 1d0))
+               )
+              (2 (progn
+                   (setf (cl-mpm/utils:mtref df-strain 2 2) 1d0)))
+              (3 nil))))
         (values df df-strain)))))
 
 ;;; Strain updates

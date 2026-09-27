@@ -383,7 +383,7 @@
 (defun svp-2d (svp dsvp)
   (lambda (x y) (* (funcall svp x) (funcall svp y))))
 (defun svp-3d (svp dsvp)
-  (lambda (x y z) (* (funcall svp x) (funcall svp y) (funcall svp y))))
+  (lambda (x y z) (* (funcall svp x) (funcall svp y) (funcall svp z))))
 
 (defun dsvp-1d (svp dsvp)
   (lambda (x) (list (funcall dsvp x))))
