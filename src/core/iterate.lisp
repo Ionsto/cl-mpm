@@ -608,9 +608,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                     (declare (type double-float distx disty))
                                                     (let* ((weightsx (the double-float (cl-mpm/shape-function::shape-gimp distx (* 0.5d0 dox) h)))
                                                            (weightsy (the double-float (cl-mpm/shape-function::shape-gimp disty (* 0.5d0 doy) h)))
-                                                           (weight (* weightsx weightsy))
-                                                           ;; #+cl-mpm-fbar
-                                                           )
+                                                           (weight (* weightsx weightsy)))
                                                       (declare (double-float weightsx weightsy weight))
                                                       (when (< 0d0 weight)
                                                         (let* ((node (cl-mpm/mesh::get-node-values mesh (+ ix dx) (+ iy dy) 0))
