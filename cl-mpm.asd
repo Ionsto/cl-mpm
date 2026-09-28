@@ -714,6 +714,15 @@
                )
   :components ((:file "examples/ice/ice-buoyancy")))
 
+
+(defsystem "cl-mpm/examples/ice/elastic-stress"
+  :depends-on ("cl-mpm/example"
+               "cl-mpm/erosion"
+               "cl-mpm/models/chalk"
+               "cl-mpm/models/visco"
+               "cl-mpm/models/ice")
+  :components ((:file "examples/ice/elastic-stress")))
+
 ;;; SOLVERS
 
 

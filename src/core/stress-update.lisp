@@ -75,6 +75,16 @@
   "Calculate the strain rate, stretch rate and vorticity"
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
            (optimize (speed 3) (debug 0) (safety 0)))
+  (if fbar
+      (calculate-strain-rate-disp-fbar mesh mp dt)
+      (calculate-strain-rate-disp-nofbar mesh mp dt)))
+
+(declaim (inline calculate-strain-rate-disp-fbar)
+         (ftype (function (cl-mpm/mesh::mesh  cl-mpm/particle:particle double-float)) calculate-strain-rate-disp-fbar))
+(defun calculate-strain-rate-disp-fbar (mesh mp dt)
+  "Calculate the strain rate, stretch rate and vorticity"
+  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
+           (optimize (speed 3) (debug 0) (safety 0)))
   (with-accessors ((stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    (stretch-tensor-fbar cl-mpm/particle::mp-stretch-tensor-fbar))
       mp
@@ -82,22 +92,44 @@
              (double-float dt))
     (progn
       (cl-mpm/fastmaths::fast-zero-matrix stretch-tensor)
-      (when fbar
-        (cl-mpm/fastmaths::fast-zero-matrix stretch-tensor-fbar))
-      (let ()
-        (iterate-over-neighbours
-         mesh mp
-         (lambda (node svp grads fsvp fgrads)
-           (declare (ignore svp fsvp))
-           (with-accessors ((node-disp cl-mpm/mesh::node-displacment)
-                            (node-active cl-mpm/mesh:node-active))
-               node
-             (declare (magicl:matrix/double-float node-disp)
-                      (boolean node-active))
-             (when node-active
-               (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-disp stretch-tensor)
-               (when fbar
-                 (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-disp stretch-tensor-fbar))))))))))
+      (cl-mpm/fastmaths::fast-zero-matrix stretch-tensor-fbar)
+      (iterate-over-neighbours
+       mesh mp
+       (lambda (node svp grads fsvp fgrads)
+         (declare (ignore svp fsvp))
+         (with-accessors ((node-disp cl-mpm/mesh::node-displacment)
+                          (node-active cl-mpm/mesh:node-active))
+             node
+           (declare (magicl:matrix/double-float node-disp)
+                    (boolean node-active))
+           (when node-active
+             (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-disp stretch-tensor)
+             (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-disp stretch-tensor-fbar))))))))
+
+(declaim (inline calculate-strain-rate-disp-nofbar)
+         (ftype (function (cl-mpm/mesh::mesh  cl-mpm/particle:particle double-float)) calculate-strain-rate-disp-nofbar))
+(defun calculate-strain-rate-disp-nofbar (mesh mp dt)
+  "Calculate the strain rate, stretch rate and vorticity"
+  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
+           (optimize (speed 3) (debug 0) (safety 0)))
+  (with-accessors ((stretch-tensor cl-mpm/particle::mp-stretch-tensor))
+      mp
+    (declare (magicl:matrix/double-float stretch-tensor)
+             (double-float dt))
+    (progn
+      (cl-mpm/fastmaths::fast-zero-matrix stretch-tensor)
+      (iterate-over-neighbours
+       mesh mp
+       (lambda (node svp grads fsvp fgrads)
+         (declare (ignore svp fsvp))
+         (with-accessors ((node-disp cl-mpm/mesh::node-displacment)
+                          (node-active cl-mpm/mesh:node-active))
+             node
+           (declare (magicl:matrix/double-float node-disp)
+                    (boolean node-active))
+           (when node-active
+             (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-disp stretch-tensor))))))))
+
 
 ;Could include this in p2g but idk
 

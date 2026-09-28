@@ -333,9 +333,10 @@
              )
             (when (> yield-func 0d0)
               (setf p-wave (* 1.0d0 pmod)))
-            (let (;; (inc (expt (* 1 (max 0d0
-                  ;;                        (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
-                  ;;                           (cl-mpm/utils::trace-voigt strain)))) 1))
+            (let (;(inc (expt (* 1 (max 0d0
+                  ;                       (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
+                  ;                          (cl-mpm/utils::trace-voigt strain)))) 1))
+                  ;(inc (abs inc))
                   )
               (setf ps-vm (+ ps-vm-1 inc))
               (setf ps-vm-inc inc)))
@@ -888,7 +889,6 @@
            ;;                    (/ 1d0 j)))
            (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
            (pressure (* pressure damage))
-           (exponant 1)
            ;; (pind (- p pressure))
            (pind p)
            (p-deg 0d0)
@@ -896,18 +896,16 @@
       (declare (double-float damage-t damage-c damage-s p-deg))
       (setf
        p-deg
-       (expt
-        (if (> pind 0d0)
-            (- 1d0 damage-t)
-            (- 1d0 damage-c)) exponant))
+       (if (> pind 0d0)
+           (- 1d0 damage-t)
+           (- 1d0 damage-c)))
       (setf p (* p p-deg))
       (setf stress
             (cl-mpm/fastmaths:fast-.+
-             ;; (cl-mpm/constitutive::voight-eye p)
-             (cl-mpm/constitutive::voight-eye (- p pressure))
-             (cl-mpm/fastmaths:fast-scale! s (expt (- 1d0 damage-s) exponant))
+             (cl-mpm/constitutive::voight-eye (- (/ p j) pressure))
+             (cl-mpm/fastmaths:fast-scale! s (/ (- 1d0 damage-s) j))
              stress))
-      (cl-mpm/fastmaths:fast-scale! stress (/ 1d0 j))
+      ;; (cl-mpm/fastmaths:fast-scale! stress (/ 1d0 j))
       (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
              (G (/ e (* 2 (+ 1d0 nu))))
              (P-0 (+ K (* 4/3 G))))
@@ -916,7 +914,7 @@
         (setf G (* G (- 1d0 damage-s)))
         (setf p-mod
               (max
-               (* 1d-6 P-0)
+               (* 1d-3 P-0)
                (* (max 1d-3 (expt (/ (+ K (* 4/3 G)) P-0) 1))
                   (cl-mpm/particle::mp-p-wave-elastoplastic mp))))))))
 

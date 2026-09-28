@@ -51,7 +51,7 @@
                        ;;Start at point a and step through to b
                        (step-point (cl-mpm/utils::vector-copy pos-a))
                        ;;Resolution of our midpoint integration
-                       (step-size (/ h 2d0))
+                       (step-size (/ h 4d0))
                        (damage-n (get-damage step-point)))
                   (cl-mpm/fastmaths:fast-scale! step-norm (/ 1d0 length))
                   (labels ((deg-func (damage)
@@ -118,7 +118,7 @@
      (cl-mpm/particle::mp-local-length mp)
      (lambda (mp-other)
        (with-accessors ((d cl-mpm/particle::mp-damage)
-                        (m cl-mpm/particle:mp-volume)
+                        (m cl-mpm/particle::mp-volume-n)
                         (ll cl-mpm/particle::mp-local-length)
                         (p cl-mpm/particle:mp-position))
            mp-other

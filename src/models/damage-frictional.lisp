@@ -184,7 +184,18 @@
 
 
 (defclass cl-mpm/particle::particle-fpd-gill (cl-mpm/particle::particle-plastic-damage-frictional)
-  ())
+  ((gill-n
+    :initform (cl-mpm/utils:vector-zeros)
+    :accessor mp-gill-n)
+   (gill-m
+    :initform (cl-mpm/utils:vector-zeros)
+    :accessor mp-gill-m)
+   (gill-epsn
+    :initform 0d0
+    :accessor mp-gill-epsn)
+   (gill-chi
+    :initform 0d0
+    :accessor mp-gill-chi)))
 
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-fpd-gill) dt)

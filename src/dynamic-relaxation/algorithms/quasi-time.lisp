@@ -18,6 +18,7 @@
                           (max-plastic-inc 10d0)
                           (max-deformation-gradient 10d0)
                           (min-tangent-ratio 1d-1)
+                          ;; (min-tangent-ratio nil)
                           (stagger-damage :HYBRID)
                           (plotter (lambda (sim))))
   (let ((total-i 0)
