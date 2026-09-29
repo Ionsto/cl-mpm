@@ -125,19 +125,22 @@
 
 (declaim (ftype (function (cl-mpm/particle:particle function) (values)) calculate-val-mp))
 (defun calculate-val-mp (mp func)
-  (let ((pos
-          ;; (cl-mpm/particle::mp-position-trial mp)
-          (get-mp-position mp)
-          ;; (cl-mpm/particle::mp-position mp)
-          ;; (cl-mpm/particle::mp-position-trial mp)
-          ;; (fast-.+
-          ;;  ;; (cl-mpm/particle::mp-position mp)
-          ;;  ;; (cl-mpm/particle::mp-displacement-increment mp)
-          ;;  (cl-mpm/particle::mp-position-trial mp)
-          ;;  ;; (cl-mpm/particle::mp-displacement-increment mp)
-          ;;  )
-             ))
+  (let ((pos (get-mp-position mp)))
     (funcall func pos)))
+
+(defun calculate-val-mp-stress (mp func &optional (result nil))
+  (declare (function func))
+  (let ((pos (get-mp-position mp))
+        (result (if result (fast-zero result) (cl-mpm/utils::voigt-zeros))))
+    (funcall func pos result)
+    result))
+
+(defun calculate-val-mp-force (mp func &optional (result nil))
+  (declare (function func))
+  (let ((pos (get-mp-position mp))
+        (result (if result (fast-zero result) (cl-mpm/utils::vector-zeros))))
+    (funcall func pos result)
+    result))
 
 (defun calculate-scalar-val-mp-datum-proportional (mp func datum)
   (let ((pos (get-mp-position mp)))
@@ -990,11 +993,14 @@
       (apply-force-mps-3d
        mesh
        mps
-       (lambda (mp res) (calculate-val-stress-mp-gimp mesh mp func-stress res))
-       (lambda (mp res) (calculate-val-force-mp-gimp mesh mp func-div res))
+       (lambda (mp res) (calculate-val-mp-stress mp func-stress res))
+       (lambda (mp res) (calculate-val-mp-force mp func-div res))
+       ;; (lambda (mp res) (calculate-val-stress-mp-gimp mesh mp func-stress res))
+       ;; (lambda (mp res) (calculate-val-force-mp-gimp mesh mp func-div res))
        (lambda (pos) (funcall clip-function pos datum))
        :scalar
-       (lambda (mp) (calculate-val-scalar-mp-gimp mesh mp #'melt-rate))
+       ;; (lambda (mp) (calculate-val-scalar-mp-gimp mesh mp #'melt-rate))
+       (lambda (mp) (calculate-val-mp mp #'melt-rate))
        :damage-volume nil)
 
       (cl-mpm:iterate-over-nodes

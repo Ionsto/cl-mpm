@@ -150,13 +150,16 @@
                    (init-stress mp-initiation-stress)
                    (oversize mp-oversize-scale))
       mp
+    (break)
     (let* ((c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (rad-to-deg angle)))
            (rs (cl-mpm/damage::est-shear-from-angle (rad-to-deg angle) (rad-to-deg angle-r) rc))
            (residual-strength (cl-mpm/particle::mp-residual-strength mp))
            (oversize-ratio (cl-mpm/damage::compute-oversize-factor oversize ductility)))
       (setf
-       (cl-mpm/particle::mp-phi mp) angle
+       ;(cl-mpm/particle::mp-phi mp) angle
+       (cl-mpm/particle::mp-phi mp) (atan (/ (tan angle) oversize))
        (mp-c mp) (* oversize-ratio c)
+       (mp-c-0 mp) (* oversize-ratio c)
        (mp-shear-residual-ratio mp) rs))))
 
 (defun get-volumetric-damage (mp)
@@ -186,164 +189,209 @@
                    (init-stress mp-initiation-stress)
                    (oversize mp-oversize-scale))
       mp
-    (let* ((pang
-             angle
-             ;; (cl-mpm/utils:deg-to-rad 50d0)
-                 )
-           (c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (rad-to-deg angle)))
+    (let* (;; (pang (atan (/ (tan angle-r) (- 1d0 oversize))))
+           (pang angle)
+           (c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (rad-to-deg pang)))
            (rs (cl-mpm/damage::est-shear-from-angle (rad-to-deg pang) (rad-to-deg angle-r) rc))
            (residual-strength (cl-mpm/particle::mp-residual-strength mp))
            (oversize-ratio (cl-mpm/damage::compute-oversize-factor oversize ductility)))
+      (declare (double-float pang oversize))
       (setf
        (cl-mpm/particle::mp-phi mp) pang
        (mp-c mp) (* oversize-ratio c)
-       (mp-shear-residual-ratio mp) rs)
+       (mp-c-0 mp) (* oversize-ratio c)
+       (mp-shear-residual-ratio mp) rs
+       ;; (mp-shear-residual-ratio mp) 1d0
+       )
       ;; (setf (mp-shear-residual-ratio mp) (min (mp-shear-residual-ratio mp) residual-strength)
       ;;       (mp-k-tensile-residual-ratio mp) (min residual-strength (mp-k-tensile-residual-ratio mp)))
       )))
 
 
 (defparameter *mux* (sb-thread:make-mutex))
-(defmethod constitutive-model ((mp particle-ice-brittle) strain dt)
-  "Strain intergrated elsewhere, just using elastic tensor"
-  (with-accessors ((de mp-elastic-matrix)
-                   (stress mp-stress)
-                   (stress-u mp-undamaged-stress)
-                   (strain mp-strain)
-                   (strain-n mp-strain-n)
-                   (trial-elastic-strain mp-trial-strain)
-                   (damage mp-damage)
-                   (damage-pressure mp-damage-pressure)
-                   (damage-t mp-damage-tension)
-                   (damage-c mp-damage-compression)
-                   (damage-s mp-damage-shear)
-                   (coheasion mp-c)
-                   (ps-vm mp-strain-plastic-vm)
-                   (ps-vm-inc mp-strain-plastic-vm-inc)
-                   (ps-vm-1 mp-strain-plastic-vm-1)
-                   (plastic-strain mp-strain-plastic)
-                   (yield-func mp-yield-func)
-                   (enable-plasticity mp-enable-plasticity)
-                   (enable-damage mp-enable-damage)
-                   (E mp-E)
-                   (nu mp-nu)
-                   (phi mp-phi)
-                   (psi mp-psi)
-                   (kc-r mp-k-compressive-residual-ratio)
-                   (kt-r mp-k-tensile-residual-ratio)
-                   (g-r mp-shear-residual-ratio)
-                   (L                cl-mpm/particle::mp-stretch-tensor)
-                   (j mp-deformation-jacobian-strain)
-                   (pressure mp-pressure)
-                   (p-wave cl-mpm/particle::mp-p-modulus-0)
-                   (p cl-mpm/particle::mp-pressure)
-                   )
-      mp
-    (declare (magicl:matrix/double-float de stress stress-u strain plastic-strain)
-             (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi kc-r kt-r g-r damage j dt))
-    ;;Train elastic strain - plus trail kirchoff stress
-    (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
-    ;;Viscoelastic corrector
-    (setf p-wave (cl-mpm/particle::compute-p-modulus mp))
-    (when (and (cl-mpm/particle::mp-enable-viscosity mp)
-               (> dt 0d0))
-      ;; (let ((viscosity
-      ;;         (cl-mpm/models/visco::glen-flow-scalar-j2
-      ;;          stress-u strain-n strain e nu de
-      ;;          111d6
-      ;;          3d0
-      ;;          dt
-      ;;          :result-stress stress-u
-      ;;          :result-strain strain)))
-      ;;   (let* ((K (cl-mpm/particle::calculate-bulk-modulus e nu))
-      ;;          (G (cl-mpm/particle::calculate-shear-modulus e nu))
-      ;;          (rho (/ viscosity G))
-      ;;          (dy (/ dt rho))
-      ;;          (exp-rho (exp (- dy)))
-      ;;          (lam (/ (- 1 exp-rho) dy)))
-      ;;     (declare (double-float K G rho dy exp-rho lam dt viscosity p-wave))
-      ;;     (setf p-wave (+ K (* 4/3 G lam))))
-      ;;   )
-      (let ((viscosity (cl-mpm/particle::mp-viscosity mp)))
-        (let* ((K (cl-mpm/particle::calculate-bulk-modulus e nu))
-               (G (cl-mpm/particle::calculate-shear-modulus e nu))
-               (rho (/ viscosity G))
-               (dy (/ dt rho))
-               (exp-rho (exp (- dy)))
-               (lam (/ (- 1 exp-rho) dy)))
-          (declare (double-float K G rho dy exp-rho lam dt viscosity p-wave))
-          (cl-mpm/models/visco::dev-exp-v stress-u strain-n strain e nu de viscosity dt)
-          (setf p-wave (+ K (* 4/3 G lam))))
-        ;; (multiple-value-bind (eps pmod) (cl-mpm/ext::constitutive-viscoelastic stress-u strain de e nu dt viscosity)
-        ;;   (setf p-wave pmod)
-        ;;   )
-        )
-      )
-    (cl-mpm/utils:voigt-copy-into strain trial-elastic-strain)
-    (when enable-plasticity
-      (let* ((K (/ e (* 3 (- 1d0 (* 2 nu))))))
-        (declare (double-float damage-pressure coheasion pressure))
-          (setf
-           damage-pressure
-           (- 1d0 damage))
-          ;; (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm-tangent
-          ;;                                              stress-u
-          ;;                                              strain
-          ;;                                              de
-          ;;                                              e nu
-          ;;                                              coheasion
-          ;;                                              (cl-mpm/particle::mp-tangent-stiffness mp))
-          ;;   (setf stress-u sig yield-func f)
-          ;;   (let ((probe-vec (cl-mpm/utils::voigt-zeros))
-          ;;         (dep (cl-mpm/particle::mp-tangent-stiffness mp)))
-          ;;     (setf p-wave (* 1d-6 p-wave))
-          ;;     (loop for d from 0 below 2
-          ;;           do (progn
-          ;;                (cl-mpm/fastmaths::fast-zero probe-vec)
-          ;;                (setf (varef probe-vec d) 1d0)
-          ;;                (setf p-wave
-          ;;                      (max p-wave
-          ;;                           (cl-mpm/utils:varef (cl-mpm/fastmaths::fast-@-tensor-voigt dep probe-vec)
-          ;;                                               d))))))
-          ;;   (setf ps-vm-inc inc)
-          ;;   (setf strain eps-e)
-          ;;   (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
-
-          (multiple-value-bind (sig eps-e f inc pmod)
-              (cl-mpm/ext::constitutive-mohr-coulomb
-               stress-u
-               de
-               strain
-               E
-               nu
-               phi
-               psi
-               (max 0d0
-                    (+
-                     coheasion
-                     (*
-                      0d0
-                      pressure
-                      damage-pressure))))
+(cl-mpm/utils::with-voigt-pool
+    (defmethod constitutive-model ((mp particle-ice-brittle) strain dt)
+      "Strain intergrated elsewhere, just using elastic tensor"
+      (with-accessors ((de mp-elastic-matrix)
+                       (stress mp-stress)
+                       (stress-u mp-undamaged-stress)
+                       (strain mp-strain)
+                       (strain-n mp-strain-n)
+                       (trial-elastic-strain mp-trial-strain)
+                       (damage mp-damage)
+                       (damage-pressure mp-damage-pressure)
+                       (damage-t mp-damage-tension)
+                       (damage-c mp-damage-compression)
+                       (damage-s mp-damage-shear)
+                       (coheasion mp-c)
+                       (ps-vm mp-strain-plastic-vm)
+                       (ps-vm-inc mp-strain-plastic-vm-inc)
+                       (ps-vm-1 mp-strain-plastic-vm-1)
+                       (plastic-strain mp-strain-plastic)
+                       (yield-func mp-yield-func)
+                       (enable-plasticity mp-enable-plasticity)
+                       (enable-damage mp-enable-damage)
+                       (E mp-E)
+                       (nu mp-nu)
+                       (phi mp-phi)
+                       (psi mp-psi)
+                       (kc-r mp-k-compressive-residual-ratio)
+                       (kt-r mp-k-tensile-residual-ratio)
+                       (g-r mp-shear-residual-ratio)
+                       (L                cl-mpm/particle::mp-stretch-tensor)
+                       (j mp-deformation-jacobian-strain)
+                       (pressure mp-pressure)
+                       (p-wave cl-mpm/particle::mp-p-modulus-0)
+                       (p cl-mpm/particle::mp-pressure)
+                       )
+          mp
+        (declare (magicl:matrix/double-float de stress stress-u strain plastic-strain)
+                 (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi kc-r kt-r g-r damage j dt))
+        ;;Train elastic strain - plus trail kirchoff stress
+        (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
+        ;;Viscoelastic corrector
+        (setf p-wave (cl-mpm/particle::compute-p-modulus mp))
+        (when (and (cl-mpm/particle::mp-enable-viscosity mp)
+                   (> dt 0d0))
+          ;; (let ((viscosity
+          ;;         (cl-mpm/models/visco::glen-flow-scalar-j2
+          ;;          stress-u strain-n strain e nu de
+          ;;          111d6
+          ;;          3d0
+          ;;          dt
+          ;;          :result-stress stress-u
+          ;;          :result-strain strain)))
+          ;;   (let* ((K (cl-mpm/particle::calculate-bulk-modulus e nu))
+          ;;          (G (cl-mpm/particle::calculate-shear-modulus e nu))
+          ;;          (rho (/ viscosity G))
+          ;;          (dy (/ dt rho))
+          ;;          (exp-rho (exp (- dy)))
+          ;;          (lam (/ (- 1 exp-rho) dy)))
+          ;;     (declare (double-float K G rho dy exp-rho lam dt viscosity p-wave))
+          ;;     (setf p-wave (+ K (* 4/3 G lam))))
+          ;;   )
+          (let ((viscosity (cl-mpm/particle::mp-viscosity mp)))
+            (let* ((K (cl-mpm/particle::calculate-bulk-modulus e nu))
+                   (G (cl-mpm/particle::calculate-shear-modulus e nu))
+                   (rho (/ viscosity G))
+                   (dy (/ dt rho))
+                   (exp-rho (exp (- dy)))
+                   (lam (/ (- 1 exp-rho) dy)))
+              (declare (double-float K G rho dy exp-rho lam dt viscosity p-wave))
+              (cl-mpm/models/visco::dev-exp-v stress-u strain-n strain e nu de viscosity dt)
+              (setf p-wave (+ K (* 4/3 G lam))))
+            ;; (multiple-value-bind (eps pmod) (cl-mpm/ext::constitutive-viscoelastic stress-u strain de e nu dt viscosity)
+            ;;   (setf p-wave pmod)
+            ;;   )
+            )
+          )
+        (cl-mpm/utils:voigt-copy-into strain trial-elastic-strain)
+        (when enable-plasticity
+          (let* ((K (/ e (* 3 (- 1d0 (* 2 nu))))))
+            (declare (double-float damage-pressure coheasion pressure))
             (setf
-             stress-u sig
-             strain eps-e
-             yield-func f
-             ;; p-wave (* 1.0d0 pmod)
-             )
-            (when (> yield-func 0d0)
-              (setf p-wave (* 1.0d0 pmod)))
-            (let (;(inc (expt (* 1 (max 0d0
-                  ;                       (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
-                  ;                          (cl-mpm/utils::trace-voigt strain)))) 1))
-                  ;(inc (abs inc))
-                  )
-              (setf ps-vm (+ ps-vm-1 inc))
-              (setf ps-vm-inc inc)))
-          ))
-    (setf (cl-mpm/particle::mp-p-wave-elastoplastic mp) p-wave)
-    (cl-mpm/utils:voigt-copy-into stress-u stress)
-    stress))
+             damage-pressure
+             (- 1d0 damage))
+            ;; (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm-tangent
+            ;;                                              stress-u
+            ;;                                              strain
+            ;;                                              de
+            ;;                                              e nu
+            ;;                                              coheasion
+            ;;                                              (cl-mpm/particle::mp-tangent-stiffness mp))
+            ;;   (setf stress-u sig yield-func f)
+            ;;   (let ((probe-vec (cl-mpm/utils::voigt-zeros))
+            ;;         (dep (cl-mpm/particle::mp-tangent-stiffness mp)))
+            ;;     (setf p-wave (* 1d-6 p-wave))
+            ;;     (loop for d from 0 below 2
+            ;;           do (progn
+            ;;                (cl-mpm/fastmaths::fast-zero probe-vec)
+            ;;                (setf (varef probe-vec d) 1d0)
+            ;;                (setf p-wave
+            ;;                      (max p-wave
+            ;;                           (cl-mpm/utils:varef (cl-mpm/fastmaths::fast-@-tensor-voigt dep probe-vec)
+            ;;                                               d))))))
+            ;;   (setf ps-vm-inc inc)
+            ;;   (setf strain eps-e)
+            ;;   (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
+
+            (let* ((new-stress (grab-new-voigt))
+                   (new-strain (grab-new-voigt))
+                   (c-0 (cl-mpm/particle::mp-c-0 mp))
+                   (soft (* c-0 (cl-mpm/particle::mp-softening mp))))
+              (declare (double-float c-0 soft))
+              (labels ((plastic (plastic-vm)
+                         (declare (double-float plastic-vm))
+                         (setf coheasion (+ c-0 (* soft plastic-vm)))
+                         (cl-mpm/utils:voigt-copy-into stress-u new-stress)
+                         (cl-mpm/utils:voigt-copy-into strain new-strain)
+                         (multiple-value-bind (sig eps-e f inc pmod)
+                             (cl-mpm/ext::constitutive-mohr-coulomb
+                              new-stress
+                              de
+                              new-strain
+                              E
+                              nu
+                              phi
+                              psi
+                              coheasion)
+                           ;; (when (> yield-func 0d0))
+                           ;; (setf p-wave (* 1.0d0 pmod))
+                           (let (;; (inc (expt (* 1 (max 0d0
+                                 ;;                      (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
+                                 ;;                         (cl-mpm/utils::trace-voigt new-strain)))) 1))
+                                 )
+                             (setf
+                              new-stress sig
+                              new-strain eps-e
+                              yield-func f
+                              ps-vm-inc inc
+                              ps-vm (+ ps-vm-1 inc))
+                             inc))))
+                (if (= soft 0d0)
+                    (plastic ps-vm-1)
+                    (cl-mpm/constitutive::secant-hardening
+                     #'plastic
+                     ps-vm-1
+                     #'identity)))
+              (cl-mpm/utils::voigt-copy-into new-stress stress-u)
+              (cl-mpm/utils::voigt-copy-into new-strain strain))
+
+            ;; (multiple-value-bind (sig eps-e f inc pmod)
+            ;;     (cl-mpm/ext::constitutive-mohr-coulomb
+            ;;      stress-u
+            ;;      de
+            ;;      strain
+            ;;      E
+            ;;      nu
+            ;;      phi
+            ;;      psi
+            ;;      (max 0d0
+            ;;           (+
+            ;;            coheasion
+            ;;            (*
+            ;;             0d0
+            ;;             pressure
+            ;;             damage-pressure))))
+            ;;   (setf
+            ;;    stress-u sig
+            ;;    strain eps-e
+            ;;    yield-func f
+            ;;    ;; p-wave (* 1.0d0 pmod)
+            ;;    )
+            ;;   (when (> yield-func 0d0)
+            ;;     (setf p-wave (* 1.0d0 pmod)))
+            ;;   (let (;(inc (expt (* 1 (max 0d0
+            ;;         ;                       (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
+            ;;         ;                          (cl-mpm/utils::trace-voigt strain)))) 1))
+            ;;         ;(inc (abs inc))
+            ;;         )
+            ;;     (setf ps-vm (+ ps-vm-1 inc))
+            ;;     (setf ps-vm-inc inc)))
+            ))
+        (setf (cl-mpm/particle::mp-p-wave-elastoplastic mp) p-wave)
+        (cl-mpm/utils:voigt-copy-into stress-u stress)
+        stress)))
 
 
 
@@ -743,8 +791,11 @@
       (setf
        damage (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility residual-strength)
        damage-tension (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility kt-r)
-       damage-shear (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility g-r)
-       damage-compression (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility kc-r)))))
+       ;; damage-shear (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility g-r)
+       ;; damage-compression (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility kc-r)
+       )
+      (setf damage-shear (* damage g-r)
+            damage-compression (* damage kc-r)))))
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-ice-brittle) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)

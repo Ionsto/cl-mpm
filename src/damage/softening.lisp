@@ -118,8 +118,7 @@
          (e0 (/ ft E))
          (ef (/ (* ft (+ ductility 1d0)) (* 2d0 E)))
          (beta (/ 1d0 (- ef e0)))
-         (y (- 1d0 damage-final))
-         )
+         (y (- 1d0 damage-final)))
     (* (/ 1d0 e0)
        (/ (+
            (* y (- ef e0) (cl-mpm/fastmaths::lambert-w-0 (/ (* -1d0 e0 residual (exp (/ (* -1d0 e0 (+ residual y -1d0))
