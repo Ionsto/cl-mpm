@@ -146,7 +146,9 @@
 (make-mpi-ser
  damage-mp
  ((vector position cl-mpm/particle::mp-position)
+  (vector position-trial cl-mpm/particle::mp-position-trial)
   (float volume cl-mpm/particle::mp-volume)
+  (float volume-n cl-mpm/particle::mp-volume-n)
   (float damage cl-mpm/particle::mp-damage)
   (float y cl-mpm/particle::mp-damage-y-local)
   (float local-length cl-mpm/particle::mp-true-local-length)

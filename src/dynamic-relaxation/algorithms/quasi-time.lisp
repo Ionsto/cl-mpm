@@ -223,7 +223,7 @@
                                                           (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)))
                                                        (setf dconv (compute-damage-delta sim))
                                                        (cl-mpm:sim-format sim t "step ~D/~D - d-conv ~E~%" stagger-i d dconv)
-                                                       (funcall plotter)
+                                                       (funcall plotter sim)
                                                        (save-conv-step sim output-dir *total-iter* global-step 0d0 (cl-mpm::sim-stats-oobf sim) 0d0)
                                                        (when save-vtk-dr
                                                          (save-vtks-dr-step sim output-dir global-step *trial-iter* total-i))

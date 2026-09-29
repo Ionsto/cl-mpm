@@ -794,8 +794,9 @@
        ;; damage-shear (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility g-r)
        ;; damage-compression (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility kc-r)
        )
-      (setf damage-shear (* damage g-r)
-            damage-compression (* damage kc-r)))))
+      (setf
+       damage-shear (* damage g-r)
+       damage-compression (* damage kc-r)))))
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-ice-brittle) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)

@@ -1023,6 +1023,7 @@
  ((index index cl-mpm/mesh::node-index)
   (int boundary-node (lambda (mp) (if (cl-mpm/mesh::node-boundary-node mp) 1 0)))
   (float scalar cl-mpm/mesh::node-boundary-scalar)
+  (vector boundary-vector cl-mpm/mesh::node-boundary-vec)
   ))
 (in-package :cl-mpm/buoyancy)
 (defgeneric exchange-bc-data (sim bc))
@@ -1043,20 +1044,39 @@
           (if node
               (with-accessors ((active cl-mpm/mesh:node-active)
                                (boundary cl-mpm/mesh::node-boundary-node)
+                               (boundary-vec cl-mpm/mesh::node-boundary-vec)
                                (scalar cl-mpm/mesh::node-boundary-scalar))
                   node
                 (declare (double-float scalar))
-                (if (cl-mpm/mpi::in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) 1)
-                    (progn
-                      (setf boundary (or
-                                      mpi-boundary
-                                      boundary))
-                      (incf scalar (the double-float (cl-mpm/mpi::mpi-object-node-buoyancy-scalar mpi-node))))
-                    (progn
-                      (setf boundary mpi-boundary)
-                      (setf scalar (the double-float (cl-mpm/mpi::mpi-object-node-buoyancy-scalar mpi-node))))
-                    ))
-              (error "Buoancy MPI exchange touched invalid node?"))))))))
+                (cl-mpm/fastmaths::fast-.+
+                 boundary-vec
+                 (cl-mpm/mpi::mpi-object-node-buoyancy-boundary-vector mpi-node)
+                 boundary-vec)
+                ;; (if (cl-mpm/mpi::in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) 1)
+                ;;     (progn
+                ;;       (setf boundary (or
+                ;;                       mpi-boundary
+                ;;                       boundary))
+                ;;       ;; (incf scalar (the double-float (cl-mpm/mpi::mpi-object-node-buoyancy-scalar mpi-node)))
+                ;;       )
+                ;;     (progn
+                ;;       (setf boundary mpi-boundary)
+                ;;       (setf scalar (the double-float (cl-mpm/mpi::mpi-object-node-buoyancy-scalar mpi-node))))
+                ;;     )
+                )
+              (error "Buoancy MPI exchange touched invalid node?"))))))
+    (cl-mpm:iterate-over-nodes
+     mesh
+     (lambda (node)
+       (when (cl-mpm/mesh::node-active node)
+         (when (cl-mpm/mesh::node-bcs node)
+           (cl-mpm/fastmaths::fast-.*
+            (cl-mpm/mesh::node-bcs node)
+            (cl-mpm/mesh::node-boundary-vec node)
+            (cl-mpm/mesh::node-boundary-vec node)))
+         (setf (cl-mpm/mesh::node-boundary-scalar node)
+               (max 0d0 (cl-mpm/fastmaths:mag (cl-mpm/mesh::node-boundary-vec node)))))))
+    ))
 
 (defmethod cl-mpm/bc::apply-sim-bc ((sim mpm-sim) (bc bc-buoyancy) dt)
   "Arbitrary closure BC"
