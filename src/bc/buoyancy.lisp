@@ -199,15 +199,31 @@
   (cl-mpm/particle::corner-trial-position corner)
   )
 
-(defun calculate-val-gimp (mesh mp func)
-  (declare (function func))
-  ;; (funcall func (cl-mpm/particle::mp-position-trial mp))
-  (cl-mpm/particle::iterate-over-mp-corners
-   mp
-   (lambda (c)
-     (let ()
-       (let ((pos (cl-mpm/particle::corner-trial-position c)))
-         (funcall func pos))))))
+(cl-mpm/utils::with-vector-pool
+    (defun calculate-val-gimp (mesh mp func)
+      (declare (function func))
+      ;; (funcall func (cl-mpm/particle::mp-position-trial mp))
+      (let ((center-pos (cl-mpm/particle::mp-position-trial mp)))
+        (cl-mpm/particle::iterate-over-mp-corners
+         mp
+         (lambda (c)
+           (let ()
+             (let ((pos
+                     ;; (cl-mpm/fastmaths::fast-scale!
+                     ;;  (cl-mpm/fastmaths::fast-.+
+                     ;;   (cl-mpm/particle::corner-trial-position c)
+                     ;;   center-pos
+                     ;;   (grab-new-vector))
+                     ;;  0.5d0)
+                     (cl-mpm/particle::corner-trial-position c)))
+               (funcall func pos))
+             ;; (let ((pos (cl-mpm/fastmaths::fast-.+
+             ;;             (cl-mpm/particle::corner-trial-position c)
+             ;;             center-pos
+             ;;             (grab-new-vector))))
+             ;;   (cl-mpm/fastmaths::fast-scale! pos 0.5d0)
+             ;;   (funcall func pos))
+             ))))))
 
 (defun calculate-val-scalar-mp-gimp (mesh mp func)
   (let ((val 0d0)
@@ -222,36 +238,39 @@
       (setf val (/ val count)))
     val))
 
-(defun calculate-val-stress-mp-gimp (mesh mp func &optional (result nil))
-  (declare (function func))
-  (let ((val (if result (fast-zero result) (cl-mpm/utils::voigt-zeros)))
-        (temp (cl-mpm/utils::voigt-zeros))
-        (count 0))
-    (calculate-val-gimp
-     mesh
-     mp
-     (lambda (pos)
-       (cl-mpm/fastmaths::fast-.+ val (funcall func pos temp) val)
-       (incf count)))
-    (when (> count 0)
-      (cl-mpm/fastmaths::fast-scale! val (/ 1d0 count)))
-    val))
+(cl-mpm/utils::with-voigt-pool
+    (defun calculate-val-stress-mp-gimp (mesh mp func &optional (result nil))
+      (declare (function func))
+      (let ((val (if result (fast-zero result) (cl-mpm/utils::voigt-zeros)))
+            (temp (grab-new-voigt))
+            (count 0))
+        (declare (fixnum count))
+        (calculate-val-gimp
+         mesh
+         mp
+         (lambda (pos)
+           (cl-mpm/fastmaths::fast-.+ val (funcall func pos temp) val)
+           (incf count)))
+        (when (> count 0)
+          (cl-mpm/fastmaths::fast-scale! val (/ 1d0 count)))
+        val)))
 
-(defun calculate-val-force-mp-gimp (mesh mp func &optional (result nil))
-  (declare (function func))
-  (let ((val (if result (fast-zero result) (cl-mpm/utils::vector-zeros)))
-        (temp (cl-mpm/utils::voigt-zeros))
-        (count 0))
-    (declare (fixnum count))
-    (calculate-val-gimp
-     mesh
-     mp
-     (lambda (pos)
-       (cl-mpm/fastmaths::fast-.+ val (funcall func pos temp) val)
-       (incf count)))
-    (when (> count 0)
-      (cl-mpm/fastmaths::fast-scale! val (/ 1d0 count)))
-    val))
+(cl-mpm/utils::with-vector-pool
+    (defun calculate-val-force-mp-gimp (mesh mp func &optional (result nil))
+      (declare (function func))
+      (let ((val (if result (fast-zero result) (cl-mpm/utils::vector-zeros)))
+            (temp (grab-new-vector))
+            (count 0))
+        (declare (fixnum count))
+        (calculate-val-gimp
+         mesh
+         mp
+         (lambda (pos)
+           (cl-mpm/fastmaths::fast-.+ val (funcall func pos temp) val)
+           (incf count)))
+        (when (> count 0)
+          (cl-mpm/fastmaths::fast-scale! val (/ 1d0 count)))
+        val)))
 
 (declaim (ftype (function (cl-mpm/mesh::cell function) (values)) calculate-val-cell))
 (defun calculate-val-cell (cell func)
@@ -971,10 +990,6 @@
       (apply-force-mps-3d
        mesh
        mps
-       ;; (lambda (mp) (calculate-val-mp mp func-stress))
-       ;; (lambda (mp) (calculate-val-mp mp func-div))
-       ;; (lambda (mp) (calculate-val-mp-datum-propotional mp func-stress datum))
-       ;; (lambda (mp) (calculate-val-mp-datum-propotional mp func-div datum))
        (lambda (mp res) (calculate-val-stress-mp-gimp mesh mp func-stress res))
        (lambda (mp res) (calculate-val-force-mp-gimp mesh mp func-div res))
        (lambda (pos) (funcall clip-function pos datum))
@@ -1097,9 +1112,6 @@
            mps
            (lambda (mp)
              (with-accessors ((pressure cl-mpm/particle::mp-pressure)
-                              (mp-datum cl-mpm/particle::mp-pressure-datum)
-                              (mp-head cl-mpm/particle::mp-pressure-head)
-                              (mp-pfunc cl-mpm/particle::mp-pressure-func)
                               (mp-boundary cl-mpm/particle::mp-boundary)
                               (mp-volume cl-mpm/particle::mp-volume)
                               (damage cl-mpm/particle::mp-damage)
