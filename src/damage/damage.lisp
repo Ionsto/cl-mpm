@@ -289,27 +289,40 @@
       (update-localisation sim dt)
       (update-damage-mps sim dt)
 
-      ;; (when (cl-mpm::sim-enable-damage sim)
-      ;;   (let ((dconv (compute-damage-delta sim)))
-      ;;     (when (> dconv 1d-9)
-      ;;       ;; (update-localisation sim dt)
-      ;;       ;; (update-damage-mps sim dt)
-      ;;       ;; (setf dconv (compute-damage-delta sim))
-      ;;       (loop for i from 1 below 10
-      ;;             while (> dconv 1d-9)
-      ;;             do (progn
-      ;;                  (format t "Internal update ~D ~E~%" i dconv)
-      ;;                  (dotimes (i 10)
-      ;;                    (cl-mpm/damage::update-localisation sim dt)
-      ;;                    (cl-mpm/damage::update-damage-mps sim dt))
-      ;;                  (setf dconv (compute-damage-delta sim))
-      ;;                  (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv)))
-      ;;       (cl-mpm:iterate-over-mps
-      ;;        mps
-      ;;        (lambda (mp)
-      ;;          (when (typep mp 'cl-mpm/particle:particle-damage)
-      ;;            (cl-mpm/particle::post-damage-step mp dt))
-      ;;          (values))))))
+      (when (cl-mpm::sim-enable-damage sim)
+        (setf (cl-mpm/damage::sim-stats-damage-residual sim) (compute-damage-delta sim)))
+      (when (cl-mpm::sim-enable-damage sim)
+        (let* ((dconv (cl-mpm/damage::sim-stats-damage-residual sim))
+               (dconv-0 dconv)
+               (crit 1d-6)
+               )
+          (when (> dconv crit)
+            ;; (update-localisation sim dt)
+            ;; (update-damage-mps sim dt)
+            ;; (setf dconv (compute-damage-delta sim))
+            ;; (format t "Internal update ~D ~E~%" 0 dconv)
+            (let ((iter 0))
+              (loop for i from 1 below 20
+                    while (> dconv crit)
+                    do (progn
+                         (dotimes (i 2)
+                           (incf iter)
+                           (cl-mpm/damage::update-localisation sim dt)
+                           (cl-mpm/damage::update-damage-mps sim dt))
+                         (setf dconv (compute-damage-delta sim))
+                         ;; (format t "Internal update ~D ~E~%" i dconv)
+                         ;; (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv)
+                         ))
+              ;; (format t "Internal update ~D ~E~%" iter dconv)
+              )
+            ;; (cl-mpm:iterate-over-mps
+            ;;  mps
+            ;;  (lambda (mp)
+            ;;    (when (typep mp 'cl-mpm/particle:particle-damage)
+            ;;      (cl-mpm/particle::post-damage-step mp dt))
+            ;;    (values)))
+            (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv-0)
+            )))
       )
     (cl-mpm:iterate-over-mps
      mps
@@ -532,10 +545,10 @@
                     (the double-float
                          ;; (* (the double-float (expt (min 1d0 (max 0d0 (- 1d0 da))) 2))
                          ;;    (the double-float (expt (min 1d0 (max 0d0 (- 1d0 da-other))) 2)))
-                         ;; (* (the double-float (min 1d0 (max 0d0 (- 1d0 da))))
-                         ;;    (the double-float (min 1d0 (max 0d0 (- 1d0 da-other)))))
-                         (* (the double-float (sqrt (min 1d0 (max 0d0 (- 1d0 da)))))
-                            (the double-float (sqrt (min 1d0 (max 0d0 (- 1d0 da-other))))))
+                         (* (the double-float (min 1d0 (max 0d0 (- 1d0 da))))
+                            (the double-float (min 1d0 (max 0d0 (- 1d0 da-other)))))
+                         ;; (* (the double-float (sqrt (min 1d0 (max 0d0 (- 1d0 da)))))
+                         ;;    (the double-float (sqrt (min 1d0 (max 0d0 (- 1d0 da-other))))))
                          )))))))))
 
 (defun weight-func-mps-scatter (mesh mp-a mp-b pos-a pos-b length)
@@ -543,7 +556,7 @@
   (let ((da (cl-mpm/particle::mp-av-damage mp-a))
         (da-other (cl-mpm/particle::mp-av-damage mp-b)))
     (declare (double-float length da da-other))
-    (flet (;(deg (d) (max 1d-15 (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 d)))))))
+    (flet (;;(deg (d) (max 1d-15 (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 d)))))))
            (deg (d) (max 1d-15 (the double-float (expt (max 0d0 (min 1d0 (- 1d0 d))) 1))))
            )
       (weight-func

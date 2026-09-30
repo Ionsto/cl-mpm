@@ -1148,15 +1148,24 @@
                (declare (double-float mp-mass mp-volume-0 damage))
                (setf
                 pressure
-                (calculate-val-scalar-mp-gimp
-                 mesh
+                (calculate-val-mp
                  mp
                  (lambda (pos)
                    (pressure-at-depth
                     (varef pos 1)
                     datum
                     rho
-                    (cl-mpm:sim-gravity sim)))))
+                    (cl-mpm:sim-gravity sim))))
+                ;; (calculate-val-scalar-mp-gimp
+                ;;  mesh
+                ;;  mp
+                ;;  (lambda (pos)
+                ;;    (pressure-at-depth
+                ;;     (varef pos 1)
+                ;;     datum
+                ;;     rho
+                ;;     (cl-mpm:sim-gravity sim))))
+                )
                (when (and (typep mp 'cl-mpm/particle::particle-damage)
                           (> damage 0d0))
                  (let ((biot 1d0))
@@ -1164,8 +1173,7 @@
                      (setf biot (cl-mpm/particle::mp-biot-coefficent mp)))
                    ;; (pprint biot)
                    (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
-                         (calculate-val-scalar-mp-gimp
-                          mesh
+                         (calculate-val-mp
                           mp
                           (lambda (pos)
                             (*
@@ -1173,7 +1181,18 @@
                              biot
                              damage
                              (- rho (/ mp-mass mp-volume-0))
-                             gravity))))))
+                             gravity)))
+                         ;; (calculate-val-scalar-mp-gimp
+                         ;;  mesh
+                         ;;  mp
+                         ;;  (lambda (pos)
+                         ;;    (*
+                         ;;     (if (< (varef pos 1) datum) 1d0 0d0)
+                         ;;     biot
+                         ;;     damage
+                         ;;     (- rho (/ mp-mass mp-volume-0))
+                         ;;     gravity)))
+                         )))
 
                (cl-mpm::iterate-over-neighbours
                 mesh mp
