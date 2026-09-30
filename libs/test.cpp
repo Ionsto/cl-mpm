@@ -56,17 +56,23 @@ extern "C" {
     strain = strainE;
     return true;
   }
-  bool CppMohrCoulomb(double * strain_ptr,double & f,double & psinc,double & pmod,double E, double nu, double phi, double psi, double c)
+  bool CppMohrCoulomb(double * strain_ptr,double & f,double & psinc,double & pmod,double E, double nu, double phi, double psi, double c, double * dep_ptr)
   {
     Eigen::Map<Eigen::Matrix<double,6,1>> strain(strain_ptr);
-    MohrCoulombReturn result = MohrCoulomb(strain,E,nu,phi,psi,c);
+    Eigen::Map<Eigen::Matrix<double,6,6>> dep(dep_ptr);
+    TangentReturn result = MohrCoulomb(strain,E,nu,phi,psi,c);
     Eigen::Matrix<double,6,1> strainE = std::get<0>(result);
+    bool yeilding = std::get<4>(result);
     //std::cout<<"strain\n"<<strainE<<"\n";
-    f = std::get<1>(result);
-    psinc = std::get<2>(result);
+    Eigen::Matrix<double,6,6> newDEP = std::get<1>(result);
+    if(yeilding){
+      dep = newDEP;
+    }
+    f = std::get<2>(result);
+    psinc = std::get<3>(result);
     strain = strainE;
-    pmod = std::get<4>(result);
-    return std::get<3>(result);
+    pmod = std::get<5>(result);
+    return yeilding;
   }
 
   bool CppVonMises(double * strain_ptr,double & f,double & psinc,double & pmod,double E, double nu, double rho)

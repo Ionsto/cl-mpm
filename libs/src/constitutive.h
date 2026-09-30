@@ -203,7 +203,7 @@ namespace constitutive{
 
 
   inline
-    MohrCoulombReturn MohrCoulomb(Eigen::Matrix<double,6,1> elastic_strain, double E, double nu, double phi, double psi, double c) {
+    TangentReturn MohrCoulomb(Eigen::Matrix<double,6,1> elastic_strain, double E, double nu, double phi, double psi, double c) {
 
 
       Eigen::Matrix<double,3,3> Ce = (Eigen::Matrix<double,3,3>()<<
@@ -284,6 +284,7 @@ namespace constitutive{
         // Eigen::Matrix<double,3,1> pinc = (epsE - epsEtr).reverse();
         Eigen::Matrix<double,3,1> pinc = (epsE - epsEtr);
         const double psinc = std::sqrt((2.0/3.0) * pinc.squaredNorm());
+        // const double psinc = sig.dot(pinc);
         // const double psinc = std::sqrt(0.5 *
         //                               (std::pow(pinc[0] - pinc[1],2) +
         //                                 std::pow(pinc[1] - pinc[2],2) +
@@ -313,10 +314,10 @@ namespace constitutive{
         //Eigen::Matrix<double,6,1> n = Eigen::Matrix<double,6,1>::Zero();
         //n(0) = 1.0;
         //pmod = std::max(pmod,(n.transpose() * dep * n)(0,0));
-        return MohrCoulombReturn(outstrain,f,psinc,true,pmod);
+        return TangentReturn(outstrain,dep,f,psinc,true,pmod);
       }
       double pmod = (((1-nu)*E)/((1 + nu) * (1 - (2 * nu))));
-      return MohrCoulombReturn(elastic_strain,f,0.0,false,pmod);
+      return TangentReturn(elastic_strain,Eigen::Matrix<double,6,6>::Zero(),f,0.0,false,pmod);
     }
 
 
@@ -369,13 +370,15 @@ namespace constitutive{
         abort();
       }
       double pmod_0 = (((1-nu)*E)/((1 + nu) * (1 - (2 * nu))));
+      double pmod_x = 0;
+      double pmod_y = 0;
       double pmod = pmod_0*1e-6;
       Eigen::Matrix<double,3,3> dep = (C + (dev * (dt/viscosity))).inverse();
-      for(int i = 0;i < 3;++i){
-        Eigen::Matrix<double,3,1> n = Eigen::Matrix<double,3,1>::Zero();
-        n(i) = 1.0;
-        pmod = std::max(pmod,(n.transpose() * dep * n)(0,0));
-      }
+      // for(int i = 0;i < 3;++i){
+      //   Eigen::Matrix<double,3,1> n = Eigen::Matrix<double,3,1>::Zero();
+      //   n(i) = 1.0;
+      //   pmod = std::max(pmod,(n.transpose() * dep * n)(0,0));
+      // }
       elastic_strain = matrix_to_voigt(eigen_vectors * en.asDiagonal() * eigen_vectors.transpose());
       return ViscoelasticReturn(elastic_strain,pmod);
     }
