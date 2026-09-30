@@ -247,19 +247,18 @@
 ;;       (when agg
 ;;         (cl-mpm/aggregate::project-displacement sim)))))
 
-(defmethod map-stiffness ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
+;; (defmethod map-stiffness ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
+;;   (pprint "hello")
+;;   ;; (map-stiffness-quasi-static sim)
+;;   (implicit-assemble-stiffness sim)
+;;   )
+
+(defmethod map-mass-stiffness ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (dt-true cl-mpm/dynamic-relaxation::sim-dt-loadstep)
                    (true-damping sim-true-damping)
                    (mps cl-mpm:sim-mps))
       sim
-    (cl-mpm::iterate-over-nodes
-     mesh
-     (lambda (node)
-       (declare (cl-mpm/mesh::node node))
-       (when (cl-mpm/mesh:node-active node)
-         (setf (the double-float (cl-mpm/mesh::node-mass node)) 0d0))))
-
     (let* ((h (cl-mpm/mesh::mesh-resolution mesh))
            (nd (cl-mpm/mesh::mesh-nd mesh))
            (mass-scale (the double-float (/ 1d0 (the double-float (cl-mpm::sim-dt-scale sim))))))
@@ -270,20 +269,7 @@
        (lambda (mp)
          (setf (cl-mpm/particle::mp-p-modulus mp)
                (cl-mpm/particle::estimate-stiffness mp))
-         (let* ((mp-volume (cl-mpm/particle::mp-volume mp))
-                (mp-mass (cl-mpm/particle::mp-mass mp))
-                (mp-pmod (cl-mpm/particle::mp-p-modulus mp))
-                (ul (estimate-ul-enhancement mp nd))
-                (mp-factor
-                  (+
-                   (*
-                    0.25d0
-                    mp-pmod
-                    mp-volume
-                    ul
-                    mass-scale
-                    (/ 1d0 (* h h))))))
-           (declare (type double-float mp-factor mp-pmod ul mp-volume))
+         (let* ((mp-mass (cl-mpm/particle::mp-mass mp)))
            (cl-mpm::iterate-over-neighbours
             mesh mp
             (lambda (node svp grads fsvp fgrads)
@@ -292,27 +278,24 @@
                (cl-mpm/mesh::node node)
                ;; (ignore grads fsvp fgrads)
                (double-float svp))
-              (declare (type double-float mp-pmod mp-volume ul dt-true true-damping))
+              (declare (type double-float dt-true true-damping))
               (with-slots ((node-active cl-mpm/mesh::active)
                            (node-mass cl-mpm/mesh::mass))
                   node
-                (declare (type double-float mp-volume mp-pmod svp mp-mass)
+                (declare (type double-float svp mp-mass)
                          (double-float node-mass))
                 (when node-active
                   (sb-thread::with-mutex ((cl-mpm/mesh::node-lock node))
                     (incf node-mass
                           (the double-float
-                               (+
+                               (*
                                 (the double-float
-                                     (*
-                                      (the double-float
-                                           (+
-                                            (* (/ 1d0 (expt dt-true 1)) true-damping)
-                                            (/ 2d0 (expt dt-true 2))))
-                                      mass-scale
-                                      svp
-                                      mp-mass))
-                                mp-factor))))))))))))))
+                                     (+
+                                      (* (/ 1d0 (expt dt-true 1)) true-damping)
+                                      (/ 2d0 (expt dt-true 2))))
+                                mass-scale
+                                svp
+                                mp-mass))))))))))))))
 
 (defmethod update-node-fictious-mass ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
   (with-accessors ((mesh cl-mpm::sim-mesh)
@@ -321,6 +304,8 @@
                    (bcs-force-list cl-mpm::sim-bcs-force-list))
       sim
     (map-stiffness sim)
+    (map-mass-stiffness sim)
+    ;; (pprint "Hello")
     (loop for bcs-f in bcs-force-list
           do (loop for bc across bcs-f
                    do (cl-mpm/bc::assemble-bc-stiffness sim bc)))

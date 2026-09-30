@@ -909,3 +909,9 @@
 ;;                                  '(6 6)) (/ 1d0 3d0))
 ;;                                ) test))
 ;;   )
+
+
+;; (let ((eps (cl-mpm/utils::voigt-from-list (list 1d0 2d0 3d0 4d0 5d0 6d0)))
+;;       (de (cl-mpm/constitutive:linear-elastic-matrix 1d0 0.2d0)))
+;;   (pprint (magicl:@ de eps))
+;;   )

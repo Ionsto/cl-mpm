@@ -17,7 +17,7 @@
                           (max-damage-inc 0.6d0)
                           (max-plastic-inc 10d0)
                           (max-deformation-gradient 10d0)
-                          (min-tangent-ratio 1d-1)
+                          (min-tangent-ratio 5d-1)
                           ;; (min-tangent-ratio nil)
                           (stagger-damage :HYBRID)
                           (plotter (lambda (sim))))

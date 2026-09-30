@@ -759,20 +759,22 @@
     (+ (aref arr 0) (aref arr 1) (aref arr 2))))
 
 (declaim (inline deviatoric-voigt)
-         (ftype (function (magicl:matrix/double-float)
+         (ftype (function (magicl:matrix/double-float &optional magicl:matrix/double-float)
                           magicl:matrix/double-float) deviatoric-voigt))
-(defun deviatoric-voigt (a)
+(defun deviatoric-voigt (a &optional result)
   "Calculate the product A_{ij}A_{ij}"
   (let* ((tr (/ (trace-voigt a) 3d0))
          (arr (magicl::matrix/double-float-storage a)))
     (declare ((simple-array double-float (6)) arr)
              (double-float tr))
-    (voigt-from-list (list (- (aref arr 0) tr)
-                           (- (aref arr 1) tr)
-                           (- (aref arr 2) tr)
-                           (aref arr 3)
-                           (aref arr 4)
-                           (aref arr 5)))))
+    (let ((result (if result result (cl-mpm/utils::voigt-zeros))))
+      (setf (varef result 0) (- (aref arr 0) tr)
+            (varef result 1) (- (aref arr 1) tr)
+            (varef result 2) (- (aref arr 2) tr)
+            (varef result 3) (aref arr 3)
+            (varef result 4) (aref arr 4)
+            (varef result 5) (aref arr 5))
+      result)))
 (declaim (inline deviatoric-vector)
          (ftype (function (magicl:matrix/double-float)
                           magicl:matrix/double-float) deviatoric-vector))
@@ -1716,6 +1718,17 @@
           :parts (get-parts)
           )))))
 
+
+(defun resize-matrix (mat rows cols)
+  (declare (fixnum rows cols) (magicl:matrix/double-float mat))
+  (if (and (= (magicl::matrix/double-float-nrows mat) rows)
+           (= (magicl::matrix/double-float-ncols mat) cols))
+      mat
+      (let ((new-mat (make-array (* rows cols) :element-type 'double-float :initial-element 0d0)))
+        (setf (magicl::matrix/double-float-storage mat) new-mat
+              (magicl::matrix/double-float-nrows mat) rows
+              (magicl::matrix/double-float-ncols mat) cols)
+        mat)))
 
 (defun resize-vector (mat size)
   (if (= (magicl::matrix/double-float-nrows mat) size)

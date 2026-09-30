@@ -120,7 +120,9 @@
 
 
 (defmethod map-stiffness ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
-  (map-stiffness-quasi-static sim))
+  (map-stiffness-quasi-static sim)
+  ;; (implicit-assemble-stiffness sim)
+  )
 
 
 (defgeneric update-node-fictious-mass (sim))
@@ -131,7 +133,6 @@
                    (bcs-force-list cl-mpm::sim-bcs-force-list))
       sim
     (map-stiffness sim)
-    ;; (implicit-assemble-stiffness sim)
     (loop for bcs-f in bcs-force-list
           do (loop for bc across bcs-f
                    do (cl-mpm/bc::assemble-bc-stiffness sim bc)))

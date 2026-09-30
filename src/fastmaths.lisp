@@ -1288,7 +1288,7 @@
 (defun fast-@ (&rest mats)
   (reduce #'fast-@-arb-arb mats))
 
-(defun fast-@-arb-arb (a b &key  (res nil) (multithreaded nil))
+(defun fast-@-arb-arb (a b &key (res nil) (multithreaded nil))
   (let ((res (if res
                  (fast-zero res)
                  (cl-mpm/utils::arb-matrix

@@ -90,6 +90,10 @@
     :accessor mp-trial-strain
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:voigt-zeros))
+   (undamaged-tangent-stiffness
+    :accessor mp-undamaged-tangent-stiffness
+    :initform (cl-mpm/utils::tensor-voigt-4th-zeros)
+    :type magicl:matrix/double-float)
    (p-wave-elastoplastic
     :accessor mp-p-wave-elastoplastic
     :type double-float
@@ -254,23 +258,6 @@
         (setf p-wave (cl-mpm/particle::compute-p-modulus mp))
         (when (and (cl-mpm/particle::mp-enable-viscosity mp)
                    (> dt 0d0))
-          ;; (let ((viscosity
-          ;;         (cl-mpm/models/visco::glen-flow-scalar-j2
-          ;;          stress-u strain-n strain e nu de
-          ;;          111d6
-          ;;          3d0
-          ;;          dt
-          ;;          :result-stress stress-u
-          ;;          :result-strain strain)))
-          ;;   (let* ((K (cl-mpm/particle::calculate-bulk-modulus e nu))
-          ;;          (G (cl-mpm/particle::calculate-shear-modulus e nu))
-          ;;          (rho (/ viscosity G))
-          ;;          (dy (/ dt rho))
-          ;;          (exp-rho (exp (- dy)))
-          ;;          (lam (/ (- 1 exp-rho) dy)))
-          ;;     (declare (double-float K G rho dy exp-rho lam dt viscosity p-wave))
-          ;;     (setf p-wave (+ K (* 4/3 G lam))))
-          ;;   )
           (let ((viscosity (cl-mpm/particle::mp-viscosity mp)))
             (let* ((K (cl-mpm/particle::calculate-bulk-modulus e nu))
                    (G (cl-mpm/particle::calculate-shear-modulus e nu))
@@ -369,13 +356,9 @@
             ;;      nu
             ;;      phi
             ;;      psi
-            ;;      (max 0d0
-            ;;           (+
-            ;;            coheasion
-            ;;            (*
-            ;;             0d0
-            ;;             pressure
-            ;;             damage-pressure))))
+            ;;      coheasion
+            ;;      (cl-mpm/particle::mp-tangent-stiffness mp)
+            ;;      )
             ;;   (setf
             ;;    stress-u sig
             ;;    strain eps-e
@@ -383,17 +366,21 @@
             ;;    ;; p-wave (* 1.0d0 pmod)
             ;;    )
             ;;   (when (> yield-func 0d0)
-            ;;     (setf p-wave (* 1.0d0 pmod)))
+            ;;     (setf p-wave (* 1.0d0 (the double-float pmod))))
             ;;   (let (;(inc (expt (* 1 (max 0d0
             ;;         ;                       (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
             ;;         ;                          (cl-mpm/utils::trace-voigt strain)))) 1))
             ;;         ;(inc (abs inc))
             ;;         )
+            ;;     (declare (double-float inc ps-vm-1))
             ;;     (setf ps-vm (+ ps-vm-1 inc))
             ;;     (setf ps-vm-inc inc)))
             ))
         (setf (cl-mpm/particle::mp-p-wave-elastoplastic mp) p-wave)
         ;; (cl-mpm/utils::copy-into de (cl-mpm/particle::mp-tangent-stiffness mp))
+        (cl-mpm/utils::copy-into
+         (cl-mpm/particle::mp-tangent-stiffness mp)
+         (cl-mpm/particle::mp-undamaged-tangent-stiffness mp))
         (cl-mpm/utils:voigt-copy-into stress-u stress)
         stress)))
 
@@ -924,55 +911,121 @@
         (setf damage (max 0d0 (min 1d0 damage))))
       (values))))
 
-(defun apply-vol-pressure-degredation (mp dt pressure)
-  (with-accessors ((damage        cl-mpm/particle::mp-damage)
-                   (damage-t      cl-mpm/particle::mp-damage-tension)
-                   (damage-c      cl-mpm/particle::mp-damage-compression)
-                   (damage-s      cl-mpm/particle::mp-damage-shear)
-                   (stress        cl-mpm/particle::mp-stress)
-                   (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
-                   (strain cl-mpm/particle::mp-strain)
-                   (p-mod cl-mpm/particle::mp-p-modulus-0)
-                   (E cl-mpm/particle::mp-e)
-                   (nu cl-mpm/particle::mp-nu)
-                   (de cl-mpm/particle::mp-elastic-matrix)
-                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
-                   (enable-damage cl-mpm/particle::mp-enable-damage))
-      mp
-    (declare (double-float damage damage-t damage-c damage-s j pressure))
-    (let* (;; (undamaged-stress (cl-mpm/fastmaths:fast-scale-voigt
-           ;;                    undamaged-stress
-           ;;                    (/ 1d0 j)))
-           (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
-           (pressure (* pressure damage))
-           ;; (pind (- p pressure))
-           (pind p)
-           (p-deg 0d0)
-           (s (cl-mpm/constitutive::deviatoric-voigt undamaged-stress)))
-      (declare (double-float damage-t damage-c damage-s p-deg))
-      (setf
-       p-deg
-       (if (> pind 0d0)
-           (- 1d0 damage-t)
-           (- 1d0 damage-c)))
-      (setf p (* p p-deg))
-      (setf stress
-            (cl-mpm/fastmaths:fast-.+
-             (cl-mpm/constitutive::voight-eye (- (/ p j) pressure))
-             (cl-mpm/fastmaths:fast-scale! s (/ (- 1d0 damage-s) j))
-             stress))
-      ;; (cl-mpm/fastmaths:fast-scale! stress (/ 1d0 j))
-      (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
-             (G (/ e (* 2 (+ 1d0 nu))))
-             (P-0 (+ K (* 4/3 G))))
-        (declare (double-float K G P-0 e nu))
-        (setf K (* K p-deg))
-        (setf G (* G (- 1d0 damage-s)))
-        (setf p-mod
-              (max
-               (* 1d-9 P-0)
-               (* (max 1d-9 (expt (/ (+ K (* 4/3 G)) P-0) 1))
-                  (cl-mpm/particle::mp-p-wave-elastoplastic mp))))))))
+(let* ((a (/ 2d0 3d0))
+       (b (/ -1d0 3d0))
+       (c (/ 1d0 3d0))
+       (dev
+         (cl-mpm/utils::tensor-voigt-4th-from-list
+          (list a b b 0d0 0d0 0d0
+                b a b 0d0 0d0 0d0
+                b b a 0d0 0d0 0d0
+                0d0 0d0 0d0 1d0 0d0 0d0
+                0d0 0d0 0d0 0d0 1d0 0d0
+                0d0 0d0 0d0 0d0 0d0 1d0)))
+       (vol
+         (cl-mpm/utils::tensor-voigt-4th-from-list
+          (list c c c  0d0 0d0 0d0
+                c c c 0d0 0d0 0d0
+                c c c 0d0 0d0 0d0
+                0d0 0d0 0d0 0d0 0d0 0d0
+                0d0 0d0 0d0 0d0 0d0 0d0
+                0d0 0d0 0d0 0d0 0d0 0d0))))
+  (cl-mpm/utils::with-arb-pool
+    (defun apply-vol-pressure-degredation (mp dt pressure)
+      (with-accessors ((damage        cl-mpm/particle::mp-damage)
+                       (damage-t      cl-mpm/particle::mp-damage-tension)
+                       (damage-c      cl-mpm/particle::mp-damage-compression)
+                       (damage-s      cl-mpm/particle::mp-damage-shear)
+                       (stress        cl-mpm/particle::mp-stress)
+                       (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
+                       (strain cl-mpm/particle::mp-strain)
+                       (p-mod cl-mpm/particle::mp-p-modulus-0)
+                       (E cl-mpm/particle::mp-e)
+                       (nu cl-mpm/particle::mp-nu)
+                       (de cl-mpm/particle::mp-elastic-matrix)
+                       (j cl-mpm/particle::mp-deformation-jacobian-strain)
+                       (enable-damage cl-mpm/particle::mp-enable-damage))
+          mp
+        (declare (double-float damage damage-t damage-c damage-s j pressure))
+        (let* (;; (undamaged-stress (cl-mpm/fastmaths:fast-scale-voigt
+               ;;                    undamaged-stress
+               ;;                    (/ 1d0 j)))
+               (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
+               (pressure (* pressure damage))
+               ;; (pind (- p pressure))
+               (pind p)
+               (p-deg 0d0)
+               (s (cl-mpm/constitutive::deviatoric-voigt undamaged-stress (cl-mpm/utils::resize-vector (grab-new) 6))))
+          (declare (double-float damage-t damage-c damage-s p-deg))
+          (setf
+           p-deg
+           (if (> pind 0d0)
+               (- 1d0 damage-t)
+               (- 1d0 damage-c)))
+          (setf p (* p p-deg))
+          (setf stress
+                (cl-mpm/fastmaths:fast-.+
+                 (cl-mpm/constitutive::voight-eye (- (/ p j) pressure))
+                 (cl-mpm/fastmaths:fast-scale! s (/ (- 1d0 damage-s) j))
+                 stress))
+
+          (if (or (> damage 0d0)
+                  (and (> dt 0d0)
+                       (cl-mpm/particle::mp-enable-viscosity mp)))
+              (progn
+                (let* ((de-u (cl-mpm/particle::mp-undamaged-tangent-stiffness mp))
+                       (de (cl-mpm/particle::mp-tangent-stiffness mp))
+                       (lam 1d0))
+                  (when (and (> dt 0d0)
+                             (cl-mpm/particle::mp-enable-viscosity mp))
+                    (let* ((G (cl-mpm/particle::calculate-shear-modulus e nu))
+                           (rho (the double-float (/ (the double-float (cl-mpm/particle::mp-viscosity mp)) G)))
+                           (dy (the double-float (/ dt rho)))
+                           (exp-rho (exp (- dy))))
+                      (declare (double-float G rho dy exp-rho lam dt))
+                      (setf lam (/ (- 1 exp-rho) dy))
+                      ;; (pprint lam)
+                      ))
+                  (let ()
+                    (cl-mpm/fastmaths::fast-.+
+                     (cl-mpm/fastmaths::fast-scale!
+                      (cl-mpm/fastmaths::fast-@-arb-arb
+                       vol
+                       de-u
+                       :res (cl-mpm/utils::resize-matrix (grab-new) 6 6)
+                       ) p-deg)
+                     (cl-mpm/fastmaths::fast-scale!
+                      (cl-mpm/fastmaths::fast-@-arb-arb
+                       dev
+                       de-u
+                       :res (cl-mpm/utils::resize-matrix (grab-new) 6 6))
+                      (* lam (- 1d0 damage-s)))
+                     de))))
+              (progn
+                ;;Happy path
+                (cl-mpm/utils::copy-into
+                 (cl-mpm/particle::mp-undamaged-tangent-stiffness mp)
+                 (cl-mpm/particle::mp-tangent-stiffness mp))))
+
+          ;; (cl-mpm/fastmaths::fast-scale! (cl-mpm/particle::mp-tangent-stiffness mp) p-deg)
+
+          ;; (cl-mpm/fastmaths:fast-scale! stress (/ 1d0 j))
+          (setf p-mod
+                (max
+                 (cl-mpm/utils::mtref (cl-mpm/particle::mp-tangent-stiffness mp) 0 0)
+                 (cl-mpm/utils::mtref (cl-mpm/particle::mp-tangent-stiffness mp) 1 1)))
+          ;; (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
+          ;;        (G (/ e (* 2 (+ 1d0 nu))))
+          ;;        (P-0 (+ K (* 4/3 G))))
+          ;;   (declare (double-float K G P-0 e nu))
+          ;;   (setf K (* K p-deg))
+          ;;   (setf G (* G (- 1d0 damage-s)))
+          ;;   (setf p-mod
+          ;;         (max
+          ;;          (* 1d-9 P-0)
+          ;;          (* (max 1d-9 (expt (/ (+ K (* 4/3 G)) P-0) 1))
+          ;;             (cl-mpm/particle::mp-p-wave-elastoplastic mp)))))
+          )))))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-brittle) dt)
   (with-accessors ((p cl-mpm/particle::mp-pressure)

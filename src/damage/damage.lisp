@@ -293,8 +293,7 @@
       (when (cl-mpm::sim-enable-damage sim)
         (let* ((dconv (cl-mpm/damage::sim-stats-damage-residual sim))
                (dconv-0 dconv)
-               (crit 1d-6)
-               )
+               (crit 1d-6))
           (when (> dconv crit)
             ;; (update-localisation sim dt)
             ;; (update-damage-mps sim dt)
@@ -304,14 +303,11 @@
               (loop for i from 1 below 20
                     while (> dconv crit)
                     do (progn
-                         (dotimes (i 2)
+                         (dotimes (i 1)
                            (incf iter)
                            (cl-mpm/damage::update-localisation sim dt)
                            (cl-mpm/damage::update-damage-mps sim dt))
-                         (setf dconv (compute-damage-delta sim))
-                         ;; (format t "Internal update ~D ~E~%" i dconv)
-                         ;; (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv)
-                         ))
+                         (setf dconv (compute-damage-delta sim))))
               ;; (format t "Internal update ~D ~E~%" iter dconv)
               )
             ;; (cl-mpm:iterate-over-mps
