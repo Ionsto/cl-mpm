@@ -367,27 +367,6 @@
     (cl-mpm::apply-force-bcs sim dt-loadstep)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
     (cl-mpm/damage::calculate-damage sim dt-loadstep)
-    ;; (when (cl-mpm::sim-enable-damage sim)
-    ;;   (let ((dconv (compute-damage-delta sim)))
-    ;;     (when (> dconv 0d0)
-    ;;       (cl-mpm/damage::update-localisation sim dt-loadstep)
-    ;;       (cl-mpm/damage::update-damage-mps sim dt-loadstep)
-    ;;       (setf dconv (compute-damage-delta sim))
-    ;;       (loop for i from 1 below 10
-    ;;             while (> dconv 1d-9)
-    ;;             do (progn
-    ;;                  (format t "Internal update ~D ~E~%" i dconv)
-    ;;                  (dotimes (i 10)
-    ;;                    (cl-mpm/damage::update-localisation sim dt-loadstep)
-    ;;                    (cl-mpm/damage::update-damage-mps sim dt-loadstep))
-    ;;                  (setf dconv (compute-damage-delta sim))
-    ;;                  (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv)))
-    ;;       (cl-mpm:iterate-over-mps
-    ;;        mps
-    ;;        (lambda (mp)
-    ;;          (when (typep mp 'cl-mpm/particle:particle-damage)
-    ;;            (cl-mpm/particle::post-damage-step mp dt))
-    ;;          (values))))))
     (cl-mpm::p2g-force-fs sim)
     (when ghost-factor
       (cl-mpm/ghost::apply-ghost-cached sim)

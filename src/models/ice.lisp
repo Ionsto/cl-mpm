@@ -382,6 +382,11 @@
          (cl-mpm/particle::mp-tangent-stiffness mp)
          (cl-mpm/particle::mp-undamaged-tangent-stiffness mp))
         (cl-mpm/utils:voigt-copy-into stress-u stress)
+        (setf p-wave
+              (max
+               (* 1d-9 (cl-mpm/particle::compute-p-modulus mp))
+               (cl-mpm/utils::mtref (cl-mpm/particle::mp-tangent-stiffness mp) 0 0)
+               (cl-mpm/utils::mtref (cl-mpm/particle::mp-tangent-stiffness mp) 1 1)))
         stress)))
 
 
@@ -1012,6 +1017,7 @@
           ;; (cl-mpm/fastmaths:fast-scale! stress (/ 1d0 j))
           (setf p-mod
                 (max
+                 (* 1d-9 (cl-mpm/particle::compute-p-modulus mp))
                  (cl-mpm/utils::mtref (cl-mpm/particle::mp-tangent-stiffness mp) 0 0)
                  (cl-mpm/utils::mtref (cl-mpm/particle::mp-tangent-stiffness mp) 1 1)))
           ;; (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))

@@ -1565,7 +1565,7 @@
 
 
 
-(defconstant +thread-parts-scale+ 4)
+(defconstant +thread-parts-scale+ 2)
 (defun get-parts ()
   (the fixnum (* (the fixnum +thread-parts-scale+) *worker-count*)))
 
