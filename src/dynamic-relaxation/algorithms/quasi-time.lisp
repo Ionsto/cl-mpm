@@ -189,9 +189,9 @@
                                        (when save-vtk-dr
                                          (save-vtks-dr-step sim output-dir global-step *trial-iter* total-i))
                                        (incf *total-iter* substeps)
-                                       ;; (when (cl-mpm::sim-enable-damage sim)
-                                       ;;   (setf dconv (compute-damage-delta sim))
-                                       ;;   (format t "d-conv subiter ~E~%" dconv))
+                                       (when (cl-mpm::sim-enable-damage sim)
+                                         (setf dconv (cl-mpm/damage::sim-stats-damage-residual sim))
+                                         (format t "d-conv subiter ~E~%" dconv))
                                        (when (equal stagger-damage :MONOLITH-QS)
                                          (when enable-damage
                                            (if (< (cl-mpm::sim-stats-oobf sim) (sqrt oobf-crit))
@@ -213,6 +213,7 @@
                                       (cl-mpm/damage::calculate-damage
                                        sim
                                        (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
+
                                       (let ((dconv-1
                                               (cl-mpm/damage::sim-stats-damage-residual sim)
                                               ;; (compute-damage-delta sim)
@@ -239,8 +240,6 @@
                                                        ))
                                           (when (eq stagger-damage :FULL)
                                             (setf (cl-mpm:sim-enable-damage sim) nil))
-                                          ;; (when stagger-damage
-                                          ;;   (setf (cl-mpm:sim-enable-damage sim) nil))
                                           )
                                       (setf dconv dconv-1))
                                       )

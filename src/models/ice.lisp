@@ -249,6 +249,7 @@
                  (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi kc-r kt-r g-r damage j dt))
         ;;Train elastic strain - plus trail kirchoff stress
         (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
+        (cl-mpm/utils::copy-into de (cl-mpm/particle::mp-tangent-stiffness mp))
         ;;Viscoelastic corrector
         (setf p-wave (cl-mpm/particle::compute-p-modulus mp))
         (when (and (cl-mpm/particle::mp-enable-viscosity mp)
@@ -334,9 +335,11 @@
                               nu
                               phi
                               psi
-                              coheasion)
-                           ;; (when (> yield-func 0d0))
-                           ;; (setf p-wave (* 1.0d0 pmod))
+                              coheasion
+                              (cl-mpm/particle::mp-tangent-stiffness mp)
+                              )
+                           (when (> yield-func 0d0)
+                             (setf p-wave (* 1.0d0 pmod)))
                            (let (;; (inc (expt (* 1 (max 0d0
                                  ;;                      (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
                                  ;;                         (cl-mpm/utils::trace-voigt new-strain)))) 1))
@@ -390,6 +393,7 @@
             ;;     (setf ps-vm-inc inc)))
             ))
         (setf (cl-mpm/particle::mp-p-wave-elastoplastic mp) p-wave)
+        ;; (cl-mpm/utils::copy-into de (cl-mpm/particle::mp-tangent-stiffness mp))
         (cl-mpm/utils:voigt-copy-into stress-u stress)
         stress)))
 
@@ -966,8 +970,8 @@
         (setf G (* G (- 1d0 damage-s)))
         (setf p-mod
               (max
-               (* 1d-3 P-0)
-               (* (max 1d-3 (expt (/ (+ K (* 4/3 G)) P-0) 1))
+               (* 1d-9 P-0)
+               (* (max 1d-9 (expt (/ (+ K (* 4/3 G)) P-0) 1))
                   (cl-mpm/particle::mp-p-wave-elastoplastic mp))))))))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-brittle) dt)

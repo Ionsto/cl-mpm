@@ -421,7 +421,8 @@
                                                               nu
                                                               phi
                                                               psi
-                                                              c)
+                                                              c
+                                                              (cl-mpm/particle::mp-tangent-stiffness mp))
                        ;; (cl-mpm/constitutive::mc-plastic stress
                        ;;                                 de
                        ;;                                 strain
@@ -436,7 +437,7 @@
                       stress sig
                       strain eps-e
                       yield-func f
-                      p-wave-0 pmod
+                      ;; p-wave-0 pmod
                       )
                      (setf ps-vm-inc inc)
                      (setf ps-vm (+ ps-vm-1 inc)))

@@ -122,7 +122,8 @@
         (nu :double)
         (phi :double)
         (psi :double)
-        (c :double))
+        (c :double)
+        (depp :pointer))
 
       (defcfun "CppViscoelastic" :bool
         (strain-ptr :pointer)
@@ -242,7 +243,7 @@
                             (aref ps-arr 0)
                             (aref p-mod-arr 0))))))))
 
-      (defun constitutive-mohr-coulomb (stress de strain E nu phi psi c)
+      (defun constitutive-mohr-coulomb (stress de strain E nu phi psi c dep)
         "Mohr-coulomb, in-place update strain, return a new stress, yield function and ps inc"
         (declare (double-float E nu phi psi c))
         (let ((str
@@ -257,8 +258,8 @@
                                                         (f-arr-p f-arr)
                                                         (ps-arr-p ps-arr)
                                                         (p-mod-arr-p p-mod-arr)
-                                                        )
-                  (if (CppMohrCoulomb sp f-arr-p ps-arr-p p-mod-arr-p E nu phi psi c)
+                                                        (depp (cl-mpm/utils:fast-storage dep)))
+                  (if (CppMohrCoulomb sp f-arr-p ps-arr-p p-mod-arr-p E nu phi psi c depp)
                       (progn
                         (values (cl-mpm/fastmaths::fast-@-tensor-voigt de str stress)
                                 str
