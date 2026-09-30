@@ -194,11 +194,11 @@
                                        ;;   (format t "d-conv subiter ~E~%" dconv))
                                        (when (equal stagger-damage :MONOLITH-QS)
                                          (when enable-damage
-                                           (if (< (cl-mpm::sim-stats-oobf sim) oobf-crit)
+                                           (if (< (cl-mpm::sim-stats-oobf sim) (sqrt oobf-crit))
                                                (progn
                                                  (when (not (cl-mpm:sim-enable-damage sim))
                                                    (reset-tangent)
-                                                   (setf (cl-mpm::sim-stats-oobf sim) oobf-crit)
+                                                   ;; (setf (cl-mpm::sim-stats-oobf sim) oobf-crit)
                                                    (setf dconv damage-crit))
                                                  (setf (cl-mpm:sim-enable-damage sim) t))
                                                (progn
