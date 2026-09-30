@@ -56,7 +56,7 @@
                                  (< step (/ step-time target-time))))
                   do
                      (let ((substeps (max 1 (round target-time (cl-mpm:sim-dt sim)))))
-                       (save-vtks sim step (format nil "real_~5,'0d" global-step))
+                       (save-vtks sim output-dir step (format nil "real_~5,'0d" global-step))
                        ;; (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_real_~5,'0d_~5,'0d.vtk" global-step step)) sim)
                        ;; (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_real_nodes_~5,'0d_~5,'0d.vtk" global-step step)) sim)
                        ;; (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_real_cells_~5,'0d_~5,'0d.vtk" global-step step)) sim)
