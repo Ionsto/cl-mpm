@@ -1581,6 +1581,9 @@
 (defvar *workers-chunk* 1)
 (defvar *workers-chunk-count* 0)
 (defvar *workers-array-length* 0)
+
+(defvar *workers-disabled* nil)
+
 (defvar *workers-nesting* nil)
 (defvar *workers-nest-depth* 0)
 (defvar *workers-pool-age* 0)
@@ -1663,7 +1666,7 @@
   ;; (make-workers)
   (unless *workers*
     (error "no workers"))
-  (if *workers-nesting*
+  (if (or *workers-nesting* *workers-disabled*)
       (progn
         ;; (break)
         (loop for j fixnum from 0 below total-length
