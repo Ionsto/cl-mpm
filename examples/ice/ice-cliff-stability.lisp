@@ -88,10 +88,12 @@
       (let* ((ps-y (sqrt (* E (expt ps-vm 2))))
              ;; (stress (cl-mpm/constitutive:linear-elastic-mat strain de))
              (stress-pressure
-               (cl-mpm/fastmaths:fast-.+
-                undamaged-stress
-                ;; stress
-                (cl-mpm/utils:voigt-eye (* 0d0 j (- pressure))))))
+               undamaged-stress
+               ;; (cl-mpm/fastmaths:fast-.+
+               ;;  undamaged-stress
+               ;;  ;; stress
+               ;;  (cl-mpm/utils:voigt-eye (* 0d0 j (- pressure))))
+               ))
         (setf y
               (*
                (+
@@ -200,7 +202,7 @@
           'cl-mpm/particle::particle-ice-delayed
           ;; 'cl-mpm/particle::particle-ice-brittle
           :E E
-          :nu 0.24d0
+          :nu 0.3d0
           :kt-res-ratio rt
           :kc-res-ratio rc
           :initiation-stress init-stress
@@ -496,18 +498,19 @@
 (defun stability-qt-test ()
   (cl-mpm/utils:set-workers 16)
   (let* ((heights (list
-                   200d0
+                   ;; 200d0
                    ;; 500d0
                    ;; 200d0
                    ;; 300d0
-                   ;; ;; 400d0
+                   400d0
                    ;; 500d0
                    ;; 600d0
                    ))
          (floatations (list
                        ;; 0.5d0
                        ;; 0d0
-                       ;; 0.5d0
+                       0.25d0
+                       ;; 0.75d0
                        ;; 0.9d0
                        ;; 1d0
                        ))
@@ -528,19 +531,19 @@
                       (floating-point (/ density water-density))
                       (floating-cliff (- height (* height floating-point))))
                  (loop for fi from 0
-                       ;; for flotation in floatations
-                       for i from 0 to (ceiling (- height floating-cliff) cliff-step)
+                       for flotation in floatations
+                       ;; for i from 0 to (ceiling (- height floating-cliff) cliff-step)
                        do
-                          (let* ((cliff-size (min height (+ floating-cliff (* i cliff-step))))
+                          (let* (;;(cliff-size (min height (+ floating-cliff (* i cliff-step))))
                                  ;; (cliff-size (min height 100d0))
-                                 (flotation (/ (- height cliff-size) (* floating-point height)))
+                                 ;; (flotation (/ (- height cliff-size) (* floating-point height)))
                                  (mps 3)
                                  (output-dir (format nil "./output-~f-~f/" height flotation)))
                             (format t "Problem ~f ~f~%" height flotation)
                             (defparameter *length-scaler* 1d0)
                             ;; (defparameter *length-scale* 20d0)
                             (defparameter *early-exit-flag* nil)
-                            (setup :refine 0.5d0
+                            (setup :refine 0.25d0
                                    :multigrid-refines 0
                                    :friction 0.5d0
                                    :ice-height height
@@ -708,7 +711,7 @@
                                            :save-vtk-loadstep t
                                            :enable-damage t
                                            :enable-plastic t
-                                           :stagger-damage nil
+                                           :stagger-damage :HYBRID
                                            :load-steps 10
                                            :plotter (lambda (sim) (plot-domain))
                                            :post-conv-step (lambda (sim) (plot-domain))))
