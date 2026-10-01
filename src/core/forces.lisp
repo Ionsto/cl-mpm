@@ -173,7 +173,14 @@
       (@-dsvp-vec dsvp stress volume f-out))
     f-out))
 
-(defun det-stress-force-unrolled (stress grads volume &optional f-out)
+(declaim
+ (ftype (function (magicl:matrix/double-float
+                   cl-mpm/utils::gradients
+                   double-float
+                   &optional magicl:matrix/double-float) magicl:matrix/double-float)
+        det-stress-force-unrolled))
+(defun det-stress-force-unrolled (stress grads volume &optional (f-out nil))
+  (declare (magicl:matrix/double-float stress))
   "Calculate internal force contribution from mp at node"
   (let* ((f-out (if f-out f-out (cl-mpm/utils:vector-zeros))))
     (declare (type double-float volume))

@@ -306,9 +306,8 @@
     (map-stiffness sim)
     (map-mass-stiffness sim)
     ;; (pprint "Hello")
-    (loop for bcs-f in bcs-force-list
-          do (loop for bc across bcs-f
-                   do (cl-mpm/bc::assemble-bc-stiffness sim bc)))
+     (loop for bc across bcs-force-list
+           do (cl-mpm/bc::assemble-bc-stiffness sim bc))
     (cl-mpm::apply-essential-bcs sim)
 
     (cl-mpm/ghost::apply-ghost-stiffness sim)
@@ -338,7 +337,6 @@
                (mass-filter cl-mpm::mass-filter)
                (split cl-mpm::allow-mp-split)
                (fbar cl-mpm::enable-fbar)
-               (bcs-force-list cl-mpm::bcs-force-list)
                (ghost-factor cl-mpm::ghost-factor)
                (initial-setup initial-setup)
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)
@@ -359,9 +357,6 @@
     (cl-mpm/damage::calculate-damage sim dt-loadstep)
 
     (cl-mpm::p2g-force-fs sim)
-    ;; (when ghost-factor
-    ;;   (cl-mpm/ghost::apply-ghost sim ghost-factor)
-    ;;   (cl-mpm::apply-bcs mesh bcs dt))
     (when (= (mod solve-count mass-update-iter) 0)
       (update-node-fictious-mass sim))
     ;; ;;Update our nodes after force mapping
@@ -411,8 +406,7 @@
   (cl-mpm::calculate-min-dt-mps sim))
 
 (defmethod cl-mpm/setup::%estimate-elastic-dt ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
-  (with-accessors ((mps cl-mpm:sim-mps)
-                   (bcs-force-list cl-mpm:sim-bcs-force-list))
+  (with-accessors ((mps cl-mpm:sim-mps))
       sim
     (if (> (length mps) 0)
         (progn
@@ -436,7 +430,6 @@
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
-               (bcs-force-list cl-mpm::bcs-force-list)
                (ghost-factor cl-mpm::ghost-factor)
                (initial-setup initial-setup)
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)

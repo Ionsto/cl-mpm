@@ -133,9 +133,8 @@
                    (bcs-force-list cl-mpm::sim-bcs-force-list))
       sim
     (map-stiffness sim)
-    (loop for bcs-f in bcs-force-list
-          do (loop for bc across bcs-f
-                   do (cl-mpm/bc::assemble-bc-stiffness sim bc)))
+    (loop for bc across bcs-force-list
+          do (cl-mpm/bc::assemble-bc-stiffness sim bc))
     (cl-mpm/ghost::apply-ghost-stiffness sim)
     (cl-mpm/aggregate::update-mass-matrix sim)
     (setf dt 1d0)))
@@ -160,8 +159,7 @@
                (dt cl-mpm::dt)
                (fbar cl-mpm::enable-fbar)
                (dt-loadstep dt-loadstep)
-               (agg cl-mpm/aggregate::enable-aggregate)
-               (bcs-force-list cl-mpm::bcs-force-list))
+               (agg cl-mpm/aggregate::enable-aggregate))
       sim
     (progn
       (setf dt 1d0)
@@ -212,7 +210,7 @@
                (enable-damage cl-mpm::enable-damage)
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (fbar cl-mpm::enable-fbar)
-               (bcs-force-list cl-mpm::bcs-force-list)
+               
                (initial-setup initial-setup)
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)
                (damping cl-mpm::damping-factor)
@@ -278,7 +276,7 @@
                (enable-damage cl-mpm::enable-damage)
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (fbar cl-mpm::enable-fbar)
-               (bcs-force-list cl-mpm::bcs-force-list)
+               
                (ghost-factor cl-mpm::ghost-factor)
                (initial-setup initial-setup)
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)
@@ -344,7 +342,7 @@
                (enable-damage cl-mpm::enable-damage)
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (fbar cl-mpm::enable-fbar)
-               (bcs-force-list cl-mpm::bcs-force-list)
+               
                (ghost-factor cl-mpm::ghost-factor)
                (initial-setup initial-setup)
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)
@@ -619,7 +617,7 @@
                (enable-damage cl-mpm::enable-damage)
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (fbar cl-mpm::enable-fbar)
-               (bcs-force-list cl-mpm::bcs-force-list)
+               
                (ghost-factor cl-mpm::ghost-factor)
                (initial-setup initial-setup)
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)
@@ -742,7 +740,7 @@
                (enable-damage cl-mpm::enable-damage)
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (fbar cl-mpm::enable-fbar)
-               (bcs-force-list cl-mpm::bcs-force-list)
+               
                (ghost-factor cl-mpm::ghost-factor)
                (initial-setup initial-setup)
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)
@@ -778,7 +776,7 @@
 (defmethod update-node-fictious-mass ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-paper))
   (with-accessors ((mesh cl-mpm::sim-mesh)
                    (dt cl-mpm::sim-dt)
-                   (bcs-force-list cl-mpm::sim-bcs-force-list))
+                   )
       sim
     (map-stiffness-quasi-static sim)
     (cl-mpm/aggregate::update-mass-matrix sim)

@@ -374,7 +374,9 @@
   (call-next-method))
 
 (defun make-bcs-from-list (bc-list)
-  (make-array (length bc-list) :initial-contents bc-list :adjustable t :fill-pointer (length bc-list)))
+  (make-array (length bc-list) :initial-contents bc-list)
+  ;; (make-array (length bc-list) :initial-contents bc-list :adjustable t :fill-pointer (length bc-list))
+  )
 
 
 

@@ -629,6 +629,8 @@
 
 (declaim (ftype (function (cl-mpm/utils::gradients magicl:matrix/double-float magicl:matrix/double-float) (values)) @-combi-assemble-dstretch-3d))
 (defun @-combi-assemble-dstretch-3d (grads vel stretch)
+  (declare (cl-mpm/utils::gradients grads)
+           (magicl::matrix/double-float vel stretch))
   "Assemble d/di to the strain-displacement matrix"
   (let ((res (cl-mpm/utils::fast-storage stretch))
         (v (cl-mpm/utils::fast-storage vel)))

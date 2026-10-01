@@ -37,7 +37,7 @@
     (cl-mpm::reset-grid (cl-mpm:sim-mesh sim))
     (reset-mp-velocity sim)
     (setf (cl-mpm:sim-enable-damage sim) enable-damage)
-    (let* ((e-crit    (* 1d0 criteria))
+    (let* ((e-crit (* 1d0 criteria))
            (oobf-crit (* 1d0 criteria))
            (energy e-crit)
            (oobf oobf-crit)
@@ -145,6 +145,7 @@
                           (max-adaptive-steps 5)
                           (min-adaptive-steps -1)
                           (adaption-constant 2)
+                          (easy-step-adaption-constant 8)
                           (conv-criteria 1d-3)
                           (explicit-conv-criteria nil)
                           (substeps 50)
@@ -301,7 +302,7 @@
                                          (progn
                                            (incf easy-step-counter)
                                            (cl-mpm:sim-format sim t "Potential adaption easy steps ~A~%" easy-step-counter)
-                                           (when (>= easy-step-counter 8)
+                                           (when (>= easy-step-counter easy-step-adaption-constant)
                                              (setf current-adaptivity
                                                    (max min-adaptive-steps
                                                         (- current-adaptivity 1))))

@@ -102,7 +102,7 @@
    (bcs-force-list
     :accessor sim-bcs-force-list
     :initarg :bcs-force-list
-    :initform nil)
+    :initform (make-array 0 :adjustable t :fill-pointer 0))
    (damping-factor
      :type double-float
      :accessor sim-damping-factor

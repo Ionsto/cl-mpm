@@ -757,7 +757,7 @@
 (defun fast-scale-voigt (m scale)
   (fast-scale! (cl-mpm/utils:voigt-copy m) scale))
 
-(defun fast-scale-vector (m scale &optional result)
+(defun fast-scale-vector (m scale &optional (result nil))
   (let ((result (if result
                     (cl-mpm/utils:vector-copy-into m result)
                     (cl-mpm/utils:vector-copy m))))
@@ -830,6 +830,7 @@
   (voigt-j2 a))
 
 (declaim
+ (inline dot)
  (ftype
   (function
    (magicl::matrix/double-float
@@ -838,7 +839,32 @@
    double-float)
   dot))
 (defun dot (a b)
-  (the double-float (fast-sum (fast-.* a b))))
+  (let ((a-s (cl-mpm/utils:fast-storage a))
+        (b-s (cl-mpm/utils:fast-storage b)))
+    (let ((sum 0d0))
+      (declare (double-float sum))
+      (dotimes (i (length a-s))
+        (incf sum (* (aref a-s i) (aref b-s i))))
+      sum)))
+(declaim
+ (inline dot-vector)
+ (ftype
+  (function
+   (magicl::matrix/double-float
+    magicl::matrix/double-float
+    )
+   double-float)
+  dot-vector))
+(defun dot-vector (a b)
+  (declare (magicl::matrix/double-float a b))
+  (let ((a-s (cl-mpm/utils:fast-storage a))
+        (b-s (cl-mpm/utils:fast-storage b)))
+    (declare ((simple-array double-float (3)) a-s b-s))
+    (+
+     (* (aref a-s 0) (aref b-s 0))
+     (* (aref a-s 1) (aref b-s 1))
+     (* (aref a-s 2) (aref b-s 2))))
+  )
 
 
 (declaim
@@ -1373,7 +1399,8 @@
      (* c (- (* b e) (* d c))))))
 
 (declaim (inline fast-inv-3x3))
-(defun fast-inv-3x3 (mat &optional res)
+(defun fast-inv-3x3 (mat &optional (res nil))
+  (declare (magicl:matrix/double-float mat))
   (let* ((mat-s (cl-mpm/utils:fast-storage mat))
          (res (if res res (cl-mpm/utils:matrix-zeros)))
          (res-s (cl-mpm/utils:fast-storage res)))

@@ -1681,7 +1681,6 @@
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
-               (bcs-force-list cl-mpm::bcs-force-list)
                (ghost-factor cl-mpm::ghost-factor)
                (initial-setup cl-mpm/dynamic-relaxation::initial-setup)
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)

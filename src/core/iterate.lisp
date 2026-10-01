@@ -150,11 +150,15 @@ Calls func with only the node"
    Calls func with only the node"
   (declare (type function func))
   (let ((bcs-f (sim-bcs-force-list sim)))
-    (loop for bcs in bcs-f
-          do (bpdotimes (i (array-total-size bcs))
-               (let ((bc (aref bcs i)))
-                 (when bc
-                   (funcall func bc))))))
+    (loop for bc across bcs-f
+          do (when bc
+               (funcall func bc)))
+    ;; (loop for bcs in bcs-f
+    ;;       do (bpdotimes (i (array-total-size bcs))
+    ;;            (let ((bc (aref bcs i)))
+    ;;              (when bc
+    ;;                (funcall func bc)))))
+    )
   (values))
 
 (defun iterate-over-bcs-force-serial (sim func)

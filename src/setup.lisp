@@ -474,8 +474,7 @@
 
 (defgeneric %estimate-elastic-dt-mps (sim))
 (defmethod %estimate-elastic-dt-mps ((sim cl-mpm::mpm-sim))
-  (with-accessors ((mps cl-mpm:sim-mps)
-                   (bcs-force-list cl-mpm:sim-bcs-force-list))
+  (with-accessors ((mps cl-mpm:sim-mps))
       sim
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))
       (cl-mpm::reduce-over-mps
@@ -493,20 +492,15 @@
                    (bcs-force-list cl-mpm:sim-bcs-force-list))
       sim
     (if bcs-force-list
-        (loop for bc-list in bcs-force-list
+        (loop for bc across bcs-force-list
               minimize
-              (if bc-list
-                  (loop for bc across bc-list
-                        minimize
-                        (cl-mpm/bc::estimate-min-dt-bc sim bc))
-                  sb-ext:double-float-positive-infinity))
+              (cl-mpm/bc::estimate-min-dt-bc sim bc))
       sb-ext:double-float-positive-infinity
       )))
 
 (defgeneric %estimate-elastic-dt (sim))
 (defmethod %estimate-elastic-dt ((sim cl-mpm:mpm-sim))
-  (with-accessors ((mps cl-mpm:sim-mps)
-                   (bcs-force-list cl-mpm:sim-bcs-force-list))
+  (with-accessors ((mps cl-mpm:sim-mps))
       sim
     (if (> (length mps) 0)
         (progn

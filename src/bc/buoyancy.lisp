@@ -1098,16 +1098,13 @@
         (apply-buoyancy
          sim
          (lambda (pos res)
-           (buoyancy-virtual-stress (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) res)
-           )
+           (buoyancy-virtual-stress (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) res))
          (lambda (pos res)
-           (buoyancy-virtual-div (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) res)
-           )
+           (buoyancy-virtual-div (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) res))
          (lambda (pos datum)
            (and
             (funcall clip-func pos datum)))
-         datum)
-        )
+         datum))
 
       (exchange-bc-data sim bc)
 
@@ -1359,8 +1356,7 @@
     (defun apply-force-mps-3d (mesh mps func-stress func-div clip-func &key (scalar (lambda (mp) 0d0)) (damage-volume nil))
       "Update force on nodes, with virtual stress field from mps"
       (declare (function func-stress func-div clip-func scalar)
-               (cl-mpm/mesh::mesh mesh)
-               )
+               (cl-mpm/mesh::mesh mesh))
       (cl-mpm:iterate-over-mps
        mps
        (lambda (mp)
@@ -1424,11 +1420,19 @@
                              mp-div
                              (* volume svp)
                              f-div)
-                            (let* ((f-total (cl-mpm/fastmaths::fast-.+ f-stress f-div)))
+                            (let* (;; (f-total (cl-mpm/fastmaths::fast-.+ f-stress f-div))
+                                   )
+                              (setf (varef grads-vec 0) (cl-mpm/utils::gradients-dx grads)
+                                    (varef grads-vec 1) (cl-mpm/utils::gradients-dy grads)
+                                    (varef grads-vec 2) (cl-mpm/utils::gradients-dz grads))
+                              (cl-mpm/fastmaths::fast-scale!
+                               grads-vec
+                               (* -1d0 volume (the double-float (funcall scalar mp))))
                               (sb-thread:with-mutex (node-lock)
                                 (cl-mpm/fastmaths:fast-.+ node-force-ext f-stress node-force-ext)
                                 (cl-mpm/fastmaths:fast-.+ node-force-ext f-div    node-force-ext)
-                                (cl-mpm/fastmaths:fast-.+ node-buoyancy-force f-total node-buoyancy-force)
+                                (cl-mpm/fastmaths:fast-.+ node-buoyancy-force f-stress node-buoyancy-force)
+                                (cl-mpm/fastmaths:fast-.+ node-buoyancy-force f-div node-buoyancy-force)
                                 ;; (incf node-boundary-scalar
                                 ;;       (* -1d0
                                 ;;          volume
@@ -1436,13 +1440,8 @@
                                 ;;          (+ (cl-mpm/utils::gradients-dx grads)
                                 ;;             (cl-mpm/utils::gradients-dy grads)
                                 ;;             (cl-mpm/utils::gradients-dz grads))))
-                                (setf (varef grads-vec 0) (cl-mpm/utils::gradients-dx grads)
-                                      (varef grads-vec 1) (cl-mpm/utils::gradients-dy grads)
-                                      (varef grads-vec 2) (cl-mpm/utils::gradients-dz grads))
                                 (cl-mpm/fastmaths::fast-.+
-                                 (cl-mpm/fastmaths::fast-scale!
-                                  grads-vec
-                                  (* -1d0 volume (the double-float (funcall scalar mp))))
+                                 grads-vec
                                  (cl-mpm/mesh::node-boundary-vec node)
                                  (cl-mpm/mesh::node-boundary-vec node))
                                 ;; (incf node-boundary-scalar (* volume svp (funcall scalar mp)))

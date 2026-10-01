@@ -19,7 +19,6 @@
                (nonlocal-damage nonlocal-damage)
                (remove-damage allow-mp-damage-removal)
                (fbar enable-fbar)
-               (bcs-force-list bcs-force-list)
                (vel-algo velocity-algorithm)
                (damping damping-factor)
                (time time)

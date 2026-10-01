@@ -5,7 +5,6 @@
                (mps  cl-mpm::mps)
                (bcs  cl-mpm::bcs)
                (bcs-force cl-mpm::bcs-force)
-               (bcs-force-list cl-mpm::bcs-force-list)
                (dt cl-mpm::dt)
                (mass-filter cl-mpm::mass-filter)
                (ghost-factor cl-mpm::ghost-factor)
@@ -64,7 +63,6 @@
                (mps  cl-mpm::mps)
                (bcs  cl-mpm::bcs)
                (bcs-force cl-mpm::bcs-force)
-               (bcs-force-list cl-mpm::bcs-force-list)
                (dt cl-mpm::dt)
                (mass-filter cl-mpm::mass-filter)
                (split cl-mpm::allow-mp-split)
@@ -89,8 +87,7 @@
       (cl-mpm::apply-bcs mesh bcs dt)
       ;; Map forces onto nodes
       (cl-mpm::p2g-force sim)
-      (loop for bcs-f in bcs-force-list
-            do (cl-mpm::apply-bcs mesh bcs-f dt))
+      (cl-mpm::apply-force-bcs sim dt)
       (cl-mpm::update-node-forces sim)
       ;; Reapply velocity BCs
       (cl-mpm::apply-bcs mesh bcs dt)
@@ -127,7 +124,6 @@
                    (mass-filter cl-mpm::sim-mass-filter)
                    (enable-damage cl-mpm/damage::sim-enable-damage)
                    (fbar cl-mpm::sim-enable-fbar)
-                   (bcs-force-list cl-mpm::sim-bcs-force-list)
                    (vel-algo cl-mpm::sim-velocity-algorithm)
                    (damping cl-mpm::sim-damping-factor)
                    (time cl-mpm::sim-time))
@@ -147,8 +143,7 @@
         (cl-mpm::update-node-kinematics sim)
         (cl-mpm::update-nodes sim)
         (cl-mpm::p2g-force sim)
-        (loop for bcs-f in bcs-force-list
-              do (cl-mpm::apply-bcs mesh bcs-f dt))
+        (cl-mpm::apply-force-bcs sim dt)
         ;; (apply-bcs mesh bcs-force dt)
         ;;Update our nodes after force mapping
         (cl-mpm::update-node-forces sim)
@@ -164,8 +159,6 @@
           (cl-mpm::filter-grid-velocity mesh mass-filter))
         (cl-mpm::update-node-kinematics sim)
         (cl-mpm::update-nodes sim)
-        ;; (loop for bcs-f in bcs-force-list
-        ;;       do (cl-mpm::apply-bcs mesh bcs-f dt))
         (cl-mpm::apply-bcs mesh bcs dt)
         (cl-mpm::update-stress mesh mps dt fbar)
         (cl-mpm/damage::calculate-damage sim dt)

@@ -264,7 +264,7 @@
                    (df-inc-strain-inv    cl-mpm/particle::mp-deformation-gradient-strain-increment-inverse)
                    )
       mp
-    (declare (type double-float volume volume-n))
+    (declare (type double-float volume volume-n j-n j))
     (multiple-value-bind (df df-strain) (calculate-df mesh mp fbar df-inc df-strain)
       (progn
         (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def-0 def))
@@ -285,7 +285,6 @@
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
            (optimize (speed 3) (safety 0) (debug 0)))
   (let ((stress (cl-mpm/particle:mp-stress mp))
-        ;; (stress-kirchoff (cl-mpm/particle::mp-stress-kirchoff mp))
         (strain (cl-mpm/particle:mp-strain mp))
         (def    (cl-mpm/particle:mp-deformation-gradient mp)))
     (declare (magicl:matrix/double-float stress strain def))
@@ -293,8 +292,9 @@
       (calculate-strain-rate-disp mesh mp dt fbar)
       (update-strain-kirchoff mesh mp dt fbar)
       (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress)
-      ;; (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-      (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (cl-mpm/particle::mp-deformation-jacobian-strain mp))))))
+      (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/particle::mp-deformation-jacobian-strain mp))))
+      ))
+  )
 
 (defun update-stress-kirchoff-dynamic-relaxation (mesh mp dt fbar)
   "Update stress for a single mp"
