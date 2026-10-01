@@ -196,11 +196,6 @@
    ))
 
 (defun mpi-max (value)
-  ;; (cl-mpi:mpi-barrier)
-  ;; (static-vectors:with-static-vector (source 1 :element-type 'double-float :initial-element (coerce value 'double-float))
-  ;;   (static-vectors:with-static-vector (dest 1 :element-type 'double-float :initial-element 0d0)
-  ;;     (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-max+)
-  ;;     (aref dest 0)))
 
   (cffi:with-foreign-objects ((in :double)
                               (out :double))
@@ -219,12 +214,13 @@
 
 (defun mpi-vector-integer-sum (values)
   "Sum a scalar over all mpi nodes"
-  ;; (cl-mpi:mpi-barrier)
+  (cl-mpi:mpi-barrier)
   (let ((size (length values)))
     (static-vectors:with-static-vector (source size :element-type '(signed-byte 32)
                                                     :initial-contents values)
       (static-vectors:with-static-vector (dest size :element-type '(signed-byte 32)
                                                     :initial-element 0)
+        (cl-mpi:mpi-barrier)
         (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-sum+)
         ;; (cl-mpi:mpi-barrier)
         (aops:copy-into values dest)))
@@ -232,28 +228,58 @@
 
 (defun mpi-vector-integer-max (values)
   "Sum a scalar over all mpi nodes"
-  ;; (cl-mpi:mpi-barrier)
+  (cl-mpi:mpi-barrier)
   (let ((size (length values)))
     (static-vectors:with-static-vector (source size :element-type '(signed-byte 32)
                                                     :initial-contents values)
       (static-vectors:with-static-vector (dest size :element-type '(signed-byte 32)
                                                     :initial-element 0)
+        (cl-mpi:mpi-barrier)
         (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-max+)
-        ;; (cl-mpi:mpi-barrier)
+        (cl-mpi:mpi-barrier)
         (aops:copy-into values dest)))
     values))
 
+
+(defun mpi-allreduce (send-array recv-array op &key
+                                                 (comm cl-mpi::*standard-communicator*)
+                                                 (type nil)
+                                                 send-start send-end
+                                                 recv-start recv-end)
+  "Combine the contents of each SEND-ARRAY element wise with the operation
+OP and store the result RECV-ARRAY."
+  (declare (type simple-array send-array recv-array)
+           (type cl-mpi::mpi-op op)
+           (type cl-mpi::mpi-comm comm)
+           (type cl-mpi::index send-start send-end recv-start recv-end))
+  (multiple-value-bind (sendbuf sendtype sendcount)
+      (cl-mpi::static-vector-mpi-data send-array send-start send-end)
+    (multiple-value-bind (recvbuf recvtype recvcount)
+        (cl-mpi::static-vector-mpi-data recv-array recv-start recv-end)
+      (assert (= recvcount sendcount))
+      (assert (eq recvtype sendtype))
+      ;; (format t "MPI thinks it is sending ~A~%" sendtype)
+      (when type
+        (setf sendtype type))
+      (cl-mpi::%mpi-allreduce sendbuf recvbuf sendcount sendtype op comm))))
+
 (defun mpi-vector-sum (values)
   "Sum a scalar over all mpi nodes"
-  ;; (cl-mpi:mpi-barrier)
+  (cl-mpi:mpi-barrier)
   (let ((size (length values)))
     (static-vectors:with-static-vector (source size :element-type 'double-float
                                                     :initial-contents values)
+      ;; (format t "~D - Source ~A~%" (cl-mpi:mpi-comm-rank) source)
       (static-vectors:with-static-vector (dest size :element-type 'double-float :initial-element 0d0)
-        (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-sum+)
-        ;; (cl-mpi:mpi-barrier)
+        (declare ((simple-array double-float (*)) source dest))
+        (cl-mpi:mpi-barrier)
+        (mpi-allreduce source dest cl-mpi:+mpi-sum+ :type cl-mpi::+mpi-double+)
+        (cl-mpi:mpi-barrier)
         (aops:copy-into values dest)))
     values))
+
+;; (mpi-vector-sum pos-array)
+
 
 
 (defun mpi-vector-max (values)
@@ -263,7 +289,7 @@
     (static-vectors:with-static-vector (source size :element-type 'double-float
                                                     :initial-contents values)
       (static-vectors:with-static-vector (dest size :element-type 'double-float :initial-element 0d0)
-        (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-max+)
+        (mpi-allreduce source dest cl-mpi:+mpi-max+ :type cl-mpi::+mpi-double+)
         ;; (cl-mpi:mpi-barrier)
         (aops:copy-into values dest)))
     values))

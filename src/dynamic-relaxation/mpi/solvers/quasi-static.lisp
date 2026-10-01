@@ -10,8 +10,7 @@
                   (dt cl-mpm::dt)
                   (fbar cl-mpm::enable-fbar)
                   (dt-loadstep dt-loadstep)
-                  (agg cl-mpm/aggregate::enable-aggregate)
-                  (bcs-force-list cl-mpm::bcs-force-list))
+                  (agg cl-mpm/aggregate::enable-aggregate))
          sim
        (progn
          (setf dt 1d0)
@@ -57,7 +56,6 @@
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
-               (bcs-force-list cl-mpm::bcs-force-list)
                (ghost-factor cl-mpm::ghost-factor)
                (initial-setup initial-setup)
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)
@@ -101,9 +99,8 @@
        (when t
          (setf (cl-mpm/mesh::node-mass n) 0d0))))
     (map-stiffness-quasi-static sim)
-    (loop for bcs-f in bcs-force-list
-          do (loop for bc across bcs-f
-                   do (cl-mpm/bc::assemble-bc-stiffness sim bc)))
+    (loop for bc across bcs-force-list
+          do (cl-mpm/bc::assemble-bc-stiffness sim bc))
     (cl-mpm/mpi::mpi-sync-mass sim)
     (cl-mpm/aggregate::update-mass-matrix sim)
     (setf dt 1d0)))
@@ -122,7 +119,6 @@
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
-               (bcs-force-list cl-mpm::bcs-force-list)
                (ghost-factor cl-mpm::ghost-factor)
                (initial-setup initial-setup)
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)
@@ -166,7 +162,6 @@
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
-               (bcs-force-list cl-mpm::bcs-force-list)
                (ghost-factor cl-mpm::ghost-factor)
                (initial-setup initial-setup)
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)

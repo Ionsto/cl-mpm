@@ -235,7 +235,7 @@
                                                        (save-conv-step sim output-dir *total-iter* global-step 0d0 (cl-mpm::sim-stats-oobf sim) 0d0)
                                                        (when save-vtk-dr
                                                          (save-vtks-dr-step sim output-dir global-step *trial-iter* total-i))
-                                                       (incf *total-iter*)
+                                                       ;; (incf *total-iter*)
                                                        (check-damage-increment sim :max-damage-inc max-damage-inc)
                                                        ))
                                           (when (eq stagger-damage :FULL)

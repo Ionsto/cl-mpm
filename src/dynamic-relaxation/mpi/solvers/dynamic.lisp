@@ -101,8 +101,7 @@
 
 (defmethod update-node-fictious-mass ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic-mpi))
   (with-accessors ((mesh cl-mpm::sim-mesh)
-                   (dt cl-mpm::sim-dt)
-                   (bcs-force-list cl-mpm::sim-bcs-force-list))
+                   (dt cl-mpm::sim-dt))
       sim
 
     (cl-mpm::iterate-over-nodes
@@ -111,9 +110,10 @@
        (when t
          (setf (cl-mpm/mesh::node-mass n) 0d0))))
     (map-stiffness sim)
-    (loop for bcs-f in bcs-force-list
-          do (loop for bc across bcs-f
-                   do (cl-mpm/bc::assemble-bc-stiffness sim bc)))
+    (cl-mpm::iterate-over-bcs-force
+     sim
+     (lambda (bc)
+       (cl-mpm/bc::assemble-bc-stiffness sim bc)))
     (cl-mpm/mpi::mpi-sync-mass sim)
     (cl-mpm/aggregate::update-mass-matrix sim)
     (setf dt 1d0)))
