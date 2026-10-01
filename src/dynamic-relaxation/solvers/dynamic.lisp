@@ -398,7 +398,9 @@
     ;; (cl-mpm/damage::calculate-damage sim (* 2d0 dt-loadstep))
     )
   (cl-mpm::update-dynamic-stats sim)
-  (call-next-method))
+  (call-next-method)
+  ;; (cl-mpm::reset-mesh-active sim)
+  )
 
 
 (defmethod cl-mpm::calculate-min-dt ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
@@ -439,11 +441,13 @@
                )
       sim
     (setf (cl-mpm/dynamic-relaxation::sim-solve-count sim) 0)
+    ;; (cl-mpm::reset-mesh-active sim)
     (cl-mpm::reset-grid mesh :reset-displacement t)
     (cl-mpm::p2g mesh mps vel-algo)
     (setf (cl-mpm::sim-dt sim) 1d0)
     (when (> mass-filter 0d0)
       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+    ;; (cl-mpm::compact-mesh-active sim)
     (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::filter-cells sim)
     (cl-mpm::update-node-kinematics sim)

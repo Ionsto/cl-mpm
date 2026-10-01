@@ -1407,23 +1407,42 @@ This modifies the dt of the simulation in the process
                       :displaced-to (cl-mpm/mesh::mesh-nodes mesh)))))
 
 (defun compact-mesh-active (sim)
-  (when nil
-    (reset-mesh-active sim)
-    (let* ((mesh (sim-mesh sim))
-           (node-active (filter-nodes sim #'cl-mpm/mesh:node-active))
-           (nodes-sorted (make-array (length node-active) :fill-pointer 0)))
-      (let ((nd (cl-mpm/mesh:mesh-nD mesh))
-            (id 0))
-        (loop for i from 0 to (round (expt (expt 2 (+ 0 (ceiling (log (reduce #'max (cl-mpm/mesh::mesh-count mesh)) 2)))) nd))
-              do
-                 (let ((trial-index (morton-to-index i nd)))
-                   (when (cl-mpm/mesh::in-bounds mesh trial-index)
-                     ;; (setf (aref nodes-sorted id) (cl-mpm/mesh::get-node mesh trial-index))
-                     (vector-push-extend (cl-mpm/mesh::get-node mesh trial-index) nodes-sorted)
-                     (incf id))))
-        )
-      (setf (cl-mpm/mesh::mesh-active-nodes mesh)
-            nodes-sorted))))
+  (with-accessors ((mesh sim-mesh))
+      sim
+    (let ((nc 0)
+          (flat-nodes (make-array (array-total-size (cl-mpm/mesh::mesh-nodes mesh)) :displaced-to (cl-mpm/mesh::mesh-nodes mesh)))
+          )
+      (declare (fixnum nc))
+      (loop for n across flat-nodes
+            do (when (cl-mpm/mesh::node-active n)
+                 (incf nc)))
+      (let ((new-node-array (make-array nc)))
+        (let ((i 0))
+          (loop for n across flat-nodes
+                do (progn
+                     (when (cl-mpm/mesh::node-active n)
+                       (setf (aref new-node-array i) n)
+                       (incf i)))))
+        (setf (cl-mpm/mesh::mesh-active-nodes mesh) new-node-array)))
+    (values))
+  ;; (when nil
+  ;;   (reset-mesh-active sim)
+  ;;   (let* ((mesh (sim-mesh sim))
+  ;;          (node-active (filter-nodes sim #'cl-mpm/mesh:node-active))
+  ;;          (nodes-sorted (make-array (length node-active) :fill-pointer 0)))
+  ;;     (let ((nd (cl-mpm/mesh:mesh-nD mesh))
+  ;;           (id 0))
+  ;;       (loop for i from 0 to (round (expt (expt 2 (+ 0 (ceiling (log (reduce #'max (cl-mpm/mesh::mesh-count mesh)) 2)))) nd))
+  ;;             do
+  ;;                (let ((trial-index (morton-to-index i nd)))
+  ;;                  (when (cl-mpm/mesh::in-bounds mesh trial-index)
+  ;;                    ;; (setf (aref nodes-sorted id) (cl-mpm/mesh::get-node mesh trial-index))
+  ;;                    (vector-push-extend (cl-mpm/mesh::get-node mesh trial-index) nodes-sorted)
+  ;;                    (incf id))))
+  ;;       )
+  ;;     (setf (cl-mpm/mesh::mesh-active-nodes mesh)
+  ;;           nodes-sorted)))
+  )
 
 (defun compute-point-displacement (mesh pos &key (result nil))
   (let ((corner-disp (if result

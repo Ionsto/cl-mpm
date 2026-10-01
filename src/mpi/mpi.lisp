@@ -69,7 +69,7 @@
             (size (cl-mpi:mpi-comm-size)))
         (static-vectors:with-static-vector (source 1 :element-type 'double-float :initial-element inner-factor)
           (static-vectors:with-static-vector (dest 1 :element-type 'double-float :initial-element 0d0)
-            (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-min+)
+            (mpi-allreduce source dest cl-mpi:+mpi-min+ :type cl-mpi:+mpi-double+)
             (setf inner-factor (aref dest 0))
             (if (< inner-factor most-positive-double-float)
                 (progn

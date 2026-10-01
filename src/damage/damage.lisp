@@ -556,8 +556,8 @@
   (let ((da (cl-mpm/particle::mp-av-damage mp-a))
         (da-other (cl-mpm/particle::mp-av-damage mp-b)))
     (declare (double-float length da da-other))
-    (flet ((deg (d) (max 1d-15 (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 d)))))))
-           ;; (deg (d) (max 1d-15 (the double-float (expt (max 0d0 (min 1d0 (- 1d0 d))) 1))))
+    (flet (;;(deg (d) (max 1d-15 (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 d)))))))
+           (deg (d) (max 1d-15 (the double-float (expt (max 0d0 (min 1d0 (- 1d0 d))) 1))))
            )
       (weight-func
        (cl-mpm/fastmaths::diff-norm pos-a pos-b)
