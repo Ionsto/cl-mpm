@@ -319,6 +319,7 @@
                                 (if enable-damage
                                     (progn
                                       (unless (cl-mpm:sim-enable-damage sim)
+                                        (setf dconv damage-crit)
                                         (reset-tangent))
                                       (setf (cl-mpm:sim-enable-damage sim) enable-damage)
                                       (cl-mpm/damage::calculate-damage
@@ -349,7 +350,8 @@
                                       (cl-mpm::update-dynamic-stats sim)
                                       (setf dconv dconv-1)
                                       (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv)
-                                      ))
+                                      )
+                                      )
                                   (setf dconv 0d0))
                                 )))
                  (setf additional-conv (convergence-check sim))))))

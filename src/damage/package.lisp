@@ -17,6 +17,10 @@
     :type double-float
     :accessor sim-stats-damage-residual
     :initform 0d0)
+   (damage-ybar-relaxation
+    :type double-float
+    :accessor sim-damage-ybar-relaxation
+    :initform 0d0)
    (delocal-counter
     :accessor sim-damage-delocal-counter
     :type fixnum

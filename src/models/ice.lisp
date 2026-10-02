@@ -184,26 +184,27 @@
           (- 1d0 damage-t)
           (- 1d0 damage-c)))))
 
-;; (let ((nx (cl-mpm/fastmaths::norm (cl-mpm/utils::voigt-from-list (list 1d0 0d0 0d0 0d0 0d0 0d0))))
-;;       (ny (cl-mpm/fastmaths::norm (cl-mpm/utils::voigt-from-list (list 1d0 0d0 0d0 0d0 0d0 0d0))))
-;;       (nxy (cl-mpm/fastmaths::norm (cl-mpm/utils::voigt-from-list (list 1d0 1d0 0d0 0d0 0d0 0d0))))
-;;       (nyx (cl-mpm/fastmaths::norm (cl-mpm/utils::voigt-from-list (list -1d0 -1d0 0d0 0d0 0d0 0d0))))
-;;       )
-;;   (cl-mpm/utils::with-voigt-pool
-;;       (defun p-wave-from-tangent (mp tang)
-;;         (let ((temp (grab-new-voigt)))
-;;           (max
-;;            (* 1d-9 (cl-mpm/particle::compute-p-modulus mp))
-;;            (max
-;;             (cl-mpm/utils::mtref tang 0 0)
-;;             (cl-mpm/utils::mtref tang 1 1)
-;;             ;; (cl-mpm/fastmaths::dot nxy (cl-mpm/fastmaths::fast-@-arb-arb tang nx :res temp))
-;;             ))))))
-(defun p-wave-from-tangent (mp tang)
-  (max
-   (* 1d-9 (cl-mpm/particle::compute-p-modulus mp))
-   (cl-mpm/utils::mtref tang 0 0)
-   (cl-mpm/utils::mtref tang 1 1)))
+(let ((nx (cl-mpm/fastmaths::norm (cl-mpm/utils::voigt-from-list (list 1d0 0d0 0d0 0d0 0d0 0d0))))
+      (ny (cl-mpm/fastmaths::norm (cl-mpm/utils::voigt-from-list (list 1d0 0d0 0d0 0d0 0d0 0d0))))
+      (nxy (cl-mpm/fastmaths::norm (cl-mpm/utils::voigt-from-list (list 1d0 1d0 0d0 0d0 0d0 0d0))))
+      (nyx (cl-mpm/fastmaths::norm (cl-mpm/utils::voigt-from-list (list -1d0 -1d0 0d0 0d0 0d0 0d0))))
+      )
+  (cl-mpm/utils::with-voigt-pool
+      (defun p-wave-from-tangent (mp tang)
+        (let ((temp (grab-new-voigt)))
+          (max
+           (* 1d-9 (cl-mpm/particle::compute-p-modulus mp))
+           (max
+            (cl-mpm/utils::mtref tang 0 0)
+            (cl-mpm/utils::mtref tang 1 1)
+            ;; (cl-mpm/fastmaths::dot nxy (cl-mpm/fastmaths::fast-@-arb-arb tang nxy :res temp))
+            ;; (cl-mpm/fastmaths::dot nyx (cl-mpm/fastmaths::fast-@-arb-arb tang nyx :res temp))
+            ))))))
+;; (defun p-wave-from-tangent (mp tang)
+;;   (max
+;;    (* 1d-9 (cl-mpm/particle::compute-p-modulus mp))
+;;    (cl-mpm/utils::mtref tang 0 0)
+;;    (cl-mpm/utils::mtref tang 1 1)))
 
 (defmethod initialize-instance :after ((mp particle-ice-brittle) &key)
   (with-accessors ((ductility cl-mpm/particle::mp-ductility)

@@ -1068,6 +1068,11 @@
     :type DOUBLE-FLOAT
     :initform 0d0
     :initarg :damage-ybar)
+   (damage-ybar-n
+    :accessor mp-damage-ybar-n
+    :type DOUBLE-FLOAT
+    :initform 0d0
+    :initarg :damage-ybar)
    (damage-ybar-prev
     :accessor mp-damage-ybar-prev
     :type DOUBLE-FLOAT
