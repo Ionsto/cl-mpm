@@ -1098,7 +1098,7 @@
 
 
 (defun @-arb-vector-lisp (matrix vector result-vector)
-  "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"
+  "Multiply a nxm matrix with a mx1 vector to calculate a mx1 vector in place"
   (declare (magicl:matrix/double-float matrix vector result-vector)
            (optimize (speed 3) (safety 0) (debug 0)))
   (let ((a (magicl::matrix/double-float-storage matrix))
@@ -1113,7 +1113,7 @@
                (loop for j fixnum from 0 below cols
                      do (incf (aref c i) (the double-float (* (aref b j) (cl-mpm/utils:mtref matrix i j)))))
             )))
-  (values))
+  result-vector)
 
 (defun @-matrix-vector-lisp (matrix vector scale result-vector)
   "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"

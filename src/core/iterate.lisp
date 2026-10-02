@@ -192,6 +192,7 @@ Calls func with only the node"
 
 
 (defun reduce-over-cells (mesh map reduce)
+  (declare (function map reduce))
   "Apply a map-reduce over all the cells active or not"
   (with-accessors ((cells cl-mpm/mesh::mesh-active-cells))
       mesh
@@ -201,6 +202,7 @@ Calls func with only the node"
      cells)))
 
 (defun reduce-over-nodes (mesh map reduce)
+  (declare (function map reduce))
   (with-accessors ((nodes cl-mpm/mesh::mesh-active-nodes))
       mesh
     (lparallel:pmap-reduce
@@ -209,6 +211,7 @@ Calls func with only the node"
      nodes)))
 
 (defun reduce-over-mps (mps map reduce)
+  (declare (function map reduce))
   (lparallel:pmap-reduce
    map
    reduce
@@ -224,26 +227,35 @@ Calls func with only the node"
   (values))
 
 
+
 (defmethod reduce-over-global-mps-sum ((sim cl-mpm::mpm-sim) map)
-  (lparallel:pmap-reduce
-   map
-   #'+
-   (cl-mpm:sim-mps sim)))
+  (declare (function map))
+  (if (> (length (cl-mpm::sim-mps sim)) 0)
+      (lparallel:pmap-reduce
+       map
+       #'+
+       (cl-mpm:sim-mps sim))
+      0d0))
 
 (defmethod reduce-over-global-mps-max ((sim cl-mpm::mpm-sim) map)
-  (lparallel:pmap-reduce
-   map
-   #'max
-   (cl-mpm:sim-mps sim)))
+  (declare (function map))
+  (if (> (length (cl-mpm::sim-mps sim)) 0)
+      (lparallel:pmap-reduce
+       map
+       #'max
+       (cl-mpm:sim-mps sim))
+      sb-ext::most-negative-double-float))
 
 
 (defmethod reduce-over-global-nodes-sum ((sim cl-mpm::mpm-sim) map)
+  (declare (function map))
   (reduce-over-nodes
    (cl-mpm:sim-mesh sim)
    map
    #'+))
 
 (defmethod reduce-over-global-nodes-max ((sim cl-mpm::mpm-sim) map)
+  (declare (function map))
   (reduce-over-nodes
    (cl-mpm:sim-mesh sim)
    map

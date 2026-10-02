@@ -34,7 +34,8 @@
                     (* 0.5d0 mass (cl-mpm/fastmaths::mag-squared vel))
                     (cl-mpm/fastmaths::mag-squared res)
                     ;; (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+ f-ext f-rct))
-                    (cl-mpm/fastmaths::mag-squared f-ext)
+                    (+ (cl-mpm/fastmaths::mag-squared f-ext) (cl-mpm/fastmaths::mag-squared f-rct))
+                    ;; (cl-mpm/fastmaths::mag-squared f-ext)
                     (cl-mpm/fastmaths:dot disp f-ext))))
                (list 0d0 0d0 0d0 0d0)))
          (lambda (&rest args)
@@ -43,7 +44,6 @@
                (list 0d0 0d0 0d0 0d0))
            ))
       (declare (double-float energy oobf-num oobf-denom power))
-      (declare (double-float mass energy oobf-num oobf-denom power))
       (when sim-agg
         (cl-mpm/aggregate::iterate-over-dimensions-with-mutex
          (cl-mpm/mesh::mesh-nd mesh)
@@ -62,8 +62,8 @@
                                ))
                    (doobf-denom
                      (+
-                      ;; (cl-mpm/fastmaths::mag-squared
-                      ;;  f-rct)
+                      (cl-mpm/fastmaths::mag-squared
+                       f-rct)
                       (cl-mpm/fastmaths::mag-squared
                        (cl-mpm/aggregate::aggregate-vec sim f-ext d))))
                    (dpower (cl-mpm/fastmaths:dot

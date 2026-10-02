@@ -65,31 +65,30 @@
                    (nu cl-mpm/particle::mp-nu)
                    (de cl-mpm/particle::mp-elastic-matrix))
       mp
-    (when (> damage 0.0d0)
-      (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils::voigt-to-matrix strain))
+    (when t;;(> damage 0.0d0)
+      (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils::voight-to-matrix strain))
         (let* ()
-          ;; (pprint l)
-          (loop for i from 0 below (length l)
+          ;; (cl-mpm/utils::copy-into undamaged-stress stress)
+          (loop for i from 0 to 2
                 do (let* ((sii (nth i l)))
                      ;;Tensile damage -> unbounded
                      (when (> sii 0d0)
                        (setf (nth i l)
-                             (* (nth i l) (expt (- 1d0 damage) 1))))))
+                             (* (nth i l)
+                                0.01d0
+                                ;; (expt (- 1d0 damage) 1)
+                                )))))
           ;; (pprint strain)
-          (let (;; (strain+ (cl-mpm/utils:matrix-to-voigt
-                ;;           (magicl:@
-                ;;            v
-                ;;            (magicl:from-diag l :type 'double-float)
-                ;;            (cl-mpm/utils:transpose v))))
+          (let ((strain+ (cl-mpm/utils:matrix-to-voigt
+                          (magicl:@
+                           v
+                           (cl-mpm/utils::matrix-diag l)
+                           (cl-mpm/utils:transpose v))))
                 )
             ;; (pprint strain+)
             (setf stress
                   (cl-mpm/constitutive::linear-elastic-mat
-                   (cl-mpm/utils:matrix-to-voigt
-                    (magicl:@
-                     v
-                     (cl-mpm/utils::matrix-diag l)
-                     (cl-mpm/utils:transpose v)))
+                   strain+
                    de
                    stress))
             (cl-mpm/fastmaths:fast-scale! stress (/ 1d0 j))))))))
@@ -572,7 +571,7 @@
                           (cl-mpm/utils:voigt-zeros)))
                    (chi
                      ;; -1d0
-                     ;; 1d0
+                     ;; -1d0
                      (*
                       1d0
                       (if (>

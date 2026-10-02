@@ -471,10 +471,25 @@
             (/
              (max
               (- (* k s1) s3)
-              ;; (- (* k s1) s2)
-              ;; (- (* k s2) s3)
               )
              k)))))
+
+(defun criterion-mohr-coloumb-gill (strain angle e nu)
+  (declare (double-float angle))
+  (multiple-value-bind (e1 e2 e3) (fast-principal-strains strain)
+    (declare (double-float angle e1 e2 e3))
+    (let ((alpha (/ (sin angle)
+                    (- 1d0 (* 2d0 nu)))))
+      (* e
+         (/
+          (max 0d0
+               (* (-
+                   (* (+ 1d0 alpha) e1)
+                   (* (- 1d0 alpha) e3)
+                   )
+                  (/ 1d0 (cos angle))))
+
+          (* (+ 1d0 alpha) (/ 1d0 (cos angle))))))))
 
 (defun criterion-mohr-coloumb-stress-will (stress angle)
   (multiple-value-bind (s1 s2 s3) (fast-principal-stresses-3d stress)

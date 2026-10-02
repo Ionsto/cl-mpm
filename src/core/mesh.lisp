@@ -703,6 +703,11 @@
       (let* ((cell (aref cells i j k)))
         (with-accessors ((neighbours cell-neighbours))
             cell
+
+          (setf (cl-mpm/mesh::cell-volume cell) 0d0)
+          (loop for n across (cl-mpm/mesh::cell-nodes cell)
+                do (incf (cl-mpm/mesh::cell-volume cell) (* 0.25d0 (node-volume-true n))))
+
           (setf neighbours (list))
           (array-operations/utilities:nested-loop (dxx dyy) (list 3 3)
             (let ((dx (- dxx 1))
@@ -792,10 +797,9 @@
          (ecase nD
            (1 (make-cells-1d mesh meshcount resolution))
            (2 (make-cells-2d mesh meshcount resolution))
-           (3 (make-cells mesh meshcount resolution))
-           ;; (setf  )
-           ;; (setf (mesh-cells mesh) (make-cells mesh meshcount resolution))
-           ))
+           (3 (make-cells mesh meshcount resolution))))
+
+
         mesh))))
 
 

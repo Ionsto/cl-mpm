@@ -14,15 +14,19 @@
          sim
        (progn
          (setf dt 1d0)
+         (cl-mpm::p2g-force-fs sim)
          (cl-mpm::update-stress mesh mps dt-loadstep fbar)
          (cl-mpm/damage::calculate-damage sim dt-loadstep)
-         (cl-mpm::p2g-force-fs sim)
          (cl-mpm::apply-essential-bcs sim)
          (cl-mpm::apply-force-bcs sim dt-loadstep)
+
+         (cl-mpm/mpi::with-mpi-errors
+             (cl-mpm/mpi::mpi-sync-force sim))
          (cl-mpm/mpi::mpi-sync-force sim)
          (let ((dt-scale (cl-mpm::sim-dt-scale sim)))
            (setf (cl-mpm::sim-dt-scale sim) (* 1d0 dt-scale))
-           (update-node-fictious-mass sim)
+           (cl-mpm/mpi::with-mpi-errors
+               (update-node-fictious-mass sim))
            ;; (cl-mpm/aggregate::update-node-forces-agg sim (* -0.5d0 dt))
            (update-node-forces-midpoint-starter sim)
            ;; (cl-mpm::reset-node-displacement sim)
@@ -80,9 +84,9 @@
        (setf
         (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n))
        (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-true-velocity n))))
-    (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (cl-mpm::reset-node-displacement sim)
-    ;; (midpoint-starter-mpi sim)
+    (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
+    (midpoint-starter-mpi sim)
     (setf (cl-mpm::sim-damping-factor sim) 0d0)
     (setf initial-setup t)))
 
@@ -174,7 +178,8 @@
     (unless initial-setup
       (pre-step sim)
       (setf (cl-mpm/damage::sim-damage-delocal-counter-max sim) -1)
-      (cl-mpm/damage::update-delocalisation-list sim))
+      (cl-mpm/damage::update-delocalisation-list sim)
+      )
     (cl-mpm/penalty::reset-penalty sim)
     (setf dt 1d0)
     (cl-mpm::reset-nodes-force sim)
@@ -199,10 +204,11 @@
         (cl-mpm/mpi::mpi-sync-displacement sim))
     (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-filtered-cells sim)
-    (cl-mpm::g2p mesh mps dt damping :TRIAL)
+    ;; (cl-mpm::g2p mesh mps dt damping :TRIAL)
     ;; (incf solve-count)
-    (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
-    (cl-mpm::update-dynamic-stats sim)))
+    ;; (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
+    ;; (cl-mpm::update-dynamic-stats sim)
+    ))
 
 (defmethod cl-mpm::finalise-loadstep :after ((sim mpm-sim-dr-mpi))
   (cl-mpm/mpi::set-mp-mpi-index sim)

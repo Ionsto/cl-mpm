@@ -184,6 +184,26 @@
           (- 1d0 damage-t)
           (- 1d0 damage-c)))))
 
+;; (let ((nx (cl-mpm/fastmaths::norm (cl-mpm/utils::voigt-from-list (list 1d0 0d0 0d0 0d0 0d0 0d0))))
+;;       (ny (cl-mpm/fastmaths::norm (cl-mpm/utils::voigt-from-list (list 1d0 0d0 0d0 0d0 0d0 0d0))))
+;;       (nxy (cl-mpm/fastmaths::norm (cl-mpm/utils::voigt-from-list (list 1d0 1d0 0d0 0d0 0d0 0d0))))
+;;       (nyx (cl-mpm/fastmaths::norm (cl-mpm/utils::voigt-from-list (list -1d0 -1d0 0d0 0d0 0d0 0d0))))
+;;       )
+;;   (cl-mpm/utils::with-voigt-pool
+;;       (defun p-wave-from-tangent (mp tang)
+;;         (let ((temp (grab-new-voigt)))
+;;           (max
+;;            (* 1d-9 (cl-mpm/particle::compute-p-modulus mp))
+;;            (max
+;;             (cl-mpm/utils::mtref tang 0 0)
+;;             (cl-mpm/utils::mtref tang 1 1)
+;;             ;; (cl-mpm/fastmaths::dot nxy (cl-mpm/fastmaths::fast-@-arb-arb tang nx :res temp))
+;;             ))))))
+(defun p-wave-from-tangent (mp tang)
+  (max
+   (* 1d-9 (cl-mpm/particle::compute-p-modulus mp))
+   (cl-mpm/utils::mtref tang 0 0)
+   (cl-mpm/utils::mtref tang 1 1)))
 
 (defmethod initialize-instance :after ((mp particle-ice-brittle) &key)
   (with-accessors ((ductility cl-mpm/particle::mp-ductility)
@@ -206,6 +226,7 @@
        (mp-c-0 mp) (* oversize-ratio c)
        (mp-shear-residual-ratio mp) rs
        ;; (mp-shear-residual-ratio mp) 1d0
+       ;; (mp-k-compressive-residual-ratio mp) 0d0
        )
       ;; (setf (mp-shear-residual-ratio mp) (min (mp-shear-residual-ratio mp) residual-strength)
       ;;       (mp-k-tensile-residual-ratio mp) (min residual-strength (mp-k-tensile-residual-ratio mp)))
@@ -382,11 +403,7 @@
          (cl-mpm/particle::mp-tangent-stiffness mp)
          (cl-mpm/particle::mp-undamaged-tangent-stiffness mp))
         (cl-mpm/utils:voigt-copy-into stress-u stress)
-        (setf p-wave
-              (max
-               (* 1d-9 (cl-mpm/particle::compute-p-modulus mp))
-               (cl-mpm/utils::mtref (cl-mpm/particle::mp-tangent-stiffness mp) 0 0)
-               (cl-mpm/utils::mtref (cl-mpm/particle::mp-tangent-stiffness mp) 1 1)))
+        (setf p-wave (cl-mpm/particle::p-wave-from-tangent mp (cl-mpm/particle::mp-tangent-stiffness mp)))
         stress)))
 
 
@@ -766,7 +783,7 @@
         ;; (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
         ))))
 
-(defmethod compute-damage ((mp cl-mpm/particle::particle-ice-brittle))
+(defmethod cl-mpm/damage::compute-damage ((mp cl-mpm/particle::particle-ice-brittle))
   (with-accessors ((k cl-mpm/particle::mp-history-stress)
                    (E cl-mpm/particle::mp-e)
                    (damage cl-mpm/particle:mp-damage)
@@ -792,7 +809,8 @@
        )
       (setf
        damage-shear (* damage g-r)
-       damage-compression (* damage kc-r)))))
+       damage-compression (* damage kc-r)))
+    ))
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-ice-brittle) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)
@@ -852,6 +870,8 @@
         ;;Transform to log damage
         (setf damage (max 0d0 (min 1d0 damage))))
       (values))))
+
+
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-ice-delayed) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)
@@ -968,6 +988,7 @@
                (- 1d0 damage-t)
                (- 1d0 damage-c)))
           (setf p (* p p-deg))
+
           (setf stress
                 (cl-mpm/fastmaths:fast-.+
                  (cl-mpm/constitutive::voight-eye (- (/ p j) pressure))
@@ -988,9 +1009,7 @@
                            (dy (the double-float (/ dt rho)))
                            (exp-rho (exp (- dy))))
                       (declare (double-float G rho dy exp-rho lam dt))
-                      (setf lam (/ (- 1 exp-rho) dy))
-                      ;; (pprint lam)
-                      ))
+                      (setf lam (/ (- 1 exp-rho) dy))))
                   (let ()
                     (cl-mpm/fastmaths::fast-.+
                      (cl-mpm/fastmaths::fast-scale!
@@ -1015,11 +1034,7 @@
           ;; (cl-mpm/fastmaths::fast-scale! (cl-mpm/particle::mp-tangent-stiffness mp) p-deg)
 
           ;; (cl-mpm/fastmaths:fast-scale! stress (/ 1d0 j))
-          (setf p-mod
-                (max
-                 (* 1d-9 (cl-mpm/particle::compute-p-modulus mp))
-                 (cl-mpm/utils::mtref (cl-mpm/particle::mp-tangent-stiffness mp) 0 0)
-                 (cl-mpm/utils::mtref (cl-mpm/particle::mp-tangent-stiffness mp) 1 1)))
+          (setf p-mod (cl-mpm/particle::p-wave-from-tangent mp (cl-mpm/particle::mp-tangent-stiffness mp)))
           ;; (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
           ;;        (G (/ e (* 2 (+ 1d0 nu))))
           ;;        (P-0 (+ K (* 4/3 G))))
@@ -1044,10 +1059,11 @@
                    (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (e cl-mpm/particle::mp-e)
                    (nu cl-mpm/particle::mp-nu)
-                   (p-mod cl-mpm/particle::mp-p-modulus))
+                   (p-mod cl-mpm/particle::mp-p-modulus-0))
       mp
     ;; (cl-mpm/damage::apply-tensile-strain-degredation mp)
     ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
+    ;; (setf p-mod (max (* 1d0 (cl-mpm/particle::compute-p-modulus mp))))
     ;; (cl-mpm/damage::apply-gill-damage mp)
     ;; (cl-mpm/damage::apply-isotropic-degredation mp)
     ;; (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
@@ -1065,6 +1081,7 @@
       -1d0
       (cl-mpm/particle::mp-biot-coefficent mp)
       (/ p 1)))
+    ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
     (with-accessors ((max-deg cl-mpm/particle::mp-density-degredation-max)
                      (d-exp cl-mpm/particle::mp-density-degredation-exp)
                      )

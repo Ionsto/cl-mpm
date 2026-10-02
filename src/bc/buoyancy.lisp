@@ -411,6 +411,11 @@
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
     (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
+      ;; (cl-mpm::iterate-over-cells
+      ;;  mesh
+      ;;  (lambda (cell)
+      ;;    (cl-mpm::update-cell-volumes (cl-mpm::sim-mesh sim) cell (cl-mpm::sim-dt sim))))
+
       (flet ((set-cell (c)
                (with-accessors ((nodes cl-mpm/mesh::cell-nodes)
                                 (boundary cl-mpm/mesh::cell-boundary)
@@ -437,44 +442,64 @@
              (declare (list neighbours))
              (setf boundary nil)
              (flet ((check-cell (c)
-                      (with-accessors ((pos cl-mpm/mesh::cell-centroid)
-                                       (neighbours cl-mpm/mesh::cell-neighbours)
-                                       (vt cl-mpm/mesh::cell-volume)
-                                       (nns cl-mpm/mesh::cell-nodes))
-                          c
-                        (declare (function clip-function) ((vector t *) nns))
-                        (when (and (funcall clip-function pos))
-                          (let ((vest 0d0))
-                            (loop for n across nns
-                                  do (when (cl-mpm/mesh:node-active n)
-                                       (incf vest
-                                             (the double-float
-                                                  (* 0.25d0
-                                                     (the double-float
-                                                          (/
-                                                           (the double-float (cl-mpm/mesh::node-volume n))
-                                                           (the double-float (cl-mpm/mesh::node-volume-true n)))))))))
-                            (when (< vest 0.8d0)
-                              (set-cell cell)))))))
-               (check-cell cell)))))
-        (cl-mpm::iterate-over-cells
-         mesh
-         (lambda (cell)
-           (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
-                            (neighbours cl-mpm/mesh::cell-neighbours)
-                            (index cl-mpm/mesh::cell-index)
-                            (nodes cl-mpm/mesh::cell-nodes)
-                            (pruned cl-mpm/mesh::cell-pruned)
-                            (boundary cl-mpm/mesh::cell-boundary)
-                            (pos cl-mpm/mesh::cell-centroid)
-                            (vt cl-mpm/mesh::cell-volume)
-                            (active cl-mpm/mesh::cell-active))
-               cell
-             (declare (list neighbours))
-             (when (not boundary)
+                      (let ((res nil))
+                        (with-accessors ((pos cl-mpm/mesh::cell-centroid)
+                                         (neighbours cl-mpm/mesh::cell-neighbours)
+                                         (vt cl-mpm/mesh::cell-volume)
+                                         (vol cl-mpm/mesh::cell-volume-current)
+                                         (nns cl-mpm/mesh::cell-nodes))
+                            c
+                          (declare (function clip-function) ((vector t *) nns))
+                          (declare (double-float vol vt))
+                          (when (and (funcall clip-function pos))
+                            (when (< (/ vol vt) 0.8d0)
+                              (setf res t)
+                              ;; (set-cell cell)
+                              )
+                            ;; (let ((vest 0d0))
+                            ;;   (loop for n across nns
+                            ;;         do (when (cl-mpm/mesh:node-active n)
+                            ;;              (incf vest
+                            ;;                    (the double-float
+                            ;;                         (* 0.25d0
+                            ;;                            (the double-float
+                            ;;                                 (/
+                            ;;                                  (the double-float (cl-mpm/mesh::node-volume n))
+                            ;;                                  (the double-float (cl-mpm/mesh::node-volume-true n)))))))))
+                            ;;   (when (< vest 0.8d0)
+                            ;;     (set-cell cell)))
+                            ))
+                        res)))
+               (when (check-cell cell)
+                 (set-cell cell))
                (loop for neighbour in neighbours
-                     do (when (cl-mpm/mesh::cell-boundary neighbour)
-                          (set-cell cell)))))))))))
+                     while (not boundary)
+                     do
+                        (when (check-cell neighbour)
+                          (set-cell cell)))))))
+        ;; (cl-mpm::iterate-over-cells
+        ;;  mesh
+        ;;  (lambda (cell)
+        ;;    (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+        ;;                     (neighbours cl-mpm/mesh::cell-neighbours)
+        ;;                     (index cl-mpm/mesh::cell-index)
+        ;;                     (nodes cl-mpm/mesh::cell-nodes)
+        ;;                     (pruned cl-mpm/mesh::cell-pruned)
+        ;;                     (boundary cl-mpm/mesh::cell-boundary)
+        ;;                     (pos cl-mpm/mesh::cell-centroid)
+        ;;                     (vt cl-mpm/mesh::cell-volume)
+        ;;                     (active cl-mpm/mesh::cell-active))
+        ;;        cell
+        ;;      (declare (list neighbours))
+        ;;      (set-cell cell)
+        ;;      (loop for neighbour in neighbours
+        ;;            do
+        ;;               (when (< (/ (/ (cl-mpm/mesh::cell-volume-current cell) (cl-mpm/mesh::cell-volume cell))) 0.8d0)
+        ;;                 ;;(cl-mpm/mesh::cell-boundary neighbour)
+        ;;                 (set-cell neighbour)
+        ;;                 )
+        ;;            ))))
+        ))))
 
 (defmethod populate-cells-volume ((sim cl-mpm/mpi::mpm-sim-mpi) clip-function)
   (with-accessors ((mesh cl-mpm:sim-mesh))
@@ -993,10 +1018,10 @@
       (apply-force-mps-3d
        mesh
        mps
-       (lambda (mp res) (calculate-val-mp-stress mp func-stress res))
-       (lambda (mp res) (calculate-val-mp-force mp func-div res))
-       ;; (lambda (mp res) (calculate-val-stress-mp-gimp mesh mp func-stress res))
-       ;; (lambda (mp res) (calculate-val-force-mp-gimp mesh mp func-div res))
+       ;; (lambda (mp res) (calculate-val-mp-stress mp func-stress res))
+       ;; (lambda (mp res) (calculate-val-mp-force mp func-div res))
+       (lambda (mp res) (calculate-val-stress-mp-gimp mesh mp func-stress res))
+       (lambda (mp res) (calculate-val-force-mp-gimp mesh mp func-div res))
        (lambda (pos) (funcall clip-function pos datum))
        :scalar
        ;; (lambda (mp) (calculate-val-scalar-mp-gimp mesh mp #'melt-rate))

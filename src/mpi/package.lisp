@@ -174,6 +174,7 @@
 
 
 (defmethod cl-mpm::reduce-over-global-nodes-sum ((sim cl-mpm/mpi::mpm-sim-mpi) map)
+  (declare (function map))
   (mpi-sum
    (cl-mpm::reduce-over-nodes
     (cl-mpm:sim-mesh sim)
@@ -185,6 +186,7 @@
    ))
 
 (defmethod cl-mpm::reduce-over-global-nodes-max ((sim cl-mpm/mpi::mpm-sim-mpi) map)
+  (declare (function map))
   (mpi-max
    (cl-mpm::reduce-over-nodes
     (cl-mpm:sim-mesh sim)

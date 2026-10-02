@@ -17,7 +17,7 @@
                           (max-damage-inc 0.6d0)
                           (max-plastic-inc 10d0)
                           (max-deformation-gradient 10d0)
-                          (min-tangent-ratio 5d-1)
+                          (min-tangent-ratio 1d-1)
                           ;; (min-tangent-ratio nil)
                           (stagger-damage :HYBRID)
                           (plotter (lambda (sim))))
@@ -51,6 +51,7 @@
         (progn
           (let* ((oobf-crit   conv-criteria)
                  (energy-crit 1d0)
+                 (damage-crit conv-criteria)
                  (damage-crit conv-criteria-damage)
                  (dconv (if enable-damage damage-crit 0d0))
                  (stagger-iters 0))
@@ -222,7 +223,7 @@
                                         (cl-mpm:sim-format sim t "step ~D/~D - d-conv ~E ~A~%" stagger-i 0 dconv stagger-damage)
                                         (when t ;;stagger-damage
                                           (format t "Staggering damage~%")
-                                          (loop for d from 1 to 100
+                                          (loop for d from 1 to 10
                                                 when (>= dconv damage-crit)
                                                   do (progn
                                                        (dotimes (i 10)
@@ -286,7 +287,9 @@
                          (damping (sqrt 2d0))
                          (max-damage-inc 0.5d0)
                          (max-plastic-inc nil)
+                         (min-tangent-ratio 0.5d0)
                          (max-deformation-gradient 10d0)
+                         (stagger-damage :HYBRID-FULL)
                          (elastic-solver 'mpm-sim-quasi-static)
                          (initial-quasi-static t)
                          (conv-criteria 1d-3))
@@ -379,6 +382,8 @@
                                                      :max-plastic-inc max-plastic-inc
                                                      :max-deformation-gradient max-deformation-gradient
                                                      :enable-plastic enable-plastic
+                                                     :stagger-damage stagger-damage
+                                                     :min-tangent-ratio min-tangent-ratio
                                                      ;; :stagger-damage t
                                                      )
                                   (setf quasi-conv conv

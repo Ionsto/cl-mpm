@@ -1629,7 +1629,7 @@
                                                (lambda (c)
                                                  (sb-thread:with-mutex (*worker-error-lock*)
                                                    (format t "Thread threw error: ~a~%" c)
-                                                   (trivial-backtrace:print-backtrace c)
+                                                   ;; (trivial-backtrace:print-backtrace c)
                                                    (setf *workers-nesting* nil)
                                                    (push c *worker-error-list*))
                                                  (return-from trial-exec))))

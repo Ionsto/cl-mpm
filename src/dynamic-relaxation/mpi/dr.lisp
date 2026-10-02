@@ -37,7 +37,7 @@
                    (time
                     (dotimes (j substeps)
                       (cl-mpm:update-sim sim)))
-                   ;; (cl-mpm::update-dynamic-stats sim)
+                   (cl-mpm::update-dynamic-stats sim)
                    (setf oobf (cl-mpm::sim-stats-oobf sim))
                    (when (= 0 rank)
                      (format t "Estimated dt ~E~%" (cl-mpm:sim-dt sim)))
