@@ -293,6 +293,50 @@
     ;;   )
     err))
 
+
+(defmethod solve-localisation ((sim mpm-sim-damage) dt)
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh)
+                   (enable-damage cl-mpm::sim-enable-damage)
+                   (delocal-counter sim-damage-delocal-counter)
+                   (delocal-counter-max sim-damage-delocal-counter-max)
+                   (non-local-damage cl-mpm::sim-nonlocal-damage))
+      sim
+    (when (cl-mpm::sim-enable-damage sim)
+      (let* ((dconv (cl-mpm/damage::sim-stats-damage-residual sim))
+             (dconv-0 dconv)
+             (dconv-prev dconv)
+             (crit 1d-6))
+        (declare (double-float dconv dconv-0 crit dconv-prev))
+        (when (> dconv crit)
+          (let ((iter 0))
+            (loop for i from 1 below 100
+                  while (> dconv crit)
+                  do (progn
+                       (dotimes (i 1)
+                         (incf iter)
+                         (cl-mpm/damage::update-localisation sim dt)
+                         (cl-mpm/damage::update-damage-mps sim dt))
+                       (setf dconv-prev dconv)
+                       (setf dconv (compute-damage-delta sim))
+                       (when (> dconv dconv-prev)
+                         (format t "Internal damage iter struggled applying relaxation ~D ~E ~E~%" iter dconv dconv-prev)
+                         (setf (sim-damage-ybar-relaxation sim)
+                               ;; 0.9d0
+                               (min 0.99d0
+                                    (if (= 0d0 (sim-damage-ybar-relaxation sim))
+                                        0.1d0
+                                        (sqrt (sim-damage-ybar-relaxation sim))))
+                               ))
+                       ))
+            (when (> (sim-damage-ybar-relaxation sim) 0d0)
+              (format t "Iter ~D ~E~%" iter dconv))
+            (when (and (> iter 25) (not (> (sim-damage-ybar-relaxation sim) 0d0)))
+              (format t "Iter ~D ~E~%" iter dconv))
+            )
+          (setf (sim-damage-ybar-relaxation sim) 0d0)
+          (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv-0))))))
+
 (defmethod calculate-damage ((sim mpm-sim-damage) dt)
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
@@ -325,46 +369,7 @@
 
       (when (cl-mpm::sim-enable-damage sim)
         (setf (cl-mpm/damage::sim-stats-damage-residual sim) (compute-damage-delta sim)))
-      (when (cl-mpm::sim-enable-damage sim)
-        (let* ((dconv (cl-mpm/damage::sim-stats-damage-residual sim))
-               (dconv-0 dconv)
-               (dconv-prev dconv)
-               (crit 1d-6))
-          (declare (double-float dconv dconv-0 crit dconv-prev))
-          (when (> dconv crit)
-            ;; (update-localisation sim dt)
-            ;; (update-damage-mps sim dt)
-            ;; (setf dconv (compute-damage-delta sim))
-            ;; (format t "Internal update ~D ~E~%" 0 dconv)
-            (let ((iter 0))
-              (loop for i from 1 below 100
-                    while (> dconv crit)
-                    do (progn
-                         (dotimes (i 1)
-                           (incf iter)
-                           (cl-mpm/damage::update-localisation sim dt)
-                           (cl-mpm/damage::update-damage-mps sim dt))
-                         (setf dconv-prev dconv)
-                         (setf dconv (compute-damage-delta sim))
-                         (when (> dconv dconv-prev)
-                           (format t "Internal damage iter struggled applying relaxation ~D ~E ~E~%" iter dconv dconv-prev)
-                           (setf (sim-damage-ybar-relaxation sim)
-                                 ;; 0.9d0
-                                 (min 0.99d0
-                                      (if (= 0d0 (sim-damage-ybar-relaxation sim))
-                                          0.1d0
-                                          (sqrt (sim-damage-ybar-relaxation sim))))
-                                 ))
-                         ))
-              (when (> (sim-damage-ybar-relaxation sim) 0d0)
-                (format t "Iter ~D ~E~%" iter dconv))
-              (when (and (> iter 25) (not (> (sim-damage-ybar-relaxation sim) 0d0)))
-                (format t "Iter ~D ~E~%" iter dconv))
-              )
-            (setf (sim-damage-ybar-relaxation sim) 0d0)
-            (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv-0)
-            )))
-      )
+      (solve-localisation sim dt))
     (cl-mpm:iterate-over-mps
      mps
      (lambda (mp)

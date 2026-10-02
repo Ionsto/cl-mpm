@@ -147,6 +147,7 @@
  damage-mp
  ((vector position cl-mpm/particle::mp-position)
   (vector position-trial cl-mpm/particle::mp-position-trial)
+  (int unique-id cl-mpm/particle::mp-unique-index)
   (float volume cl-mpm/particle::mp-volume)
   (float volume-n cl-mpm/particle::mp-volume-n)
   (float damage cl-mpm/particle::mp-damage)

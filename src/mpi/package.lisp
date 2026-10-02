@@ -67,7 +67,9 @@
   (:documentation "Damage sim with only stress update on mpi"))
 
 (defclass mpm-sim-mpi-damage (mpm-sim-mpi cl-mpm/damage::mpm-sim-damage)
-  ())
+  ((damage-mps-list
+    :accessor sim-mpi-damage-mps-list
+    :initform (make-array 0 :element-type t :adjustable t :fill-pointer 0))))
 
 ;; (defclass mpm-sim-mpi (cl-mpm::mpm-sim-usf)
 ;;   ()

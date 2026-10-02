@@ -14,7 +14,9 @@
   ()
   (:documentation "DR psudo-linear step with update stress last update"))
 
-(defclass mpm-sim-damage-quasi-static-mpi (mpm-sim-quasi-static-mpi cl-mpm/mpi::mpm-sim-mpi-damage)
+(defclass mpm-sim-damage-quasi-static-mpi (mpm-sim-quasi-static-mpi
+                                           mpm-sim-dr-damage
+                                           cl-mpm/mpi::mpm-sim-mpi-damage)
   ()
   (:default-initargs
    :vel-algo :QUASI-STATIC)

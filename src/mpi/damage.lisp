@@ -3,7 +3,9 @@
 
 ;; (defparameter *damage-mp-send-cache* (make-array 0 :element-type 'cl-mpm::particle :adjustable t :fill-pointer 0))
 (declaim (notinline mpi-sync-damage-mps))
-(defun mpi-sync-damage-mps (sim &optional halo-depth)
+(defun mpi-sync-damage-mps (sim &key
+                                  (halo-depth nil)
+                                  (update-mps nil))
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size)))
     (with-accessors ((mps cl-mpm:sim-mps)
@@ -100,32 +102,40 @@
                                          left-neighbor :tag 1))))
                                     (t nil))))
                            ;; (format t "Received~%")
-                           (loop for packet in recv
-                                 do
-                                    (destructuring-bind (rank tag object) packet
-                                      (when object
-                                        (loop for mp across object
-                                              do (progn
-                                                   (let ((dummy-mp (allocate-instance (find-class 'cl-mpm/particle::particle-damage))))
-                                                     (setf (slot-value dummy-mp 'cl-mpm/particle::damage) (mpi-object-damage-mp-damage mp)
-                                                           (slot-value dummy-mp 'cl-mpm/particle::volume) (mpi-object-damage-mp-volume mp)
-                                                           (slot-value dummy-mp 'cl-mpm/particle::volume-n) (mpi-object-damage-mp-volume-n mp)
-                                                           (slot-value dummy-mp 'cl-mpm/particle::position) (mpi-object-damage-mp-position mp)
-                                                           (slot-value dummy-mp 'cl-mpm/particle::position-trial) (mpi-object-damage-mp-position-trial mp)
-                                                           (slot-value dummy-mp 'cl-mpm/particle::damage-y-local) (mpi-object-damage-mp-y mp)
-                                                           (slot-value dummy-mp 'cl-mpm/particle::true-local-length) (mpi-object-damage-mp-local-length mp)
-                                                           (slot-value dummy-mp 'cl-mpm/particle::average-damage) (mpi-object-damage-mp-average-damage mp)
-                                                           (slot-value dummy-mp 'cl-mpm/particle::damage-position) nil
-                                                           )
-                                                     (vector-push-extend
-                                                      dummy-mp
-                                                      ;; (make-instance (find-class 'cl-mpm/particle::particle-damage)
-                                                      ;;                    :damage (mpi-object-damage-mp-damage mp)
-                                                      ;;                    :volume (mpi-object-damage-mp-volume mp)
-                                                      ;;                    :position (mpi-object-damage-mp-position mp)
-                                                      ;;                    :damage-y (mpi-object-damage-mp-y mp)
-                                                      ;;                    :local-length (mpi-object-damage-mp-local-length mp))
-                                                      damage-mps)))))))))))))
+                           (let ((current-list (sim-mpi-damage-mps-list sim)))
+                             (when (and (= (length current-list) 0) update-mps)
+                               (format t "Current list empty, but update true~%")
+                               (setf update-mps nil))
+                             ;; (declare ((vector t *) current-list))
+                             (loop for packet in recv
+                                   do
+                                      (destructuring-bind (rank tag object) packet
+                                        (when object
+                                          (loop for mp across object
+                                                do (progn
+                                                     (let ((dummy-mp nil))
+                                                       (if update-mps
+                                                           (let ((index (position (mpi-object-damage-mp-unique-id mp) current-list :key (lambda (mp-o) (cl-mpm/particle::mp-unique-index mp-o)))))
+                                                             (unless index
+                                                               (format t "~A~%" current-list)
+                                                               (error "MP with unique id ~A not found in current list" (mpi-object-damage-mp-unique-id mp)))
+                                                             (setf dummy-mp (aref current-list index)))
+                                                           (setf dummy-mp (allocate-instance (find-class 'cl-mpm/particle::particle-damage))))
+                                                       (setf (slot-value dummy-mp 'cl-mpm/particle::damage) (mpi-object-damage-mp-damage mp)
+                                                             (slot-value dummy-mp 'cl-mpm/particle::volume) (mpi-object-damage-mp-volume mp)
+                                                             (slot-value dummy-mp 'cl-mpm/particle::volume-n) (mpi-object-damage-mp-volume-n mp)
+                                                             (slot-value dummy-mp 'cl-mpm/particle::unique-index) (mpi-object-damage-mp-unique-id mp)
+                                                             (slot-value dummy-mp 'cl-mpm/particle::position) (mpi-object-damage-mp-position mp)
+                                                             (slot-value dummy-mp 'cl-mpm/particle::position-trial) (mpi-object-damage-mp-position-trial mp)
+                                                             (slot-value dummy-mp 'cl-mpm/particle::damage-y-local) (mpi-object-damage-mp-y mp)
+                                                             (slot-value dummy-mp 'cl-mpm/particle::true-local-length) (mpi-object-damage-mp-local-length mp)
+                                                             (slot-value dummy-mp 'cl-mpm/particle::average-damage) (mpi-object-damage-mp-average-damage mp)
+                                                             (slot-value dummy-mp 'cl-mpm/particle::damage-position) nil
+                                                             )
+                                                       ;; (unless update-mps)
+                                                       (vector-push-extend
+                                                        dummy-mp
+                                                        damage-mps))))))))))))))
         damage-mps))))
 
 (defun save-damage-vtk (filename mps)
@@ -173,16 +183,18 @@
       sim
     (let ((damage-mps (cl-mpm/mpi::mpi-sync-damage-mps
                        sim
-                       (cl-mpm/mpi::mpm-sim-mpi-halo-damage-size sim))))
+                       :halo-depth (cl-mpm/mpi::mpm-sim-mpi-halo-damage-size sim)
+                       :update-mps t)))
       ;; (format t "Update local list~%")
-      (cl-mpm/utils::bpdotimes (i (length damage-mps))
-        (cl-mpm/damage::local-list-add-particle mesh (aref damage-mps i)))
-      (partial-rebuild-mp-local-list sim)
+      ;; (cl-mpm/utils::bpdotimes (i (length damage-mps))
+      ;;   (cl-mpm/damage::local-list-add-particle mesh (aref damage-mps i)))
+      ;; (partial-rebuild-mp-local-list sim)
       ;; (format t "Call next~%")
       (call-next-method)
-      (cl-mpm/utils::bpdotimes (i (length damage-mps))
-        (cl-mpm/damage::local-list-remove-particle mesh (aref damage-mps i)))
-      (partial-rebuild-mp-local-list sim))
+      ;; (cl-mpm/utils::bpdotimes (i (length damage-mps))
+      ;;   (cl-mpm/damage::local-list-remove-particle mesh (aref damage-mps i)))
+      ;; (partial-rebuild-mp-local-list sim)
+      )
     (values))
   )
 (defmethod cl-mpm/damage::delocalise-damage ((sim cl-mpm/mpi::mpm-sim-mpi-damage))
@@ -191,13 +203,52 @@
       sim
     (let ((damage-mps (cl-mpm/mpi::mpi-sync-damage-mps
                        sim
-                       (cl-mpm/mpi::mpm-sim-mpi-halo-damage-size sim))))
-      (cl-mpm/utils::bpdotimes (i (length damage-mps))
-        (cl-mpm/damage::local-list-add-particle mesh (aref damage-mps i)))
-      (partial-rebuild-mp-local-list sim)
+                       :halo-depth (cl-mpm/mpi::mpm-sim-mpi-halo-damage-size sim)
+                       :update-mps t)))
+      ;; (cl-mpm/utils::bpdotimes (i (length damage-mps))
+      ;;   (cl-mpm/damage::local-list-add-particle mesh (aref damage-mps i)))
+      ;; (partial-rebuild-mp-local-list sim)
       ;; (format t "Call next~%")
       (call-next-method)
-      (cl-mpm/utils::bpdotimes (i (length damage-mps))
-        (cl-mpm/damage::local-list-remove-particle mesh (aref damage-mps i)))
-      (partial-rebuild-mp-local-list sim))
+      ;; (cl-mpm/utils::bpdotimes (i (length damage-mps))
+      ;;   (cl-mpm/damage::local-list-remove-particle mesh (aref damage-mps i)))
+      ;; (partial-rebuild-mp-local-list sim)
+      )
     (values)))
+
+(defmethod cl-mpm/damage::update-delocalisation-list ((sim cl-mpm/mpi::mpm-sim-mpi-damage))
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm:sim-mps))
+      sim
+      (with-accessors ((nodes cl-mpm/mesh:mesh-nodes)
+                       (h cl-mpm/mesh:mesh-resolution))
+          mesh
+        (cl-mpm/utils::bpdotimes (i (length (sim-mpi-damage-mps-list sim)))
+          (cl-mpm/damage::local-list-remove-particle mesh (aref (sim-mpi-damage-mps-list sim) i)))
+
+        (cl-mpm:iterate-over-mps
+         mps
+         (lambda (mp)
+           (when (typep mp 'cl-mpm/particle:particle-damage)
+             (if (eq (cl-mpm/particle::mp-damage-position mp) nil)
+                 (cl-mpm/damage::local-list-add-particle mesh mp)
+                 (let* ((delta (cl-mpm/fastmaths::diff-mag (cl-mpm/particle:mp-position mp)
+                                                           (cl-mpm/particle::mp-damage-position mp))))
+                   (declare (double-float delta h))
+                   (when (> delta (/ h 16d0))
+                     (when (not (equal
+                                 (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp))
+                                 (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle::mp-damage-position mp))))
+                       (cl-mpm/damage::local-list-remove-particle mesh mp)
+                       (cl-mpm/damage::local-list-add-particle mesh mp))))))))
+
+
+        (let ((damage-mps (cl-mpm/mpi::mpi-sync-damage-mps
+                           sim
+                           :halo-depth (cl-mpm/mpi::mpm-sim-mpi-halo-damage-size sim)
+                           :update-mps nil)))
+          (setf (sim-mpi-damage-mps-list sim) (copy-seq damage-mps))
+          (cl-mpm/utils::bpdotimes
+           (i (length damage-mps))
+           (cl-mpm/damage::local-list-add-particle mesh (aref damage-mps i))))
+        (cl-mpm/damage::setup-mp-local-list sim))))

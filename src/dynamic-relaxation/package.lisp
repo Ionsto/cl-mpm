@@ -8,6 +8,8 @@
 (in-package :cl-mpm/dynamic-relaxation)
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
+
+
 (defclass mpm-sim-dr (cl-mpm/aggregate::mpm-sim-aggregated)
   ((dt-loadstep
     :initform 1d0
@@ -50,13 +52,17 @@
    :vel-algo :QUASI-STATIC)
   (:documentation "DR psudo-linear step with update stress last update"))
 
+(defclass mpm-sim-dr-damage (mpm-sim-dr cl-mpm/damage::mpm-sim-damage)
+  ()
+  (:documentation "DR-damage mixin"))
+
 (defclass mpm-sim-dr-ul (mpm-sim-dr cl-mpm/aggregate::mpm-sim-aggregated)
   ((initial-setup
     :initform nil
     :accessor sim-initial-setup))
   (:documentation "DR solved quasi-static implicit mpm"))
 
-(defclass mpm-sim-dr-dynamic (mpm-sim-dr-ul cl-mpm/damage:mpm-sim-damage)
+(defclass mpm-sim-dr-dynamic (mpm-sim-dr-ul mpm-sim-dr-damage)
   ((enable-dynamics
     :initform t
     :accessor sim-enable-dynamics)
@@ -87,11 +93,11 @@
   ()
   (:documentation "DR explicit-dynamics with damage"))
 
-(defclass mpm-sim-dr-damage-usf (mpm-sim-dr cl-mpm/damage:mpm-sim-damage)
+(defclass mpm-sim-dr-damage-usf (mpm-sim-dr-damage)
   ()
   (:documentation "DR explicit-dynamics with damage"))
 
-(defclass mpm-sim-dr-damage-ul (mpm-sim-dr-ul cl-mpm/damage:mpm-sim-damage)
+(defclass mpm-sim-dr-damage-ul (mpm-sim-dr-ul mpm-sim-dr-damage)
   ()
   (:documentation "DR implicit damage"))
 
