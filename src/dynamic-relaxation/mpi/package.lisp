@@ -15,8 +15,9 @@
   (:documentation "DR psudo-linear step with update stress last update"))
 
 (defclass mpm-sim-damage-quasi-static-mpi (mpm-sim-quasi-static-mpi
+                                           cl-mpm/mpi::mpm-sim-mpi-damage
                                            mpm-sim-dr-damage
-                                           cl-mpm/mpi::mpm-sim-mpi-damage)
+                                           )
   ()
   (:default-initargs
    :vel-algo :QUASI-STATIC)
@@ -39,5 +40,6 @@
     (let ((post (format nil "~5,'0d_~5,'0d_~5,'0d_~5,'0d.vtk" rank trial-solve step iter)))
       (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~A.vtk" post)) sim)
       (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~A.vtk" post)) sim)
+      ;; (cl-mpm/output::save-mpi-damage-vtk (merge-pathnames output-dir (format nil "sim_step_dmps_~A.vtk" post)) sim)
       ;; (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_step_cells_~A.vtk" post)) sim)
       (cl-mpm/penalty:save-vtk-penalties (merge-pathnames output-dir (format nil "sim_step_p_~A.vtk" post)) sim))))

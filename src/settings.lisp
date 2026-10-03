@@ -18,5 +18,6 @@
 
 ;; (defvar *optimise-setting* *optimise-debug*)
 (defvar *optimise-setting* *optimise-speed*)
+(defvar *optimise-setting* *optimise-speed*)
 ;; (defvar *optimise-setting* *optimise-speed*)
 

@@ -369,7 +369,8 @@
 
       (when (cl-mpm::sim-enable-damage sim)
         (setf (cl-mpm/damage::sim-stats-damage-residual sim) (compute-damage-delta sim)))
-      (solve-localisation sim dt))
+      (solve-localisation sim dt)
+      )
     (cl-mpm:iterate-over-mps
      mps
      (lambda (mp)
@@ -725,7 +726,9 @@ Calls the function with the mesh mp and node"
   (let* ((h (the double-float (cl-mpm/mesh:mesh-resolution mesh)))
          (node-id (cl-mpm/mesh:position-to-index mesh pos))
          (node-reach (the fixnum (ceiling (+ length
-                                             (/ h 16d0))
+                                             h
+                                             ;; (/ h 16d0)
+                                             )
                                           h))))
     (declare (dynamic-extent node-id))
     (destructuring-bind (ix iy iz) node-id
@@ -740,9 +743,7 @@ Calls the function with the mesh mp and node"
                             (let ((node
                                     (cl-mpm/mesh::get-node-values mesh
                                                                   (the fixnum (+ ix dx))
-                                                                  (the fixnum (+ iy dy)) 0)
-                                    ;; (cl-mpm/mesh::get-node mesh (list (+ ix dx) (+ iy dy) 0))
-                                    ))
+                                                                  (the fixnum (+ iy dy)) 0)))
                               (funcall func node)))))))))
 
 (declaim (inline iterate-over-damage-bounds-3d))
@@ -811,7 +812,6 @@ Calls the function with the mesh mp and node"
        (loop for mp-other across (the (vector t *) (cl-mpm/mesh::node-local-list node))
              do
                 (with-accessors ((d cl-mpm/particle::mp-damage)
-                                 (ll cl-mpm/particle::mp-true-local-length)
                                  (p cl-mpm/particle:mp-position))
                     mp-other
                   (declare (cl-mpm/particle::particle mp-other))

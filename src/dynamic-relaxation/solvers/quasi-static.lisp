@@ -325,6 +325,7 @@
       sim
     (call-next-method)
     (setf delocal-counter -1)
+    (format t "Update localisation list~%")
     (cl-mpm/damage::update-delocalisation-list sim)))
 
 

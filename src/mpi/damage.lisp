@@ -43,7 +43,6 @@
                                        all-mps))
                                     (res-corners
                                       (lparallel:premove-if-not
-                                       ;remove-if-not
                                        (lambda (mp)
                                          (funcall test (cl-mpm/utils:varef (cl-mpm/particle:mp-position mp) i)))
                                        damage-mps)))
@@ -103,10 +102,10 @@
                                     (t nil))))
                            ;; (format t "Received~%")
                            (let ((current-list (sim-mpi-damage-mps-list sim)))
-                             (when (and (= (length current-list) 0) update-mps)
-                               (format t "Current list empty, but update true~%")
-                               (setf update-mps nil))
-                             ;; (declare ((vector t *) current-list))
+                             (declare ((vector t *) current-list))
+                             (when (and (not update-mps)
+                                        (not (= (length current-list) 0)))
+                               (format t "We've got MPS but not updating?"))
                              (loop for packet in recv
                                    do
                                       (destructuring-bind (rank tag object) packet
@@ -129,41 +128,22 @@
                                                              (slot-value dummy-mp 'cl-mpm/particle::position-trial) (mpi-object-damage-mp-position-trial mp)
                                                              (slot-value dummy-mp 'cl-mpm/particle::damage-y-local) (mpi-object-damage-mp-y mp)
                                                              (slot-value dummy-mp 'cl-mpm/particle::true-local-length) (mpi-object-damage-mp-local-length mp)
-                                                             (slot-value dummy-mp 'cl-mpm/particle::average-damage) (mpi-object-damage-mp-average-damage mp)
-                                                             (slot-value dummy-mp 'cl-mpm/particle::damage-position) nil
-                                                             )
+                                                             (slot-value dummy-mp 'cl-mpm/particle::average-damage) (mpi-object-damage-mp-average-damage mp))
+                                                       ;; (unless update-mps
+                                                       ;;   (slot-value dummy-mp 'cl-mpm/particle::damage-position) nil)
+                                                       ;; (when (and (slot-boundp dummy-mp 'cl-mpm/particle::damage-position)
+                                                       ;;            (not update-mps))
+                                                       ;;   (cl-mpm/damage::local-list-remove-particle mesh dummy-mp))
+                                                       (unless update-mps
+                                                         (setf (slot-value dummy-mp 'cl-mpm/particle::damage-position) nil))
                                                        ;; (unless update-mps)
                                                        (vector-push-extend
                                                         dummy-mp
                                                         damage-mps))))))))))))))
         damage-mps))))
 
-(defun save-damage-vtk (filename mps)
-  (with-open-file (fs filename :direction :output :if-exists :supersede)
-    (format fs "# vtk DataFile Version 2.0~%")
-    (format fs "Lisp generated vtk file, SJVS~%")
-    (format fs "ASCII~%")
-    (format fs "DATASET UNSTRUCTURED_GRID~%")
-    (format fs "POINTS ~d double~%" (length mps))
-    (loop for mp across mps
-          do (format fs "~E ~E ~E ~%"
-                     (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) 'single-float)
-                     (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) 'single-float)
-                     (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 2 0) 'single-float)
-                     ))
-    (format fs "~%")
 
-    ;; (cl-mpm/output::with-parameter-list fs mps
-    ;;   ("mass" 'cl-mpm/particle:mp-mass)
-    ;;   ("density" (lambda (mp) (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp))))
-    ;;   )
-    (let ((id 1))
-      (declare (special id))
-      (format fs "POINT_DATA ~d~%" (length mps))
-      (cl-mpm/output::save-parameter "damage-y"
-                                     (if (slot-exists-p mp 'cl-mpm/particle::damage-y-local)
-                                         (cl-mpm/particle::mp-damage-y-local mp)
-                                         0d0)))))
+
 
 (defun partial-rebuild-mp-local-list (sim)
   (with-accessors ((mps cl-mpm:sim-mps)
@@ -178,21 +158,15 @@
          (cl-mpm/damage::build-mp-local-list mesh mp))))))
 
 (defmethod cl-mpm/damage::update-localisation-lengths ((sim cl-mpm/mpi::mpm-sim-mpi-damage))
-  ;; (format t "Sync update-localisation length~%")
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
     (let ((damage-mps (cl-mpm/mpi::mpi-sync-damage-mps
                        sim
                        :halo-depth (cl-mpm/mpi::mpm-sim-mpi-halo-damage-size sim)
                        :update-mps t)))
-      ;; (format t "Update local list~%")
-      ;; (cl-mpm/utils::bpdotimes (i (length damage-mps))
-      ;;   (cl-mpm/damage::local-list-add-particle mesh (aref damage-mps i)))
       ;; (partial-rebuild-mp-local-list sim)
       ;; (format t "Call next~%")
       (call-next-method)
-      ;; (cl-mpm/utils::bpdotimes (i (length damage-mps))
-      ;;   (cl-mpm/damage::local-list-remove-particle mesh (aref damage-mps i)))
       ;; (partial-rebuild-mp-local-list sim)
       )
     (values))
@@ -205,17 +179,25 @@
                        sim
                        :halo-depth (cl-mpm/mpi::mpm-sim-mpi-halo-damage-size sim)
                        :update-mps t)))
-      ;; (cl-mpm/utils::bpdotimes (i (length damage-mps))
-      ;;   (cl-mpm/damage::local-list-add-particle mesh (aref damage-mps i)))
-      ;; (partial-rebuild-mp-local-list sim)
-      ;; (format t "Call next~%")
       (call-next-method)
-      ;; (cl-mpm/utils::bpdotimes (i (length damage-mps))
-      ;;   (cl-mpm/damage::local-list-remove-particle mesh (aref damage-mps i)))
-      ;; (partial-rebuild-mp-local-list sim)
       )
+    ;; (cl-mpm/dynamic-relaxation::save-vtks-dr-step sim "./" 0 0 0)
+    ;; (cl-mpi::mpi-waitall)
+    ;; (break)
     (values)))
 
+;; (defun full-reset (sim)
+;;   (cl-mpm::iterate-over-mps
+;;    (cl-mpm::sim-mps sim)
+;;    (lambda (mp)
+;;      (setf (cl-mpm/particle::mp-damage-position mp) nil)))
+;;   (cl-mpm::iterate-over-nodes
+;;    (cl-mpm::sim-mesh sim)
+;;    (lambda (node)
+;;      (setf (cl-mpm/mesh::node-local-list node)
+;;            (make-array 0 :element-type 'cl-mpm::particle :adjustable t :fill-pointer 0)))))
+
+(defparameter *lliters* 0)
 (defmethod cl-mpm/damage::update-delocalisation-list ((sim cl-mpm/mpi::mpm-sim-mpi-damage))
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mps cl-mpm:sim-mps))
@@ -223,8 +205,14 @@
       (with-accessors ((nodes cl-mpm/mesh:mesh-nodes)
                        (h cl-mpm/mesh:mesh-resolution))
           mesh
-        (cl-mpm/utils::bpdotimes (i (length (sim-mpi-damage-mps-list sim)))
-          (cl-mpm/damage::local-list-remove-particle mesh (aref (sim-mpi-damage-mps-list sim) i)))
+        (cl-mpm/utils::bpdotimes
+         (i (length (sim-mpi-damage-mps-list sim)))
+         (progn
+           (unless (cl-mpm/particle::mp-damage-position (aref (sim-mpi-damage-mps-list sim) i))
+             (format t "Damage position unknown?~%"))
+           (cl-mpm/damage::local-list-remove-particle mesh (aref (sim-mpi-damage-mps-list sim) i))))
+        (setf (fill-pointer (sim-mpi-damage-mps-list sim)) 0)
+        ;; (full-reset sim)
 
         (cl-mpm:iterate-over-mps
          mps
@@ -247,8 +235,81 @@
                            sim
                            :halo-depth (cl-mpm/mpi::mpm-sim-mpi-halo-damage-size sim)
                            :update-mps nil)))
-          (setf (sim-mpi-damage-mps-list sim) (copy-seq damage-mps))
+          (setf (fill-pointer (sim-mpi-damage-mps-list sim)) 0)
+          (loop for mp across damage-mps
+                do (vector-push-extend mp (sim-mpi-damage-mps-list sim)))
+          ;; (setf (sim-mpi-damage-mps-list sim) (copy-seq damage-mps))
           (cl-mpm/utils::bpdotimes
-           (i (length damage-mps))
-           (cl-mpm/damage::local-list-add-particle mesh (aref damage-mps i))))
-        (cl-mpm/damage::setup-mp-local-list sim))))
+           (i (length (sim-mpi-damage-mps-list sim)))
+           (cl-mpm/damage::local-list-add-particle mesh (aref (sim-mpi-damage-mps-list sim) i))))
+        (cl-mpm/damage::setup-mp-local-list sim)
+        ;; (cl-mpm/dynamic-relaxation::save-vtks-dr-step sim "./" 0 0 *lliters*)
+        ;; (incf *lliters*)
+        ;; (cl-mpi::mpi-waitall)
+        ;; (break)
+        )))
+
+(in-package :cl-mpm/output)
+(defun save-mpi-damage-vtk (filename sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (let ((mps (cl-mpm/mpi::sim-mpi-damage-mps-list sim)))
+      (with-open-file (fs filename :direction :output :if-exists :supersede)
+        (format fs "# vtk DataFile Version 2.0~%")
+        (format fs "Lisp generated vtk file, SJVS~%")
+        ;; (format fs "ASCII~%")
+        (format fs "BINARY~%")
+        (format fs "DATASET UNSTRUCTURED_GRID~%")
+        (format fs "POINTS ~d double~%" (length mps)))
+      (with-open-file (fs filename :direction :output :if-exists :append)
+        (with-open-file (fs-bin filename :direction :output :if-exists :append :element-type '(unsigned-byte 8))
+          (force-output fs)
+          (loop for mp across mps
+                do
+                   (let ((pos (cl-mpm/particle::mp-position-trial mp)))
+                     (write-binary-float (cl-mpm/utils:varef pos 0) fs-bin)
+                     (write-binary-float (cl-mpm/utils:varef pos 1) fs-bin)
+                     (write-binary-float (cl-mpm/utils:varef pos 2) fs-bin)
+                     ;; (format fs "~E ~E ~E ~%"
+                     ;;         (coerce (cl-mpm/utils:varef pos 0) 'single-float)
+                     ;;         (coerce (cl-mpm/utils:varef pos 1) 'single-float)
+                     ;;         (coerce (cl-mpm/utils:varef pos 2) 'single-float))
+                     ))
+          (force-output fs-bin)
+          (format fs "~%")
+          (let ((id 1)
+                (nd (cl-mpm/mesh:mesh-nd mesh)))
+            (declare (special id))
+            (format fs "POINT_DATA ~d~%" (length mps))
+            (let ((output-list (list (list :SCALAR "damage" #'cl-mpm/particle::mp-damage)
+                                     (list :SCALAR "volume" #'cl-mpm/particle::mp-volume)
+                                     (list :SCALAR "volume-n" #'cl-mpm/particle::mp-volume-n)
+                                     (list :SCALAR "y" #'cl-mpm/particle::mp-damage-y-local)
+                                     (list :SCALAR "local-length" #'cl-mpm/particle::mp-true-local-length)
+                                     (list :SCALAR "average-damage" #'cl-mpm/particle::mp-av-damage))))
+              (dolist (f output-list)
+                (destructuring-bind (type name accessor) f
+                  (case type
+                    (:BOOL
+                     (cl-mpm/output::save-parameter name (if (funcall accessor mp) 1d0 0d0)))
+                    (:SCALAR
+                     (cl-mpm/output::save-parameter name (funcall accessor mp)))
+                    (:VECTOR
+                     (cl-mpm/output::save-parameter (format nil "~A_mag" name) (cl-mpm/fastmaths::mag (funcall accessor mp)))
+                     (cl-mpm/output::save-parameter (format nil "~A_x" name) (varef (funcall accessor mp) 0))
+                     (cl-mpm/output::save-parameter (format nil "~A_y" name) (varef (funcall accessor mp) 1))
+                     (when (= nd 3)
+                       (cl-mpm/output::save-parameter (format nil "~A_z" name) (varef (funcall accessor mp) 2))))
+                    (:VOIGT
+                     (cl-mpm/output::save-parameter (format nil "~A_xx" name) (varef (funcall accessor mp) 0))
+                     (cl-mpm/output::save-parameter (format nil "~A_yy" name) (varef (funcall accessor mp) 1))
+                     (when (= nd 3)
+                       (cl-mpm/output::save-parameter (format nil "~A_zz" name) (varef (funcall accessor mp) 2))
+                       (cl-mpm/output::save-parameter (format nil "~A_yz" name) (varef (funcall accessor mp) 3))
+                       (cl-mpm/output::save-parameter (format nil "~A_xz" name) (varef (funcall accessor mp) 4)))
+                     (cl-mpm/output::save-parameter (format nil "~A_xy" name) (varef (funcall accessor mp) 5)))
+                    (:MATRIX
+                     (cl-mpm/output::save-parameter (format nil "~A_xx" name) (mtref (funcall accessor mp) 0 0))
+                     (cl-mpm/output::save-parameter (format nil "~A_yy" name) (mtref (funcall accessor mp) 1 1))
+                     (cl-mpm/output::save-parameter (format nil "~A_xy" name) (mtref (funcall accessor mp) 0 1))
+                     (cl-mpm/output::save-parameter (format nil "~A_yx" name) (mtref (funcall accessor mp) 1 0)))))))))))))

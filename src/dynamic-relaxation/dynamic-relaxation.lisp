@@ -477,7 +477,7 @@
                        (setf dconv-prev dconv)
                        (setf dconv (compute-damage-delta sim))
                        (when (> dconv dconv-prev)
-                         (format t "Internal damage iter struggled applying relaxation ~D ~E ~E~%" iter dconv dconv-prev)
+                         (format t "Internal damage iter struggled applying relaxation ~D ~E - ~E ~E~%" iter (cl-mpm/damage::sim-damage-ybar-relaxation sim) dconv dconv-prev)
                          (setf (cl-mpm/damage::sim-damage-ybar-relaxation sim)
                                ;; 0.9d0
                                (min 0.99d0

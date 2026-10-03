@@ -3,8 +3,8 @@
 
 
 (defclass mpm-sim-dr-dynamic-mpi (mpm-sim-dr-dynamic
-                                           mpm-sim-dr-mpi
-                                           cl-mpm/mpi::mpm-sim-mpi-damage)
+                                  mpm-sim-dr-mpi
+                                  cl-mpm/mpi::mpm-sim-mpi-damage)
   ()
   (:default-initargs
    :vel-algo :TBLEND)
