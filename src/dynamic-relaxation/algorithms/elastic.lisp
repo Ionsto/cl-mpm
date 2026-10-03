@@ -64,16 +64,22 @@
     (set-mp-plastic-damage sim :enable-damage nil :enable-plastic nil)
     ;; Find initial quasi-static formation
     (save-vtks sim output-dir 0)
-    (cl-mpm/dynamic-relaxation:converge-quasi-static
-     sim
-     :energy-crit crit
-     :oobf-crit crit
-     :kinetic-damping nil
-     :dt-scale dt-scale
-     :conv-steps 100
-     :substeps substeps
-     :damping-factor 1d0
-     :post-iter-step post-iter-step)
+    (let ((iters 0))
+      (cl-mpm/dynamic-relaxation:converge-quasi-static
+       sim
+       :energy-crit crit
+       :oobf-crit crit
+       :kinetic-damping nil
+       :dt-scale dt-scale
+       :conv-steps 1000
+       :substeps substeps
+       :damping-factor (sqrt 2d0)
+       :post-iter-step
+       (lambda (i e o)
+         (save-conv-step sim output-dir iters 0 0d0 o e)
+         (save-vtks-dr-step sim output-dir 0 0 i)
+         (incf iters substeps)
+         (funcall post-iter-step i e o))))
     (cl-mpm::finalise-loadstep sim)
     (set-mp-plastic-damage sim :enable-damage t :enable-plastic t)
     (setf (cl-mpm::sim-time sim) 0d0)

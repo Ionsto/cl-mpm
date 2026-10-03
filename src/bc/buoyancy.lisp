@@ -34,15 +34,14 @@
       (cl-mpm/mesh::cell-centroid cell)))
 
 (defun pressure-at-depth (z datum-true rho g)
-  (let* (;; (g -9.8d0)
-         (datum datum-true)
+  (let* ((datum datum-true)
          (h (- datum z))
          (f (* rho g h))
          )
     (if (> h 0d0)
         f
-        0d0)
-    ))
+        0d0)))
+
 (declaim (notinline buoyancy-virtual-stress))
 (defun buoyancy-virtual-stress (z datum-true rho g &optional (result nil))
   (let ((result (if result (cl-mpm/fastmaths:fast-zero result) (cl-mpm/utils:voigt-zeros))))
@@ -69,18 +68,54 @@
       ;; (vector-from-list (list 0d0 f))
       (when (> h 0d0)
         (setf (varef result 1) f))
-      result
-      )))
+      result)))
+
+
+
+(defun pressure-at-depth-regular (z datum-true rho g l-reg)
+  (let* ((datum datum-true)
+         (h (- datum z))
+         (a (* rho g))
+         )
+    (cond
+      ((and (< h l-reg)
+            (> h (- l-reg)))
+       (/ (* a (expt (- (- h) l-reg) 2)) (* 4 l-reg)))
+      ((> h 0d0) (* a h))
+      (t 0d0))))
+
+(declaim (notinline buoyancy-virtual-stress))
+(defun buoyancy-virtual-stress-regular (z datum-true rho g l-reg &optional (result nil))
+  (let ((result (if result (cl-mpm/fastmaths:fast-zero result) (cl-mpm/utils:voigt-zeros))))
+    (let* ((f (pressure-at-depth-regular z datum-true rho g l-reg)))
+      (setf (varef result 0) f)
+      (setf (varef result 1) f)
+      (setf (varef result 2) f)
+      result)))
+
+(defun buoyancy-virtual-div-regular (z datum-true rho g l-reg &optional (result nil))
+  (let ((result (if result (cl-mpm/fastmaths:fast-zero result) (cl-mpm/utils:vector-zeros))))
+    (let* (;; (g -9.8d0)
+           (datum datum-true)
+           (h (- datum z))
+           (f (* -1d0 rho g))
+           (a (* rho g))
+           )
+      (setf f
+            (cond
+              ((and (< h l-reg)
+                    (> h (- l-reg)))
+               (* (/ a (* 4d0 l-reg)) (- (* 2d0 (- h)) (* 2d0 l-reg))))
+              ((> h 0d0) (- a))
+              (t 0d0)))
+      (setf (varef result 1) f)
+      result)))
 
 (defun pressure-virtual-stress (pressure-x pressure-y)
-  (voigt-from-list (list pressure-x pressure-y 0d0 0d0 0d0 0d0))
-  ;; (voigt-from-list (list 0d0 0d0 0d0 0d0 0d0 0d0))
-  )
+  (voigt-from-list (list pressure-x pressure-y 0d0 0d0 0d0 0d0)))
 
 (defun pressure-virtual-div ()
-  (vector-zeros)
-  ;; (vector-from-list (list 0d0 0d0 0d0))
-  )
+  (vector-zeros))
 
 ;; (defun pressure-virtual-stress ()
 ;;   (let* ((p -1d3)
@@ -1120,16 +1155,18 @@
           (progn
             (let ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim))))
               (setf datum (* (round datum-true h) h)))))
-        (apply-buoyancy
-         sim
-         (lambda (pos res)
-           (buoyancy-virtual-stress (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) res))
-         (lambda (pos res)
-           (buoyancy-virtual-div (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) res))
-         (lambda (pos datum)
-           (and
-            (funcall clip-func pos datum)))
-         datum))
+
+        (let ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim))))
+          (apply-buoyancy
+           sim
+           (lambda (pos res) (buoyancy-virtual-stress-regular (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) (/ h 2d0) res))
+           (lambda (pos res) (buoyancy-virtual-div-regular (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) (/ h 2d0) res))
+           ;; (lambda (pos res) (buoyancy-virtual-stress (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) res))
+           ;; (lambda (pos res) (buoyancy-virtual-div (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) res))
+           (lambda (pos datum)
+             (and
+              (funcall clip-func pos datum)))
+           datum)))
 
       (exchange-bc-data sim bc)
 
@@ -1154,7 +1191,9 @@
                      mp-head rho
                      mp-boundary 0d0)))))
         ;;Populate pressure on MPs
-        (let ((gravity (cl-mpm::sim-gravity sim)))
+        (let ((gravity (cl-mpm::sim-gravity sim))
+              (h (cl-mpm/mesh::mesh-resolution mesh))
+              )
           (declare (double-float rho gravity datum dt))
           (cl-mpm:iterate-over-mps
            mps
@@ -1173,11 +1212,12 @@
                 (calculate-val-mp
                  mp
                  (lambda (pos)
-                   (pressure-at-depth
+                   (pressure-at-depth-regular
                     (varef pos 1)
                     datum
                     rho
-                    (cl-mpm:sim-gravity sim))))
+                    (cl-mpm:sim-gravity sim)
+                    (/ h 2d0))))
                 ;; (calculate-val-scalar-mp-gimp
                 ;;  mesh
                 ;;  mp
