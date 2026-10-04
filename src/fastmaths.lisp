@@ -742,10 +742,12 @@
           do (setf (aref m-s i) (* (aref m-s i) scale))))
   m)
 
-(declaim (ftype (function (magicl:matrix/double-float double-float) magicl:matrix/double-float) fast-scale))
-(defun fast-scale (mi scale)
+(declaim (ftype (function (magicl:matrix/double-float double-float &optional magicl:matrix/double-float) magicl:matrix/double-float) fast-scale))
+(defun fast-scale (mi scale  &optional (result nil))
   (declare (double-float scale))
-  (let* ((m (cl-mpm/utils::deep-copy mi))
+  (let* ((m (if result
+                (cl-mpm/utils:copy-into mi result)
+                (cl-mpm/utils::deep-copy mi)))
          (m-s (magicl::matrix/double-float-storage m)))
     (loop for i fixnum from 0 below (length m-s)
           do (setf (aref m-s i) (* (aref m-s i) scale)))

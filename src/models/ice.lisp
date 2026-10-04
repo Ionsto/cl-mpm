@@ -973,9 +973,10 @@
                        (enable-damage cl-mpm/particle::mp-enable-damage))
           mp
         (declare (double-float damage damage-t damage-c damage-s j pressure))
-        (let* (;; (undamaged-stress (cl-mpm/fastmaths:fast-scale-voigt
-               ;;                    undamaged-stress
-               ;;                    (/ 1d0 j)))
+        (let* ((undamaged-stress (cl-mpm/fastmaths:fast-scale
+                                  undamaged-stress
+                                  (/ 1d0 j)
+                                  (cl-mpm/utils::resize-vector (grab-new) 6)))
                (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
                (pressure (* pressure damage))
                ;; (pind (- p pressure))
@@ -992,8 +993,10 @@
 
           (setf stress
                 (cl-mpm/fastmaths:fast-.+
-                 (cl-mpm/constitutive::voight-eye (- (/ p j) pressure))
-                 (cl-mpm/fastmaths:fast-scale! s (/ (- 1d0 damage-s) j))
+                 ;; (cl-mpm/constitutive::voight-eye (- (/ p j) pressure))
+                 ;; (cl-mpm/fastmaths:fast-scale! s (/ (- 1d0 damage-s) j))
+                 (cl-mpm/constitutive::voight-eye (- p pressure))
+                 (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage-s))
                  stress))
 
           (if (or (> damage 0d0)

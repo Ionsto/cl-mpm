@@ -1138,6 +1138,18 @@
                (max 0d0 (cl-mpm/fastmaths:mag (cl-mpm/mesh::node-boundary-vec node)))))))
     ))
 
+(defun compute-buoyancy-regularisation-length (sim mp)
+  (let ((p-max sb-ext::double-float-negative-infinity)
+        (p-min sb-ext::double-float-positive-infinity))
+    (declare (double-float p-max p-min))
+    (iterate-over-mp-corners
+     mp
+     (lambda (c)
+       (let ((pos (cl-mpm/utils::varef (cl-mpm/particle::corner-trial-position c) 1)))
+         (setf p-max (max pos p-max))
+         (setf p-min (min pos p-min)))))
+    (max 1d-9 (/ (- p-max p-min) 2d0))))
+
 (defmethod cl-mpm/bc::apply-sim-bc ((sim mpm-sim) (bc bc-buoyancy) dt)
   "Arbitrary closure BC"
   (with-accessors ((datum bc-buoyancy-datum)
