@@ -1085,7 +1085,18 @@
       -1d0
       (cl-mpm/particle::mp-biot-coefficent mp)
       (/ p 1)))
-    ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
+    (when (> dt 0d0)
+      (let ((mdamp (cl-mpm/particle::mp-material-damping mp)))
+        (when (> mdamp 0d0)
+          (cl-mpm/fastmaths::fast-.+
+           (cl-mpm/particle::mp-stress mp)
+           (cl-mpm/fastmaths::fast-@-arb-arb
+            (cl-mpm/particle::mp-tangent-stiffness mp)
+            (cl-mpm/fastmaths::fast-scale!
+             (cl-mpm/utils::stretch-to-sym
+              (cl-mpm/particle::mp-stretch-tensor mp))
+             (/ mdamp dt)))
+           (cl-mpm/particle::mp-stress mp)))))
     (with-accessors ((max-deg cl-mpm/particle::mp-density-degredation-max)
                      (d-exp cl-mpm/particle::mp-density-degredation-exp)
                      )

@@ -63,9 +63,7 @@
     (let* (;; (g -9.8d0)
            (datum datum-true)
            (h (- datum z))
-           (f (* -1d0 rho g))
-           )
-      ;; (vector-from-list (list 0d0 f))
+           (f (* -1d0 rho g)))
       (when (> h 0d0)
         (setf (varef result 1) f))
       result)))
@@ -75,8 +73,8 @@
 (defun pressure-at-depth-regular (z datum-true rho g l-reg)
   (let* ((datum datum-true)
          (h (- datum z))
-         (a (* rho g))
-         )
+         (a (* rho g)))
+    (declare (double-float h a l-reg datum z rho g))
     (cond
       ((and (< h l-reg)
             (> h (- l-reg)))
@@ -91,6 +89,9 @@
       (setf (varef result 0) f)
       (setf (varef result 1) f)
       (setf (varef result 2) f)
+      (setf (varef result 3) 0d0)
+      (setf (varef result 4) 0d0)
+      (setf (varef result 5) 0d0)
       result)))
 
 (defun buoyancy-virtual-div-regular (z datum-true rho g l-reg &optional (result nil))
@@ -99,8 +100,8 @@
            (datum datum-true)
            (h (- datum z))
            (f (* -1d0 rho g))
-           (a (* rho g))
-           )
+           (a (* rho g)))
+      (declare (double-float h f a l-reg datum z rho g))
       (setf f
             (cond
               ((and (< h l-reg)
@@ -108,7 +109,9 @@
                (* (/ a (* 4d0 l-reg)) (- (* 2d0 (- h)) (* 2d0 l-reg))))
               ((> h 0d0) (- a))
               (t 0d0)))
+      (setf (varef result 0) 0d0)
       (setf (varef result 1) f)
+      (setf (varef result 2) 0d0)
       result)))
 
 (defun pressure-virtual-stress (pressure-x pressure-y)
@@ -262,6 +265,30 @@
              ;;   (cl-mpm/fastmaths::fast-scale! pos 0.5d0)
              ;;   (funcall func pos))
              ))))))
+
+
+
+(cl-mpm/utils::with-voigt-pool
+    (defun calculate-val-stress-mp-gimp-regular (mesh mp func &optional (result nil))
+      (let ((pos (get-mp-position mp))
+            (result (if result (fast-zero result) (cl-mpm/utils::voigt-zeros)))
+            (reg (compute-gimp-reg-length mp)))
+        (funcall func pos reg result)
+        result)))
+
+(cl-mpm/utils::with-voigt-pool
+    (defun calculate-val-force-mp-gimp-regular (mesh mp func &optional (result nil))
+      (let ((pos (get-mp-position mp))
+            (result (if result (fast-zero result) (cl-mpm/utils::vector-zeros)))
+            (reg (compute-gimp-reg-length mp)))
+        (funcall func pos reg result)
+        result)))
+
+(cl-mpm/utils::with-voigt-pool
+    (defun calculate-val-scalar-mp-gimp-regular (mesh mp func)
+      (let ((pos (get-mp-position mp))
+            (reg (compute-gimp-reg-length mp)))
+        (funcall func pos reg))))
 
 (defun calculate-val-scalar-mp-gimp (mesh mp func)
   (let ((val 0d0)
@@ -1055,9 +1082,14 @@
        mps
        ;; (lambda (mp res) (calculate-val-mp-stress mp func-stress res))
        ;; (lambda (mp res) (calculate-val-mp-force mp func-div res))
-       (lambda (mp res) (calculate-val-stress-mp-gimp mesh mp func-stress res))
-       (lambda (mp res) (calculate-val-force-mp-gimp mesh mp func-div res))
-       (lambda (pos) (funcall clip-function pos datum))
+       ;; (lambda (mp res) (calculate-val-stress-mp-gimp mesh mp func-stress res))
+       ;; (lambda (mp res) (calculate-val-force-mp-gimp mesh mp func-div res))
+       (lambda (mp res) (calculate-val-stress-mp-gimp-regular mesh mp func-stress res))
+       (lambda (mp res) (calculate-val-force-mp-gimp-regular mesh mp func-div res))
+       (lambda (pos)
+         t
+         ;; (funcall clip-function pos datum)
+         )
        :scalar
        ;; (lambda (mp) (calculate-val-scalar-mp-gimp mesh mp #'melt-rate))
        (lambda (mp) (calculate-val-mp mp #'melt-rate))
@@ -1138,18 +1170,22 @@
                (max 0d0 (cl-mpm/fastmaths:mag (cl-mpm/mesh::node-boundary-vec node)))))))
     ))
 
-(defun compute-buoyancy-regularisation-length (sim mp)
+(defun compute-gimp-reg-length (mp)
   (let ((p-max sb-ext::double-float-negative-infinity)
         (p-min sb-ext::double-float-positive-infinity))
     (declare (double-float p-max p-min))
-    (iterate-over-mp-corners
+    (cl-mpm/particle::iterate-over-mp-corners
      mp
      (lambda (c)
        (let ((pos (cl-mpm/utils::varef (cl-mpm/particle::corner-trial-position c) 1)))
          (setf p-max (max pos p-max))
          (setf p-min (min pos p-min)))))
-    (max 1d-9 (/ (- p-max p-min) 2d0))))
+    (max 1d-9 (/ (- p-max p-min) 2d0))
+    ;; 0d0
+    ))
 
+(defparameter *buoyancy-regularisation-value* 4d0)
+(declaim (double-float *buoyancy-regularisation-value*))
 (defmethod cl-mpm/bc::apply-sim-bc ((sim mpm-sim) (bc bc-buoyancy) dt)
   "Arbitrary closure BC"
   (with-accessors ((datum bc-buoyancy-datum)
@@ -1169,15 +1205,18 @@
               (setf datum (* (round datum-true h) h)))))
 
         (let ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim))))
+          (declare (double-float h))
           (apply-buoyancy
            sim
-           (lambda (pos res) (buoyancy-virtual-stress-regular (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) (/ h 2d0) res))
-           (lambda (pos res) (buoyancy-virtual-div-regular (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) (/ h 2d0) res))
-           ;; (lambda (pos res) (buoyancy-virtual-stress (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) res))
-           ;; (lambda (pos res) (buoyancy-virtual-div (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) res))
+           (lambda (pos reg res) (buoyancy-virtual-stress-regular (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) reg res))
+           (lambda (pos reg res) (buoyancy-virtual-div-regular (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) reg res))
+           ;; (lambda (pos reg res) (buoyancy-virtual-stress (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) res))
+           ;; (lambda (pos reg res) (buoyancy-virtual-div (cl-mpm/utils:varef pos 1) datum rho (cl-mpm:sim-gravity sim) res))
            (lambda (pos datum)
-             (and
-              (funcall clip-func pos datum)))
+             t
+             ;; (and
+             ;;  (funcall clip-func pos datum))
+             )
            datum)))
 
       (exchange-bc-data sim bc)
@@ -1204,9 +1243,8 @@
                      mp-boundary 0d0)))))
         ;;Populate pressure on MPs
         (let ((gravity (cl-mpm::sim-gravity sim))
-              (h (cl-mpm/mesh::mesh-resolution mesh))
-              )
-          (declare (double-float rho gravity datum dt))
+              (h (cl-mpm/mesh::mesh-resolution mesh)))
+          (declare (double-float rho gravity datum dt h))
           (cl-mpm:iterate-over-mps
            mps
            (lambda (mp)
@@ -1221,15 +1259,16 @@
                (declare (double-float mp-mass mp-volume-0 damage))
                (setf
                 pressure
-                (calculate-val-mp
+                (calculate-val-scalar-mp-gimp-regular
+                 mesh
                  mp
-                 (lambda (pos)
+                 (lambda (pos reg)
                    (pressure-at-depth-regular
                     (varef pos 1)
                     datum
                     rho
                     (cl-mpm:sim-gravity sim)
-                    (/ h 2d0))))
+                    reg)))
                 ;; (calculate-val-scalar-mp-gimp
                 ;;  mesh
                 ;;  mp
@@ -1246,27 +1285,35 @@
                    (when (slot-exists-p mp 'cl-mpm/particle::biot-coefficent)
                      (setf biot (cl-mpm/particle::mp-biot-coefficent mp)))
                    ;; (pprint biot)
-                   (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
-                         (calculate-val-mp
-                          mp
-                          (lambda (pos)
-                            (*
-                             (if (< (varef pos 1) datum) 1d0 0d0)
-                             biot
-                             damage
-                             (- rho (/ mp-mass mp-volume-0))
-                             gravity)))
-                         ;; (calculate-val-scalar-mp-gimp
-                         ;;  mesh
-                         ;;  mp
-                         ;;  (lambda (pos)
-                         ;;    (*
-                         ;;     (if (< (varef pos 1) datum) 1d0 0d0)
-                         ;;     biot
-                         ;;     damage
-                         ;;     (- rho (/ mp-mass mp-volume-0))
-                         ;;     gravity)))
-                         )))
+                   ;; (calculate-val-scalar-mp-gimp-regular
+                   ;;  mesh
+                   ;;  mp
+                   ;;  (lambda (pos reg)
+                   ;;    (pressure-at-depth-regular
+                   ;;     (varef pos 1)
+                   ;;     datum
+                   ;;     rho
+                   ;;     (cl-mpm:sim-gravity sim)
+                   ;;     reg))
+                   ;;  )
+                   (buoyancy-virtual-div-regular
+                    (varef (get-mp-position mp) 1)
+                    datum
+                    (- 1d0 (- rho (/ mp-mass mp-volume-0)))
+                    gravity
+                    (compute-gimp-reg-length mp)
+                    (cl-mpm/particle::mp-body-force mp))
+                   ;; (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
+                   ;;       (calculate-val-mp
+                   ;;        mp
+                   ;;        (lambda (pos)
+                   ;;          (*
+                   ;;           (if (< (varef pos 1) datum) 1d0 0d0)
+                   ;;           biot
+                   ;;           damage
+                   ;;           (- rho (/ mp-mass mp-volume-0))
+                   ;;           gravity))))
+                   ))
 
                (cl-mpm::iterate-over-neighbours
                 mesh mp
@@ -1276,32 +1323,38 @@
 
         (when (> (the double-float dt) 0d0)
           (let ((damping (bc-viscous-damping bc)))
-            (cl-mpm:iterate-over-nodes
-             mesh
-             (lambda (node)
-               (when (and (cl-mpm/mesh:node-active node)
-                          )
-                 (with-accessors ((force cl-mpm/mesh::node-damping-force)
-                                  (active cl-mpm/mesh:node-active)
-                                  (mass cl-mpm/mesh:node-mass)
-                                  (velocity cl-mpm/mesh:node-velocity)
-                                  (disp cl-mpm/mesh::node-displacment)
-                                  (volume cl-mpm/mesh::node-volume)
-                                  (boundary cl-mpm/mesh::node-boundary-node)
-                                  (lock cl-mpm/mesh::node-lock)
-                                  (boundary-scalar cl-mpm/mesh::node-boundary-scalar))
-                     node
-                   (declare (double-float dt damping rho boundary-scalar))
-                   (sb-thread:with-mutex (lock)
-                     (cl-mpm/fastmaths:fast-fmacc
-                      force
-                      disp
-                      (*
-                       (/ 1d0 dt)
-                       1/2
-                       damping
-                       rho
-                       (the double-float (sqrt (max 0d0 boundary-scalar)))))))))))))
+            (when (> damping 0d0)
+              (cl-mpm:iterate-over-nodes
+               mesh
+               (lambda (node)
+                 (when (and (cl-mpm/mesh:node-active node))
+                   (with-accessors ((force cl-mpm/mesh::node-damping-force)
+                                    (active cl-mpm/mesh:node-active)
+                                    (mass cl-mpm/mesh:node-mass)
+                                    (velocity cl-mpm/mesh:node-velocity)
+                                    (disp cl-mpm/mesh::node-displacment)
+                                    (volume cl-mpm/mesh::node-volume)
+                                    (boundary cl-mpm/mesh::node-boundary-node)
+                                    (lock cl-mpm/mesh::node-lock)
+                                    (boundary-scalar cl-mpm/mesh::node-boundary-scalar))
+                       node
+                     (declare (double-float dt damping rho boundary-scalar))
+                     (when boundary
+                       (sb-thread:with-mutex (lock)
+                         (cl-mpm/fastmaths:fast-fmacc
+                          force
+                          disp
+                          (*
+                           ;;Transform disp into vel
+                           (/ 1d0 dt)
+                           ;;Square viscous law
+                           (/ (cl-mpm/fastmaths:mag disp) dt)
+                           -1/2
+                           damping
+                           rho
+                           ;;Surface-like term
+                           (the double-float (sqrt (max 0d0 boundary-scalar)))
+                           ))))))))))))
       )))
 
 (defun apply-viscous-damping ())
