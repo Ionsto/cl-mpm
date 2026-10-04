@@ -175,9 +175,7 @@
                    (list
                     (* 0.5d0 mass (cl-mpm/fastmaths::mag-squared vel))
                     (cl-mpm/fastmaths::mag-squared res)
-                    ;; (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+ f-ext f-rct))
                     (+ (cl-mpm/fastmaths::mag-squared f-ext) (cl-mpm/fastmaths::mag-squared f-rct))
-                    ;; (cl-mpm/fastmaths::mag-squared f-ext)
                     (cl-mpm/fastmaths:dot disp f-ext))))
                (list 0d0 0d0 0d0 0d0)))
          (lambda (&rest args)
@@ -185,6 +183,7 @@
                (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) (first args) (second args))
                (list 0d0 0d0 0d0 0d0))))
       (declare (double-float energy oobf-num oobf-denom power))
+      ;; (format t "NUM ~E DENOM ~E ~%" oobf-num oobf-denom)
       ;; (format t "nonagg ~E ~E ~E~%" oobf-num oobf-denom (sqrt (/ oobf-num oobf-denom)))
       ;; (setf oobf-num 0d0
       ;;       oobf-denom 0d0)
@@ -201,9 +200,7 @@
                   (disp (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-displacment d))
                   )
              (let ((doobf-num (cl-mpm/fastmaths::mag-squared
-                               ;; res
-                               (cl-mpm/aggregate::aggregate-vec sim res d)
-                               ))
+                               (cl-mpm/aggregate::aggregate-vec sim res d)))
                    (doobf-denom
                      (+
                       (cl-mpm/fastmaths::mag-squared

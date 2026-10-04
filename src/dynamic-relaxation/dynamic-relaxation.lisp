@@ -168,34 +168,31 @@
            (oobf 0d0)
            (load 0d0)
            (converged nil))
-
       (setf (cl-mpm::sim-dt-scale sim) dt-scale)
-      (let ()
-        (loop for i from 0 to conv-steps
-              while (and *run-convergance*
-                         (cl-mpm::sim-run-sim sim)
-                         (not converged))
-              do
-                 (progn
-                   (setf fnorm 0d0)
-                   (optional-time
-                    ;; nil
-                    t
-                    (dotimes (j substeps)
-                      (cl-mpm:update-sim sim)))
-                   (cl-mpm::update-dynamic-stats sim)
-                   (setf energy-total (cl-mpm::sim-stats-energy sim))
-                   (setf oobf (cl-mpm::sim-stats-oobf sim))
-                   (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E~%" i fnorm *work* oobf)
-                   (when (if convergance-criteria
-                             (funcall convergance-criteria sim fnorm oobf)
-                             (and
-                              (< oobf oobf-crit)))
-                     (format t "Took ~D steps to converge~%" i)
-                     (setf converged t))
-                   (when post-iter-step
-                     (funcall post-iter-step i fnorm oobf))
-                   (swank.live:update-swank))))
+      (loop for i from 0 to conv-steps
+            while (and *run-convergance*
+                       (cl-mpm::sim-run-sim sim)
+                       (not converged))
+            do
+               (progn
+                 (setf fnorm 0d0)
+                 (optional-time
+                  t
+                  (dotimes (j substeps)
+                    (cl-mpm:update-sim sim)))
+                 (cl-mpm::update-dynamic-stats sim)
+                 (setf energy-total (cl-mpm::sim-stats-energy sim))
+                 (setf oobf (cl-mpm::sim-stats-oobf sim))
+                 (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E~%" i fnorm *work* oobf)
+                 (when (if convergance-criteria
+                           (funcall convergance-criteria sim fnorm oobf)
+                           (and
+                            (< oobf oobf-crit)))
+                   (format t "Took ~D steps to converge~%" i)
+                   (setf converged t))
+                 (when post-iter-step
+                   (funcall post-iter-step i fnorm oobf))
+                 (swank.live:update-swank)))
       (when (not converged)
         (error (make-instance 'non-convergence-error
                               :text "System failed to converge"

@@ -14,12 +14,14 @@
          sim
        (progn
          (setf dt 1d0)
-         (cl-mpm::p2g-force-fs sim)
-         (cl-mpm::update-stress mesh mps dt-loadstep fbar)
-         (cl-mpm/damage::calculate-damage sim dt-loadstep)
+
+         (cl-mpm/penalty::reset-penalty sim)
+         (cl-mpm::reset-nodes-force sim)
          (cl-mpm::apply-essential-bcs sim)
          (cl-mpm::apply-force-bcs sim dt-loadstep)
-
+         (cl-mpm::update-stress mesh mps dt-loadstep fbar)
+         (cl-mpm/damage::calculate-damage sim dt-loadstep)
+         (cl-mpm::p2g-force-fs sim)
          (cl-mpm/mpi::with-mpi-errors
              (cl-mpm/mpi::mpi-sync-force sim))
          (cl-mpm/mpi::mpi-sync-force sim)
@@ -86,7 +88,9 @@
        (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-true-velocity n))))
     (cl-mpm::reset-node-displacement sim)
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
-    (midpoint-starter-mpi sim)
+    (setf (cl-mpm/damage::sim-damage-delocal-counter-max sim) -1)
+    (cl-mpm/damage::update-delocalisation-list sim)
+    ;; (midpoint-starter-mpi sim)
     (setf (cl-mpm::sim-damping-factor sim) 0d0)
     (setf initial-setup t)))
 
@@ -102,7 +106,8 @@
        ;; (not (cl-mpm/mpi::node-in-computational-domain sim n))
        (when t
          (setf (cl-mpm/mesh::node-mass n) 0d0))))
-    (map-stiffness-quasi-static sim)
+    (map-stiffness sim)
+    ;; (map-stiffness-quasi-static sim)
     (loop for bc across bcs-force-list
           do (cl-mpm/bc::assemble-bc-stiffness sim bc))
     (cl-mpm/mpi::mpi-sync-mass sim)
@@ -133,8 +138,8 @@
     (declare (double-float damping-scale damping))
     (unless initial-setup
       (pre-step sim))
-    (cl-mpm/penalty::reset-penalty sim)
     (setf dt 1d0)
+    (cl-mpm/penalty::reset-penalty sim)
     (cl-mpm::reset-nodes-force sim)
     (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::apply-force-bcs sim dt-loadstep)
@@ -171,29 +176,24 @@
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)
                (damping cl-mpm::damping-factor)
                (damping-scale cl-mpm/dynamic-relaxation::damping-scale)
-               ;; (solve-count cl-mpm/dynamic-relaxation::solve-count)
+               (solve-count cl-mpm/dynamic-relaxation::solve-count)
                (vel-algo cl-mpm::velocity-algorithm))
       sim
     (declare (double-float damping-scale damping))
     (unless initial-setup
-      (pre-step sim)
-      (setf (cl-mpm/damage::sim-damage-delocal-counter-max sim) -1)
-      (cl-mpm/damage::update-delocalisation-list sim))
-    (cl-mpm/penalty::reset-penalty sim)
+      (pre-step sim))
     (setf dt 1d0)
+    (cl-mpm/penalty::reset-penalty sim)
     (cl-mpm::reset-nodes-force sim)
     (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::apply-force-bcs sim dt-loadstep)
-
     (cl-mpm/mpi::with-mpi-errors
         (cl-mpm::update-stress mesh mps dt-loadstep fbar))
     (cl-mpm/mpi::with-mpi-errors
         (cl-mpm/damage::calculate-damage sim dt-loadstep))
-
     (cl-mpm::p2g-force-fs sim)
     (cl-mpm/mpi::with-mpi-errors
         (cl-mpm/mpi::mpi-sync-force sim))
-
     (cl-mpm/mpi::with-mpi-errors
         (update-node-fictious-mass sim))
     (update-node-forces-quasi-static sim)
@@ -203,11 +203,9 @@
         (cl-mpm/mpi::mpi-sync-displacement sim))
     (cl-mpm::apply-essential-bcs sim)
     (cl-mpm::update-filtered-cells sim)
-    ;; (cl-mpm::g2p mesh mps dt damping :TRIAL)
-    ;; (incf solve-count)
-    ;; (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
-    ;; (cl-mpm::update-dynamic-stats sim)
-    ))
+    (cl-mpm::g2p mesh mps dt damping :TRIAL)
+    (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
+    (incf solve-count)))
 
 (defmethod cl-mpm::finalise-loadstep :after ((sim mpm-sim-dr-mpi))
   (cl-mpm/mpi::set-mp-mpi-index sim)

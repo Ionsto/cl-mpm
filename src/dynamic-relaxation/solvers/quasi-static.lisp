@@ -194,7 +194,7 @@
 (defmethod cl-mpm::reset-loadstep ((sim mpm-sim-dr-ul))
   (setf (sim-initial-setup sim) nil)
   (setf (cl-mpm::sim-stats-oobf sim) (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
-  ;; (format t "RESET--------------------------------------~%")
+  (format t "RESET--------------------------------------~%")
   (call-next-method))
 
 (defgeneric pre-step (sim))
@@ -277,7 +277,6 @@
                (enable-damage cl-mpm::enable-damage)
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (fbar cl-mpm::enable-fbar)
-               
                (ghost-factor cl-mpm::ghost-factor)
                (initial-setup initial-setup)
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)
@@ -294,10 +293,10 @@
     (cl-mpm/penalty::reset-penalty sim)
     (cl-mpm::reset-nodes-force sim)
     (cl-mpm::apply-essential-bcs sim)
+    (cl-mpm::apply-force-bcs sim dt-loadstep)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
     ;; (cl-mpm/damage::calculate-damage mesh mps dt-loadstep fbar)
     (cl-mpm::p2g-force-fs sim)
-    (cl-mpm::apply-force-bcs sim dt-loadstep)
     (when ghost-factor
       (cl-mpm/ghost::apply-ghost-cached sim))
     (when (= (mod solve-count mass-update-iter) 0)

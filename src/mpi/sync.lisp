@@ -104,11 +104,8 @@
                                          nodes)))
                                   (make-array (length res) :initial-contents res))))
                            (let ((left-filter (nth 0 (nth i (mpm-sim-mpi-halo-node-list sim))))
-                                 (right-filter (nth 1 (nth i (mpm-sim-mpi-halo-node-list sim))))
-                                 )
+                                 (right-filter (nth 1 (nth i (mpm-sim-mpi-halo-node-list sim)))))
                              (declare (fixnum left-neighbor right-neighbor))
-                             ;; (format t "Rank ~D - left ~A~%" rank (length left-filter))
-                             ;; (format t "Rank ~D - righ ~A~%" rank (length right-filter))
                              (let* ((cl-mpi-extensions::*standard-encode-function* serialise)
                                     (cl-mpi-extensions::*standard-decode-function* deserialise)
                                     (recv
