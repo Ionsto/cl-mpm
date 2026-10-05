@@ -1052,70 +1052,79 @@
           ;;             (cl-mpm/particle::mp-p-wave-elastoplastic mp)))))
           )))))
 
-(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-brittle) dt)
-  (with-accessors ((p cl-mpm/particle::mp-pressure)
-                   (def cl-mpm/particle::mp-deformation-gradient)
-                   (stress cl-mpm/particle::mp-stress)
-                   (strain cl-mpm/particle::mp-strain)
-                   (de cl-mpm/particle::mp-elastic-matrix)
-                   (damage cl-mpm/particle::mp-damage)
-                   (enable-damage cl-mpm/particle::mp-enable-damage)
-                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
-                   (e cl-mpm/particle::mp-e)
-                   (nu cl-mpm/particle::mp-nu)
-                   (p-mod cl-mpm/particle::mp-p-modulus-0))
-      mp
-    ;; (cl-mpm/damage::apply-tensile-strain-degredation mp)
-    ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
-    ;; (setf p-mod (max (* 1d0 (cl-mpm/particle::compute-p-modulus mp))))
-    ;; (cl-mpm/damage::apply-gill-damage mp)
-    ;; (cl-mpm/damage::apply-isotropic-degredation mp)
-    ;; (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
-    ;;        (G (/ e (* 2 (+ 1d0 nu))))
-    ;;        (P-0 (+ K (* 4/3 G))))
-    ;;   (declare (double-float K G P-0 e nu))
-    ;;   (setf p-mod
-    ;;         (max
-    ;;          (* 1d-3 P-0)
-    ;;          (* (- 1d0 damage) (cl-mpm/particle::mp-p-wave-elastoplastic mp)))))
-    (apply-vol-pressure-degredation
-     mp
-     dt
-     (*
-      -1d0
-      (cl-mpm/particle::mp-biot-coefficent mp)
-      (/ p 1)))
+(cl-mpm/utils::with-voigt-pool
+    (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-brittle) dt)
+      (declare (double-float dt))
+      (with-accessors ((p cl-mpm/particle::mp-pressure)
+                       (def cl-mpm/particle::mp-deformation-gradient)
+                       (stress cl-mpm/particle::mp-stress)
+                       (strain cl-mpm/particle::mp-strain)
+                       (de cl-mpm/particle::mp-elastic-matrix)
+                       (damage cl-mpm/particle::mp-damage)
+                       (enable-damage cl-mpm/particle::mp-enable-damage)
+                       (j cl-mpm/particle::mp-deformation-jacobian-strain)
+                       (e cl-mpm/particle::mp-e)
+                       (nu cl-mpm/particle::mp-nu)
+                       (p-mod cl-mpm/particle::mp-p-modulus-0))
+          mp
+        ;; (cl-mpm/damage::apply-tensile-strain-degredation mp)
+        ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
+        ;; (setf p-mod (max (* 1d0 (cl-mpm/particle::compute-p-modulus mp))))
+        ;; (cl-mpm/damage::apply-gill-damage mp)
+        ;; (cl-mpm/damage::apply-isotropic-degredation mp)
+        ;; (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
+        ;;        (G (/ e (* 2 (+ 1d0 nu))))
+        ;;        (P-0 (+ K (* 4/3 G))))
+        ;;   (declare (double-float K G P-0 e nu))
+        ;;   (setf p-mod
+        ;;         (max
+        ;;          (* 1d-3 P-0)
+        ;;          (* (- 1d0 damage) (cl-mpm/particle::mp-p-wave-elastoplastic mp)))))
+        (apply-vol-pressure-degredation
+         mp
+         dt
+         (*
+          -1d0
+          (the double-float
+               (cl-mpm/particle::mp-biot-coefficent mp))
+          (the double-float
+               (/ p 1))))
 
-    (when (> dt 0d0)
-      (let ((mdamp (cl-mpm/particle::mp-material-damping mp)))
-        (when (> mdamp 0d0)
-          (cl-mpm/fastmaths::fast-.+
-           (cl-mpm/particle::mp-stress mp)
-           (cl-mpm/fastmaths::fast-@-arb-arb
-            (cl-mpm/particle::mp-tangent-stiffness mp)
-            (cl-mpm/fastmaths::fast-scale!
-             (cl-mpm/utils::stretch-to-sym
-              (cl-mpm/particle::mp-stretch-tensor mp))
-             (/ mdamp dt)))
-           (cl-mpm/particle::mp-stress mp))
-          (cl-mpm/fastmaths::fast-scale!
-           (cl-mpm/particle::mp-tangent-stiffness mp)
-           (- 1d0 (/ mdamp dt)))
-          (setf p-mod (cl-mpm/particle::p-wave-from-tangent mp (cl-mpm/particle::mp-tangent-stiffness mp)))
-          )))
+        (when (> dt 0d0)
+          (let ((mdamp (cl-mpm/particle::mp-material-damping mp)))
+            (declare (double-float mdamp dt))
+            (when (> mdamp 0d0)
+              (cl-mpm/fastmaths::fast-.+
+               (cl-mpm/particle::mp-stress mp)
+               (cl-mpm/fastmaths::fast-@-arb-arb
+                (cl-mpm/particle::mp-tangent-stiffness mp)
+                (cl-mpm/fastmaths::fast-scale!
+                 (cl-mpm/utils::stretch-to-sym
+                  (cl-mpm/particle::mp-stretch-tensor mp)
+                  (grab-new-voigt))
+                 (/ mdamp dt))
+                :res (grab-new-voigt))
+               (cl-mpm/particle::mp-stress mp))
 
-    (with-accessors ((max-deg cl-mpm/particle::mp-density-degredation-max)
-                     (d-exp cl-mpm/particle::mp-density-degredation-exp)
-                     )
-        mp
+              (cl-mpm/fastmaths::fast-scale!
+               (cl-mpm/particle::mp-tangent-stiffness mp)
+               (- 1d0 (/ mdamp dt)))
 
-      (declare (double-float max-deg damage))
-      (when (> max-deg 0d0)
-        (setf (cl-mpm/particle::mp-mass mp)
-              (the double-float
-                   (*
-                    (- 1d0 (* max-deg (expt damage 1)))
-                    (the double-float (cl-mpm/particle::mp-mass-0 mp)))))))))
+              (setf p-mod (cl-mpm/particle::p-wave-from-tangent mp (cl-mpm/particle::mp-tangent-stiffness mp)))
+              )))
+
+        (with-accessors ((max-deg cl-mpm/particle::mp-density-degredation-max)
+                         (d-exp cl-mpm/particle::mp-density-degredation-exp)
+                         )
+            mp
+
+          (declare (double-float max-deg damage))
+          (when (> max-deg 0d0)
+            (setf (cl-mpm/particle::mp-mass mp)
+                  (the double-float
+                       (*
+                        (- 1d0 (* max-deg (expt damage 1)))
+                        (the double-float (cl-mpm/particle::mp-mass-0 mp))))))))))
 
 
 (defmethod cl-mpm/particle::compute-mp-energy-release ((mp cl-mpm/particle::particle-ice-brittle))
