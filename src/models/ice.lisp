@@ -1085,6 +1085,7 @@
       -1d0
       (cl-mpm/particle::mp-biot-coefficent mp)
       (/ p 1)))
+
     (when (> dt 0d0)
       (let ((mdamp (cl-mpm/particle::mp-material-damping mp)))
         (when (> mdamp 0d0)
@@ -1102,6 +1103,7 @@
            (- 1d0 (/ mdamp dt)))
           (setf p-mod (cl-mpm/particle::p-wave-from-tangent mp (cl-mpm/particle::mp-tangent-stiffness mp)))
           )))
+
     (with-accessors ((max-deg cl-mpm/particle::mp-density-degredation-max)
                      (d-exp cl-mpm/particle::mp-density-degredation-exp)
                      )

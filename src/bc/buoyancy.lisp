@@ -96,8 +96,7 @@
 
 (defun buoyancy-virtual-div-regular (z datum-true rho g l-reg &optional (result nil))
   (let ((result (if result (cl-mpm/fastmaths:fast-zero result) (cl-mpm/utils:vector-zeros))))
-    (let* (;; (g -9.8d0)
-           (datum datum-true)
+    (let* ((datum datum-true)
            (h (- datum z))
            (f (* -1d0 rho g))
            (a (* rho g)))
@@ -1273,6 +1272,7 @@
                (when (and (typep mp 'cl-mpm/particle::particle-damage)
                           (> damage 0d0))
                  (let ((biot 1d0))
+                   (declare (double-float biot damage))
                    (when (slot-exists-p mp 'cl-mpm/particle::biot-coefficent)
                      (setf biot (cl-mpm/particle::mp-biot-coefficent mp)))
                    ;; (pprint biot)
@@ -1287,13 +1287,19 @@
                    ;;     (cl-mpm:sim-gravity sim)
                    ;;     reg))
                    ;;  )
+
                    (buoyancy-virtual-div-regular
                     (varef (get-mp-position mp) 1)
                     datum
-                    (* -1d0 (- rho (/ mp-mass mp-volume-0)))
+                    (*
+                     -1d0
+                     biot
+                     damage
+                     (- rho (/ mp-mass mp-volume-0)))
                     gravity
                     (cl-mpm/particle::mp-buoyancy-gimp-length mp)
                     (cl-mpm/particle::mp-body-force mp))
+
                    ;; (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
                    ;;       (calculate-val-mp
                    ;;        mp
