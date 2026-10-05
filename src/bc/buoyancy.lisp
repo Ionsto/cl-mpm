@@ -1289,7 +1289,6 @@
                     (varef (get-mp-position mp) 1)
                     datum
                     (*
-                     0d0
                      -1d0
                      biot
                      damage
