@@ -24,8 +24,8 @@
 
 (defun weight-func-mps-chosen (mesh mp mp-other pos-a pos-b length)
   ;; (weight-func-mps-trapezium mesh mp mp-other pos-a pos-b length)
-  ;; (weight-func-mps-scatter mesh mp mp-other pos-a pos-b length)
-  (weight-func-mps-geometric mesh mp mp-other pos-a pos-b length)
+  (weight-func-mps-scatter mesh mp mp-other pos-a pos-b length)
+  ;; (weight-func-mps-geometric mesh mp mp-other pos-a pos-b length)
   ;; (weight-func-mps-gradient-trapezium mesh mp mp-other pos-a pos-b length)
   )
 
