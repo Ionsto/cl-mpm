@@ -564,7 +564,7 @@
                 (:VOIGT
                  (cl-mpm/output::save-parameter (format nil "~A_xx" name) (varef (funcall accessor mp) 0))
                  (cl-mpm/output::save-parameter (format nil "~A_yy" name) (varef (funcall accessor mp) 1))
-                 (when (= nd 3)
+                 (when ;(= nd 3)
                    (cl-mpm/output::save-parameter (format nil "~A_zz" name) (varef (funcall accessor mp) 2))
                    (cl-mpm/output::save-parameter (format nil "~A_yz" name) (varef (funcall accessor mp) 3))
                    (cl-mpm/output::save-parameter (format nil "~A_xz" name) (varef (funcall accessor mp) 4)))

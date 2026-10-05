@@ -272,7 +272,7 @@
     (defun calculate-val-stress-mp-gimp-regular (mesh mp func &optional (result nil))
       (let ((pos (get-mp-position mp))
             (result (if result (fast-zero result) (cl-mpm/utils::voigt-zeros)))
-            (reg (compute-gimp-reg-length mp)))
+            (reg (cl-mpm/particle::mp-buoyancy-gimp-length mp)))
         (funcall func pos reg result)
         result)))
 
@@ -280,14 +280,14 @@
     (defun calculate-val-force-mp-gimp-regular (mesh mp func &optional (result nil))
       (let ((pos (get-mp-position mp))
             (result (if result (fast-zero result) (cl-mpm/utils::vector-zeros)))
-            (reg (compute-gimp-reg-length mp)))
+            (reg (cl-mpm/particle::mp-buoyancy-gimp-length mp)))
         (funcall func pos reg result)
         result)))
 
 (cl-mpm/utils::with-voigt-pool
     (defun calculate-val-scalar-mp-gimp-regular (mesh mp func)
       (let ((pos (get-mp-position mp))
-            (reg (compute-gimp-reg-length mp)))
+            (reg (cl-mpm/particle::mp-buoyancy-gimp-length mp)))
         (funcall func pos reg))))
 
 (defun calculate-val-scalar-mp-gimp (mesh mp func)
@@ -515,30 +515,16 @@
                           (declare (double-float vol vt))
                           (when (and (funcall clip-function pos))
                             (when (< (/ vol vt) 0.8d0)
-                              (setf res t)
-                              ;; (set-cell cell)
-                              )
-                            ;; (let ((vest 0d0))
-                            ;;   (loop for n across nns
-                            ;;         do (when (cl-mpm/mesh:node-active n)
-                            ;;              (incf vest
-                            ;;                    (the double-float
-                            ;;                         (* 0.25d0
-                            ;;                            (the double-float
-                            ;;                                 (/
-                            ;;                                  (the double-float (cl-mpm/mesh::node-volume n))
-                            ;;                                  (the double-float (cl-mpm/mesh::node-volume-true n)))))))))
-                            ;;   (when (< vest 0.8d0)
-                            ;;     (set-cell cell)))
-                            ))
+                              (setf res t))))
                         res)))
                (when (check-cell cell)
                  (set-cell cell))
-               (loop for neighbour in neighbours
-                     while (not boundary)
-                     do
-                        (when (check-cell neighbour)
-                          (set-cell cell)))))))
+               ;; (loop for neighbour in neighbours
+               ;;       while (not boundary)
+               ;;       do
+               ;;          (when (check-cell neighbour)
+               ;;            (set-cell cell)))
+               ))))
         ;; (cl-mpm::iterate-over-cells
         ;;  mesh
         ;;  (lambda (cell)
@@ -1198,6 +1184,11 @@
     (declare (function clip-func))
     (when enable
       (markup-cells-nodes sim bc)
+      (cl-mpm:iterate-over-mps
+       (cl-mpm:sim-mps sim)
+       (lambda (mp)
+         (setf (cl-mpm/particle::mp-buoyancy-gimp-length mp) (compute-gimp-reg-length mp)))
+       )
       (let ((datum-rounding nil))
         (when datum-rounding
           (progn
@@ -1301,7 +1292,7 @@
                     datum
                     (* -1d0 (- rho (/ mp-mass mp-volume-0)))
                     gravity
-                    (compute-gimp-reg-length mp)
+                    (cl-mpm/particle::mp-buoyancy-gimp-length mp)
                     (cl-mpm/particle::mp-body-force mp))
                    ;; (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
                    ;;       (calculate-val-mp

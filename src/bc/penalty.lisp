@@ -880,6 +880,8 @@
                                  (cl-mpm/fastmaths::fast-fmacc node-damp-force
                                                                normal
                                                                (* -1d0 svp damping-force)))))))
+                        ;; (setf (cl-mpm/particle::corner-penalty-frictional-force corner)
+                        ;;       (cl-mpm/utils:vector-copy force-friction))
                         (sb-thread:with-mutex (debug-mutex)
                           (vector-push-extend
                            (make-dr-contact-point

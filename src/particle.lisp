@@ -1133,6 +1133,9 @@
     :accessor mp-damage-domain-update-rate
     :initarg :damage-domain-rate
     :initform 0d0)
+   (buoyancy-gimp-length
+    :accessor mp-buoyancy-gimp-length
+    :initform 0d0)
    (mp-local-list
     :accessor mp-local-list
     :initform (make-array 0 :fill-pointer 0 :adjustable t)))
