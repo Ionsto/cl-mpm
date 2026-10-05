@@ -13,7 +13,7 @@
 
 
 (defparameter *angle* 38d0)
-(defparameter *angle-r* 38d0)
+(defparameter *angle-r* 20d0)
 (defparameter *angle-psi* 0d0)
 (defparameter *rt* 1d0)
 
@@ -22,15 +22,16 @@
   (- 1d0 *pd-oversize*))
 
 (defparameter *enable-plastic-damage* nil)
-(defparameter *delay-time* 1d4)
+(defparameter *delay-time* 1d5)
 (defparameter *delay-exponent* 2d0)
 (defparameter *enable-viscosity* nil)
 (defparameter *length-scaler* 2d0)
 (defparameter *gf* 10000d0)
 (defparameter *ductility* 10d0)
-(defparameter *tensile-strength* 0.1d6)
-(defparameter *biot-coefficent* 0.99d0)
+(defparameter *tensile-strength* 0.3d6)
+(defparameter *biot-coefficent* 1d0)
 (defparameter *alpha* 0.5d0)
+(defparameter *material-damping* 1d-3)
 
 ;; (defparameter *alpha* 0.4d0)
 
@@ -138,6 +139,7 @@
 (defparameter *offset* 0d0)
 (declaim (notinline plot-domain))
 (defun plot-domain (&key (trial t))
+  ;; (plot-pq)
   (when *sim*
     (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
            (h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
@@ -159,7 +161,8 @@
      ;; :colour-func (lambda (mp) (cl-mpm/utils::varef (cl-mpm/particle::mp-av-damage-gradient mp) 0))
 
      ;; :colour-func (lambda (mp) (if (> (cl-mpm/particle::mp-damage-ybar mp) 0.1d6) 1d0 0d0))
-     )))
+     ))
+  )
 
 (defparameter *bc-melange* nil)
 (defparameter *bc-erode* nil)
@@ -214,8 +217,8 @@
     (defparameter *ice-length* ice-length)
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
                                                :sim-type
-                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
-                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic
+                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-damage-quasi-static-mpi
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static
@@ -312,9 +315,9 @@
           :enable-plasticity t
           :enable-damage t
           :enable-viscosity *enable-viscosity*
-          :viscosity 1d10
+          :viscosity 1d14
           :plastic-damage-evolution *enable-plastic-damage*
-          :material-damping 1d-2
+          :material-damping *material-damping*
           :density-degredation-max 0d0
           :biot-coeff *biot-coefficent*
           :index 0))
@@ -637,15 +640,15 @@
   (let* ((mps 3)
          (dt 1d3)
          (total-time 1d10)
-         (H 400d0)
+         (H 800d0)
          (ice-aspect 4d0)
          (density 918d0)
          (explicit-dt-scale 0.45d0)
-         (water-damping 1d0)
-         (friction 0.2d0)
-         (floatation-ratio 0.70d0)
+         (water-damping 2d0)
+         (friction 0.5d0)
+         (floatation-ratio 0.7d0)
          (output-dir "./output/"))
-    (defparameter *length-scaler* 2d0)
+    (defparameter *length-scaler* 3d0)
     (setup
      :refine 0.25
      :friction friction
@@ -682,6 +685,7 @@
 
 
     (plot-domain)
+    ;; (break)
 
     (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
 
@@ -714,7 +718,7 @@
     ;; (break)
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
     (let ((step 0)
-          (substeps (ceiling (* 20 (floor H 100) (/ 10d0 (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*))))))
+          (substeps (ceiling (* 10 (floor H 100) (/ 10d0 (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*))))))
           )
       (format t "Substeps ~D~%" substeps)
       ;; (setf (cl-mpm/penalty::bc-penalty-friction *floor-bc*) 0d0)
@@ -734,7 +738,8 @@
        :max-adaptive-steps 14
        :adaption-constant 4
        :easy-step-adaption-constant 4
-       :max-damage-inc 0.9d0
+       :max-damage-inc 1.9d0
+       :min-tangent-ratio 1d-1
        :max-deformation-gradient 2d0
        :max-plastic-inc nil
        :stagger-damage :HYBRID-FULL
@@ -765,7 +770,7 @@
                                         ))
                   (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
                   (incf step))
-       :explicit-conv-criteria 1d-4
+       :explicit-conv-criteria 1d-3
        :elastic-dt-margin 1d2
        :explicit-mass-scaling nil
        :explicit-damping-factor 1d-6
@@ -792,12 +797,12 @@
          ;(cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
          (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic)
            (setf (cl-mpm/dynamic-relaxation::sim-true-damping *sim*) (* 1d-6 (cl-mpm/setup::estimate-critical-damping *sim*))))
-         ;; (cl-mpm::remove-mps-func
-         ;;  *sim*
-         ;;  (lambda (mp)
-         ;;    (and
-         ;;     (typep mp 'cl-mpm/particle::particle-damage)
-         ;;     (> (cl-mpm/particle::mp-damage mp) 0.9d0))))
+         (cl-mpm::remove-mps-func
+          *sim*
+          (lambda (mp)
+            (and
+             (typep mp 'cl-mpm/particle::particle-damage)
+             (> (cl-mpm/particle::mp-damage mp) 0.99d0))))
          ;; (cl-mpm::reset-grid (cl-mpm:sim-mesh *sim*) :reset-displacement t)
          ;; (cl-mpm/dynamic-relaxation::pre-step *sim*)
          ;; (cl-mpm::check-mps *sim*)
@@ -809,18 +814,18 @@
        (lambda (sim)
          ;(cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
          (setf
-          (cl-mpm/damage::sim-damage-delocal-counter-max sim) 1
+          (cl-mpm/damage::sim-damage-delocal-counter-max sim) 2
           (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) water-damping
           (cl-mpm::sim-velocity-algorithm sim) :TBLEND))))))
 
 (defun calving-real-test ()
   (vgplot:close-all-plots)
   (cl-mpm/utils:set-workers 16)
-  (let* ((mps 3)
+  (let* ((mps 2)
          (H 400d0)
          (density 918d0))
     (setf *delay-time* 1d2)
-    (defparameter *length-scaler* 4d0)
+    (defparameter *length-scaler* 2d0)
     (setup :refine 0.25
            :friction 0.5d0
            :bench-length (* 0d0 H)
@@ -828,15 +833,15 @@
            :ice-height H
            :mps mps
            :hydro-static nil
-           :cryo-static t
-           :elastic-static nil
+           :cryo-static nil
+           :elastic-static t
            :melange nil
-           :aspect 2d0
+           :aspect 4d0
            :slope 0d0
-           :floatation-ratio 0.5d0
+           :floatation-ratio 1d0
            ;; :floatation-ratio 1.00d0
-           :use-penalty t
-           ;; :extra-offset 2
+           :use-penalty nil
+           :extra-offset 4
            :stick-base t
            )
     (change-class *sim* 'cl-mpm/damage::mpm-sim-agg-damage)
@@ -863,14 +868,14 @@
       (cl-mpm/dynamic-relaxation::run-time
        *sim*
        :output-dir "./output/"
-       :dt 0.1d0
+       :dt 1d1
        :total-time 1d5
        ;; :dt-scale 1000d0
        :dt-scale 0.5d0
-       :mass-scale 1d0
+       :mass-scale 1d4
        :damping 1d-4
        :enable-plastic nil
-       :enable-damage t
+       :enable-damage nil
        :conv-criteria 1d-3
        :save-vtk-loadstep t
        :initial-quasi-static t
@@ -878,6 +883,11 @@
        :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
        :post-conv-step
        (lambda (sim)
+         (cl-mpm:iterate-over-mps
+          (cl-mpm:sim-mps *sim*)
+          (lambda (mp)
+            (cl-mpm/fastmaths::fast-zero (cl-mpm/particle::mp-displacement mp))
+            (cl-mpm/damage::set-mp-damage mp 0.99d0)))
          (setf
           (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
           (cl-mpm::sim-ghost-factor *sim*) nil
@@ -1874,3 +1884,25 @@
  (cl-mpm:sim-mps *sim*)
  (lambda (mp)
    (setf (cl-mpm/particle::mp-material-damping mp) 1d-2)))
+
+(defun plot-pq ()
+  (let* ((mp-count (length (cl-mpm:sim-mps *sim*)))
+         (p (make-array mp-count))
+         (q (make-array mp-count)))
+    (vgplot:close-all-plots)
+    (let ((i 0 ))
+      (cl-mpm::iterate-over-mps-serial
+       (cl-mpm:sim-mps *sim*)
+       (lambda (mp)
+         (setf (aref p i) (* 1/3 (cl-mpm/utils::trace-voigt (cl-mpm/particle::mp-stress mp))))
+         (setf (aref q i) (cl-mpm/fastmaths::voigt-j2 (cl-mpm/utils::deviatoric-voigt (cl-mpm/particle::mp-stress mp))))
+         (incf i)))
+      (vgplot:plot p q ";;with points"))))
+
+;; (pprint 
+;;  (cl-mpm/buoyancy::buoyancy-virtual-div-regular
+;;   -1d0
+;;   0d0
+;;   (* -1d0 (- 1000d0 900d0))
+;;   (cl-mpm::sim-gravity *sim*)
+;;   0d0))
