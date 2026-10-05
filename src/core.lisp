@@ -35,7 +35,7 @@
   (with-accessors ((h cl-mpm/mesh::mesh-resolution))
       mesh
     (when removal-factor
-      (let ((h (* h removal-factor))
+      (let ((h (* (the double-float h) (the double-float removal-factor)))
             (nd (cl-mpm/mesh::mesh-nd mesh)))
         (remove-mps-func
          sim
@@ -43,8 +43,9 @@
            (with-accessors ((damage cl-mpm/particle:mp-damage)
                             (def cl-mpm/particle::mp-deformation-gradient))
                mp
+             (declare (fixnum split-depth))
              (or
-              (> (cl-mpm/particle::mp-split-depth mp) split-depth)
+              (> (the fixnum (cl-mpm/particle::mp-split-depth mp)) split-depth)
               (if removal-factor
                   (gimp-removal-criteria mp h nd)
                   nil))))))))))
@@ -151,7 +152,7 @@
        (lambda (node weight grads)
          (declare (double-float weight))
          (when (cl-mpm::node-active node)
-           (incf (cl-mpm/mesh::cell-volume-current cell) (* weight (cl-mpm/mesh::node-volume node)))))))))
+           (incf (the double-float (cl-mpm/mesh::cell-volume-current cell)) (* weight (the double-float (cl-mpm/mesh::node-volume node))))))))))
 
 (defun update-cell (mesh cell dt)
   "Update cell data, useful for ghost penalty"
@@ -168,6 +169,7 @@
                      (df cl-mpm/mesh::cell-deformation-gradient)
                      (disp cl-mpm/mesh::cell-displacement)
                      (centroid cl-mpm/mesh::cell-centroid)
+                     (current-vol cl-mpm/mesh::cell-volume-current)
                      (trial-pos cl-mpm/mesh::cell-trial-centroid))
         cell
       (cl-mpm/fastmaths:fast-zero disp)
@@ -176,7 +178,7 @@
             (varef df 4) 1d0
             (varef df 8) 1d0)
       (let ((w 0d0))
-        (declare (double-float w))
+        (declare (double-float w current-vol))
         (setf (cl-mpm/mesh::cell-volume-current cell) 0d0)
         (cl-mpm::iterate-over-neighbours-point-linear
          mesh
@@ -186,7 +188,8 @@
            (when (cl-mpm::node-active node)
              ;; (incf w weight)
              (let ((ndisp (cl-mpm/mesh::node-displacment node)))
-               (incf (cl-mpm/mesh::cell-volume-current cell) (* weight (cl-mpm/mesh::node-volume node)))
+               (incf current-vol
+                     (* weight (the double-float (cl-mpm/mesh::node-volume node))))
                (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads ndisp df)
                (cl-mpm/fastmaths:fast-fmacc
                 disp
@@ -519,7 +522,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                      (volume cl-mpm/mesh::node-volume)
                      )
         node
-      (declare (double-float mass volume))
+      (declare (double-float mass damage volume))
       (progn
         (setf damage (/ damage volume))
         (when (> mass 0d0)
@@ -857,9 +860,10 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   (with-accessors ((uid-counter sim-unique-index-counter)
                    (lock sim-unique-index-lock))
     sim
-      (sb-thread:with-mutex (lock)
-        (setf (cl-mpm/particle::mp-unique-index mp) uid-counter)
-        (incf uid-counter))
+    (declare (fixnum uid-counter))
+    (sb-thread:with-mutex (lock)
+      (setf (cl-mpm/particle::mp-unique-index mp) uid-counter)
+      (incf uid-counter))
     (vector-push-extend mp (cl-mpm:sim-mps sim))))
 
 (defgeneric remove-mps-func (sim func)
@@ -976,6 +980,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         (with-accessors ((node-svp cl-mpm/mesh::node-svp-sum)
                          (node-active cl-mpm/mesh:node-active)
                          ) node
+          (declare (double-float svp-sum node-svp))
           (when node-active
             (incf svp-sum node-svp)))))
     (and (< svp-sum 2d0) (not (= svp-sum 0d0)))
@@ -1027,7 +1032,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       sim
     (let ((inner-factor most-positive-double-float)
           (h (cl-mpm/mesh:mesh-resolution mesh)))
-      (declare (double-float inner-factor mass-scale))
+      (declare (double-float inner-factor mass-scale h))
       (setf inner-factor
             (reduce-over-nodes
              mesh
@@ -1042,6 +1047,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                                     (vol cl-mpm/mesh::node-volume)
                                     (vel cl-mpm/mesh::node-velocity)
                                     ) node
+                     (declare (double-float vol pmod svp-sum mass))
                      (if (and (> vol 0d0)
                               (> pmod 0d0)
                               (> svp-sum 0d0))
@@ -1059,7 +1065,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                    most-positive-double-float))
              #'min))
       (if (< inner-factor most-positive-double-float)
-          (* (sqrt mass-scale) (sqrt inner-factor) h)
+          (* (the double-float (sqrt mass-scale)) (the double-float (sqrt inner-factor)) h)
           (cl-mpm:sim-dt sim)))))
 
 (defgeneric calculate-min-dt-bcs (sim))
@@ -1098,7 +1104,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
 The value dt-scale allows for the estimated dt to be scaled up or down
 This modifies the dt of the simulation in the process
 "
-  (let* ((dt-e (* dt-scale (calculate-min-dt sim)))
+  (declare (double-float target-time dt-scale))
+  (let* ((dt-e (* dt-scale (the double-float (calculate-min-dt sim))))
          (substeps-e (floor target-time dt-e)))
     ;; (format t "CFL dt estimate: ~f~%" dt-e)
     ;; (format t "CFL step count estimate: ~D~%" substeps-e)
@@ -1383,6 +1390,7 @@ This modifies the dt of the simulation in the process
       (let ((sorted-mps (make-array (length (cl-mpm:sim-mps sim)) :adjustable t :fill-pointer 0))
             (nd (cl-mpm/mesh:mesh-nD mesh))
             (new-id 0))
+        (declare (fixnum new-id))
         (loop for i from 0 to (round (expt
                                       (expt 2 (+ 0
                                                  (ceiling

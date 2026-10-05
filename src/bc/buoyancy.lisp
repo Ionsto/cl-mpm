@@ -34,6 +34,7 @@
       (cl-mpm/mesh::cell-centroid cell)))
 
 (defun pressure-at-depth (z datum-true rho g)
+  (declare (double-float z datum-true rho g))
   (let* ((datum datum-true)
          (h (- datum z))
          (f (* rho g h))
@@ -44,6 +45,7 @@
 
 (declaim (notinline buoyancy-virtual-stress))
 (defun buoyancy-virtual-stress (z datum-true rho g &optional (result nil))
+  (declare (double-float z datum-true rho g))
   (let ((result (if result (cl-mpm/fastmaths:fast-zero result) (cl-mpm/utils:voigt-zeros))))
     (let* (;; (g -9.8d0)
            (datum datum-true)
@@ -51,14 +53,15 @@
            (f (* 1d0 rho g h))
            )
       (when (> h 0d0)
-          (progn
-            (setf (varef result 0) f)
-            (setf (varef result 1) f)
-            (setf (varef result 2) f))
-          )
+        (progn
+          (setf (varef result 0) f)
+          (setf (varef result 1) f)
+          (setf (varef result 2) f))
+        )
       result)))
 
 (defun buoyancy-virtual-div (z datum-true rho g &optional (result nil))
+  (declare (double-float z datum-true rho g))
   (let ((result (if result (cl-mpm/fastmaths:fast-zero result) (cl-mpm/utils:vector-zeros))))
     (let* (;; (g -9.8d0)
            (datum datum-true)
@@ -71,6 +74,7 @@
 
 
 (defun pressure-at-depth-regular (z datum-true rho g l-reg)
+  (declare (double-float z datum-true rho g))
   (let* ((datum datum-true)
          (h (- datum z))
          (a (* rho g)))
@@ -290,13 +294,16 @@
         (funcall func pos reg))))
 
 (defun calculate-val-scalar-mp-gimp (mesh mp func)
+  (declare (function func))
   (let ((val 0d0)
         (count 0))
+    (declare (double-float val)
+             (fixnum count))
     (calculate-val-gimp
      mesh
      mp
      (lambda (pos)
-       (incf val (funcall func pos))
+       (incf val (the double-float (funcall func pos)))
        (incf count)))
     (when (> count 0)
       (setf val (/ val count)))
@@ -340,15 +347,6 @@
 (defun calculate-val-cell (cell func)
   (funcall func (get-cell-position cell)))
 
-(defun mps-in-cell (mesh mps)
-  (loop for mp across mps
-        do
-           (let* ((id (cl-mpm/mesh::position-to-index
-                      mesh
-                      (cl-mpm/particle:mp-position mp)
-                      #'floor))
-                  (cell (cl-mpm/mesh::get-cell mesh id)))
-             (incf (cl-mpm/mesh::cell-mp-count cell) 1))))
 
 (defun melt-rate (pos)
   1d0
@@ -364,8 +362,9 @@
 
 
 (defun direct-mp-enforcment (mesh mps datum)
-  (lparallel:pdotimes (i (length mps))
-    (let ((mp (aref mps i)))
+  (cl-mpm:iterate-over-mps 
+   mps
+    (lambda (mp)
       (with-accessors ((volume cl-mpm/particle:mp-volume)
                        (g cl-mpm/particle:mp-gravity)
                        (pos cl-mpm/particle:mp-position))
@@ -381,9 +380,7 @@
                (sb-thread:with-mutex (node-lock)
                  ;;External force
                  (let* ((rho 1000)
-                        (h (- datum (magicl:tref pos 1 0)))
-                        (f (* rho g volume))
-                        )
+                        (h (- datum (magicl:tref pos 1 0))))
                    (when (> h 0d0)
                      (incf (magicl:tref node-force 1 0) (* -1 volume g rho svp))))
                  )))))))))
@@ -2019,5 +2016,5 @@
 
 (defun round-datum (sim datum)
   (let ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim))))
-    (float (* (round datum h) h) 0d0))
-  )
+    (declare (double-float datum h))
+    (float (* (round datum h) h) 0d0)))
