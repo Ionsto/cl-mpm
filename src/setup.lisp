@@ -480,6 +480,7 @@
       (cl-mpm::reduce-over-mps
        mps
        (lambda (mp)
+         (cl-mpm/particle::estimate-stiffness mp)
          (estimate-elastic-dt-mp
           sim
           (cl-mpm/particle::mp-p-modulus mp)
@@ -506,7 +507,8 @@
         (progn
           (min
            (%estimate-elastic-dt-mps sim)
-           (%estimate-elastic-dt-bcs sim)))
+           ;; (%estimate-elastic-dt-bcs sim)
+           ))
         sb-ext:double-float-positive-infinity)))
 
 
