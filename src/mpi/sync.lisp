@@ -5,40 +5,37 @@
 ;; (defparameter *exception-comm* (cl-mpi::mpi-comm-dup))
 
 (defun check-exception ()
-  (static-vectors:with-static-vector (source 1 :element-type 'double-float :initial-element -1d0)
-    (static-vectors:with-static-vector (dest 1 :element-type 'double-float :initial-element 0d0)
-      (mpi-allreduce source dest cl-mpi:+mpi-max+  :type cl-mpi::+mpi-double+)
-      (unless (= (aref dest 0) -1d0)
-        (format t "MPI error propogated ~D~%" (cl-mpi:mpi-comm-rank))
-        (let ((cl-mpi-extensions::*standard-encode-function* #'cl-store-encoder)
-              (cl-mpi-extensions::*standard-decode-function* #'cl-store-decoder))
-          (let ((er
-                  (cl-mpi-extensions:mpi-broadcast-anything
-                   (round (aref dest 0)))))
-            (error er)))))))
+  (let ((error-rank (cl-mpm/mpi::mpi-max -1d0)))
+    (unless (= error-rank -1d0)
+      (format t "MPI error propagated ~D~%" (cl-mpi:mpi-comm-rank))
+      (let ((cl-mpi-extensions::*standard-encode-function* #'cl-store-encoder)
+            (cl-mpi-extensions::*standard-decode-function* #'cl-store-decoder))
+        (let ((er
+                (cl-mpi-extensions:mpi-broadcast-anything
+                 (round error-rank))))
+          (error er))))))
 
 (defun throw-mpi-error (err)
   (let ((rank (cl-mpi:mpi-comm-rank)))
-    (format t "Throwing error over MPI from ~D~%" (cl-mpi:mpi-comm-rank))
+    (format t "Throwing error over MPI from ~D~%" rank)
     (format t "~A~%" err)
-    (static-vectors:with-static-vector (source 1 :element-type 'double-float :initial-element (float (cl-mpi:mpi-comm-rank) 0d0))
-      (static-vectors:with-static-vector (dest 1 :element-type 'double-float :initial-element 0d0)
-        (mpi-allreduce source dest cl-mpi:+mpi-max+ :type cl-mpi::+mpi-double+)
-        (format t "All threads reached checkpoint~%")
-        (let ((cl-mpi-extensions::*standard-encode-function* #'cl-store-encoder)
-              (cl-mpi-extensions::*standard-decode-function* #'cl-store-decoder))
-          (if (= rank (round (aref dest 0)))
-              (progn
-                (cl-mpi-extensions:mpi-broadcast-anything
-                 (cl-mpi:mpi-comm-rank)
-                 :object err)
-                (format t "Broadcast error, now rethrow~%")
-                (error err))
-              (let ((er (cl-mpi-extensions:mpi-broadcast-anything
-                         (cl-mpi:mpi-comm-rank)
-                         )))
-                (format t "Multiple errors thrown, ~D defers to ~D~%" rank (round (aref dest 0)))
-                (error er))))))))
+    ;; (static-vectors:with-static-vector (source 1 :element-type 'double-float :initial-element (float (cl-mpi:mpi-comm-rank) 0d0)))
+    ;; (static-vectors:with-static-vector (dest 1 :element-type 'double-float :initial-element 0d0)
+    ;;   (mpi-allreduce source dest cl-mpi:+mpi-max+ :type cl-mpi::+mpi-double+))
+    (let ((error-rank (round (cl-mpm/mpi::mpi-max (coerce rank 'double-float)))))
+      (format t "All threads reached checkpoint~%")
+      (let ((cl-mpi-extensions::*standard-encode-function* #'cl-store-encoder)
+            (cl-mpi-extensions::*standard-decode-function* #'cl-store-decoder))
+        (if (= rank error-rank)
+            (progn
+              (cl-mpi-extensions:mpi-broadcast-anything
+               rank
+               :object err)
+              (format t "Broadcast error, now rethrow~%")
+              (error err))
+            (let ((er (cl-mpi-extensions:mpi-broadcast-anything error-rank)))
+              (format t "Multiple errors thrown, ~D defers to ~D~%" rank error-rank)
+              (error er)))))))
 
 ;; (defmacro with-mpi-errors (&body body)
 ;;   `;; (handler-bind
