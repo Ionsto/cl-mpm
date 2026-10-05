@@ -614,7 +614,10 @@
       (weight-func
        (cl-mpm/fastmaths::diff-norm pos-a pos-b)
        (* length
-          (deg (the double-float (cl-mpm/particle::mp-av-damage mp-b))))))))
+          (deg
+           (the double-float (cl-mpm/particle::mp-av-damage mp-b))
+           ;; (the double-float (cl-mpm/particle::mp-damage mp-b))
+           ))))))
 
 (defun weight-func-mps-trapezium (mesh mp-a mp-b pos-a pos-b length)
   (declare (ignore mesh))

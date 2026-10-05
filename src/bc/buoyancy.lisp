@@ -1299,7 +1299,7 @@
                    (buoyancy-virtual-div-regular
                     (varef (get-mp-position mp) 1)
                     datum
-                    (- 1d0 (- rho (/ mp-mass mp-volume-0)))
+                    (* -1d0 (- rho (/ mp-mass mp-volume-0)))
                     gravity
                     (compute-gimp-reg-length mp)
                     (cl-mpm/particle::mp-body-force mp))
