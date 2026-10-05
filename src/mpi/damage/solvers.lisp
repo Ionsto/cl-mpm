@@ -1,0 +1,57 @@
+(in-package :cl-mpm/mpi)
+(declaim #.cl-mpm/settings:*optimise-setting*)
+
+(defmethod cl-mpm::update-sim ((sim cl-mpm/mpi::mpm-sim-mpi-damage-usf))
+  (declare (cl-mpm::mpm-sim-usf sim))
+  (with-slots ((mesh cl-mpm::mesh)
+               (mps  cl-mpm::mps)
+               (bcs  cl-mpm::bcs)
+               (bcs-force cl-mpm::bcs-force)
+               (dt cl-mpm::dt)
+               (mass-filter cl-mpm::mass-filter)
+               (ghost-factor cl-mpm::ghost-factor)
+               (split cl-mpm::allow-mp-split)
+               (enable-damage cl-mpm::enable-damage)
+               (nonlocal-damage cl-mpm::nonlocal-damage)
+               (remove-damage cl-mpm::allow-mp-damage-removal)
+               (fbar cl-mpm::enable-fbar)
+               (update-type cl-mpm::update-type)
+               (vel-algo cl-mpm::velocity-algorithm)
+               (damping cl-mpm::damping-factor)
+               (time cl-mpm::time)
+               )
+                sim
+    (declare (type double-float mass-filter time dt))
+                (progn
+                  (with-mpi-errors
+                      (cl-mpm::reset-grid mesh))
+                  (when (> (length mps) 0)
+                    (with-mpi-errors
+                        (cl-mpm::p2g mesh mps vel-algo))
+                    (when (> mass-filter 0d0)
+                      (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+                    (cl-mpm::apply-essential-bcs sim)
+                    (cl-mpm::filter-cells sim)
+                    (cl-mpm::update-node-kinematics sim)
+                    (cl-mpm::update-nodes sim)
+                    (cl-mpm::update-filtered-cells sim)
+                    ;; (cl-mpm::update-cells sim)
+                    (cl-mpm::apply-force-bcs sim dt)
+                    (with-mpi-errors
+                        (cl-mpm::update-stress mesh mps dt fbar))
+                    (with-mpi-errors
+                        (cl-mpm/damage::calculate-damage sim dt))
+                    (cl-mpm::update-stiffness-mps sim)
+                    ;; ;Map forces onto nodes
+                    (cl-mpm::p2g-force sim)
+                    (with-mpi-errors
+                        (cl-mpm::update-node-forces sim))
+                    (cl-mpm::reset-node-displacement sim)
+                    (cl-mpm::update-nodes sim)
+                    (cl-mpm::apply-essential-bcs sim)
+                    (cl-mpm::update-dynamic-stats sim)
+                    (cl-mpm::g2p mesh mps dt damping vel-algo)
+                    (cl-mpm::new-loadstep sim)
+                    ;; (when remove-damage
+                    ;;   (cl-mpm::remove-material-damaged sim))
+                    (incf time dt)))))

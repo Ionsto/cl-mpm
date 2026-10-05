@@ -1236,3 +1236,14 @@
 (defmethod compute-mp-energy-release ((mp cl-mpm/particle::particle))
   0d0)
 
+
+(defun p-wave-from-tangent (mp tang)
+  (let ()
+    (max
+     (* 1d-9 (cl-mpm/particle::compute-p-modulus mp))
+     (max
+      (cl-mpm/utils::mtref tang 0 0)
+      (cl-mpm/utils::mtref tang 1 1)
+      ;; (cl-mpm/fastmaths::dot nxy (cl-mpm/fastmaths::fast-@-arb-arb tang nxy :res temp))
+      ;; (cl-mpm/fastmaths::dot nyx (cl-mpm/fastmaths::fast-@-arb-arb tang nyx :res temp))
+      ))))

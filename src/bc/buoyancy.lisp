@@ -548,52 +548,95 @@
 (defmethod populate-cells-volume ((sim cl-mpm/mpi::mpm-sim-mpi) clip-function)
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
-    (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
-      (cl-mpm::iterate-over-cells
-       mesh
-       (lambda (cell)
-         (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
-                          (neighbours cl-mpm/mesh::cell-neighbours)
-                          (index cl-mpm/mesh::cell-index)
-                          (nodes cl-mpm/mesh::cell-nodes)
-                          (pruned cl-mpm/mesh::cell-pruned)
-                          (boundary cl-mpm/mesh::cell-boundary)
-                          (pos cl-mpm/mesh::cell-centroid)
-                          (vt cl-mpm/mesh::cell-volume)
-                          (active cl-mpm/mesh::cell-active)
-                          )
-             cell
-           (setf boundary nil)
-           (setf active (cl-mpm/mpi::in-computational-domain sim pos))
-           (when active
+    (flet ((set-cell (c)
+         (with-accessors ((nodes cl-mpm/mesh::cell-nodes)
+                                (boundary cl-mpm/mesh::cell-boundary)
+                                (active cl-mpm/mesh::cell-active))
+                   c
+                 (setf boundary t)
+                 (loop for n across nodes
+                       do (when (cl-mpm/mesh:node-active n)
+                            (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+                              (setf (cl-mpm/mesh::node-boundary-node n) t)))))))
+        (cl-mpm::iterate-over-cells
+         mesh
+         (lambda (cell)
+           (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                            (neighbours cl-mpm/mesh::cell-neighbours)
+                            (index cl-mpm/mesh::cell-index)
+                            (nodes cl-mpm/mesh::cell-nodes)
+                            (pruned cl-mpm/mesh::cell-pruned)
+                            (boundary cl-mpm/mesh::cell-boundary)
+                            (pos cl-mpm/mesh::cell-centroid)
+                            (vt cl-mpm/mesh::cell-volume)
+                            (active cl-mpm/mesh::cell-active))
+               cell
+             (declare (list neighbours))
+             (setf boundary nil)
              (flet ((check-cell (c)
-                      (with-accessors ((pos cl-mpm/mesh::cell-centroid)
-                                       (neighbours cl-mpm/mesh::cell-neighbours)
-                                       (vt cl-mpm/mesh::cell-volume)
-                                       (nns cl-mpm/mesh::cell-nodes)
-                                       )
-                          c
-                        (when (and (funcall clip-function pos))
-                          (let ((vest 0d0))
-                            (loop for n across nns
-                                  do
-                                     (when (cl-mpm/mesh:node-active n)
-                                       (incf vest
-                                             (* 0.25d0 (/
-                                                        (cl-mpm/mesh::node-volume n)
-                                                        (cl-mpm/mesh::node-volume-true n))))))
-                            (when (< vest 0.5d0)
-                              (setf boundary t)
-                              (loop for n across nodes
-                                    do
-                                       (when (cl-mpm/mesh:node-active n)
-                                         (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
-                                           (setf (cl-mpm/mesh::node-boundary-node n) t))))
-                              ))))))
-               (check-cell cell)
-               (loop for neighbour in neighbours
-                     do (check-cell neighbour)))))))
-      )))
+                      (let ((res nil))
+                        (with-accessors ((pos cl-mpm/mesh::cell-centroid)
+                                         (neighbours cl-mpm/mesh::cell-neighbours)
+                                         (vt cl-mpm/mesh::cell-volume)
+                                         (vol cl-mpm/mesh::cell-volume-current)
+                                         (nns cl-mpm/mesh::cell-nodes))
+                            c
+                          (declare (function clip-function) ((vector t *) nns))
+                          (declare (double-float vol vt))
+                          (when (and (funcall clip-function pos))
+                            (when (< (/ vol vt) 0.8d0)
+                              (setf res t))))
+                        res)))
+               (when (and (check-cell cell)
+                          (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::cell-centroid cell)))
+                 (set-cell cell)))))))
+    ;; (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
+    ;;   (cl-mpm::iterate-over-cells
+    ;;    mesh
+    ;;    (lambda (cell)
+    ;;      (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+    ;;                       (neighbours cl-mpm/mesh::cell-neighbours)
+    ;;                       (index cl-mpm/mesh::cell-index)
+    ;;                       (nodes cl-mpm/mesh::cell-nodes)
+    ;;                       (pruned cl-mpm/mesh::cell-pruned)
+    ;;                       (boundary cl-mpm/mesh::cell-boundary)
+    ;;                       (pos cl-mpm/mesh::cell-centroid)
+    ;;                       (vt cl-mpm/mesh::cell-volume)
+    ;;                       (active cl-mpm/mesh::cell-active)
+    ;;                       )
+    ;;          cell
+    ;;        (setf boundary nil)
+    ;;        (setf active (cl-mpm/mpi::in-computational-domain sim pos))
+    ;;        (when active
+    ;;          (flet ((check-cell (c)
+    ;;                   (with-accessors ((pos cl-mpm/mesh::cell-centroid)
+    ;;                                    (neighbours cl-mpm/mesh::cell-neighbours)
+    ;;                                    (vt cl-mpm/mesh::cell-volume)
+    ;;                                    (nns cl-mpm/mesh::cell-nodes)
+    ;;                                    )
+    ;;                       c
+    ;;                     (when (and (funcall clip-function pos))
+    ;;                       (let ((vest 0d0))
+    ;;                         (loop for n across nns
+    ;;                               do
+    ;;                                  (when (cl-mpm/mesh:node-active n)
+    ;;                                    (incf vest
+    ;;                                          (* 0.25d0 (/
+    ;;                                                     (cl-mpm/mesh::node-volume n)
+    ;;                                                     (cl-mpm/mesh::node-volume-true n))))))
+    ;;                         (when (< vest 0.5d0)
+    ;;                           (setf boundary t)
+    ;;                           (loop for n across nodes
+    ;;                                 do
+    ;;                                    (when (cl-mpm/mesh:node-active n)
+    ;;                                      (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+    ;;                                        (setf (cl-mpm/mesh::node-boundary-node n) t))))
+    ;;                           ))))))
+    ;;            (check-cell cell)
+    ;;            (loop for neighbour in neighbours
+    ;;                  do (check-cell neighbour)))))))
+    ;;   )
+    ))
 
 ;; (defmethod populate-cells-volume ((sim cl-mpm/mpi:mpm-sim-mpi) clip-function)
 ;;   (with-accessors ((mesh cl-mpm:sim-mesh))
@@ -770,37 +813,79 @@
         ;; (populate-cell-mp-count-volume mesh mps clip-function)
         ;; (populate-cell-nodes mesh mps)
         ;; (prune-buoyancy-nodes mesh '(0 0) 300)
-        (cl-mpm::iterate-over-cells
-         mesh
-         (lambda (cell)
-           (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
-                            (neighbours cl-mpm/mesh::cell-neighbours)
-                            (index cl-mpm/mesh::cell-index)
-                            (centroid cl-mpm/mesh::cell-centroid)
-                            (nodes cl-mpm/mesh::cell-nodes)
-                            (pruned cl-mpm/mesh::cell-pruned)
-                            (active cl-mpm/mesh::cell-active)
-                            (boundary cl-mpm/mesh::cell-boundary)
-                            (pos cl-mpm/mesh::cell-centroid))
-               cell
-             (setf boundary nil)
-             (setf active (cl-mpm/mpi::in-computational-domain sim centroid))
-             (when (and (= mp-count 0)
-                        (funcall clip-function pos)
-                        (not pruned))
-               ;; (setf boundary t)
-               ;; (loop for n in (cl-mpm/mesh::cell-nodes cell)
-               ;;       do (setf (cl-mpm/mesh::node-boundary-node n) t))
-               (loop for neighbour in neighbours
-                     do
-                        (when (funcall clip-function (cl-mpm/mesh::cell-centroid neighbour))
-                          (when (check-neighbour-cell neighbour)
-                            (setf boundary t)
-                            (loop for n across nodes
-                                  do
-                                     (when (cl-mpm/mesh:node-active n)
-                                       (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
-                                         (setf (cl-mpm/mesh::node-boundary-node n) t))))))))))))))
+      (cl-mpm::iterate-over-cells
+       mesh
+       (lambda (cell)
+         (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                          (neighbours cl-mpm/mesh::cell-neighbours)
+                          (index cl-mpm/mesh::cell-index)
+                          (nodes cl-mpm/mesh::cell-nodes)
+                          (pruned cl-mpm/mesh::cell-pruned)
+                          (active cl-mpm/mesh::cell-active)
+                          (partial cl-mpm/mesh::cell-partial)
+                          (boundary cl-mpm/mesh::cell-boundary)
+                          (pos cl-mpm/mesh::cell-centroid))
+             cell
+           (setf boundary nil)
+           ;; (when (and
+           ;;        (funcall clip-function pos)
+           ;;        active partial)
+           ;;   (set-boundary cell))
+           (when (and
+                  active
+                  partial
+                  (funcall clip-function pos)
+                  (cl-mpm/mpi::in-computational-domain sim pos)
+                  (not pruned))
+             (set-boundary cell)
+             ;; (setf boundary t)
+             ;; (loop for n in (cl-mpm/mesh::cell-nodes cell)
+             ;;       do (setf (cl-mpm/mesh::node-boundary-node n) t))
+             (loop for neighbour in neighbours
+                   do
+                      (when (funcall clip-function (cl-mpm/mesh::cell-centroid neighbour))
+                        (when (check-neighbour-cell neighbour)
+                          ;; (setf (cl-mpm/mesh::cell-boundary neighbour) t)
+                          (set-boundary neighbour)
+                          ;; (setf boundary t)
+                          ;; (loop for n across nodes
+                          ;;       do
+                          ;;          (when (cl-mpm/mesh:node-active n)
+                          ;;            (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+                          ;;              (setf (cl-mpm/mesh::node-boundary-node n) t))))
+                          )))))))
+        ;; (cl-mpm::iterate-over-cells
+        ;;  mesh
+        ;;  (lambda (cell)
+        ;;    (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+        ;;                     (neighbours cl-mpm/mesh::cell-neighbours)
+        ;;                     (index cl-mpm/mesh::cell-index)
+        ;;                     (centroid cl-mpm/mesh::cell-centroid)
+        ;;                     (nodes cl-mpm/mesh::cell-nodes)
+        ;;                     (pruned cl-mpm/mesh::cell-pruned)
+        ;;                     (active cl-mpm/mesh::cell-active)
+        ;;                     (boundary cl-mpm/mesh::cell-boundary)
+        ;;                     (pos cl-mpm/mesh::cell-centroid))
+        ;;        cell
+        ;;      (setf boundary nil)
+        ;;      (setf active (cl-mpm/mpi::in-computational-domain sim centroid))
+        ;;      (when (and (= mp-count 0)
+        ;;                 (funcall clip-function pos)
+        ;;                 (not pruned))
+        ;;        ;; (setf boundary t)
+        ;;        ;; (loop for n in (cl-mpm/mesh::cell-nodes cell)
+        ;;        ;;       do (setf (cl-mpm/mesh::node-boundary-node n) t))
+        ;;        (loop for neighbour in neighbours
+        ;;              do
+        ;;                 (when (funcall clip-function (cl-mpm/mesh::cell-centroid neighbour))
+        ;;                   (when (check-neighbour-cell neighbour)
+        ;;                     (setf boundary t)
+        ;;                     (loop for n across nodes
+        ;;                           do
+        ;;                              (when (cl-mpm/mesh:node-active n)
+        ;;                                (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+        ;;                                  (setf (cl-mpm/mesh::node-boundary-node n) t)))))))))))
+      )))
 
 
 

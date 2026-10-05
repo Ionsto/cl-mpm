@@ -304,7 +304,7 @@
   "Strain intergrated elsewhere, just using elastic tensor"
   (with-accessors ((de mp-elastic-matrix)
                    (dep mp-tangent-stiffness)
-                   (stress mp-stress-kirchoff)
+                   (stress mp-stress)
                    (rho mp-rho)
                    (soft mp-softening)
                    (plastic-strain mp-strain-plastic)
@@ -336,7 +336,7 @@
                                                      dep)
           (setf stress sig
                 ;; plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e plastic-strain)
-                p-mod pmod
+                ;; p-mod pmod
                 yield-func f)
           (let ((p-mod-elastic (* 1d-6 (cl-mpm/particle::compute-p-modulus mp)))
                 (probe-vec (cl-mpm/utils::voigt-zeros)))
@@ -355,20 +355,51 @@
       (progn
         ;; (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
         ))
-    (when (> dt 0d0)
-      (let ((damping-factor (/ 0d-2 dt))
-            (p (* 1/3 (cl-mpm/utils:trace-voigt (cl-mpm/utils::stretch-to-sym (cl-mpm/particle::mp-stretch-tensor mp))))))
-        (cl-mpm/fastmaths::fast-.+
-         (cl-mpm/fastmaths::fast-scale!
-          (cl-mpm/constitutive::linear-elastic-mat
-           ;; (cl-mpm/utils:voigt-eye p)
-           ;; (cl-mpm/utils::stretch-to-sym-noadjust (cl-mpm/particle::mp-stretch-tensor mp))
-           (cl-mpm/utils::stretch-to-sym (cl-mpm/particle::mp-stretch-tensor mp))
-           ;; (cl-mpm/particle::mp-stretch-tensor mp)
-           de)
-          damping-factor)
-         stress
-         stress)))
+    ;; (when (> dt 0d0)
+    ;;   (let ((damping-factor (/ 1d-1 dt))
+    ;;         (p (* (cl-mpm/utils:trace-voigt (cl-mpm/utils::stretch-to-sym (cl-mpm/particle::mp-stretch-tensor mp))))))
+    ;;     ;; (pprint "Hello")
+    ;;     (cl-mpm/fastmaths::fast-.+
+    ;;      stress
+    ;;      (cl-mpm/fastmaths::fast-scale!
+    ;;       (cl-mpm/constitutive::linear-elastic-mat
+    ;;        (cl-mpm/utils:voigt-eye p)
+    ;;        ;; (cl-mpm/utils::stretch-to-sym-noadjust (cl-mpm/particle::mp-stretch-tensor mp))
+    ;;        ;; (cl-mpm/utils::stretch-to-sym (cl-mpm/particle::mp-stretch-tensor mp))
+    ;;        ;; (cl-mpm/particle::mp-stretch-tensor mp)
+    ;;        dep)
+    ;;       damping-factor)
+    ;;      stress))
+    ;;   (setf p-mod (* p-mod 4d0))
+    ;;   )
+    ;; (when (> dt 0d0)
+    ;;   (let ((mdamp 2d-3))
+    ;;     (declare (double-float mdamp dt))
+    ;;     (when (> mdamp 0d0)
+    ;;       (cl-mpm/fastmaths::fast-.-
+    ;;        (cl-mpm/particle::mp-stress mp)
+    ;;        (cl-mpm/fastmaths::fast-@-arb-arb
+    ;;         (cl-mpm/particle::mp-tangent-stiffness mp)
+    ;;         (cl-mpm/fastmaths::fast-scale!
+    ;;          (cl-mpm/utils::stretch-to-sym
+    ;;           (cl-mpm/particle::mp-stretch-tensor mp))
+    ;;          (/ mdamp dt)))
+    ;;        (cl-mpm/particle::mp-stress mp))
+    ;;       ;; (pprint "Hello")
+    ;;       ;; (pprint (cl-mpm/fastmaths::fast-@-arb-arb
+    ;;       ;;          (cl-mpm/particle::mp-tangent-stiffness mp)
+    ;;       ;;          (cl-mpm/fastmaths::fast-scale!
+    ;;       ;;           (cl-mpm/utils::stretch-to-sym
+    ;;       ;;            (cl-mpm/particle::mp-stretch-tensor mp))
+    ;;       ;;           (/ mdamp dt))))
+
+    ;;       ;; (cl-mpm/fastmaths::fast-scale!
+    ;;       ;;  (cl-mpm/particle::mp-tangent-stiffness mp)
+    ;;       ;;  (- 1d0 (/ mdamp dt)))
+
+    ;;       (setf p-mod (cl-mpm/particle::p-wave-from-tangent mp (cl-mpm/particle::mp-tangent-stiffness mp)))
+    ;;       )))
+
     stress))
 
 (defmethod constitutive-model ((mp particle-mc) strain dt)

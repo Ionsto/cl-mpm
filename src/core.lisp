@@ -75,13 +75,16 @@
 
 
 
+(declaim (ftype (function (cl-mpm/mesh::node double-float) (values)) update-node))
 (defun update-node (node dt)
   "Calculate velocity from momentum on a single node"
-  (when (cl-mpm/mesh:node-active node)
-    (with-accessors ((vel   node-velocity)
-                     (disp   cl-mpm/mesh::node-displacment))
-        node
-      (cl-mpm/fastmaths:fast-fmacc disp vel dt))))
+  (declare (cl-mpm/mesh::node node)
+           (double-float dt))
+  (with-accessors ((vel node-velocity)
+                   (disp cl-mpm/mesh::node-displacment))
+      node
+    (cl-mpm/fastmaths:fast-fmacc disp vel dt))
+  (values))
 
 (defun get-cell-df (mesh point)
   (let ((dF (cl-mpm/utils:matrix-eye 1d0)))

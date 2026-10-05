@@ -165,6 +165,7 @@
       (declare ((vector t *) local-list) (double-float length))
       (let* ((length (the double-float (* length 1d0)))
              (len-squared (expt length 2)))
+        (declare (double-float length len-squared))
         (setf (fill-pointer local-list) 0)
         (iterate-over-damage-bounds
          mesh
@@ -724,8 +725,11 @@ Calls the function with the mesh mp and node"
 (declaim (inline iterate-over-damage-bounds-2d))
 (defun iterate-over-damage-bounds-2d (mesh pos length func)
   (declare (optimize (speed 3)))
-  (declare (function func)
-           (double-float length))
+  (declare
+   (cl-mpm/mesh::mesh mesh)
+   (magicl::matrix/double-float pos)
+   (function func)
+   (double-float length))
   (let* ((h (the double-float (cl-mpm/mesh:mesh-resolution mesh)))
          (node-id (cl-mpm/mesh:position-to-index mesh pos))
          (node-reach (the fixnum (ceiling (+ length

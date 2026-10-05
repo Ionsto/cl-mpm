@@ -344,6 +344,7 @@
                    (:file "sync")
                    (:file "mpi")
                    (:file "damage")
+                   (:file "damage/solvers")
                    (:file "solver")
                    (:file "output")
                    (:file "agg")))))))

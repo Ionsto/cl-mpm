@@ -1090,28 +1090,28 @@
           (the double-float
                (/ p 1))))
 
-        (when (> dt 0d0)
-          (let ((mdamp (cl-mpm/particle::mp-material-damping mp)))
-            (declare (double-float mdamp dt))
-            (when (> mdamp 0d0)
-              (cl-mpm/fastmaths::fast-.+
-               (cl-mpm/particle::mp-stress mp)
-               (cl-mpm/fastmaths::fast-@-arb-arb
-                (cl-mpm/particle::mp-tangent-stiffness mp)
-                (cl-mpm/fastmaths::fast-scale!
-                 (cl-mpm/utils::stretch-to-sym
-                  (cl-mpm/particle::mp-stretch-tensor mp)
-                  (grab-new-voigt))
-                 (/ mdamp dt))
-                :res (grab-new-voigt))
-               (cl-mpm/particle::mp-stress mp))
+        ;; (when (> dt 0d0)
+        ;;   (let ((mdamp (cl-mpm/particle::mp-material-damping mp)))
+        ;;     (declare (double-float mdamp dt))
+        ;;     (when (> mdamp 0d0)
+        ;;       (cl-mpm/fastmaths::fast-.+
+        ;;        (cl-mpm/particle::mp-stress mp)
+        ;;        (cl-mpm/fastmaths::fast-@-arb-arb
+        ;;         (cl-mpm/particle::mp-tangent-stiffness mp)
+        ;;         (cl-mpm/fastmaths::fast-scale!
+        ;;          (cl-mpm/utils::stretch-to-sym
+        ;;           (cl-mpm/particle::mp-stretch-tensor mp)
+        ;;           (grab-new-voigt))
+        ;;          (/ mdamp dt))
+        ;;         :res (grab-new-voigt))
+        ;;        (cl-mpm/particle::mp-stress mp))
 
-              (cl-mpm/fastmaths::fast-scale!
-               (cl-mpm/particle::mp-tangent-stiffness mp)
-               (- 1d0 (/ mdamp dt)))
+        ;;       (cl-mpm/fastmaths::fast-scale!
+        ;;        (cl-mpm/particle::mp-tangent-stiffness mp)
+        ;;        (- 1d0 (/ mdamp dt)))
 
-              (setf p-mod (cl-mpm/particle::p-wave-from-tangent mp (cl-mpm/particle::mp-tangent-stiffness mp)))
-              )))
+        ;;       (setf p-mod (cl-mpm/particle::p-wave-from-tangent mp (cl-mpm/particle::mp-tangent-stiffness mp)))
+        ;;       )))
 
         (with-accessors ((max-deg cl-mpm/particle::mp-density-degredation-max)
                          (d-exp cl-mpm/particle::mp-density-degredation-exp)

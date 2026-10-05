@@ -36,11 +36,10 @@
         (apply-essential-bcs sim)
         (filter-cells sim)
         (update-node-kinematics sim)
-        (apply-essential-bcs sim)
+        ;; (apply-essential-bcs sim)
         ;;Trial update displacements
         (update-nodes sim)
         (update-filtered-cells sim)
-        ;; (cl-mpm/ghost::apply-half-step-ghost sim)
         (apply-force-bcs sim dt)
         (update-stress mesh mps dt fbar)
         (cl-mpm::update-stiffness-mps sim)
@@ -55,7 +54,8 @@
         (update-dynamic-stats sim)
         ;; Also updates mps inline
         (g2p mesh mps dt damping vel-algo)
-        (new-loadstep sim))
+        (new-loadstep sim)
+        )
       (incf time dt))))
 
 
