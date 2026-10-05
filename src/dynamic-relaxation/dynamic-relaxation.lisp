@@ -452,18 +452,24 @@
                    (enable-damage cl-mpm::sim-enable-damage)
                    (delocal-counter sim-damage-delocal-counter)
                    (delocal-counter-max sim-damage-delocal-counter-max)
-                   (non-local-damage cl-mpm::sim-nonlocal-damage))
+                   (non-local-damage cl-mpm::sim-nonlocal-damage)
+                   (ybar-relax cl-mpm/damage::sim-damage-ybar-relaxation)
+                   (conv-crit cl-mpm/dynamic-relaxation::sim-convergence-critera)
+                   )
       sim
+    (declare (double-float ybar-relax conv-crit))
     (when (cl-mpm::sim-enable-damage sim)
       (let* ((dconv (cl-mpm/damage::sim-stats-damage-residual sim))
              (dconv-0 dconv)
              (dconv-prev dconv)
              (crit (min
-                    1d-6
-                    (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))))
+                    1d-3
+                    conv-crit
+                    )))
         (declare (double-float dconv dconv-0 crit dconv-prev))
         (when (> dconv crit)
           (let ((iter 0))
+            (declare (fixnum iter))
             (loop for i from 1 below 100
                   while (> dconv crit)
                   do (progn
@@ -476,17 +482,14 @@
                        (when (> dconv dconv-prev)
                          (format t "Internal damage iter struggled applying relaxation ~D ~E - ~E ~E~%" iter (cl-mpm/damage::sim-damage-ybar-relaxation sim) dconv dconv-prev)
                          (setf (cl-mpm/damage::sim-damage-ybar-relaxation sim)
-                               ;; 0.9d0
                                (min 0.99d0
-                                    (if (= 0d0 (cl-mpm/damage::sim-damage-ybar-relaxation sim))
+                                    (if (= 0d0 ybar-relax)
                                         0.1d0
-                                        (sqrt (cl-mpm/damage::sim-damage-ybar-relaxation sim))))
-                               ))
-                       ))
-            (when (> (cl-mpm/damage::sim-damage-ybar-relaxation sim) 0d0)
+                                        (the double-float (sqrt ybar-relax))))))))
+            (when (> ybar-relax 0d0)
               (format t "Iter ~D ~E~%" iter dconv))
-            (when (and (> iter 25) (not (> (cl-mpm/damage::sim-damage-ybar-relaxation sim) 0d0)))
-              (format t "Iter ~D ~E~%" iter dconv))
+            (when (and (> iter 10) (not (> ybar-relax 0d0)))
+              (format t "Iter ~D ~E ~E~%" iter dconv dconv-0))
             (when (> dconv crit)
               (error (make-instance 'non-convergence-error
                                     :text "Inner damage/localisation solve failed to converge"

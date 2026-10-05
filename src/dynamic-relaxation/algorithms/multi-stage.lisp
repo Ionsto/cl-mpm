@@ -146,6 +146,7 @@
                           (min-adaptive-steps -1)
                           (adaption-constant 2)
                           (easy-step-adaption-constant 8)
+                          (min-tangent-ratio 5d-1)
                           (conv-criteria 1d-3)
                           (explicit-conv-criteria nil)
                           (substeps 50)
@@ -271,6 +272,7 @@
                                                      :max-damage-inc max-damage-inc
                                                      :max-plastic-inc max-plastic-inc
                                                      :max-deformation-gradient max-deformation-gradient
+                                                     :min-tangent-ratio min-tangent-ratio
                                                      ;; :stagger-damage nil
                                                      :stagger-damage stagger-damage
                                                      :save-vtk-dr save-vtk-dr)
