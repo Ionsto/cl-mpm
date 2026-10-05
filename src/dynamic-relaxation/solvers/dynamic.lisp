@@ -460,6 +460,7 @@
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (cl-mpm::reset-node-displacement sim)
     (setf (cl-mpm::sim-damping-factor sim) 0d0)
+    (cl-mpm/damage::update-delocalisation-list sim)
     (midpoint-starter sim)
     (setf initial-setup t)))
 
