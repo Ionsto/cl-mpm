@@ -4,11 +4,18 @@
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
 (defconstant +damage-average+ t)
+(defconstant +damage-half-average+ t)
 (defconstant +damage-update-ul+ nil)
 (defconstant +damage-average-energy+ nil)
 
+(defconstant +damage-localisation-algorithm+
+  :GEOMETRIC
+  ;; :SCATTER
+  )
+
 
 (format t "~%Damage settings - damage-average ~A~%" +damage-average+)
+(format t "~%Damage settings - damage-average using R/2 ~A~%" +damage-half-average+)
 (format t "~%Damage settings - update-ul ~A~%" +damage-update-ul+)
 (format t "~%Damage settings - average-energy ~A~%" +damage-average-energy+)
 
@@ -23,11 +30,11 @@
            (cl-mpm/particle::mp-volume-n mp))))
 
 (defun weight-func-mps-chosen (mesh mp mp-other pos-a pos-b length)
-  ;; (weight-func-mps-trapezium mesh mp mp-other pos-a pos-b length)
-  (weight-func-mps-scatter mesh mp mp-other pos-a pos-b length)
-  ;; (weight-func-mps-geometric mesh mp mp-other pos-a pos-b length)
-  ;; (weight-func-mps-gradient-trapezium mesh mp mp-other pos-a pos-b length)
-  )
+  (case +damage-localisation-algorithm+
+    (:GEOMETRIC (weight-func-mps-geometric mesh mp mp-other pos-a pos-b length))
+    (:SCATTER (weight-func-mps-scatter mesh mp mp-other pos-a pos-b length))
+    (:TRAPZ (weight-func-mps-trapezium mesh mp mp-other pos-a pos-b length))
+    (:TRAPZ-GRAD (weight-func-mps-gradient-trapezium mesh mp mp-other pos-a pos-b length))))
 
 (defun iterate-over-damage-mps (mps func)
   "Helper function for iterating over all nodes in a mesh
@@ -583,8 +590,12 @@
 
 (defun weight-func-mps-geometric (mesh mp-a mp-b pos-a pos-b length)
   (declare (ignore mesh))
-  (let ((da (cl-mpm/particle::mp-av-damage mp-a))
-        (da-other (cl-mpm/particle::mp-av-damage mp-b)))
+  (let (
+        (da (cl-mpm/particle::mp-av-damage mp-a))
+        (da-other (cl-mpm/particle::mp-av-damage mp-b))
+        ;; (da (cl-mpm/particle::mp-damage mp-a))
+        ;; (da-other (cl-mpm/particle::mp-damage mp-b))
+        )
     (declare (double-float length da da-other))
     (weight-func
      (cl-mpm/fastmaths::diff-norm pos-a pos-b)
@@ -789,8 +800,7 @@ Calls the function with the mesh mp and node"
            (function func))
   (let (;; (pos (cl-mpm/particle::mp-position mp))
         (local-list (cl-mpm/particle::mp-local-list mp)))
-    (declare (double-float length) ((vector t *) local-list)
-             )
+    (declare (double-float length) ((vector t *) local-list))
     (funcall func mp)
     (when (> (length local-list) 0)
       (loop for mp-other across local-list
@@ -865,12 +875,17 @@ Calls the function with the mesh mp and node"
     (declare ((simple-array double-float) vals))
     ;; (declare (double-float damage-average))
     (iterate-over-neighbour-mps
-     mesh mp length
+     mesh
+     mp
+     length
      (lambda (mp-other)
        (let ((m (get-mp-volume mp-other))
              (d (cl-mpm/particle::mp-damage mp-other)))
          (declare (double-float d m length))
-         (let ((weight (weight-func (diff-squared mp mp-other) length)))
+         (let ((weight (weight-func (diff-squared mp mp-other)
+                                    (if +damage-half-average+
+                                        (/ length 2d0)
+                                        length))))
            (declare (double-float weight m d))
            (incf (aref vals 0) (* d weight m))
            (incf (aref vals 1) (* weight m))))
@@ -1637,26 +1652,12 @@ Calls the function with the mesh mp and node"
                      data-positions)
                (let* ((weight
                         (if (cl-mpm/damage::sim-enable-length-localisation sim)
-                            ;; (weight-func-mps-trapezium mesh mp mp-other
-                            ;; p
-                            ;; p-other
-                            ;;                            length)
-                            ;; (weight-func-mps-gradient-trapezium mesh mp mp-other
-                            ;; p
-                            ;; p-other
-                            ;;                            length)
                             (weight-func-mps-chosen mesh
                                                      mp
                                                      mp-other
                                                      p
                                                      p-other
                                                      length)
-                            ;; (weight-func-mps-geometric mesh
-                            ;;                            mp
-                            ;;                            mp-other
-                            ;; p
-                            ;; p-other
-                            ;;                            length)
                             (weight-func (cl-mpm/fastmaths::diff-norm p p-other) length))))
                  (declare (double-float weight m d mass-total damage-inc))
                  (let ((y (the double-float (cl-mpm/particle::mp-damage-y-local mp-other))))
