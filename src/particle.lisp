@@ -34,6 +34,8 @@
 ;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
+;; (deftype array-of-particles ())
+
 (declaim (inline make-node-cache))
 (defstruct (node-cache
             (:constructor make-node-cache

@@ -13,7 +13,7 @@
         (let ((er
                 (cl-mpi-extensions:mpi-broadcast-anything
                  error-rank)))
-          (error er))))))
+          (error (find-class er)))))))
 
 (defun throw-mpi-error (err)
   (let ((rank (cl-mpi:mpi-comm-rank)))
@@ -30,7 +30,8 @@
             (progn
               (cl-mpi-extensions:mpi-broadcast-anything
                rank
-               :object err)
+               :object (class-name (class-of err)))
+                                        ;(class-name err)
               (format t "Broadcast error, now rethrow~%")
               (error err))
             (let ((er (cl-mpi-extensions:mpi-broadcast-anything error-rank)))
@@ -286,11 +287,13 @@
                  (let ((index part-offset)
                        (end (+ part-offset part-size)))
                    (declare (type fixnum index end part-offset part-size))
-                   (let ((cl-store:*current-backend* cl-store:*default-backend*)
-                         (cl-store:*check-for-circs* nil))
+                   (let (
+                         (cl-store:*current-backend* cl-store:*default-backend*)
+                         (cl-store:*check-for-circs* nil)
+                         )
                      (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
                        (loop while (< index end)
-                             do (cl-store:store-object (aref mps index) stream)
+                             do (cl-store-single-object (aref mps index) stream)
                                 (incf index))))
                    )))
           (let ((parts (lparallel.cognate::get-parts-hint parts))
@@ -339,26 +342,21 @@
 
 (defun cl-store-decoder (x)
     (flexi-streams:with-input-from-sequence (stream x)
-      (cl-store:restore stream)))
+      ;; (cl-binary-store::restore stream)
+      (cl-store:restore stream)
+      ))
+(defun cl-store-single-object (x stream)
+  (cl-store:store-object x stream))
 
 (defun cl-store-encoder (x)
   (let ((res (flexi-streams:with-output-to-sequence (stream)
-               (cl-store:store x stream))))
+               ;; (cl-binary-store:store stream x)
+               (cl-store:store x stream)
+               )))
     (static-vectors:make-static-vector (length res)
                                        :element-type '(unsigned-byte 8)
                                        :initial-contents res)))
-(defun deserialise-mps (x)
-  (when x
-    (flexi-streams:with-input-from-sequence (stream x)
-      (cl-store:restore stream))))
 
-(defun test-ser (mps)
-  (let ((res (flexi-streams:with-output-to-sequence (stream)
-               (cl-store:store mps stream))))
-    (static-vectors:make-static-vector (length res)
-                                       :element-type '(unsigned-byte 8)
-                                       :initial-contents res
-                                       )))
 
 
 (declaim (notinline exchange-mps))
@@ -463,6 +461,40 @@
                                                ))))))
                              (cl-mpm::add-mps-finalise sim))))))))))))
 
+
+(declaim (notinline set-mp-mpi-index))
+(defun set-mp-mpi-index (sim)
+  (let* ((rank (cl-mpi:mpi-comm-rank)))
+    (cl-mpm:iterate-over-mps
+     (cl-mpm:sim-mps sim)
+     (lambda (mp)
+       (setf (cl-mpm/particle::mp-mpi-index mp)
+             (if (in-computational-domain sim (cl-mpm/particle:mp-position mp))
+                 rank
+                 -1))))))
+
+
+;; CL-BINARY-STORE VERSION
+
+;; (defconstant +extension-codespace+ #x9999)
+;; (cl-binary-store:define-codespace ("cl-mpi" +extension-codespace+ :inherits-from cl-binary-store::+basic-codespace+)
+;;     (cl-binary-store:defrestore sb-thread:mutex (lambda (storage object) (sb-thread:make-mutex))))
+
+
+;; (defmethod cl-binary-store::serializable-object-info ((type (eql 'class)))
+;;   (pprint "hello standard")
+;;   (let ((slots-list (call-next-method)))
+;;     (pprint (call-next-method))
+;;     (setf slots-list (remove 'cl-mpm/particle::cached-nodes slots-list :key 'c2mop:slot-definition-name))
+;;     (setf slots-list (remove 'cl-mpm/particle::mp-local-list slots-list :key 'c2mop:slot-definition-name))
+;;     (values slots-list nil)
+;;     )
+;;   )
+
+
+
+;;; CL-STORE SPECIFICS
+
 (defvar *mutex-code* (cl-store:register-code 110 'sb-thread:mutex))
 (cl-store:defstore-cl-store (obj sb-thread:mutex stream)
   (cl-store:output-type-code *mutex-code* stream))
@@ -477,116 +509,14 @@
     (setf slots-list (remove 'cl-mpm/particle::mp-local-list slots-list :key 'c2mop:slot-definition-name))
     slots-list))
 
-;; (cl-store::defstore-cl-store (obj cl-mpm/particle::particle stream)
-;;   (cl-store::output-type-code cl-store::+standard-object-code+ stream)
-;;   (cl-store::store-type-object obj stream))
-
-;; (defvar *particle-code* (cl-store:register-code 111 'cl-mpm/particle::particle))
-;; (cl-store:defstore-cl-store (obj cl-mpm/particle::particle stream)
-;;   (cl-store:output-type-code *particle-code* stream)
-;;   (loop for slot in (cl-store:serializable-slots obj)
-;;         do
-;;            (cond
-;;              ((eq 'cl-mpm/particle::cached-nodes (sb-mop:slot-definition-name slot))
-;;               nil)
-;;              (t
-;;               (cl-store:store-object (sb-mop:slot-value-using-class 'cl-mpm/mesh::particle obj slot) stream)))))
-
-;; (cl-store:defrestore-cl-store (cl-mpm/particle::particle stream)
-;;   (let ((obj (make-instance 'cl-mpm/particle::particle)))
-;;     (loop for slot in (cl-store:serializable-slots obj)
-;;           do
-;;              (cond
-;;                ((eq 'cl-mpm/particle::cached-nodes (sb-mop:slot-definition-name slot))
-;;                 (setf (cl-mpm/particle::mp-cached-nodes obj) (make-array 8 :fill-pointer 0 :element-type 'cl-mpm/particle::node-cache :initial-element (cl-mpm/particle::make-empty-node-cache)))
-;;                 )
-;;                (t
-;;                 (setf (sb-mop:slot-value-using-class 'cl-mpm/particle::particle obj slot) (cl-store:restore-object stream)))))
-;;     obj))
-
-;; (defvar *node-cache-code* (cl-store:register-code 113 'cl-mpm/particle::node-cache))
-;; (cl-store:defstore-cl-store (obj cl-mpm/particle::node-cache stream)
-;;   (cl-store:output-type-code *node-cache-code* stream)
-;;   )
-;; (cl-store:defrestore-cl-store (cl-mpm/particle::node-cache stream)
-;;   (let ((obj (cl-mpm/particle::make-node-cache )))
-;;     obj)
-;;   )
-
-
 (defvar *mesh-code* (cl-store:register-code 111 'cl-mpm/mesh::mesh))
 (cl-store:defstore-cl-store (obj cl-mpm/mesh::mesh stream)
   (error "TRYING TO STORE MESH?")
-  ;; (cl-store:output-type-code *mesh-code* stream)
-  ;; (cl-store:store-object (cl-mpm/mesh::mesh-nd obj) stream)
-  ;; (cl-store:store-object (cl-mpm/mesh::mesh-count obj) stream)
-  ;; (cl-store:store-object (cl-mpm/mesh::mesh-mesh-size obj) stream)
-  ;; (cl-store:store-object (cl-mpm/mesh::mesh-resolution obj) stream)
-  ;; (cl-store:store-object (cl-mpm/mesh::mesh-nodes obj) stream)
-  ;; (cl-store:store-object (cl-mpm/mesh::mesh-cells obj) stream)
   )
 
-;; (cl-store:defrestore-cl-store (cl-mpm/mesh::mesh stream)
-;;     (let ((obj (make-instance 'cl-mpm/mesh::mesh)))
-;;       (setf (cl-mpm/mesh::mesh-nd obj) (cl-store:restore-object stream))
-;;       (setf (cl-mpm/mesh::mesh-count obj) (cl-store:restore-object stream))
-;;       (setf (cl-mpm/mesh::mesh-mesh-size obj)  (cl-store:restore-object stream))
-;;       (setf (cl-mpm/mesh::mesh-resolution obj) (cl-store:restore-object stream))
-;;       (setf (cl-mpm/mesh::mesh-nodes obj) (cl-store:restore-object stream))
-;;       (setf (cl-mpm/mesh::mesh-cells obj) (cl-store:restore-object stream))
-;;       obj))
-
-;; (defvar *sim-code* (cl-store:register-code 112 'cl-mpm::mpm-sim))
 (cl-store:defstore-cl-store (obj cl-mpm::mpm-sim stream)
   (error "TRYING TO STORE SIM?")
-  ;; (cl-store:output-type-code *sim-code* stream)
-  ;; (cl-store:store-object (cl-mpm::sim-dt obj) stream)
-  ;; (cl-store:store-object (cl-mpm::sim-mesh obj) stream)
   )
-;; (cl-store:defrestore-cl-store (cl-mpm::mpm-sim stream)
-;;     (let ((obj (make-instance 'cl-mpm::mpm-sim)))
-;;       (setf (cl-mpm::sim-dt obj) (cl-store:restore-object stream))
-;;       (setf (cl-mpm::sim-mesh obj) (cl-store:restore-object stream))
-;;       obj))
-
-;; (defmethod cl-store:serializable-slots-using-class ((object t) (class cl-mpm/mesh::node))
-;;   (delete 'cl-mpm/mesh::local-list (call-next-method) :key 'c2mop:slot-definition-name))
-
-;; (defvar *node-code* (cl-store:register-code 113 'cl-mpm/mesh::node))
 (cl-store:defstore-cl-store (obj cl-mpm/mesh::node stream)
   (error "TRYING TO STORE NODE?")
-  ;; (cl-store:output-type-code *node-code* stream)
-  ;; (loop for slot in (cl-store:serializable-slots obj)
-  ;;       do
-  ;;          (cond
-  ;;            ((eq 'cl-mpm/mesh::local-list (sb-mop:slot-definition-name slot))
-  ;;             nil)
-  ;;            ((eq 'cl-mpm/mesh::agg-interior-cell (sb-mop:slot-definition-name slot))
-  ;;             nil)
-  ;;            (t
-  ;;             (cl-store:store-object (sb-mop:slot-value-using-class 'cl-mpm/mesh::node obj slot) stream))))
   )
-
-;; (cl-store:defrestore-cl-store (cl-mpm/mesh::node stream)
-;;   (let ((obj (make-instance 'cl-mpm/mesh::node)))
-;;     (loop for slot in (cl-store:serializable-slots obj)
-;;           do
-;;              (cond
-;;                ((eq 'cl-mpm/mesh::local-list (sb-mop:slot-definition-name slot))
-;;                 nil)
-;;                (t
-;;                 (setf (sb-mop:slot-value-using-class 'cl-mpm/mesh::node obj slot) (cl-store:restore-object stream)))))
-;;   ;; (setf (cl-mpm::sim-dt obj) (cl-store:restore-object stream))
-;;     obj))
-
-
-(declaim (notinline set-mp-mpi-index))
-(defun set-mp-mpi-index (sim)
-  (let* ((rank (cl-mpi:mpi-comm-rank)))
-    (cl-mpm:iterate-over-mps
-     (cl-mpm:sim-mps sim)
-     (lambda (mp)
-       (setf (cl-mpm/particle::mp-mpi-index mp)
-             (if (in-computational-domain sim (cl-mpm/particle:mp-position mp))
-                 rank
-                 -1))))))

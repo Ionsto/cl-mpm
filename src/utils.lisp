@@ -1763,3 +1763,8 @@
        (error "Hello"))))
   (format t "Second error~%")
   )
+
+(defstruct (unseralisable-vector (:type (vector t))
+                                 :named)
+  ;; Structure slots map directly to array indices
+  (data #() :type (simple-array t)))
