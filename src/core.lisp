@@ -734,7 +734,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   ;; (cl-mpm::scale-domain-size mesh mp)
   )
 
-(defun update-particles (sim)
+(defgeneric update-particles (sim))
+(defmethod update-particles ((sim mpm-sim))
   "Map particle momentum to the grid"
   (with-accessors ((mps sim-mps)
                    (mesh sim-mesh)
