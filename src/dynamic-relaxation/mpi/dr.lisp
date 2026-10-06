@@ -14,49 +14,51 @@
                                    damping-factor)
   (declare (double-float dt-scale))
   (setf *run-convergance* t)
-  (with-accessors ((mps cl-mpm:sim-mps))
-      sim
-    (let* ((fnorm 0d0)
-           (energy-total 0d0)
-           (oobf 0d0)
-           (load 0d0)
-           (converged nil)
-           (rank (cl-mpi:mpi-comm-rank)))
-      (setf (cl-mpm::sim-dt-scale sim) dt-scale)
-      (loop for i from 0 to conv-steps
-            while (and *run-convergance*
-                       (cl-mpm::sim-run-sim sim)
-                       (not converged))
-            do
-               (progn
-                 (setf fnorm 0d0)
-                 (optional-time
-                  t
-                  (dotimes (j substeps)
-                    (cl-mpm:update-sim sim)))
-                 (cl-mpm::update-dynamic-stats sim)
-                 (setf energy-total (cl-mpm::sim-stats-energy sim))
-                 (setf oobf (cl-mpm::sim-stats-oobf sim))
-                 (when (= 0 rank)
-                   (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E~%" i fnorm *work* oobf))
-                 (when (if convergance-criteria
-                           (funcall convergance-criteria sim fnorm oobf)
-                           (and
-                            (< oobf oobf-crit)))
-                   (when (= 0 rank)
-                     (format t "Took ~D steps to converge~%" i))
-                   (setf converged t))
-                 (when post-iter-step
-                   (funcall post-iter-step i fnorm oobf))
-                 (swank.live:update-swank)))
-      (when (not converged)
-        (when (= 0 rank)
-          (format t "System didn't converge~%"))
-        (error (make-instance 'non-convergence-error
-                              :text "System failed to converge"
-                              :ke-norm fnorm
-                              :oobf-norm oobf)))
-      (values load fnorm oobf))))
+  (cl-mpm/mpi::with-mpi-errors
+      (with-accessors ((mps cl-mpm:sim-mps))
+          sim
+        (let* ((fnorm 0d0)
+               (energy-total 0d0)
+               (oobf 0d0)
+               (load 0d0)
+               (converged nil)
+               (rank (cl-mpi:mpi-comm-rank)))
+          (setf (cl-mpm::sim-dt-scale sim) dt-scale)
+          (loop for i from 0 to conv-steps
+                while (and *run-convergance*
+                           (cl-mpm::sim-run-sim sim)
+                           (not converged))
+                do
+                   (progn
+                     (setf fnorm 0d0)
+                     (optional-time
+                      t
+                      (dotimes (j substeps)
+                        (cl-mpm:update-sim sim)))
+                     (cl-mpm::update-dynamic-stats sim)
+                     (setf energy-total (cl-mpm::sim-stats-energy sim))
+                     (setf oobf (cl-mpm::sim-stats-oobf sim))
+                     (when (= 0 rank)
+                       (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E~%" i fnorm *work* oobf))
+                     (when (if convergance-criteria
+                               (funcall convergance-criteria sim fnorm oobf)
+                               (and
+                                (< oobf oobf-crit)))
+                       (when (= 0 rank)
+                         (format t "Took ~D steps to converge~%" i))
+                       (setf converged t))
+                     (cl-mpm/mpi::with-mpi-errors
+                         (when post-iter-step
+                           (funcall post-iter-step i fnorm oobf)))
+                     (swank.live:update-swank)))
+          (when (not converged)
+            (when (= 0 rank)
+              (format t "System didn't converge~%"))
+            (error (make-instance 'non-convergence-error
+                                  :text "System failed to converge"
+                                  :ke-norm fnorm
+                                  :oobf-norm oobf)))
+          (values load fnorm oobf)))))
 
 
 
