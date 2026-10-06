@@ -95,63 +95,66 @@
 
 
 (macrolet ((def-g2p-mp (name &body update)
-             `(defun ,name (mesh mp dt damping)
-                (declare (cl-mpm/mesh::mesh mesh)
+             `(cl-mpm/utils::with-vector-pool
+               (defun ,name (mesh mp dt damping)
+                 (declare (cl-mpm/mesh::mesh mesh)
+                          (cl-mpm/particle:particle mp)
+                          (double-float dt))
+                 "Map one MP from the grid"
+                 (with-accessors ((vel mp-velocity)
+                                  (vel-grad cl-mpm/particle::mp-velocity-gradient)
+                                  (pos mp-position)
+                                  (pos-trial cl-mpm/particle::mp-position-trial)
+                                  ;; (acc cl-mpm/particle::mp-acceleration)
+                                  (disp cl-mpm/particle::mp-displacement)
+                                  (df-inc-inv cl-mpm/particle::mp-deformation-gradient-increment-inverse)
+                                  (disp-inc cl-mpm/particle::mp-displacement-increment))
+                     mp
+                   (let* ((mapped-vel (cl-mpm/fastmaths:fast-zero (grab-new-vector)))
+                          (acc (cl-mpm/fastmaths:fast-zero (grab-new-vector)))
+                          (svp-sum 0d0))
+                     (declare (double-float svp-sum))
+                     ;; (cl-mpm/fastmaths:fast-zero acc)
+                     (cl-mpm/fastmaths:fast-zero disp-inc)
+                     (cl-mpm/fastmaths:fast-zero vel-grad)
+                     ;; Map variables
+                     (iterate-over-neighbours
+                      mesh mp
+                      (lambda (node svp grads fsvp fgrads)
+                        (declare
+                         (ignore fsvp fgrads)
+                         (cl-mpm/mesh::node node)
                          (cl-mpm/particle:particle mp)
-                         (double-float dt))
-                "Map one MP from the grid"
-                (with-accessors ((vel mp-velocity)
-                                 (vel-grad cl-mpm/particle::mp-velocity-gradient)
-                                 (pos mp-position)
-                                 (pos-trial cl-mpm/particle::mp-position-trial)
-                                 (disp cl-mpm/particle::mp-displacement)
-                                 (df-inc-inv cl-mpm/particle::mp-deformation-gradient-increment-inverse)
-                                 (disp-inc cl-mpm/particle::mp-displacement-increment))
-                    mp
-                  (let* ((mapped-vel (cl-mpm/utils:vector-zeros))
-                         (acc (cl-mpm/utils:vector-zeros))
-                         (svp-sum 0d0))
-                    (declare (double-float svp-sum))
-                    (cl-mpm/fastmaths:fast-zero disp-inc)
-                    (cl-mpm/fastmaths:fast-zero vel-grad)
-                    ;; Map variables
-                    (iterate-over-neighbours
-                     mesh mp
-                     (lambda (node svp grads fsvp fgrads)
-                       (declare
-                        (ignore mp mesh fsvp fgrads)
-                        (cl-mpm/mesh::node node)
-                        (cl-mpm/particle:particle mp)
-                        (double-float svp))
-                       (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
-                                        (node-acc cl-mpm/mesh:node-acceleration)
-                                        (node-disp cl-mpm/mesh::node-displacment)
-                                        (node-scalar cl-mpm/mesh::node-boundary-scalar)
-                                        (node-active cl-mpm/mesh:node-active)
-                                        ) node
-                         (declare (double-float node-scalar)
-                                  (boolean node-active))
-                         (when node-active
-                           (cl-mpm/fastmaths::fast-fmacc mapped-vel node-vel svp)
-                           (cl-mpm/fastmaths::fast-fmacc disp-inc node-disp svp)
-                           (cl-mpm/fastmaths::fast-fmacc acc node-acc svp)
-                           (incf svp-sum svp)
-                           (cl-mpm/shape-function::@-combi-assemble-dstretch-3d
-                            grads
-                            node-vel vel-grad)
-                           ;; (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-vel vel-grad)
-                           ;;With special operations we want to include this operation
-                           #+cl-mpm-special (special-g2p mesh mp node svp grads)
-                           ))))
-                    ;; (cl-mpm/fastmaths:fast-scale! mapped-vel (/ 1d0 svp-sum))
-                    ;; (cl-mpm/fastmaths:fast-scale! disp-inc (/ 1d0 svp-sum))
-                    ;; (cl-mpm/fastmaths:fast-scale! acc (/ 1d0 svp-sum))
-                    ;;Update particle
-                    (progn
-                      ;;Invalidate shapefunction/gradient cache
-                      ;; (update-particle mesh mp dt)
-                      ,@update
-                      )))))
+                         (double-float svp))
+                        (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
+                                         (node-acc cl-mpm/mesh:node-acceleration)
+                                         (node-disp cl-mpm/mesh::node-displacment)
+                                         (node-scalar cl-mpm/mesh::node-boundary-scalar)
+                                         (node-active cl-mpm/mesh:node-active)
+                                         ) node
+                          (declare (double-float node-scalar)
+                                   (boolean node-active))
+                          (when node-active
+                            (cl-mpm/fastmaths::fast-fmacc mapped-vel node-vel svp)
+                            (cl-mpm/fastmaths::fast-fmacc disp-inc node-disp svp)
+                            (cl-mpm/fastmaths::fast-fmacc acc node-acc svp)
+                            (incf svp-sum svp)
+                            (cl-mpm/shape-function::@-combi-assemble-dstretch-3d
+                             grads
+                             node-vel vel-grad)
+                            ;; (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-vel vel-grad)
+                            ;;With special operations we want to include this operation
+                            #+cl-mpm-special (special-g2p mesh mp node svp grads)
+                            ))))
+                     ;; (cl-mpm/fastmaths:fast-scale! mapped-vel (/ 1d0 svp-sum))
+                     ;; (cl-mpm/fastmaths:fast-scale! disp-inc (/ 1d0 svp-sum))
+                     ;; (cl-mpm/fastmaths:fast-scale! acc (/ 1d0 svp-sum))
+                     ;;Update particle
+                     (progn
+                       ;;Invalidate shapefunction/gradient cache
+                       ;; (update-particle mesh mp dt)
+                       ,@update
+                       ))))))
            (def-g2p-trial-mp (name &body update)
              `(defun ,name (mesh mp dt damping)
                 (declare (cl-mpm/mesh::mesh mesh)
@@ -171,7 +174,7 @@
                      mesh mp
                      (lambda (node svp grads fsvp fgrads)
                        (declare
-                        (ignore mp mesh fsvp fgrads)
+                        (ignore grads fsvp fgrads)
                         (cl-mpm/particle:particle mp)
                         (double-float svp))
                        (when (cl-mpm/mesh:node-active node)
@@ -210,19 +213,36 @@
         (cl-mpm/fastmaths::fast-zero vel)
         (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)))
   (def-g2p-mp g2p-mp-blend
-      (let ((pic-value 1d-3))
+      (let ((pic-value 1d-2))
         ;; (break)
         (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)
-        (cl-mpm/fastmaths:fast-.+
-         (cl-mpm/fastmaths:fast-scale-vector
-          ;; FLIP value
-          (cl-mpm/fastmaths:fast-.+
-           vel
-           (cl-mpm/fastmaths:fast-scale-vector acc dt))
-          (- 1d0 pic-value))
-         ;; PIC update
-         (cl-mpm/fastmaths:fast-scale-vector mapped-vel pic-value)
-         vel)))
+        (cl-mpm/fastmaths:fast-fmacc vel acc dt)
+        (cl-mpm/fastmaths:fast-scale! vel (- 1d0 pic-value))
+        (cl-mpm/fastmaths:fast-fmacc vel mapped-vel pic-value)
+        ;; (cl-mpm/fastmaths:fast-fmacc
+        ;;  vel
+        ;;  vel-n
+        ;;  (- 1d0 pic-value))
+        ;; (cl-mpm/fastmaths:fast-fmacc
+        ;;  temp
+        ;;  acc
+        ;;  (* dt (- 1d0 pic-value)))
+        ;; (cl-mpm/fastmaths:fast-fmacc
+        ;;  temp
+        ;;  vel
+        ;;  (- 1d0 pic-value))
+        
+        ;; (cl-mpm/fastmaths:fast-.+
+        ;;  (cl-mpm/fastmaths:fast-scale-vector
+        ;;   ;; FLIP value
+        ;;   (cl-mpm/fastmaths:fast-.+
+        ;;    vel
+        ;;    (cl-mpm/fastmaths:fast-scale-vector acc dt))
+        ;;   (- 1d0 pic-value))
+        ;;  ;; PIC update
+        ;;  (cl-mpm/fastmaths:fast-scale-vector mapped-vel pic-value)
+        ;;  vel)
+        ))
   (def-g2p-mp g2p-mp-blend-2nd-order
       (let* ((pic-value (/ 1d-3 dt))
              (vel-inc

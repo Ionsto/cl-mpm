@@ -5,14 +5,14 @@
 ;; (defparameter *exception-comm* (cl-mpi::mpi-comm-dup))
 
 (defun check-exception ()
-  (let ((error-rank (cl-mpm/mpi::mpi-max -1d0)))
-    (unless (= error-rank -1d0)
-      (format t "MPI error propagated ~D~%" (cl-mpi:mpi-comm-rank))
+  (let ((error-rank (round (cl-mpm/mpi::mpi-max -1d0))))
+    (unless (= error-rank -1)
+      (format t "MPI error propagated from ~D ~D~%" error-rank (cl-mpi:mpi-comm-rank))
       (let ((cl-mpi-extensions::*standard-encode-function* #'cl-store-encoder)
             (cl-mpi-extensions::*standard-decode-function* #'cl-store-decoder))
         (let ((er
                 (cl-mpi-extensions:mpi-broadcast-anything
-                 (round error-rank))))
+                 error-rank)))
           (error er))))))
 
 (defun throw-mpi-error (err)
@@ -36,25 +36,6 @@
             (let ((er (cl-mpi-extensions:mpi-broadcast-anything error-rank)))
               (format t "Multiple errors thrown, ~D defers to ~D~%" rank error-rank)
               (error er)))))))
-
-;; (defmacro with-mpi-errors (&body body)
-;;   `;; (handler-bind
-;;    ;;     ((error (lambda (e)
-;;    ;;               (format t "Throwing err~%")
-;;    ;;               (throw-mpi-error e))))
-;;    ;;   (progn
-;;    ;;     ,@body
-;;    ;;     (check-exception)))
-;;   ;; (let ((block-name (gensym)))
-;;   ;;   `(block ,block-name
-;;   ;;      (handler-case
-;;   ;;          (error (lambda (e)
-;;   ;;                   (format t "Throwing err~%")
-;;   ;;                   (throw-mpi-error e)))
-;;   ;;          (progn
-;;   ;;            ,@body
-;;   ;;            (check-exception)))))
-;;   )
 
 (defmacro with-mpi-errors (&body body)
   `(progn
@@ -222,8 +203,7 @@
                    (cl-mpm::fast-zero (cl-mpm/mesh::node-displacment node))
                    (cl-mpm/fastmaths::fast-.+ disp (mpi-object-node-displacement mpi-node) disp)
                    (cl-mpm/fastmaths::fast-.+ vel (mpi-object-node-velocity mpi-node) vel)
-                   (cl-mpm/fastmaths::fast-.+ acc (mpi-object-node-acc mpi-node) acc)
-                   ))
+                   (cl-mpm/fastmaths::fast-.+ acc (mpi-object-node-acc mpi-node) acc)))
                (error "MPI exchange touched invalid node?"))))))))
 
 (declaim (notinline mpi-sync-mass))

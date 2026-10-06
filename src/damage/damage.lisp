@@ -742,15 +742,10 @@ Calls the function with the mesh mp and node"
       (declare (fixnum ix iy)
                (ignore iz))
       (loop for dx fixnum from (- node-reach) to node-reach
-            do
-               (when (cl-mpm/mesh::in-bounds-1d mesh (+ ix dx) 0)
+            do (when (cl-mpm/mesh::in-bounds-1d mesh (+ ix dx) 0)
                  (loop for dy fixnum from (- node-reach) to node-reach
-                       do
-                          (when (cl-mpm/mesh::in-bounds-1d mesh (+ iy dy) 1)
-                            (let ((node
-                                    (cl-mpm/mesh::get-node-values mesh
-                                                                  (the fixnum (+ ix dx))
-                                                                  (the fixnum (+ iy dy)) 0)))
+                       do (when (cl-mpm/mesh::in-bounds-1d mesh (+ iy dy) 1)
+                            (let ((node (cl-mpm/mesh::get-node-values mesh (the fixnum (+ ix dx)) (the fixnum (+ iy dy)) 0)))
                               (funcall func node)))))))))
 
 (declaim (inline iterate-over-damage-bounds-3d))

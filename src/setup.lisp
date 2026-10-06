@@ -543,7 +543,7 @@
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
           (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))))
       (if (> (length mps) 0)
-          (* ;; (/ 1d0 (sqrt (expt h nd)))
+          (* ;; h
              ;; (loop for mp across mps
              ;;       maximize
              ;;       (estimate-critical-damping-mp mp))

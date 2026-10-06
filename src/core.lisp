@@ -331,7 +331,7 @@
       (cl-mpm/fastmaths::fast-.+-vector force-int force force)
       (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
       ;;Include velocity prop damping
-      (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping -1d0 mass))
+      (cl-mpm/fastmaths:fast-fmacc force-damp vel (* -1d0 damping mass))
       (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
       ;; (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
       (when (> mass 0d0)

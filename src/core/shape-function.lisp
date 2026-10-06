@@ -22,8 +22,8 @@
    )
 )
 (in-package :cl-mpm/shape-function)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
-;; (declaim #.cl-mpm/settings:*optimise-setting*)
+;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim #.cl-mpm/settings:*optimise-setting*)
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 
@@ -630,7 +630,9 @@
 (declaim (ftype (function (cl-mpm/utils::gradients magicl:matrix/double-float magicl:matrix/double-float) (values)) @-combi-assemble-dstretch-3d))
 (defun @-combi-assemble-dstretch-3d (grads vel stretch)
   (declare (cl-mpm/utils::gradients grads)
-           (magicl::matrix/double-float vel stretch))
+           (magicl::matrix/double-float vel stretch)
+           (optimize (speed 3) (debug 0) (safety 0))
+           )
   "Assemble d/di to the strain-displacement matrix"
   (let ((res (cl-mpm/utils::fast-storage stretch))
         (v (cl-mpm/utils::fast-storage vel)))
@@ -644,13 +646,15 @@
                    (declare (fixnum x y))
                    `(progn
                       (setf (aref res ,(the fixnum (+ y (the fixnum (* x 3)))))
-                            (+
-                             (aref res ,(the fixnum (+ y (* x 3))))
-                             ,(loop for comp in comp-pairs
-                                    append
-                                    (destructuring-bind (grad index) comp
-                                      `(* ,grad (aref v ,index)))
-                                    )))
+                            (the double-float
+                                 (+
+                                  (the double-float
+                                       (aref res ,(the fixnum (+ y (* x 3)))))
+                                  ,(loop for comp in comp-pairs
+                                         append
+                                         (destructuring-bind (grad index) comp
+                                           `(the double-float (* ,grad (aref v ,index))))
+                                         ))))
                       ))
 
                  )
@@ -662,10 +666,21 @@
         (component 1 0 ((dy 0)))
         (component 2 0 ((dz 0)))
         (component 1 2 ((dy 2)))
-        (component 2 1 ((dz 1)))
-        )))
+        (component 2 1 ((dz 1))))
+      ;; (macrolet ((index (x y) `(the fixnum (+ ,y (the fixnum (* ,x 3))))))
+      ;;   (incf (aref res (index 0 0)) (the double-float (* dx (aref v 0))))
+      ;;   (incf (aref res (index 1 1)) (the double-float (* dy (aref v 1))))
+      ;;   (incf (aref res (index 2 2)) (the double-float (* dz (aref v 2))))
+      ;;   (incf (aref res (index 0 1)) (the double-float (* dx (aref v 1))))
+      ;;   (incf (aref res (index 0 2)) (the double-float (* dx (aref v 2))))
+      ;;   (incf (aref res (index 1 0)) (the double-float (* dy (aref v 0))))
+      ;;   (incf (aref res (index 2 0)) (the double-float (* dz (aref v 0))))
+      ;;   (incf (aref res (index 1 2)) (the double-float (* dy (aref v 2))))
+      ;;   (incf (aref res (index 2 1)) (the double-float (* dz (aref v 1)))))
+      ))
   (values)
   )
+
 
 
 

@@ -217,6 +217,7 @@
   (pre-step-mpi sim)
   )
 
+
 (let ((work-pool (cl-mpm/utils::make-object-pool
                   :constructor (lambda ()
                                  (cl-mpm/utils:vector-zeros)))))

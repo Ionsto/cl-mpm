@@ -114,6 +114,12 @@
   (magicl::matrix/double-float-storage m))
 
 
+(declaim (inline fast-storage-vector)
+         (ftype (function (magicl:matrix/double-float)
+                          (simple-array double-float (3))) fast-storage-vector))
+(defun fast-storage-vector (m)
+  (the (simple-array double-float (3)) (magicl::matrix/double-float-storage m)))
+
 (declaim (inline nrows)
          (ftype (function (magicl:matrix/double-float)
                           fixnum) nrows))
