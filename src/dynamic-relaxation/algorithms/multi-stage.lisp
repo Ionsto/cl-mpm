@@ -159,6 +159,7 @@
                           (max-deformation-gradient 10d0)
                           (max-damage-inc 0.6d0)
                           (min-damage-inc 0d0)
+                          (max-inertia-norm nil)
                           (stagger-damage :HYBRID)
                           (setup-quasi-static (lambda (sim)))
                           (setup-dynamic (lambda (sim)))
@@ -276,6 +277,15 @@
                                                      ;; :stagger-damage nil
                                                      :stagger-damage stagger-damage
                                                      :save-vtk-dr save-vtk-dr)
+                                  (let ((inertia-norm (true-intertial-criteria sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))))
+                                    (format t "Converged inertia norm - ~E~%" inertia-norm)
+                                    (format t "Static OOBF norm - ~E~%" (estimate-static-oobf-aggregated sim))
+                                    (when max-inertia-norm
+                                      (when (> inertia-norm max-inertia-norm)
+                                        (format t "CONDITION-ish Failed inertia norm ~E ~E~%" inertia-norm max-inertia-norm)
+                                        (setf quasi-conv nil)
+                                        ;; (make-instance 'error-inertia-criteria :inertia-norm inertia-norm)
+                                        )))
                                   (setf quasi-conv conv
                                         stagger-iters inc-steps)
                                   (cl-mpm:sim-format sim t "Quasi-conv? ~A~%" quasi-conv)

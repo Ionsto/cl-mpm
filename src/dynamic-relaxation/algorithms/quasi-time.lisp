@@ -26,6 +26,9 @@
         (r-n nil)
         (r-n1 nil)
         (t0 nil)
+        (tn-average nil)
+        ;;Factor of 0 means use this tangent, approaching 1 means more averaging
+        (tn-average-factor 0.8d0)
         (rsteps 0)
         (bad-initial-tangents 2))
     (flet ((reset-tangent ()
@@ -34,6 +37,7 @@
               r-n1 nil
               r-0 nil
               t0 nil
+              tn-average nil
               rsteps 0)))
       (handler-bind
           ((cl-mpm/errors:error-simulation
@@ -118,30 +122,34 @@
                                               (> t0 0d0))
                                          (incf bad-initial-tangents)
                                          (format t "Bad initial tangent ~E - ~D~%" t0 bad-initial-tangents)
-                                         (setf
-                                          r-n nil
-                                          r-n1 nil
-                                          r-0 nil
-                                          t0 nil
-                                          rsteps 0)
+                                         (reset-tangent)
                                          (when (= bad-initial-tangents 5)
-                                           (error 'cl-mpm/errors::error-simulation))
-                                         )
+                                           (error 'cl-mpm/errors::error-simulation)))
 
                                        (when (and r-n r-n1)
-                                         (let* ((tn
-                                                  (/ (log (/ r-n r-0)) (* rsteps substeps))
-                                                  ;; (/ (- r-n r-n1) substeps
-                                                  ;; (* rsteps substeps)
-                                                  )
-                                                (ratio (/ tn t0)))
-                                           (format t "Current tangent ~E - initial tangent ~E - ratio ~E~%"
-                                                   tn
+                                         (let* ((secant-n
+                                                  (/ (log (/ r-n r-0)) (* rsteps substeps)))
+                                                (tangent-n
+                                                  (/ (log (/ r-n r-n1)) substeps))
+                                                (ratio
+                                                  0d0
+                                                  ;; (/ tn t0)
+                                                  ))
+                                           (declare (double-float r-n r-n1 tangent-n ratio))
+                                           (if tn-average
+                                               (setf tn-average (+ (* (the double-float tn-average-factor)
+                                                                      (the double-float tn-average))
+                                                                   (* (- 1d0 tn-average-factor)
+                                                                      tangent-n)))
+                                               (setf tn-average tangent-n))
+                                           (setf ratio (/ tn-average t0))
+                                           (format t "Current tangent ~E - av ~E - initial tangent ~E - ratio ~E~%"
+                                                   tangent-n
+                                                   tn-average
                                                    t0
                                                    ratio)
                                            (when min-tangent-ratio
-                                             (when (or (< ratio min-tangent-ratio)
-                                                       )
+                                             (when (or (< ratio min-tangent-ratio))
                                                (format t "Current tangent dropped below specified ratio~%")
                                                (error 'cl-mpm/errors::error-simulation)))
                                            ))

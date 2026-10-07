@@ -4,7 +4,7 @@
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
 (defconstant +damage-average+ t)
-(defconstant +damage-half-average+ t)
+(defconstant +damage-half-average+ nil)
 (defconstant +damage-update-ul+ nil)
 (defconstant +damage-average-energy+ nil)
 
