@@ -117,15 +117,15 @@
                                               t0
                                               (> t0 0d0))
                                          (incf bad-initial-tangents)
-                                         (format t "Initial tangent ~E - ~D~%" t0 bad-initial-tangents)
+                                         (format t "Bad initial tangent ~E - ~D~%" t0 bad-initial-tangents)
                                          (setf
                                           r-n nil
                                           r-n1 nil
                                           r-0 nil
                                           t0 nil
                                           rsteps 0)
-                                         ;; (when (= bad-initial-tangents 5)
-                                         ;;   (error 'cl-mpm/errors::error-simulation))
+                                         (when (= bad-initial-tangents 5)
+                                           (error 'cl-mpm/errors::error-simulation))
                                          )
 
                                        (when (and r-n r-n1)
