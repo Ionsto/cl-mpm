@@ -580,6 +580,7 @@
                                                  (clipping-func (lambda (pos) t))
                                                  (scaler (lambda (pos) 1d0))
                                                  (index nil)
+                                                 (force-3d nil)
                                                  )
   (declare (function clipping-func))
   (with-accessors ((gravity cl-mpm::sim-gravity))
@@ -611,7 +612,9 @@
                                                                   sig-y
                                                                   (* k-z sig-y)
                                                                   0d0 0d0 0d0)))
-                    (strains (stress-inverse (cl-mpm/mesh::mesh-nd (cl-mpm:sim-mesh sim)) stresses de)))
+                    (strains (if force-3d
+                                 (stress-inverse-3d stresses de)
+                                 (stress-inverse (cl-mpm/mesh::mesh-nd (cl-mpm:sim-mesh sim)) stresses de))))
                (cl-mpm/fastmaths:fast-.+ stress stresses stress)
                (cl-mpm/fastmaths:fast-.+ strain strains strain)
                (voigt-copy-into strain strain-n)

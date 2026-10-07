@@ -23,6 +23,11 @@
 (defconstant +trial-position+ t)
 
 
+(defun get-mp-volume (mp)
+  (if +trial-position+
+      (cl-mpm/particle::mp-volume mp)
+      (cl-mpm/particle::mp-volume-n mp)))
+
 (defun get-mp-position (mp)
   (if +trial-position+
       (cl-mpm/particle::mp-position-trial mp)
@@ -1370,17 +1375,17 @@
                    ;;     reg))
                    ;;  )
 
-                   (buoyancy-virtual-div-regular
-                    (varef (get-mp-position mp) 1)
-                    datum
-                    (*
-                     -1d0
-                     biot
-                     damage
-                     (- rho (/ mp-mass mp-volume-0)))
-                    gravity
-                    (cl-mpm/particle::mp-buoyancy-gimp-length mp)
-                    (cl-mpm/particle::mp-body-force mp))
+                   ;; (buoyancy-virtual-div-regular
+                   ;;  (varef (get-mp-position mp) 1)
+                   ;;  datum
+                   ;;  (*
+                   ;;   -1d0
+                   ;;   biot
+                   ;;   damage
+                   ;;   (- rho (/ mp-mass mp-volume-0)))
+                   ;;  gravity
+                   ;;  (cl-mpm/particle::mp-buoyancy-gimp-length mp)
+                   ;;  (cl-mpm/particle::mp-body-force mp))
 
                    ;; (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
                    ;;       (calculate-val-mp
@@ -1609,8 +1614,7 @@
                                        (node-active  cl-mpm/mesh:node-active))
                           node
                         (declare (double-float volume svp damage))
-                        (when (and node-boundary
-                                   )
+                        (when (and node-boundary)
                           (let ((grads
                                   (if +trial-position+
                                       (cl-mpm::gradient-push-forwards-cached grads df-inv)
@@ -1620,8 +1624,7 @@
                                    (if damage-volume (- 1d0 damage) 1d0)
                                    (if +trial-position+
                                        volume
-                                       volume-n))
-                                  ))
+                                       volume-n))))
                             (declare (double-float volume svp))
                             (cl-mpm/fastmaths:fast-zero f-stress)
                             (cl-mpm/forces::det-stress-force-unrolled mp-stress grads (- volume) f-stress)
