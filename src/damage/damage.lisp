@@ -9,8 +9,10 @@
 (defconstant +damage-average-energy+ nil)
 
 (defconstant +damage-localisation-algorithm+
-  :GEOMETRIC
-  ;; :SCATTER
+  ;; :GEOMETRIC
+  :SCATTER
+  ;; :TRAPZ
+  ;; :TRAPZ-GRAD
   )
 
 
@@ -18,6 +20,7 @@
 (format t "~%Damage settings - damage-average using R/2 ~A~%" +damage-half-average+)
 (format t "~%Damage settings - update-ul ~A~%" +damage-update-ul+)
 (format t "~%Damage settings - average-energy ~A~%" +damage-average-energy+)
+(format t "~%Damage settings - localisation algorithm ~A~%" +damage-localisation-algorithm+)
 
 (defun get-mp-position (mp)
   (if +damage-update-ul+
@@ -145,16 +148,18 @@
                    (average-damage cl-mpm/particle::mp-av-damage))
       mp
     (declare (double-float ll average-damage))
-    (let ((h (cl-mpm/mesh::mesh-resolution mesh)))
-      (calculate-average-damage
-       mesh
-       mp
-       ll
-       ;; (if (< ll h)
-       ;;     ll
-       ;;     h)
-       ))
-    ;; (calculate-average-damage-grads mesh mp ll)
+    ;; (let ((h (cl-mpm/mesh::mesh-resolution mesh)))
+    ;;   (calculate-average-damage
+    ;;    mesh
+    ;;    mp
+    ;;    ll
+    ;;    ;; (if (< ll h)
+    ;;    ;;     ll
+    ;;    ;;     h)
+    ;;    ))
+    (if (eq +damage-localisation-algorithm+ :TRAPZ-GRAD)
+      (calculate-average-damage-grads mesh mp ll)
+      (calculate-average-damage mesh mp ll))
     ;; (setf average-damage (cl-mpm/particle::mp-damage mp))
     (setf tll
           (length-localisation
@@ -619,8 +624,8 @@
   (let ((da (cl-mpm/particle::mp-av-damage mp-a))
         (da-other (cl-mpm/particle::mp-av-damage mp-b)))
     (declare (double-float length da da-other))
-    (flet (;;(deg (d) (max 1d-15 (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 d)))))))
-           (deg (d) (max 1d-15 (the double-float (expt (max 0d0 (min 1d0 (- 1d0 d))) 1))))
+    (flet ((deg (d) (max 1d-15 (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 d)))))))
+           ;; (deg (d) (max 1d-15 (the double-float (expt (max 0d0 (min 1d0 (- 1d0 d))) 1))))
            ;; (deg (d) 1d0)
            )
       (weight-func
@@ -689,8 +694,8 @@
                  (d2 (min 1d0 (max 0d0 (- da-other (cl-mpm/fastmaths::dot (cl-mpm/particle::mp-av-damage-gradient mp-b) delta)))))
                  (d3 da-other))
             (declare (double-float length da da-other))
-            (format t "~F ~F ~F ~F~%" d0 d1 d2 d3)
-            (format t "A - ~E ~E~%" (varef (cl-mpm/particle::mp-av-damage-gradient mp-a) 0) (varef (cl-mpm/particle::mp-av-damage-gradient mp-a) 1))
+            ;; (format t "~F ~F ~F ~F~%" d0 d1 d2 d3)
+            ;; (format t "A - ~E ~E~%" (varef (cl-mpm/particle::mp-av-damage-gradient mp-a) 0) (varef (cl-mpm/particle::mp-av-damage-gradient mp-a) 1))
             ;; (if (> step-size 0d0))
             (let ((d-length
                     (* length
@@ -703,6 +708,7 @@
                                       (/ 1d0 (+ (deg d1) (deg d2)))
                                       (/ 1d0 (+ (deg d2) (deg d3)))))))))))
               ;; (format t "~F ~F ~F ~F - ~E~%" d0 d1 d2 d3 d-length)
+              
               (weight-func (* diff diff)
                            (the double-float d-length))))))))
 
@@ -879,16 +885,14 @@ Calls the function with the mesh mp and node"
      mp
      length
      (lambda (mp-other)
-       (let ((m (get-mp-volume mp-other))
-             (d (cl-mpm/particle::mp-damage mp-other)))
-         (declare (double-float d m length))
-         (let ((weight (weight-func (diff-squared mp mp-other)
-                                    (if +damage-half-average+
-                                        (/ length 2d0)
-                                        length))))
-           (declare (double-float weight m d))
-           (incf (aref vals 0) (* d weight m))
-           (incf (aref vals 1) (* weight m))))
+       (let ((length (if +damage-half-average+ (/ length 2d0) length)))
+         (let ((m (get-mp-volume mp-other))
+               (d (cl-mpm/particle::mp-damage mp-other)))
+           (declare (double-float d m length))
+           (let ((weight (weight-func (diff-squared mp mp-other) length)))
+             (declare (double-float weight m d))
+             (incf (aref vals 0) (* d weight m))
+             (incf (aref vals 1) (* weight m)))))
        (values)))
     (when (> (aref vals 1) 0d0)
       (setf (aref vals 0) (the double-float (/ (aref vals 0) (aref vals 1)))))
@@ -899,14 +903,20 @@ Calls the function with the mesh mp and node"
     (defun calculate-average-damage-grads (mesh mp length)
       (let ((vals (make-array 2 :element-type 'double-float))
             (damage-grads (cl-mpm/particle::mp-av-damage-gradient mp))
-            (p (get-mp-position mp)))
+            (p (get-mp-position mp))
+            (L-matrix (cl-mpm/fastmaths::fast-zero (cl-mpm/utils::resize-matrix (grab-new-vector) 3 3)))
+            )
         (declare ((simple-array double-float) vals))
         (cl-mpm/fastmaths::fast-zero damage-grads)
         (iterate-over-neighbour-mps
          mesh mp length
          (lambda (mp-other)
            (let ((m (get-mp-volume mp-other))
-                 (p-other (get-mp-position mp-other)))
+                 (p-other (get-mp-position mp-other))
+                 (length (if +damage-half-average+
+                             (/ length 2d0)
+                             length))
+                 )
              (with-accessors ((d cl-mpm/particle::mp-damage))
                  mp-other
                (declare (double-float d m length))
@@ -918,14 +928,30 @@ Calls the function with the mesh mp and node"
                  (incf (aref vals 0) (* d weight m))
                  (incf (aref vals 1) (* weight m))
                  (when (> dist-squared 0d0)
+                   (cl-mpm/fastmaths::fast-.+
+                    (cl-mpm/fastmaths::fast-@-arb-arb
+                     diff
+                     (cl-mpm/utils::transpose
+                      (cl-mpm/fastmaths::fast-scale-vector diff (/ (* -1d0 m grad-weight) (sqrt dist-squared)))))
+                    L-matrix
+                    L-matrix)
                    (cl-mpm/fastmaths:fast-fmacc
                     damage-grads
                     diff
-                    (/ (* -1d0 d grad-weight)
+                    (/ (* -1d0 d m grad-weight)
                        (sqrt dist-squared)))))))
            (values)))
         (when (> (aref vals 1) 0d0)
-          (setf (aref vals 0) (the double-float (/ (aref vals 0) (aref vals 1)))))
+          (setf (aref vals 0) (the double-float (/ (aref vals 0) (aref vals 1))))
+          (when (> (cl-mpm/fastmaths::det-3x3 L-matrix) 0d0)
+            (cl-mpm/utils::copy-into
+             (magicl:linear-solve L-matrix damage-grads)
+             damage-grads)
+            ;; (cl-mpm/fastmaths::fast-@-arb-arb
+            ;;  (cl-mpm/fastmaths::fast-inv-3x3 L-matrix)
+            ;;  (cl-mpm/utils::deep-copy damage-grads)
+            ;;  :res damage-grads)
+            ))
         (setf (cl-mpm/particle::mp-av-damage mp) (aref vals 0)))))
 
 
@@ -1195,8 +1221,8 @@ Calls the function with the mesh mp and node"
   (declare (double-float local-length local-length-damaged damage)
            (ignore local-length-damaged))
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  (* local-length (max (- 1d0 damage) 1d-10))
-  ;; (* local-length (max (the double-float (sqrt (- 1d0 damage))) 1d-10))
+  ;; (* local-length (max (- 1d0 damage) 1d-10))
+  (* local-length (max (the double-float (sqrt (- 1d0 damage))) 1d-10))
   ;; (* local-length (max (expt (- 1d0 damage) 2) 1d-10))
   ;; (* local-length (max (- 1d0 damage) 1d-10))
   ;; local-length
