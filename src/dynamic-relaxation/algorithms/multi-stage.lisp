@@ -282,7 +282,7 @@
                                     (format t "Static OOBF norm - ~E~%" (estimate-static-oobf-aggregated sim))
                                     (when max-inertia-norm
                                       (when (> inertia-norm max-inertia-norm)
-                                        (format t "CONDITION-ish Failed inertia norm ~E ~E~%" inertia-norm max-inertia-norm)
+                                        (format t "Condition-ish Failed inertia norm ~E ~E~%" inertia-norm max-inertia-norm)
                                         (setf quasi-conv nil)
                                         ;; (make-instance 'error-inertia-criteria :inertia-norm inertia-norm)
                                         )))
