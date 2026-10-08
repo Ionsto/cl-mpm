@@ -13,7 +13,9 @@
         (let ((er
                 (cl-mpi-extensions:mpi-broadcast-anything
                  error-rank)))
-          (error (find-class er)))))))
+          (error er)
+          ;; (error (find-class er))
+          )))))
 
 (defun throw-mpi-error (err)
   (let ((rank (cl-mpi:mpi-comm-rank)))
@@ -30,8 +32,8 @@
             (progn
               (cl-mpi-extensions:mpi-broadcast-anything
                rank
-               :object (class-name (class-of err)))
-                                        ;(class-name err)
+               :object err)
+              ;; :object (class-name (class-of err))
               (format t "Broadcast error, now rethrow~%")
               (error err))
             (let ((er (cl-mpi-extensions:mpi-broadcast-anything error-rank)))
