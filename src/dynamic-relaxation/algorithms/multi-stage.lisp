@@ -18,7 +18,8 @@
                          (enable-plastic t)
                          (enable-mass-scaling t)
                          (enable-constant-timestep nil)
-                         (mass-scaler 1d1))
+                         (mass-scaler 1d1)
+                         (output-frequency 1))
   (declare (double-float damping dt-scale))
 
   (let ((state :dynamic))
@@ -56,7 +57,8 @@
                                  (< step (/ step-time target-time))))
                   do
                      (let ((substeps (max 1 (round target-time (cl-mpm:sim-dt sim)))))
-                       (save-vtks sim output-dir step (format nil "real_~5,'0d" global-step))
+                       (when (= (mod step output-frequency) 0)
+                         (save-vtks sim output-dir step (format nil "real_~5,'0d" global-step)))
                        ;; (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_real_~5,'0d_~5,'0d.vtk" global-step step)) sim)
                        ;; (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_real_nodes_~5,'0d_~5,'0d.vtk" global-step step)) sim)
                        ;; (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_real_cells_~5,'0d_~5,'0d.vtk" global-step step)) sim)
@@ -137,6 +139,7 @@
                           (explicit-dt-scale 0.9d0)
                           (explicit-damping-factor 1d-3)
                           (explicit-mass-scaling t)
+                          (explicit-output-frequency 1)
                           (elastic-dt-margin 1000)
                           (elastic-dt nil)
                           (dt 1d0)
@@ -344,6 +347,7 @@
                                        ;:target-time (* 0.1d0 elastic-dt explicit-dt-scale)
                                        :step-time (* dt-loadstep adaption-constant)
                                        :enable-mass-scaling explicit-mass-scaling
+                                       :output-frequency explicit-output-frequency
                                        :enable-damage enable-damage
                                        :enable-plastic enable-plastic)
                        (change-class sim quasi-static-solver)
