@@ -15,7 +15,7 @@
 (defparameter *angle* 38d0)
 (defparameter *angle-r* 38d0)
 (defparameter *angle-psi* 0d0)
-(defparameter *rt* 1d0)
+(defparameter *rt* (- 1d0 1d-6))
 
 (defparameter *pd-oversize* 1d-2)
 (defparameter *rc*
@@ -23,7 +23,7 @@
 
 (defparameter *enable-plastic-damage* nil)
 (defparameter *delay-time* 1d5)
-(defparameter *delay-exponent* 2d0)
+(defparameter *delay-exponent* 4d0)
 (defparameter *enable-viscosity* nil)
 (defparameter *length-scaler* 2d0)
 (defparameter *gf* 10000d0)
@@ -647,6 +647,7 @@
   (cl-mpm/output::add-mp-output sim :SCALAR "yield-function" (lambda (mp) (if (slot-exists-p mp 'cl-mpm/particle::yield-func) (cl-mpm/particle::mp-yield-func mp) 0d0)))
   (cl-mpm/output::add-mp-output sim :SCALAR "plastic-strain" (lambda (mp) (if (slot-exists-p mp 'cl-mpm/particle::strain-plastic-vm) (cl-mpm/particle::mp-strain-plastic-vm mp) 0d0)))
   (cl-mpm/output::add-mp-output sim :VECTOR "disp" #'cl-mpm/particle::mp-displacement)
+  (cl-mpm/output::add-mp-output sim :VECTOR "vel" #'cl-mpm/particle::mp-velocity)
   (cl-mpm/output::add-mp-output sim :SCALAR "fric-normal" #'cl-mpm/particle::compute-normal-force)
   (cl-mpm/output::add-mp-output sim :VOIGT "sig" #'cl-mpm/particle::mp-stress)
 
@@ -691,7 +692,7 @@
      :elastic-static nil
      :melange nil
      :aspect ice-aspect
-     :slope 0.05d0
+     :slope 0d0
      :floatation-ratio floatation-ratio
      :use-penalty t
      :stick-base nil)
@@ -865,11 +866,11 @@
          (density 918d0)
          (water-damping 100d0)
          )
-    (setf *delay-time* 1d5)
+    (setf *delay-time* 1d2)
     (defparameter *length-scaler* 3d0)
     (setup :refine 0.125
            :friction 0.5d0
-           :bench-length (* 1d0 H)
+           :bench-length (* 0d0 H)
            :bench-extra-cut (* 0d0 (* H 1d0))
            :ice-height H
            :mps mps
@@ -877,16 +878,16 @@
            :cryo-static t
            :elastic-static nil
            :melange nil
-           :aspect 4d0
-           :slope 0.05d0
-           :floatation-ratio 0.8d0
+           :aspect 2d0
+           :slope 0d0
+           :floatation-ratio 0.6d0
            ;; :floatation-ratio 1.00d0
-           :use-penalty t
+           :use-penalty nil
            :extra-offset 0
            :stick-base t
            )
     (change-class *sim* 'cl-mpm/damage::mpm-sim-agg-damage)
-    (setf (cl-mpm::sim-max-split-depth *sim*) 0)
+    (setf (cl-mpm::sim-max-split-depth *sim*) 4)
     ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic)
        ;; ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-implicit-dynamic
     ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-usf)
@@ -1949,35 +1950,35 @@
 
 
 
-(let ((x 10d0)
-      (density 918d0)
-      (water-density 1028d0)
-      (g 9.81d0)
-      (nu 0.3d0))
-  (let* ((p-water (* water-density g x))
-         (p-ice (* density g x))
-         (e-elastic (* density g x))
-         (k (/ nu (- 1d0 nu)))
-         (p-elastic (* 1/3 (+ e-elastic  (* k e-elastic) (* k e-elastic))))
-         )
-    (pprint p-water)
-    (pprint p-ice)
-    (pprint p-elastic)
-    (pprint (/ p-ice p-water))
-    (pprint (/ p-elastic p-water))
-    (pprint (/ p-elastic p-ice))
+;; (let ((x 10d0)
+;;       (density 918d0)
+;;       (water-density 1028d0)
+;;       (g 9.81d0)
+;;       (nu 0.3d0))
+;;   (let* ((p-water (* water-density g x))
+;;          (p-ice (* density g x))
+;;          (e-elastic (* density g x))
+;;          (k (/ nu (- 1d0 nu)))
+;;          (p-elastic (* 1/3 (+ e-elastic  (* k e-elastic) (* k e-elastic))))
+;;          )
+;;     (pprint p-water)
+;;     (pprint p-ice)
+;;     (pprint p-elastic)
+;;     (pprint (/ p-ice p-water))
+;;     (pprint (/ p-elastic p-water))
+;;     (pprint (/ p-elastic p-ice))
 
-    )
-  )
+;;     )
+;;   )
 
-(let ((a :CRYO))
-  (case a
-    (:CRYO (print "Hello"))
-    )
-  )
-(defun flotation-ratio (h w)
-  (let* ((density 918d0)
-         (water-density 1028d0)
-         (f (/ density water-density)))
-    (pprint (/ w h))
-    (pprint (/ (/ w h) f))))
+;; (let ((a :CRYO))
+;;   (case a
+;;     (:CRYO (print "Hello"))
+;;     )
+;;   )
+;; (defun flotation-ratio (h w)
+;;   (let* ((density 918d0)
+;;          (water-density 1028d0)
+;;          (f (/ density water-density)))
+;;     (pprint (/ w h))
+;;     (pprint (/ (/ w h) f))))
