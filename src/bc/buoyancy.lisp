@@ -1375,17 +1375,17 @@
                    ;;     reg))
                    ;;  )
 
-                   ;; (buoyancy-virtual-div-regular
-                   ;;  (varef (get-mp-position mp) 1)
-                   ;;  datum
-                   ;;  (*
-                   ;;   -1d0
-                   ;;   biot
-                   ;;   damage
-                   ;;   (- rho (/ mp-mass mp-volume-0)))
-                   ;;  gravity
-                   ;;  (cl-mpm/particle::mp-buoyancy-gimp-length mp)
-                   ;;  (cl-mpm/particle::mp-body-force mp))
+                   (buoyancy-virtual-div-regular
+                    (varef (get-mp-position mp) 1)
+                    datum
+                    (*
+                     -1d0
+                     biot
+                     (expt damage 2)
+                     (- rho (/ mp-mass mp-volume-0)))
+                    gravity
+                    (cl-mpm/particle::mp-buoyancy-gimp-length mp)
+                    (cl-mpm/particle::mp-body-force mp))
 
                    ;; (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
                    ;;       (calculate-val-mp
@@ -1615,16 +1615,20 @@
                           node
                         (declare (double-float volume svp damage))
                         (when (and node-boundary)
-                          (let ((grads
-                                  (if +trial-position+
-                                      (cl-mpm::gradient-push-forwards-cached grads df-inv)
-                                      grads))
-                                (volume
-                                  (*
-                                   (if damage-volume (- 1d0 damage) 1d0)
+                          (let* ((grads
+                                   (if +trial-position+
+                                       (cl-mpm::gradient-push-forwards-cached grads df-inv)
+                                       grads))
+                                 (true-volume
                                    (if +trial-position+
                                        volume
-                                       volume-n))))
+                                       volume-n)
+                                   )
+                                 (volume
+                                   (*
+                                    (if damage-volume (- 1d0 damage) 1d0)
+                                    true-volume
+                                    )))
                             (declare (double-float volume svp))
                             (cl-mpm/fastmaths:fast-zero f-stress)
                             (cl-mpm/forces::det-stress-force-unrolled mp-stress grads (- volume) f-stress)
@@ -1639,7 +1643,7 @@
                                     (varef grads-vec 2) (cl-mpm/utils::gradients-dz grads))
                               (cl-mpm/fastmaths::fast-scale!
                                grads-vec
-                               (* -1d0 volume (the double-float (funcall scalar mp))))
+                               (* -1d0 true-volume (the double-float (funcall scalar mp))))
                               (sb-thread:with-mutex (node-lock)
                                 (cl-mpm/fastmaths:fast-.+ node-force-ext f-stress node-force-ext)
                                 (cl-mpm/fastmaths:fast-.+ node-force-ext f-div    node-force-ext)
