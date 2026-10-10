@@ -1627,8 +1627,7 @@
                                  (volume
                                    (*
                                     (if damage-volume (- 1d0 damage) 1d0)
-                                    true-volume
-                                    )))
+                                    true-volume)))
                             (declare (double-float volume svp))
                             (cl-mpm/fastmaths:fast-zero f-stress)
                             (cl-mpm/forces::det-stress-force-unrolled mp-stress grads (- volume) f-stress)
