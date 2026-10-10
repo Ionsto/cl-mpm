@@ -481,11 +481,11 @@
                          (setf (cl-mpm/damage::sim-damage-ybar-relaxation sim)
                                (min 0.99d0
                                     (if (= 0d0 ybar-relax)
-                                        0.1d0
+                                        0.5d0
                                         (the double-float (sqrt ybar-relax))))))))
             (when (> ybar-relax 0d0)
               (format t "Iter ~D ~E~%" iter dconv))
-            (when (and (> iter 10) (not (> ybar-relax 0d0)))
+            (when (and (> iter 25) (not (> ybar-relax 0d0)))
               (format t "Iter ~D ~E ~E~%" iter dconv dconv-0))
             (when (> dconv crit)
               (error (make-instance 'non-convergence-error

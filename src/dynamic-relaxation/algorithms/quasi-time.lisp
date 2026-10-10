@@ -234,7 +234,7 @@
                                           (loop for d from 1 to 10
                                                 when (>= dconv damage-crit)
                                                   do (progn
-                                                       (dotimes (i 10)
+                                                       (dotimes (i 1)
                                                          (cl-mpm/damage::calculate-damage
                                                           sim
                                                           (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)))
