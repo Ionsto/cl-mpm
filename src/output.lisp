@@ -436,6 +436,15 @@
   (loop for v across (float-to-binary data)
         do (write-byte v stream)))
 
+(defgeneric reset-mp-output (sim))
+(defmethod reset-mp-output ((sim cl-mpm::mpm-sim))
+  (setf
+   (cl-mpm::sim-output-list sim)
+   (list
+    (list :SCALAR "unique-id" #'cl-mpm/particle::mp-unique-index)
+    (list :SCALAR "mass" #'cl-mpm/particle::mp-mass)
+    (list :VECTOR "size" #'cl-mpm/particle::mp-domain-size))))
+
 (defun add-mp-output (sim type name accessor)
   (assert (position type (list :BOOL :SCALAR :VECTOR :VOIGT :MATRIX)))
   (assert (stringp name))
@@ -536,12 +545,7 @@
                  (let ((pos (cl-mpm/particle::mp-position-trial mp)))
                    (write-binary-float (cl-mpm/utils:varef pos 0) fs-bin)
                    (write-binary-float (cl-mpm/utils:varef pos 1) fs-bin)
-                   (write-binary-float (cl-mpm/utils:varef pos 2) fs-bin)
-                   ;; (format fs "~E ~E ~E ~%"
-                   ;;         (coerce (cl-mpm/utils:varef pos 0) 'single-float)
-                   ;;         (coerce (cl-mpm/utils:varef pos 1) 'single-float)
-                   ;;         (coerce (cl-mpm/utils:varef pos 2) 'single-float))
-                   ))
+                   (write-binary-float (cl-mpm/utils:varef pos 2) fs-bin)))
         (force-output fs-bin)
         (format fs "~%")
         (let ((id 1)
@@ -564,7 +568,7 @@
                 (:VOIGT
                  (cl-mpm/output::save-parameter (format nil "~A_xx" name) (varef (funcall accessor mp) 0))
                  (cl-mpm/output::save-parameter (format nil "~A_yy" name) (varef (funcall accessor mp) 1))
-                 (when ;(= nd 3)
+                 (when (= nd 3)
                    (cl-mpm/output::save-parameter (format nil "~A_zz" name) (varef (funcall accessor mp) 2))
                    (cl-mpm/output::save-parameter (format nil "~A_yz" name) (varef (funcall accessor mp) 3))
                    (cl-mpm/output::save-parameter (format nil "~A_xz" name) (varef (funcall accessor mp) 4)))
