@@ -153,7 +153,7 @@
                                                'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
                                                ;; Took 57 seconds
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic
-                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static
+                                               ;; 'cl-mpm/dynamic-relaxation::pm-sim-octree-damage-quasi-static
                                                :args-list
                                                (list
                                                 :enable-fbar t
@@ -424,11 +424,44 @@
     :initarg :stable)))
 
 (defmethod cl-mpm/dynamic-relaxation::convergence-check ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
+  ;; (if (> (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
+  ;;     (progn
+  ;;       ;; (pprint "Check velocity")
+  ;;       ;; (cl-mpm/dynamic-relaxation::check-max-velocity sim :max-velocity 1d0)
+  ;;       (let ((v (cl-mpm/dynamic-relaxation::max-velocity-criteria sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))))
+  ;;         (format t "Max velocity ~E~%" v)
+  ;;         (when (> v 1d0)
+  ;;           (format t "Maximum velocity error~%")
+  ;;           (error (make-instance 'early-exit-condition
+  ;;                                 :stable nil))))
+  ;;       (let ((d (cl-mpm::reduce-over-global-mps-max
+  ;;                 sim
+  ;;                 (lambda (mp)
+  ;;                   (cl-mpm/fastmaths:mag
+  ;;                     (cl-mpm/particle::mp-displacement mp))))))
+  ;;         (format t  "Max disp: ~E~%" d)
+  ;;         (when (> d 1d0)
+  ;;           (format t  "Maximum global displacement reached ~E~%" d)
+  ;;           (error (make-instance 'early-exit-condition
+  ;;                                 :stable nil))))
+  ;;       (let ((y (cl-mpm::reduce-over-global-mps-max
+  ;;                 sim
+  ;;                 #'cl-mpm/particle::mp-damage-ybar)))
+  ;;         (when (> y 0d0)
+  ;;           (when (< y *tensile-strength*)
+  ;;             (defparameter *early-exit-flag* t)
+  ;;             (format t  "Maximum global value of y-bar is ~E - yield strength is ~E~%" y *tensile-strength*)
+  ;;             (error (make-instance 'early-exit-condition
+  ;;                                   :stable t)))))
+  ;;       t)
+  ;;     t)
+  )
+
+(defun early-exit-check (sim)
   (if (> (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
       (progn
-        ;; (pprint "Check velocity")
-        ;; (cl-mpm/dynamic-relaxation::check-max-velocity sim :max-velocity 1d0)
-        (let ((v (cl-mpm/dynamic-relaxation::max-velocity-criteria sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))))
+        (let ((v (cl-mpm/dynamic-relaxation::max-velocity-criteria sim (cl-mpm/dynamic-
+relaxation::sim-dt-loadstep sim))))
           (format t "Max velocity ~E~%" v)
           (when (> v 1d0)
             (format t "Maximum velocity error~%")
@@ -440,7 +473,7 @@
                     (cl-mpm/fastmaths:mag
                       (cl-mpm/particle::mp-displacement mp))))))
           (format t  "Max disp: ~E~%" d)
-          (when (> d 1d0)
+          (when (> d 5d0)
             (format t  "Maximum global displacement reached ~E~%" d)
             (error (make-instance 'early-exit-condition
                                   :stable nil))))
@@ -450,9 +483,9 @@
           (when (> y 0d0)
             (when (< y *tensile-strength*)
               (defparameter *early-exit-flag* t)
-              (format t  "Maximum global value of y-bar is ~E - yield strength is ~E~%" y *tensile-strength*)
-              (error (make-instance 'early-exit-condition
-                                    :stable t)))))
+              (format t  "Maximum global value of y-bar is ~E - yield strength is ~E~%"
+ y *tensile-strength*)
+              (error (make-instance 'early-exit-condition :stable t)))))
         t)
       t))
 
@@ -608,6 +641,7 @@
                                               ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                                               ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
                                               :plotter (lambda (sim) (plot-domain))
+                                              :post-load-step #'early-exit-check
                                               :post-conv-step (lambda (sim)
                                                                 (cl-mpm:iterate-over-mps
                                                                  (cl-mpm:sim-mps *sim*)
