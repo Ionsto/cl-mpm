@@ -15,20 +15,20 @@
 (defparameter *angle* 38d0)
 (defparameter *angle-r* 38d0)
 (defparameter *angle-psi* 0d0)
-(defparameter *rt* (- 1d0 1d0))
+(defparameter *rt* 1d0)
 
 (defparameter *pd-oversize* 1d-2)
 (defparameter *rc*
   (- 1d0 *pd-oversize*))
 
 (defparameter *enable-plastic-damage* nil)
-(defparameter *delay-time* 1d4)
+(defparameter *delay-time* 1d5)
 (defparameter *delay-exponent* 2d0)
 (defparameter *enable-viscosity* nil)
 (defparameter *length-scaler* 2d0)
 (defparameter *gf* 10000d0)
 (defparameter *ductility* 10d0)
-(defparameter *tensile-strength* 0.2d6)
+(defparameter *tensile-strength* 0.1d6)
 (defparameter *biot-coefficent* 1d0)
 (defparameter *alpha* 1d0)
 ;; (defparameter *alpha* 0.5d0)
@@ -669,13 +669,13 @@
   (let* ((mps 3)
          (dt 1d3)
          (total-time 1d10)
-         (H 400d0)
+         (H 600d0)
          (ice-aspect 4d0)
          (density 918d0)
          (explicit-dt-scale 0.50d0)
          (water-damping 100d0)
-         (friction 0.5d0)
-         (floatation-ratio 0.76d0)
+         (friction 0.25d0)
+         (floatation-ratio 0.8d0)
          )
     (defparameter *length-scaler* 3d0)
     (setup
@@ -691,7 +691,7 @@
      :elastic-static nil
      :melange nil
      :aspect ice-aspect
-     :slope 0d0
+     :slope 0.05d0
      :floatation-ratio floatation-ratio
      :use-penalty t
      :stick-base nil)
@@ -705,7 +705,7 @@
     (cl-mpm/output:add-mp-output *sim* :VECTOR "body-force" #'cl-mpm/particle::mp-body-force)
     (cl-mpm/output:add-node-output *sim* :VECTOR "boundary-vec" #'cl-mpm/mesh::node-boundary-vec)
 
-    (reduced-output-data *sim*)
+    ;; (reduced-output-data *sim*)
     (cl-mpm::domain-sort-mps *sim*)
 
     (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree)
@@ -763,7 +763,7 @@
        :conv-dt-scale 0.9d0
        :dt-scale 0.9d0
        :damping-factor (sqrt 2d0)
-       :conv-criteria 1d-6
+       :conv-criteria 1d-3
        :conv-load-steps 1
        ;; :min-adaptive-steps -4
        ;; :max-adaptive-steps 10
@@ -863,23 +863,23 @@
   (let* ((mps 3)
          (H 600d0)
          (density 918d0)
-         (water-damping 50d0)
+         (water-damping 100d0)
          )
-    (setf *delay-time* 1d2)
-    (defparameter *length-scaler* 2d0)
+    (setf *delay-time* 1d5)
+    (defparameter *length-scaler* 3d0)
     (setup :refine 0.125
            :friction 0.5d0
-           :bench-length (* 0.5d0 H)
+           :bench-length (* 1d0 H)
            :bench-extra-cut (* 0d0 (* H 1d0))
            :ice-height H
            :mps mps
            :hydro-static nil
-           :cryo-static nil
-           :elastic-static t
+           :cryo-static t
+           :elastic-static nil
            :melange nil
            :aspect 4d0
-           :slope 0d0
-           :floatation-ratio 0.9d0
+           :slope 0.05d0
+           :floatation-ratio 0.8d0
            ;; :floatation-ratio 1.00d0
            :use-penalty t
            :extra-offset 0
@@ -1190,8 +1190,7 @@
     (ensure-directories-exist output-dir)
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
     (dolist (initial-stress (list :CRYO-STATIC
-                                  :ELASTIC-STATIC
-                                  :NIL))
+                                  :ELASTIC-STATIC))
       (dolist (stick (list t nil))
         (let* ((mps 3)
                (output-dir (format nil "./output-stress_~A_stick_~A/" initial-stress stick))
@@ -1222,7 +1221,7 @@
           ;; (setf (cl-mpm/dynamic-relaxation::dt-loadstep *sim* 0d0))
           (cl-mpm/dynamic-relaxation::run-load-control
            *sim*
-           :crit 1d-3
+           :crit 1d-6
            :output-dir output-dir
            :load-steps 2
            :loading-function (lambda (p))
@@ -1248,7 +1247,7 @@
           (cl-mpm/damage:calculate-damage *sim* 1d0)
           (cl-mpm/dynamic-relaxation::save-vtks *sim* output-dir 1)
           (plot-domain)
-          (break)
+          ;; (break)
           (vgplot:title output-dir)
           )))))
 
@@ -1281,8 +1280,10 @@
                    (H height)
                    (ice-aspect 4d0)
                    (floatation-ratio float))
-              (defparameter *length-scaler* 1d0)
-              (defparameter *alpha* 0.3d0)
+              (defparameter *length-scaler* 2d0)
+              (defparameter *alpha* 1d0)
+              ;; (case
+              ;;     )
               (defparameter *angle* 38d0)
               (format t "Running ~A~%" output-dir)
               (setup
