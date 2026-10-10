@@ -1381,7 +1381,7 @@
                     (*
                      -1d0
                      biot
-                     (expt damage 2)
+                     (expt damage 1)
                      (- rho (/ mp-mass mp-volume-0)))
                     gravity
                     (cl-mpm/particle::mp-buoyancy-gimp-length mp)
