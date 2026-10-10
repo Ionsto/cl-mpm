@@ -629,8 +629,10 @@
        (with-accessors ((active cl-mpm/mesh::node-active)
                         (agg cl-mpm/mesh::node-agg)
                         (interior cl-mpm/mesh::node-interior)
+                        (res cl-mpm/mesh::node-force)
                         (f-ext cl-mpm/mesh::node-external-force)
                         (f-int cl-mpm/mesh::node-internal-force)
+                        (f-rct cl-mpm/mesh::node-reaction-force)
                         (f-ghost cl-mpm/mesh::node-ghost-force)
                         (node-oobf cl-mpm/mesh::node-oobf))
            node
@@ -638,12 +640,13 @@
            (sb-thread:with-mutex (lock)
              (let ((inc
                      (cl-mpm/fastmaths::mag-squared
-                      (cl-mpm/fastmaths::fast-.+
-                       f-ext
-                       (cl-mpm/fastmaths::fast-.+
-                        f-int
-                        f-ghost
-                        ))
+                      res
+                      ;; (cl-mpm/fastmaths::fast-.+
+                      ;;  f-ext
+                      ;;  f-int
+                      ;;  ;; (cl-mpm/fastmaths::fast-.+
+                      ;;  ;;  f-ghost)
+                      ;;  )
                       )))
                (incf node-oobf inc)
                (setf nmax (+
@@ -651,7 +654,8 @@
                            inc)
                      dmax (+
                            dmax
-                           (cl-mpm/fastmaths::mag-squared f-ext)))))))))
+                           (+ (cl-mpm/fastmaths::mag-squared f-ext) (cl-mpm/fastmaths::mag-squared f-rct))
+                           ))))))))
     (with-accessors ((mesh cl-mpm:sim-mesh))
         sim
       (when (cl-mpm/aggregate::sim-enable-aggregate sim)
@@ -660,19 +664,23 @@
          (lambda (d mut)
            (let* ((f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
                   (f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-internal-force d))
+                  (f-rct (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-reaction-force d))
                   (f-ghost (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-ghost-force d)))
              (let ((d-nmax (cl-mpm/fastmaths::mag-squared
                             (cl-mpm/aggregate::aggregate-vec
-                             sim
-                             (cl-mpm/fastmaths::fast-.+
-                              f-ghost
-                              (cl-mpm/fastmaths:fast-.+ f-ext f-int))
-                             d)))
-                   (d-dmax (cl-mpm/fastmaths::mag-squared
-                            (cl-mpm/aggregate::aggregate-vec
-                             sim
-                             f-ext
-                             d))))
+                             sim (cl-mpm/fastmaths:fast-.+ f-ext f-int) d)))
+                   (d-dmax
+                     (+
+                      (cl-mpm/fastmaths::mag-squared
+                       f-rct)
+                      (cl-mpm/fastmaths::mag-squared
+                       (cl-mpm/aggregate::aggregate-vec sim f-ext d)))
+                     ;; (cl-mpm/fastmaths::mag-squared
+                     ;;        (cl-mpm/aggregate::aggregate-vec
+                     ;;         sim
+                     ;;         f-ext
+                     ;;         d))
+                     ))
                (sb-thread:with-mutex (mut)
                  (incf nmax d-nmax)
                  (incf dmax d-dmax))))))))
