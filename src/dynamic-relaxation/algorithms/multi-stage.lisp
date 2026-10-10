@@ -43,7 +43,7 @@
            (energy e-crit)
            (oobf oobf-crit)
            (work 0d0)
-           (intertial-passed t)
+           (intertial-passed nil)
            (dt-0 (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
            (substeps (max 1 (round target-time (cl-mpm:sim-dt sim)))))
       (declare (double-float e-crit oobf-crit energy oobf work dt-0))
