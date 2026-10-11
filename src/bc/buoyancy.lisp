@@ -1354,50 +1354,52 @@
                     pressure
                     (+
                      (* factor pressure-n)
-                     (* (- 1d0 factor) pressure-n1)))))
+                     (* (- 1d0 factor) pressure-n1)))
+                   (when (and (typep mp 'cl-mpm/particle::particle-damage)
+                              (> damage 0d0))
+                     (let ((biot 1d0))
+                       (declare (double-float biot damage))
+                       (when (slot-exists-p mp 'cl-mpm/particle::biot-coefficent)
+                         (setf biot (cl-mpm/particle::mp-biot-coefficent mp)))
+                       ;; (pprint biot)
+                       ;; (calculate-val-scalar-mp-gimp-regular
+                       ;;  mesh
+                       ;;  mp
+                       ;;  (lambda (pos reg)
+                       ;;    (pressure-at-depth-regular
+                       ;;     (varef pos 1)
+                       ;;     datum
+                       ;;     rho
+                       ;;     (cl-mpm:sim-gravity sim)
+                       ;;     reg))
+                       ;;  )
 
-               (when (and (typep mp 'cl-mpm/particle::particle-damage)
-                          (> damage 0d0))
-                 (let ((biot 1d0))
-                   (declare (double-float biot damage))
-                   (when (slot-exists-p mp 'cl-mpm/particle::biot-coefficent)
-                     (setf biot (cl-mpm/particle::mp-biot-coefficent mp)))
-                   ;; (pprint biot)
-                   ;; (calculate-val-scalar-mp-gimp-regular
-                   ;;  mesh
-                   ;;  mp
-                   ;;  (lambda (pos reg)
-                   ;;    (pressure-at-depth-regular
-                   ;;     (varef pos 1)
-                   ;;     datum
-                   ;;     rho
-                   ;;     (cl-mpm:sim-gravity sim)
-                   ;;     reg))
-                   ;;  )
+                       (buoyancy-virtual-div-regular
+                        (varef (get-mp-position mp) 1)
+                        datum
+                        (*
+                         -1d0
+                         (if (= pressure-n 0d0)
+                             0d0
+                             (/ pressure pressure-n))
+                         biot
+                         (expt damage 1)
+                         (- rho (/ mp-mass mp-volume-0)))
+                        gravity
+                        (cl-mpm/particle::mp-buoyancy-gimp-length mp)
+                        (cl-mpm/particle::mp-body-force mp))
 
-                   ;; (buoyancy-virtual-div-regular
-                   ;;  (varef (get-mp-position mp) 1)
-                   ;;  datum
-                   ;;  (*
-                   ;;   -1d0
-                   ;;   biot
-                   ;;   (expt damage 1)
-                   ;;   (- rho (/ mp-mass mp-volume-0)))
-                   ;;  gravity
-                   ;;  (cl-mpm/particle::mp-buoyancy-gimp-length mp)
-                   ;;  (cl-mpm/particle::mp-body-force mp))
-
-                   ;; (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
-                   ;;       (calculate-val-mp
-                   ;;        mp
-                   ;;        (lambda (pos)
-                   ;;          (*
-                   ;;           (if (< (varef pos 1) datum) 1d0 0d0)
-                   ;;           biot
-                   ;;           damage
-                   ;;           (- rho (/ mp-mass mp-volume-0))
-                   ;;           gravity))))
-                   ))
+                       ;; (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
+                       ;;       (calculate-val-mp
+                       ;;        mp
+                       ;;        (lambda (pos)
+                       ;;          (*
+                       ;;           (if (< (varef pos 1) datum) 1d0 0d0)
+                       ;;           biot
+                       ;;           damage
+                       ;;           (- rho (/ mp-mass mp-volume-0))
+                       ;;           gravity))))
+                       ))))
 
                (cl-mpm::iterate-over-neighbours
                 mesh mp
