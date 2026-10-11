@@ -534,7 +534,7 @@ leaves a hanging mpi domain at the back"
                               (when (= rank 0)
                                 (format t "Exchanging MPS~%"))
                               (set-mp-mpi-index sim)
-                              (exchange-mps sim 0d0)
+                              (exchange-mps sim)
                               (set-mp-mpi-index sim)
                               (clear-ghost-mps sim))
 

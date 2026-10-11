@@ -271,13 +271,9 @@
     :type double-float
     :accessor mp-pressure
     :initform 0d0)
-   (pressure-datum
+   (pressure-n
     :type double-float
-    :accessor mp-pressure-datum
-    :initform 0d0)
-   (pressure-head
-    :type double-float
-    :accessor mp-pressure-head
+    :accessor mp-pressure-n
     :initform 0d0)
    (boundary
     :type double-float
@@ -1161,6 +1157,8 @@
                    (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (volume    cl-mpm/particle::mp-volume)
                    (volume-n    cl-mpm/particle::mp-volume-n)
+                   (pressure cl-mpm/particle::mp-pressure)
+                   (pressure-n cl-mpm/particle::mp-pressure-n)
                    (position    cl-mpm/particle::mp-position)
                    (position-trial    cl-mpm/particle::mp-position-trial)
                    (fric-force cl-mpm/particle::mp-penalty-frictional-force)
@@ -1172,6 +1170,7 @@
     (cl-mpm/utils:vector-copy-into position position-trial)
     ;; (cl-mpm/utils:vector-copy-into fric-force-n fric-force)
     (cl-mpm/particle::reset-corners mp)
+    (setf pressure pressure-n)
     (setf volume volume-n)
     (setf j j-n)
     ))
@@ -1220,7 +1219,8 @@
                    (y-prev    cl-mpm/particle::mp-damage-y-local-prev)
                    (volume    cl-mpm/particle::mp-volume)
                    (volume-n    cl-mpm/particle::mp-volume-n)
-                   )
+                   (pressure cl-mpm/particle::mp-pressure)
+                   (pressure-n cl-mpm/particle::mp-pressure-n))
       mp
     ;; (cl-mpm/utils:matrix-copy-into def def-0)
     ;; (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
@@ -1229,6 +1229,7 @@
     (setf ybar-prev ybar)
     (setf y-prev y)
     (setf damage-n damage)
+    (setf pressure-n pressure)
     (call-next-method)))
 
 

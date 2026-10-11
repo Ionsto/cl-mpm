@@ -15,7 +15,8 @@
 (defparameter *angle* 38d0)
 (defparameter *angle-r* 38d0)
 (defparameter *angle-psi* 0d0)
-(defparameter *rt* (- 1d0 1d-6))
+;; (defparameter *rt* (- 1d0 1d-6))
+(defparameter *rt* 1d0)
 
 (defparameter *pd-oversize* 1d-2)
 (defparameter *rc*
@@ -123,8 +124,8 @@
                ;; (cl-mpm/damage::tensile-energy-norm strain e de)
                ;; (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure angle)
                ;; (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress angle)
-               ;; (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure angle)
-               (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress-pressure angle)
+               (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure angle)
+               ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress-pressure angle)
                ;; (cl-mpm/damage::criterion-mohr-coloumb-gill strain angle e nu)
                ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress-pressure angle)
                ;; (cl-mpm/damage::drucker-prager-criterion stress angle)
@@ -214,8 +215,8 @@
     (defparameter *ice-length* ice-length)
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
                                                :sim-type
-                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
-                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic
+                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-damage-quasi-static-mpi
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-quasi-static
@@ -317,6 +318,7 @@
           :material-damping *material-damping*
           :density-degredation-max 0d0
           :biot-coeff *biot-coefficent*
+          :biot-delay-time 1d2
           :index 0))
         (est-angle angle rs rc)
         (when melange
@@ -671,12 +673,12 @@
          (dt 1d3)
          (total-time 1d10)
          (H 600d0)
-         (ice-aspect 4d0)
+         (ice-aspect 2d0)
          (density 918d0)
          (explicit-dt-scale 0.50d0)
-         (water-damping 100d0)
+         (water-damping 20d0)
          (friction 0.25d0)
-         (floatation-ratio 0.8d0)
+         (floatation-ratio 0.7d0)
          )
     (defparameter *length-scaler* 3d0)
     (setup
@@ -812,13 +814,13 @@
        :explicit-dt-scale explicit-dt-scale
        :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
 
-       ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-usf
-       ;; :elastic-dt-margin 1d4
+       ;; :explicit-conv-criteria 1d-4
+       ;; :elastic-dt-margin 1d3
        ;; :explicit-mass-scaling nil
-       ;; :explicit-dt-scale 10d0
-       ;; :explicit-damping-factor 0d-3
-       ;; ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-implicit-dynamic
+       ;; :explicit-dt-scale 50d0
+       ;; :explicit-damping-factor 1d-4
        ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
+       ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-implicit-dynamic
        ;; :elastic-solver ;'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
        ;; 'cl-mpm/dynamic-relaxation::mpm-sim-octree-quasi-static
        ;; :initial-quasi-static t
@@ -838,22 +840,25 @@
            (setf (cl-mpm/dynamic-relaxation::sim-true-damping *sim*) (* 0d-6 (cl-mpm/setup::estimate-critical-damping *sim*))
                  (cl-mpm::sim-velocity-algorithm sim) :TBLEND
                  ))
-         ;; (cl-mpm::remove-mps-func
-         ;;  *sim*
-         ;;  (lambda (mp)
-         ;;    (and
-         ;;     (typep mp 'cl-mpm/particle::particle-damage)
-         ;;     (> (cl-mpm/particle::mp-damage mp) 0.9d0))))
-         ;; (cl-mpm::reset-grid (cl-mpm:sim-mesh *sim*) :reset-displacement t)
-         ;; (cl-mpm/dynamic-relaxation::pre-step *sim*)
+         (cl-mpm::remove-mps-func
+          *sim*
+          (lambda (mp)
+            (and
+             (typep mp 'cl-mpm/particle::particle-damage)
+             (> (cl-mpm/particle::mp-damage mp) 0.9d0))))
+         (cl-mpm::reset-grid (cl-mpm:sim-mesh *sim*) :reset-displacement t)
+         (cl-mpm/dynamic-relaxation::pre-step *sim*)
          (cl-mpm::check-mps *sim*)
          (setf
+          ;; *alpha* 1d0
           (cl-mpm/penalty::bc-penalty-friction *floor-bc*) friction
           (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) water-damping))
        :setup-dynamic
        (lambda (sim)
-         ;(cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
+                                        ;(cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
          (setf
+
+          ;; *alpha* 0d0
           (cl-mpm/damage::sim-damage-delocal-counter-max sim) 2
           (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) water-damping
           (cl-mpm::sim-velocity-algorithm sim) :TBLEND))))))
@@ -1571,6 +1576,7 @@
 
       (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-9)
 
+      (reduced-output-data *sim*)
       ;; (break)
       (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
       (let ((step 0))
@@ -1597,7 +1603,7 @@
          :sub-conv-steps 50
          :total-time total-time
          :save-vtk-loadstep t
-         :save-vtk-dr t
+         :save-vtk-dr nil
          :enable-plastic t
          :enable-damage t
          :plotter (lambda (sim)
@@ -1620,7 +1626,7 @@
 
          :elastic-dt-margin 1d2
          :explicit-mass-scaling nil
-         :explicit-damping-factor 1d-4
+         :explicit-damping-factor 5d-2
          :explicit-dt-scale explicit-dt-scale
          :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
 

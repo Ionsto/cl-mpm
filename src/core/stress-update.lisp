@@ -4,6 +4,9 @@
 
 
 
+(defconstant +fbar-mixing-value+ 1d-3)
+
+
 (declaim (notinline calculate-strain-rate)
          (ftype (function (cl-mpm/mesh::mesh  cl-mpm/particle:particle double-float boolean)) calculate-strain-rate))
 (defun calculate-strain-rate (mesh mp dt fbar)
@@ -162,7 +165,6 @@
     (with-accessors ((dstrain cl-mpm/particle::mp-strain-rate)
                      (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                      (stretch-tensor-fbar cl-mpm/particle::mp-stretch-tensor-fbar)
-                     (jfbar cl-mpm/particle::mp-j-fbar)
                      (def cl-mpm/particle:mp-deformation-gradient)
                      (pos cl-mpm/particle:mp-position))
         mp
@@ -173,36 +175,39 @@
                             (cl-mpm/fastmaths::matrix-reset-identity result-strain)
                             (cl-mpm/utils:matrix-eye 1d0))))
         (cl-mpm/fastmaths::fast-.+-matrix df stretch-tensor df)
-        (when (< (cl-mpm/fastmaths:det-3x3 df) 0d0)
-          (error 'cl-mpm/errors:error-dF-negative))
-        (cl-mpm/utils:matrix-copy-into df df-strain)
-        ;;Explicit fbar
-        (when fbar
-          (let* ((df-fbar
-                   (cl-mpm/utils::matrix-eye 1d0)
-                   ;; (cl-mpm/utils::object-pool-grab work-pool)
+        (let ((j (cl-mpm/fastmaths:det-3x3 df)))
+          (when (< j 0d0)
+            (error 'cl-mpm/errors:error-dF-negative))
+          (cl-mpm/utils:matrix-copy-into df df-strain)
+          ;;Explicit fbar
+          (when fbar
+            (let* ((df-fbar
+                     (cl-mpm/utils::matrix-eye 1d0)
+                     ;; (cl-mpm/utils::object-pool-grab work-pool)
+                     )
+                   (nd (cl-mpm/mesh::mesh-nd mesh)))
+              (declare (fixnum nd))
+              (cl-mpm/fastmaths::matrix-reset-identity df-fbar)
+              (cl-mpm/fastmaths::fast-.+-matrix df-fbar stretch-tensor-fbar df-fbar)
+              (let ((j-fbar (cl-mpm/fastmaths:det-3x3 df-fbar)))
+                (when (< j-fbar 0d0)
+                  (error 'cl-mpm/errors:error-dF-negative))
+                (cl-mpm/fastmaths::fast-scale!
+                 df-strain
+                 (expt
+                  (+
+                   +fbar-mixing-value+
+                   (* (- 1d0 +fbar-mixing-value+) (the double-float (/ j-fbar j))))
+                  (the double-float (/ 1d0 nd))))
+                (ecase nd
+                  (1
+                   (progn
+                     (setf (cl-mpm/utils:mtref df-strain 1 1) 1d0)
+                     (setf (cl-mpm/utils:mtref df-strain 2 2) 1d0))
                    )
-                 (nd (cl-mpm/mesh::mesh-nd mesh)))
-            (declare (fixnum nd))
-            (cl-mpm/fastmaths::matrix-reset-identity df-fbar)
-            (cl-mpm/fastmaths::fast-.+-matrix df-fbar stretch-tensor-fbar df-fbar)
-            (when (< (cl-mpm/fastmaths:det-3x3 df-fbar) 0d0)
-              (error 'cl-mpm/errors:error-dF-negative))
-            (cl-mpm/fastmaths::fast-scale!
-             df-strain
-             (expt
-              (the double-float (/ (cl-mpm/fastmaths:det-3x3 df-fbar)
-                                   (cl-mpm/fastmaths:det-3x3 df-strain)))
-              (the double-float (/ 1d0 nd))))
-            (ecase nd
-              (1
-               (progn
-                 (setf (cl-mpm/utils:mtref df-strain 1 1) 1d0)
-                 (setf (cl-mpm/utils:mtref df-strain 2 2) 1d0))
-               )
-              (2 (progn
-                   (setf (cl-mpm/utils:mtref df-strain 2 2) 1d0)))
-              (3 nil))))
+                  (2 (progn
+                       (setf (cl-mpm/utils:mtref df-strain 2 2) 1d0)))
+                  (3 nil))))))
         (values df df-strain)))))
 
 ;;; Strain updates

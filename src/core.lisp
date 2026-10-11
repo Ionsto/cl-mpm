@@ -336,6 +336,7 @@
       ;; (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
       (when (> mass 0d0)
         (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale))))
+      (cl-mpm/fastmaths::fast-scale! acc (/ 1d0 (+ 1d0 (* dt damping))))
       (integrate-vel-euler vel acc mass mass-scale dt 0d0)
       ;; (cl-mpm/utils::vector-copy-into residual residual-prev)
       ;; (cl-mpm/utils::vector-copy-into force residual)

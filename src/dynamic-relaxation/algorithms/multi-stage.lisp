@@ -332,7 +332,7 @@
                      ;;We've adapted down to a min
                      (cl-mpm:sim-format sim t "Start real-timestepping~%")
                      (let ((dt-loadstep (* 1d0 (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))))
-                       (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
+                       ;; (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
                        (change-class sim explicit-dynamic-solver)
                        (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
                        (funcall setup-dynamic sim)
@@ -355,8 +355,12 @@
                        (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
                        ;;De-refine our timestepping
                        (decf current-adaptivity)
+                       ;; (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
+                       )
+                     (funcall setup-quasi-static sim)
+                     (when (eq (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
                        (cl-mpm/dynamic-relaxation::reset-mp-velocity sim))
-                     (funcall setup-quasi-static sim))
+                     )
 
                    (funcall plotter sim)
                    ;; (plot sim)

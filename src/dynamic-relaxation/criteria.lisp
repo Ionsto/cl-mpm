@@ -642,13 +642,18 @@
              (let ((inc
                      (cl-mpm/fastmaths::mag-squared
                       ;; res
-                      (cl-mpm/fastmaths::fast-.+
-                       f-ext
-                       (cl-mpm/fastmaths::fast-.+
-                        f-int f-damp)
-                       ;; (cl-mpm/fastmaths::fast-.+
-                       ;;  f-ghost)
-                       )
+                      (reduce #'cl-mpm/fastmaths::fast-.+
+                              (list
+                               f-ext
+                               f-int
+                               f-damp))
+                      ;; (cl-mpm/fastmaths::fast-.+
+                      ;;  f-ext
+                      ;;  (cl-mpm/fastmaths::fast-.+
+                      ;;   f-int f-damp)
+                      ;;  ;; (cl-mpm/fastmaths::fast-.+
+                      ;;  ;;  f-ghost)
+                      ;;  )
                       )))
                (incf node-oobf inc)
                (setf nmax (+
@@ -666,11 +671,19 @@
          (lambda (d mut)
            (let* ((f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
                   (f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-internal-force d))
+                  (f-damp (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-damping-force d))
                   (f-rct (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-reaction-force d))
                   (f-ghost (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-ghost-force d)))
              (let ((d-nmax (cl-mpm/fastmaths::mag-squared
                             (cl-mpm/aggregate::aggregate-vec
-                             sim (cl-mpm/fastmaths:fast-.+ f-ext f-int) d)))
+                             sim
+                             (reduce #'cl-mpm/fastmaths::fast-.+
+                                     (list
+                                      f-ext
+                                      f-int
+                                      f-damp))
+                             ;; (cl-mpm/fastmaths:fast-.+ f-ext f-int)
+                             d)))
                    (d-dmax
                      (+
                       (cl-mpm/fastmaths::mag-squared

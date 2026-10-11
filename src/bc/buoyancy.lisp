@@ -1306,18 +1306,12 @@
          mps
          (lambda (mp)
            (with-accessors ((pressure cl-mpm/particle::mp-pressure)
-                            (mp-datum cl-mpm/particle::mp-pressure-datum)
-                            (mp-pfunc cl-mpm/particle::mp-pressure-func)
-                            (mp-head cl-mpm/particle::mp-pressure-head)
                             (mp-boundary cl-mpm/particle::mp-boundary)
                             )
                mp
              (when t
                (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-body-force mp))
-               (setf pressure 0d0)
-               (setf mp-datum datum
-                     mp-head rho
-                     mp-boundary 0d0)))))
+               (setf pressure 0d0)))))
         ;;Populate pressure on MPs
         (let ((gravity (cl-mpm::sim-gravity sim))
               (h (cl-mpm/mesh::mesh-resolution mesh)))
@@ -1334,28 +1328,34 @@
                               (mp-body-force cl-mpm/particle::mp-body-force))
                  mp
                (declare (double-float mp-mass mp-volume-0 damage))
-               (setf
-                pressure
-                (calculate-val-scalar-mp-gimp-regular
-                 mesh
-                 mp
-                 (lambda (pos reg)
-                   (pressure-at-depth-regular
-                    (varef pos 1)
-                    datum
-                    rho
-                    (cl-mpm:sim-gravity sim)
-                    reg)))
-                ;; (calculate-val-scalar-mp-gimp
-                ;;  mesh
-                ;;  mp
-                ;;  (lambda (pos)
-                ;;    (pressure-at-depth
-                ;;     (varef pos 1)
-                ;;     datum
-                ;;     rho
-                ;;     (cl-mpm:sim-gravity sim))))
-                )
+               (let ((biot-delay-time 0d0))
+                 (when (slot-exists-p mp 'cl-mpm/particle::biot-delay-time)
+                   (setf biot-delay-time (the double-float (cl-mpm/particle::mp-biot-delay-time mp))))
+                 (let ((pressure-n1 (cl-mpm/particle::mp-pressure-n mp))
+                       (pressure-n
+                         (calculate-val-scalar-mp-gimp-regular
+                          mesh
+                          mp
+                          (lambda (pos reg)
+                            (pressure-at-depth-regular
+                             (varef pos 1)
+                             datum
+                             rho
+                             (cl-mpm:sim-gravity sim)
+                             reg))))
+                       (factor (exp (the double-float
+                                         (-
+                                          (if (> dt 0d0)
+                                              (the double-float (/ biot-delay-time dt))
+                                              0d0))))))
+                   (declare (double-float pressure-n pressure-n1 factor biot-delay-time dt))
+                   ;; (pprint (/ biot-delay-time dt))
+                   (setf
+                    pressure
+                    (+
+                     (* factor pressure-n)
+                     (* (- 1d0 factor) pressure-n1)))))
+
                (when (and (typep mp 'cl-mpm/particle::particle-damage)
                           (> damage 0d0))
                  (let ((biot 1d0))
@@ -1375,17 +1375,17 @@
                    ;;     reg))
                    ;;  )
 
-                   (buoyancy-virtual-div-regular
-                    (varef (get-mp-position mp) 1)
-                    datum
-                    (*
-                     -1d0
-                     biot
-                     (expt damage 2)
-                     (- rho (/ mp-mass mp-volume-0)))
-                    gravity
-                    (cl-mpm/particle::mp-buoyancy-gimp-length mp)
-                    (cl-mpm/particle::mp-body-force mp))
+                   ;; (buoyancy-virtual-div-regular
+                   ;;  (varef (get-mp-position mp) 1)
+                   ;;  datum
+                   ;;  (*
+                   ;;   -1d0
+                   ;;   biot
+                   ;;   (expt damage 1)
+                   ;;   (- rho (/ mp-mass mp-volume-0)))
+                   ;;  gravity
+                   ;;  (cl-mpm/particle::mp-buoyancy-gimp-length mp)
+                   ;;  (cl-mpm/particle::mp-body-force mp))
 
                    ;; (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
                    ;;       (calculate-val-mp
@@ -1455,21 +1455,10 @@
         sim
       (loop for mp across mps
             do
-               (with-accessors (;; (pos cl-mpm/particle:mp-position)
-                                (pressure cl-mpm/particle::mp-pressure)
-                                (mp-datum cl-mpm/particle::mp-pressure-datum)
-                                (mp-head cl-mpm/particle::mp-pressure-head)
-                                (mp-pfunc cl-mpm/particle::mp-pressure-func)
-                                )
+               (with-accessors ((pressure cl-mpm/particle::mp-pressure))
                    mp
                  (let ((pos (get-mp-position mp)))
                    (setf pressure (pressure-at-depth (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim))))
-                 ;; (setf pressure -1d0)
-                 ;; (setf mp-pfunc
-                 ;;       (lambda (p)
-                 ;;         (pressure-at-depth (tref p 1 0) datum rho)))
-                 (setf mp-datum datum
-                       mp-head rho)
                  )))))
 
 (defun get-cell-df (mesh point)
@@ -1846,24 +1835,15 @@
        mps
        (lambda (mp)
          (with-accessors ((pos cl-mpm/particle:mp-position)
-                          (pressure cl-mpm/particle::mp-pressure)
-                          (mp-datum cl-mpm/particle::mp-pressure-datum)
-                          (mp-pfunc cl-mpm/particle::mp-pressure-func)
-                          (mp-head cl-mpm/particle::mp-pressure-head)
-                          )
+                          (pressure cl-mpm/particle::mp-pressure))
              mp
            (when t;(and (cell-clipping (cl-mpm/mesh::node-position node) datum)
-             (setf pressure 0d0)
-             (setf mp-datum datum
-                   mp-head rho)))))
+             (setf pressure 0d0)))))
       (cl-mpm:iterate-over-mps
        mps
        (lambda (mp)
          (with-accessors ((pos cl-mpm/particle:mp-position)
                           (pressure cl-mpm/particle::mp-pressure)
-                          (mp-datum cl-mpm/particle::mp-pressure-datum)
-                          (mp-head cl-mpm/particle::mp-pressure-head)
-                          (mp-pfunc cl-mpm/particle::mp-pressure-func)
                           )
              mp
            (cl-mpm::iterate-over-neighbours
@@ -1873,9 +1853,7 @@
                 (when node
                   (when (and (cell-clipping (cl-mpm/mesh::node-position node) datum)
                              (funcall clip-func (cl-mpm/mesh::node-position node) datum))
-                    (setf pressure (pressure-at-depth (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
-                    (setf mp-datum datum
-                          mp-head rho))))))))))))
+                    (setf pressure (pressure-at-depth (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim))))))))))))))
 
 (declaim (notinline apply-buoyancy-body))
 (defun apply-buoyancy-body (mesh mps func-div clip-func datum)

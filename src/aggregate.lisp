@@ -1207,6 +1207,7 @@
                     d)))
              (let* ((acc (linear-solve-with-bcs sim ma fa d)))
                (cl-mpm/fastmaths::fast-scale! acc (/ 1d0 mass-scale))
+               (cl-mpm/fastmaths::fast-scale! acc (/ 1d0 (+ 1d0 (* dt damping))))
                (project-global-vec
                 sim
                 (extend-vec sim acc d)

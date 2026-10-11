@@ -110,6 +110,10 @@
     :accessor mp-biot-coefficent
     :initarg :biot-coeff
     :initform 1d0)
+   (biot-delay-time
+    :accessor mp-biot-delay-time
+    :initarg :biot-delay-time
+    :initform 0d0)
    (density-degredation-max
     :accessor mp-density-degredation-max
     :initform 0d0

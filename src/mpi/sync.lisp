@@ -377,7 +377,7 @@
             (bounds-list (mpm-sim-mpi-domain-bounds sim))
             (halo-depth (if halo-depth
                             halo-depth
-                            (* 2 (cl-mpm/mesh:mesh-resolution mesh))))
+                            (* 1 (cl-mpm/mesh:mesh-resolution mesh))))
             (nd (cl-mpm/mesh:mesh-nd mesh))
             )
         ;; (test-mp-slots (cl-mpm:sim-mps sim))
@@ -393,7 +393,7 @@
                              ((halo-filter (test)
                                 (let ((res
                                         (lparallel:premove-if-not
-                                         (lambda (mp) (funcall test (magicl:tref (cl-mpm/particle:mp-position mp) i 0)))
+                                         (lambda (mp) (funcall test (cl-mpm/utils:varef (cl-mpm/particle:mp-position mp) i)))
                                          all-mps)))
                                   res))
                               (left-filter ()
