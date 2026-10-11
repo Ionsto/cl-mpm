@@ -1379,9 +1379,9 @@
                         datum
                         (*
                          -1d0
-                         (if (= pressure-n 0d0)
-                             0d0
-                             (/ pressure pressure-n))
+                         ;; (if (= pressure-n 0d0)
+                         ;;     0d0
+                         ;;     (/ pressure pressure-n))
                          biot
                          damage
                          ;; (- 1d0 (expt (- 1d0 damage) 2))
