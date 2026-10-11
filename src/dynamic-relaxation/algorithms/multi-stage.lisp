@@ -36,7 +36,7 @@
     (set-mp-plastic-damage sim :enable-damage enable-damage :enable-plastic enable-plastic)
     (cl-mpm::update-stiffness-mps sim)
     (cl-mpm::reset-grid (cl-mpm:sim-mesh sim))
-    (reset-mp-velocity sim)
+    ;; (reset-mp-velocity sim)
     (setf (cl-mpm:sim-enable-damage sim) enable-damage)
     (let* ((e-crit (* 1d0 criteria))
            (oobf-crit (* 1d0 criteria))
