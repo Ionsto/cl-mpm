@@ -982,7 +982,7 @@
                                   (/ 1d0 j)
                                   (cl-mpm/utils::resize-vector (grab-new) 6)))
                (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
-               (pressure (* pressure damage))
+               (pressure (* pressure (- 1d0 (expt (- 1d0 damage) 2))))
                ;; (pind (- p pressure))
                (pind p)
                (p-deg 0d0)
@@ -1089,8 +1089,7 @@
          dt
          (*
           -1d0
-          (the double-float
-               (cl-mpm/particle::mp-biot-coefficent mp))
+          (the double-float (cl-mpm/particle::mp-biot-coefficent mp))
           (the double-float
                (/ p 1))))
 

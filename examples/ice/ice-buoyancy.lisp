@@ -24,7 +24,7 @@
 
 (defparameter *enable-plastic-damage* nil)
 (defparameter *delay-time* 1d5)
-(defparameter *delay-exponent* 4d0)
+(defparameter *delay-exponent* 2d0)
 (defparameter *enable-viscosity* nil)
 (defparameter *length-scaler* 2d0)
 (defparameter *gf* 10000d0)
@@ -108,7 +108,7 @@
                       (the double-float (cl-mpm/particle::mp-biot-coefficent mp))
                       j
                       (- pressure)
-                      ;; (the double-float (- 1d0 (* 2d0 damage)))
+                      (the double-float (- 1d0 (* 2d0 damage)))
                       )
                      (grab-new-voigt))
                     (grab-new-voigt))))
@@ -318,7 +318,7 @@
           :material-damping *material-damping*
           :density-degredation-max 0d0
           :biot-coeff *biot-coefficent*
-          :biot-delay-time 1d2
+          :biot-delay-time 0d2
           :index 0))
         (est-angle angle rs rc)
         (when melange
@@ -667,19 +667,19 @@
     (cl-mpm/output::add-mp-output sim :SCALAR "damage-ybar" (lambda (mp) (damage-val mp (cl-mpm/particle::mp-damage-ybar mp)))))
   )
 
-(defun calving-test (&key (output-dir "./output/"))
-  (cl-mpm/utils::set-workers 16)
+(defun calving-test (&key
+                       (output-dir "./output/")
+                       (H 400d0))
+  (cl-mpm/utils::set-workers 8)
   (let* ((mps 3)
          (dt 1d3)
          (total-time 1d10)
-         (H 600d0)
          (ice-aspect 2d0)
          (density 918d0)
          (explicit-dt-scale 0.50d0)
          (water-damping 20d0)
-         (friction 0.25d0)
-         (floatation-ratio 0.7d0)
-         )
+         (friction 0.5d0)
+         (floatation-ratio 0.7d0))
     (defparameter *length-scaler* 3d0)
     (setup
      :refine 0.25
@@ -810,7 +810,7 @@
        :explicit-conv-criteria 1d-3
        :elastic-dt-margin 1d2
        :explicit-mass-scaling nil
-       :explicit-damping-factor 1d-6
+       :explicit-damping-factor 1d-4
        :explicit-dt-scale explicit-dt-scale
        :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
 
@@ -833,8 +833,7 @@
        (lambda (sim)
          ;(cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
          (setf
-          (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC
-          )
+          (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
          (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic)
 
            (setf (cl-mpm/dynamic-relaxation::sim-true-damping *sim*) (* 0d-6 (cl-mpm/setup::estimate-critical-damping *sim*))
@@ -1982,9 +1981,16 @@
 ;;     (:CRYO (print "Hello"))
 ;;     )
 ;;   )
-;; (defun flotation-ratio (h w)
-;;   (let* ((density 918d0)
-;;          (water-density 1028d0)
-;;          (f (/ density water-density)))
-;;     (pprint (/ w h))
-;;     (pprint (/ (/ w h) f))))
+(defun flotation-ratio (h w)
+  (let* ((density 918d0)
+         (water-density 1028d0)
+         (f (/ density water-density)))
+    (pprint (/ w h))
+    (pprint (/ (/ w h) f))))
+
+(defun cliff-height (h f)
+  (let* ((density 918d0)
+         (water-density 1028d0)
+         (w (* f (/ density water-density) h))
+         )
+    (pprint (- h w))))

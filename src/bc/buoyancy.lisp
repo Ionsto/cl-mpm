@@ -1383,7 +1383,8 @@
                              0d0
                              (/ pressure pressure-n))
                          biot
-                         (expt damage 1)
+                         ;; (expt damage 1)
+                         (- 1d0 (expt (- 1d0 damage) 2))
                          (- rho (/ mp-mass mp-volume-0)))
                         gravity
                         (cl-mpm/particle::mp-buoyancy-gimp-length mp)
