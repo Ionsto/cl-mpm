@@ -632,6 +632,7 @@
                         (res cl-mpm/mesh::node-force)
                         (f-ext cl-mpm/mesh::node-external-force)
                         (f-int cl-mpm/mesh::node-internal-force)
+                        (f-damp cl-mpm/mesh::node-damping-force)
                         (f-rct cl-mpm/mesh::node-reaction-force)
                         (f-ghost cl-mpm/mesh::node-ghost-force)
                         (node-oobf cl-mpm/mesh::node-oobf))
@@ -640,13 +641,14 @@
            (sb-thread:with-mutex (lock)
              (let ((inc
                      (cl-mpm/fastmaths::mag-squared
-                      res
-                      ;; (cl-mpm/fastmaths::fast-.+
-                      ;;  f-ext
-                      ;;  f-int
-                      ;;  ;; (cl-mpm/fastmaths::fast-.+
-                      ;;  ;;  f-ghost)
-                      ;;  )
+                      ;; res
+                      (cl-mpm/fastmaths::fast-.+
+                       f-ext
+                       (cl-mpm/fastmaths::fast-.+
+                        f-int f-damp)
+                       ;; (cl-mpm/fastmaths::fast-.+
+                       ;;  f-ghost)
+                       )
                       )))
                (incf node-oobf inc)
                (setf nmax (+
