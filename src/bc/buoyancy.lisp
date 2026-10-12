@@ -1320,6 +1320,8 @@
            mps
            (lambda (mp)
              (with-accessors ((pressure cl-mpm/particle::mp-pressure)
+                              (pressure-delay cl-mpm/particle::mp-delay-pressure)
+                              (pressure-delay-n cl-mpm/particle::mp-delay-pressure-n)
                               (mp-boundary cl-mpm/particle::mp-boundary)
                               (mp-volume cl-mpm/particle::mp-volume)
                               (damage cl-mpm/particle::mp-damage)
@@ -1327,12 +1329,11 @@
                               (mp-mass cl-mpm/particle::mp-mass)
                               (mp-body-force cl-mpm/particle::mp-body-force))
                  mp
-               (declare (double-float mp-mass mp-volume-0 damage))
+               (declare (double-float mp-mass mp-volume-0 damage pressure-delay pressure-delay-n))
                (let ((biot-delay-time 0d0))
                  (when (slot-exists-p mp 'cl-mpm/particle::biot-delay-time)
                    (setf biot-delay-time (the double-float (cl-mpm/particle::mp-biot-delay-time mp))))
-                 (let ((pressure-n1 (cl-mpm/particle::mp-pressure-n mp))
-                       (pressure-n
+                 (let ((pressure-n
                          (calculate-val-scalar-mp-gimp-regular
                           mesh
                           mp
@@ -1348,13 +1349,14 @@
                                           (if (> dt 0d0)
                                               (the double-float (/ biot-delay-time dt))
                                               0d0))))))
-                   (declare (double-float pressure-n pressure-n1 factor biot-delay-time dt))
+                   (declare (double-float pressure-n factor biot-delay-time dt))
                    ;; (pprint (/ biot-delay-time dt))
+                   (setf pressure pressure-n)
                    (setf
-                    pressure
+                    pressure-delay
                     (+
                      (* factor pressure-n)
-                     (* (- 1d0 factor) pressure-n1)))
+                     (* (- 1d0 factor) pressure-delay-n)))
                    (when (and (typep mp 'cl-mpm/particle::particle-damage)
                               (> damage 0d0))
                      (let ((biot 1d0))
