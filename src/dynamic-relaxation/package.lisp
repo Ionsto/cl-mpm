@@ -47,6 +47,10 @@
     :initform nil
     :initarg :inertia-criteria
     :accessor sim-inertia-criteria)
+   (tangent-average-factor
+    :initform 0.5d0
+    :initarg :tangent-average-factor
+    :accessor sim-tangent-average-factor)
    )
   (:default-initargs
    :vel-algo :QUASI-STATIC)

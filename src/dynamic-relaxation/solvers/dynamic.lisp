@@ -73,56 +73,59 @@
   t)
 
 
-(defun dr-calculate-forces-implicit-dynamic (node true-damping dt mass-scale real-dt)
-  "Update forces and nodal velocities with viscous damping"
-  (when (cl-mpm/mesh:node-active node)
-    (with-accessors ((mass cl-mpm/mesh:node-mass)
-                     (vel cl-mpm/mesh:node-velocity)
-                     (disp cl-mpm/mesh::node-displacment)
-                     (vt cl-mpm/mesh::node-true-velocity)
-                     (real-mass cl-mpm/mesh::node-true-mass)
-                     (force cl-mpm/mesh:node-force)
-                     (force-ext cl-mpm/mesh::node-external-force)
-                     (force-int cl-mpm/mesh::node-internal-force)
-                     (force-damp cl-mpm/mesh::node-damping-force)
-                     (force-ghost cl-mpm/mesh::node-ghost-force)
-                     (residual cl-mpm/mesh::node-residual)
-                     (residual-prev cl-mpm/mesh::node-residual-prev)
-                     (inertia-force cl-mpm/mesh::node-inertia-force)
-                     (acc cl-mpm/mesh::node-acceleration))
-        node
-      (declare (double-float mass dt true-damping mass-scale))
-      (progn
-        (cl-mpm/fastmaths:fast-zero acc)
-        ;;Backwards euler acceleration
-        (let ((vn (cl-mpm/utils:vector-zeros)))
-          (unless (= real-dt 0d0)
-            (cl-mpm/utils:vector-copy-into disp vn)
-            (cl-mpm/fastmaths:fast-scale! vn (/ 1d0 real-dt))
-            (cl-mpm/fastmaths::fast-.- vn vt inertia-force)
-            (cl-mpm/fastmaths::fast-scale! inertia-force (/ (* (- real-mass) 1d0) real-dt))
-            (cl-mpm/fastmaths:fast-fmacc force-damp vn (* true-damping -1d0 real-mass))
-            (setf (cl-mpm/mesh::node-inertia-force node) inertia-force)
-            (setf (cl-mpm/mesh::node-true-acceleration node)
-                  (cl-mpm/fastmaths::fast-scale inertia-force (/ 1d0 real-mass))))
-          ;;Set acc to f/m
-          (cl-mpm/fastmaths::fast-.+ inertia-force force force)
-          (cl-mpm/fastmaths::fast-.+-vector force-int force force)
-          (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
-          (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
-          (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
-          (when (> mass 0d0)
-            (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass-scale mass))))
-          ;;Would intergrtate but don't
-          (cl-mpm/utils::vector-copy-into residual residual-prev)
-          (cl-mpm/utils::vector-copy-into force residual)
+(cl-mpm/utils::with-vector-pool
+    (defun dr-calculate-forces-implicit-dynamic (node true-damping dt mass-scale real-dt)
+      "Update forces and nodal velocities with viscous damping"
+      (when (cl-mpm/mesh:node-active node)
+        (with-accessors ((mass cl-mpm/mesh:node-mass)
+                         (vel cl-mpm/mesh:node-velocity)
+                         (disp cl-mpm/mesh::node-displacment)
+                         (vt cl-mpm/mesh::node-true-velocity)
+                         (real-mass cl-mpm/mesh::node-true-mass)
+                         (force cl-mpm/mesh:node-force)
+                         (force-ext cl-mpm/mesh::node-external-force)
+                         (force-int cl-mpm/mesh::node-internal-force)
+                         (force-damp cl-mpm/mesh::node-damping-force)
+                         (force-ghost cl-mpm/mesh::node-ghost-force)
+                         (residual cl-mpm/mesh::node-residual)
+                         (residual-prev cl-mpm/mesh::node-residual-prev)
+                         (inertia-force cl-mpm/mesh::node-inertia-force)
+                         (acc cl-mpm/mesh::node-acceleration))
+            node
+          (declare (double-float mass dt true-damping mass-scale))
+          (progn
+            (cl-mpm/fastmaths:fast-zero acc)
+            ;;Backwards euler acceleration
+            (let ((vn (cl-mpm/fastmaths::fast-zero (grab-new-vector))))
+              (unless (= real-dt 0d0)
+                (cl-mpm/utils:vector-copy-into disp vn)
+                (cl-mpm/fastmaths:fast-scale! vn (/ 1d0 real-dt))
+                (cl-mpm/fastmaths::fast-.- vn vt inertia-force)
+                (cl-mpm/fastmaths::fast-scale! inertia-force (/ (* (- real-mass) 1d0) real-dt))
+                (cl-mpm/fastmaths:fast-fmacc force-damp vn (* true-damping -1d0 real-mass))
+                (setf (cl-mpm/mesh::node-inertia-force node) inertia-force)
+                (cl-mpm/fastmaths::fast-scale
+                 inertia-force
+                 (/ 1d0 real-mass)
+                 (cl-mpm/mesh::node-true-acceleration node)))
+              ;;Set acc to f/m
+              (cl-mpm/fastmaths::fast-.+ inertia-force force force)
+              (cl-mpm/fastmaths::fast-.+-vector force-int force force)
+              (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
+              (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
+              (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
+              (when (> mass 0d0)
+                (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass-scale mass))))
+              ;;Would intergrtate but don't
+              (cl-mpm/utils::vector-copy-into residual residual-prev)
+              (cl-mpm/utils::vector-copy-into force residual)
 
-          ;; (cl-mpm/fastmaths::fast-.+-vector force-ext inertia-force force-ext)
-          ;; (cl-mpm/utils::vector-copy-into force-int residual)
-          ;; (cl-mpm/fastmaths::fast-.+ inertia-force residual residual)
-          ;; (cl-mpm/fastmaths::fast-.+-vector force-ghost residual residual)
-          ))))
-  (values))
+              ;; (cl-mpm/fastmaths::fast-.+-vector force-ext inertia-force force-ext)
+              ;; (cl-mpm/utils::vector-copy-into force-int residual)
+              ;; (cl-mpm/fastmaths::fast-.+ inertia-force residual residual)
+              ;; (cl-mpm/fastmaths::fast-.+-vector force-ghost residual residual)
+              ))))
+      (values)))
 
 
 (cl-mpm/utils::with-arb-pool
@@ -485,51 +488,10 @@
                       sim
                       :crit conv-crit
                       :substeps substeps
-                      :sub-conv-steps 100
+                      :sub-conv-steps 500
                       :dt-scale 0.9d0
                       :damping (sqrt 2d0)
-                      ;; :enable-damage (cl-mpm:sim-enable-damage sim)
-                      ;; :convergence-criteria
-                      ;; (lambda (sim)
-                      ;;   (let* ((vel
-                      ;;            (cl-mpm::reduce-over-global-nodes-sum
-                      ;;             sim
-                      ;;             (lambda (n)
-                      ;;               (if (and (cl-mpm/mesh::node-active n)
-                      ;;                        (or
-                      ;;                         (cl-mpm/mesh::node-interior n)
-                      ;;                         (not (cl-mpm/mesh::node-agg n)))
-                      ;;                        )
-                      ;;                   (cl-mpm/fastmaths::mag (cl-mpm/mesh::node-velocity n))
-                      ;;                   0d0))
-                      ;;             ))
-                      ;;          (disp
-                      ;;            (cl-mpm::reduce-over-global-nodes-sum
-                      ;;             sim
-                      ;;             (lambda (n)
-                      ;;               (if (and (cl-mpm/mesh::node-active n)
-                      ;;                        (or
-                      ;;                         (cl-mpm/mesh::node-interior n)
-                      ;;                         (not (cl-mpm/mesh::node-agg n))))
-                      ;;                   (cl-mpm/fastmaths::mag
-                      ;;                    (cl-mpm/mesh::node-displacment n))
-                      ;;                   0d0))
-                      ;;             ))
-                      ;;          (norm (if (> disp 0d0) (/ vel disp)))
-                      ;;          )
-                      ;;     (format t "Dynamic criteria ~E - ~E / ~E~%" norm vel disp)
-                      ;;     (< norm (cl-mpm/dynamic-relaxation::sim-convergence-critera sim)))
-                      ;;   ;; (let ((c ;; (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)
-                      ;;   ;;          (cl-mpm/dynamic-relaxation::vel-norm-aggregated sim)))
-                      ;;   ;;   (if residual-normaliser
-                      ;;   ;;       (setf c (/ c residual-normaliser))
-                      ;;   ;;       (when (> c 0d0)
-                      ;;   ;;         (setf residual-normaliser c
-                      ;;   ;;               c 1d0)))
-                      ;;   ;;   (format t "Conv crit: ~E - norm ~E~%" c residual-normaliser)
-                      ;;   ;;   (< c conv-crit))
-                      ;;   )
-                      :max-damage-inc 0.1d0
+                      :max-damage-inc 1.1d0
                       :max-plastic-inc nil;10d0
                       :post-iter-step (lambda (i e o)
                                         (format t "Dynamic substep ~D~%" i)

@@ -18,6 +18,7 @@
                           (max-plastic-inc 10d0)
                           (max-deformation-gradient 10d0)
                           (min-tangent-ratio 1d-1)
+                          ;; (tangent-average-factor 0.8d0)
                           ;; (min-tangent-ratio nil)
                           (stagger-damage :HYBRID)
                           (plotter (lambda (sim))))
@@ -28,7 +29,9 @@
         (t0 nil)
         (tn-average nil)
         ;;Factor of 0 means use this tangent, approaching 1 means more averaging
-        (tn-average-factor 0.8d0)
+        ;; (tn-average-factor 0.5d0)
+        (tn-average-factor 0.9d0)
+        ;; (tn-average-factor (sim-tangent-average-factor sim))
         (rsteps 0)
         (bad-initial-tangents 2))
     (flet ((reset-tangent ()
