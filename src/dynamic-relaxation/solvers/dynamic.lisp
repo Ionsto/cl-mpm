@@ -2,28 +2,34 @@
 
 (defun displacement-convergence-norm (sim)
   (let* ((vel
-           (cl-mpm::reduce-over-global-nodes-sum
-            sim
-            (lambda (n)
-              (if (and (cl-mpm/mesh::node-active n)
-                       (or
-                        (cl-mpm/mesh::node-interior n)
-                        (not (cl-mpm/mesh::node-agg n)))
-                       )
-                  (cl-mpm/fastmaths::mag (cl-mpm/mesh::node-velocity n))
-                  0d0))))
+           (sqrt
+            (cl-mpm::reduce-over-global-nodes-sum
+             sim
+             (lambda (n)
+               (if (and (cl-mpm/mesh::node-active n)
+                        (or
+                         (cl-mpm/mesh::node-interior n)
+                         (not (cl-mpm/mesh::node-agg n)))
+                        )
+                   (cl-mpm/fastmaths::mag-squared (cl-mpm/mesh::node-velocity n))
+                   0d0)))))
          (disp
-           (cl-mpm::reduce-over-global-nodes-sum
-            sim
-            (lambda (n)
-              (if (and (cl-mpm/mesh::node-active n)
-                       (or
-                        (cl-mpm/mesh::node-interior n)
-                        (not (cl-mpm/mesh::node-agg n))))
-                  (cl-mpm/fastmaths::mag
-                   (cl-mpm/mesh::node-displacment n))
-                  0d0))))
-         (norm (if (> disp 0d0) (/ vel disp))))
+           (sqrt
+            (cl-mpm::reduce-over-global-nodes-sum
+             sim
+             (lambda (n)
+               (if (and (cl-mpm/mesh::node-active n)
+                        ;; (or
+                        ;;  (cl-mpm/mesh::node-interior n)
+                        ;;  (not (cl-mpm/mesh::node-agg n)))
+                        )
+                   (cl-mpm/fastmaths::mag-squared
+                    (cl-mpm/mesh::node-displacment n))
+                   0d0)))))
+         (norm (if (> disp 1d-9)
+                   (/ vel disp)
+                   vel)))
+    (declare (double-float disp vel norm))
     norm))
 (defmethod cl-mpm::update-dynamic-stats ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
   (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
@@ -36,7 +42,7 @@
             stats-oobf o
             stats-power p)
       (incf stats-work p))
-    ;; (setf stats-oobf (displacement-convergence-norm sim))
+    (setf stats-oobf (displacement-convergence-norm sim))
     ))
 
 

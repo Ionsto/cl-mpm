@@ -162,6 +162,7 @@
                                 ;(res cl-mpm/mesh::node-residual)
                                 (res cl-mpm/mesh::node-force)
                                 (f-int cl-mpm/mesh::node-internal-force)
+                                (f-inertia cl-mpm/mesh::node-inertia-force)
                                 (node-oobf cl-mpm/mesh::node-oobf)
                                 (mass cl-mpm/mesh::node-mass)
                                 (volume cl-mpm/mesh::node-volume)
@@ -175,7 +176,9 @@
                    (list
                     (* 0.5d0 mass (cl-mpm/fastmaths::mag-squared vel))
                     (cl-mpm/fastmaths::mag-squared res)
-                    (+ (cl-mpm/fastmaths::mag-squared f-ext) (cl-mpm/fastmaths::mag-squared f-rct))
+                    (+ (cl-mpm/fastmaths::mag-squared f-ext)
+                       (cl-mpm/fastmaths::mag-squared f-inertia)
+                       (cl-mpm/fastmaths::mag-squared f-rct))
                     (cl-mpm/fastmaths:dot disp f-ext))))
                (list 0d0 0d0 0d0 0d0)))
          (lambda (&rest args)
