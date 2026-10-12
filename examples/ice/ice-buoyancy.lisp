@@ -13,9 +13,9 @@
 ;; (sb-ext:restrict-compiler-policy 'safety 3 3)
 
 (defparameter *angle* 38d0)
-(defparameter *angle-r* 38d0)
+(defparameter *angle-r* 10d0)
 (defparameter *angle-psi* 0d0)
-(defparameter *rt* (- 1d0 1d-3))
+(defparameter *rt* (- 1d0 1d-2))
 ;; (defparameter *rt* 1d0)
 
 (defparameter *pd-oversize* 1d-2)
@@ -23,8 +23,8 @@
   (- 1d0 *pd-oversize*))
 
 (defparameter *enable-plastic-damage* nil)
-(defparameter *delay-time* 1d5)
-(defparameter *delay-exponent* 4d0)
+(defparameter *delay-time* 1d6)
+(defparameter *delay-exponent* 2d0)
 (defparameter *enable-viscosity* nil)
 (defparameter *length-scaler* 2d0)
 (defparameter *gf* 10000d0)
@@ -45,7 +45,7 @@
 
 (defmethod cl-mpm/erosion::mp-erosion-enhancment ((mp cl-mpm/particle::particle-ice-erodable))
   ;; (+ 1d0 (* 10 (cl-mpm/particle::mp-damage mp)))
-  (expt (the double-float (cl-mpm/particle::mp-damage mp)) 1)
+  (expt (the double-float (cl-mpm/particle::mp-av-damage mp)) 1)
   ;; (+ 1d0 (* 10 (cl-mpm/particle::mp-strain-plastic-vm mp)))
   )
 
@@ -233,6 +233,7 @@
                                                 :max-split-depth 3
                                                 :enable-split t
                                                 :tangent-average-factor 0.99d0
+                                                :damage-conv-crit 1d-6
                                                 ;; :mp-removal-size 0.5d0
                                                 ;; :damage-removal t
                                                 :damage-removal nil
@@ -488,9 +489,9 @@
            ;; :back '(0 0 0)
            )
           ))
-    ;; (cl-mpm:add-bcs-force-list
-    ;;  *sim*
-    ;;  *bc-erode*)
+    (cl-mpm:add-bcs-force-list
+     *sim*
+     *bc-erode*)
     (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
     (cl-mpm/output:add-mp-output
      *sim*
@@ -527,6 +528,9 @@
      :SCALAR
      "damage-nl-delta"
      (lambda (mp) (- (cl-mpm/particle::mp-damage-ybar mp) (cl-mpm/particle::mp-damage-y-local mp))))
+    (cl-mpm/output:add-mp-output *sim* :SCALAR "eroded"
+                                 (lambda (mp)
+                                   (/ (cl-mpm/particle::mp-eroded-volume mp) (cl-mpm/particle::mp-mass mp))))
     (cl-mpm/output:add-mp-output
      *sim*
      :SCALAR
@@ -982,16 +986,21 @@
 
 
 
-(defun calving-qs-test (&key (output-dir "./output/") (H 600d0))
+(defun calving-qs-test (&key (output-dir "./output/") (H 600d0)
+                          (erode nil)
+                          (bench-ratio 0d0)
+                          (refine 0.25)
+                          )
   (cl-mpm/utils:set-workers 4)
   (let* ((mps 3)
-         (density 918d0))
-    (setf *delay-time* 1d6)
+         (density 918d0)
+         (water-damping 0d0)
+         )
     (defparameter *length-scaler* 3d0)
-    (setup :refine 0.25
+    (setup :refine refine
            ;; :multigrid-refines 1
            :friction 0.5d0
-           :bench-length (* 0d0 H)
+           :bench-length (* bench-ratio H)
            :bench-extra-cut 00d0
            :ice-height H
            :mps mps
@@ -999,7 +1008,7 @@
            :cryo-static t
            :elastic-static nil
            :melange nil
-           :aspect 4d0
+           :aspect 6d0
            :slope 0.0d0
            :floatation-ratio 0.80d0
            :use-penalty t
@@ -1029,7 +1038,7 @@
     (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic)
     ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul)
     (plot-domain)
-    (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 10d0)
+    (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) water-damping)
     (setf (cl-mpm/damage::sim-enable-ekl *sim*) nil)
     (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
     (setf (cl-mpm:sim-enable-damage *sim*) t)
@@ -1039,7 +1048,7 @@
     ;; (setf (cl-mpm/dynamic-relaxation::sim-enable-dynamics *sim*) nil)
     (let ((step 0)
           (substeps (ceiling (* 10 (floor H 100) (/ 10d0 (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*))))))
-          )
+          (elastic-dt (cl-mpm/setup::estimate-elastic-dt *sim*)))
       (format t "Substeps ~D~%" substeps)
       (cl-mpm/dynamic-relaxation::run-quasi-time
        *sim*
@@ -1053,19 +1062,39 @@
        :sub-conv-steps 500
        :min-adaptive-steps -12
        :max-adaptive-steps 12
-       :adaption-constant 4
-       :adaption-easy-steps 8
+       :adaption-constant 2
+       :adaption-easy-steps 4
        :max-damage-inc 1.5d0
        :max-plastic-inc nil
        :max-deformation-gradient 4d0
        :min-tangent-ratio 1d-1
        :conv-criteria 1d-3
        :save-vtk-loadstep t
-       :save-dr-loadstep nil
+       :save-vtk-dr nil
        :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
        :initial-quasi-static t
+       :convergence-check
+       (lambda (sim)
+         (let ((result t))
+           ;; (let* ((inertia-norm (cl-mpm/dynamic-relaxation::true-intertial-criteria sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)))
+           ;;        (elastic-margin 50d0)
+           ;;        (crit-elastic-dt (* elastic-margin elastic-dt))
+           ;;        (max-inertia-norm 1d-10)
+           ;;        )
+           ;;   (format t "Converged inertia norm - ~E~%" inertia-norm)
+           ;;   (format t "DT ratio - ~E~%"
+           ;;           (/ (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) crit-elastic-dt))
+           ;;   (when max-inertia-norm
+           ;;     (when (and (> inertia-norm max-inertia-norm)
+           ;;                (> (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)
+           ;;                   crit-elastic-dt))
+           ;;       (format t "Condition-ish Failed inertia norm ~E ~E~%" inertia-norm max-inertia-norm)
+           ;;       (setf result nil)
+           ;;       )))
+           result))
        :post-conv-step
        (lambda (sim)
+         (setf (cl-mpm/bc::bc-enable *bc-erode*) erode)
          (setf (cl-mpm/dynamic-relaxation::sim-true-damping *sim*) (* 1d-3 (cl-mpm/setup::estimate-critical-damping *sim*)))
          (setf
           (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
@@ -1960,26 +1989,26 @@
 
 
 
-;; (let ((x 10d0)
-;;       (density 918d0)
-;;       (water-density 1028d0)
-;;       (g 9.81d0)
-;;       (nu 0.3d0))
-;;   (let* ((p-water (* water-density g x))
-;;          (p-ice (* density g x))
-;;          (e-elastic (* density g x))
-;;          (k (/ nu (- 1d0 nu)))
-;;          (p-elastic (* 1/3 (+ e-elastic  (* k e-elastic) (* k e-elastic))))
-;;          )
-;;     (pprint p-water)
-;;     (pprint p-ice)
-;;     (pprint p-elastic)
-;;     (pprint (/ p-ice p-water))
-;;     (pprint (/ p-elastic p-water))
-;;     (pprint (/ p-elastic p-ice))
+(let ((x 10d0)
+      (density 918d0)
+      (water-density 1028d0)
+      (g 9.81d0)
+      (nu 0.3d0))
+  (let* ((p-water (* water-density g x))
+         (p-ice (* density g x))
+         (e-elastic (* density g x))
+         (k (/ nu (- 1d0 nu)))
+         (p-elastic (* 1/3 (+ e-elastic  (* k e-elastic) (* k e-elastic))))
+         )
+    (pprint p-water)
+    (pprint p-ice)
+    (pprint p-elastic)
+    (pprint (/ p-ice p-water))
+    (pprint (/ p-elastic p-water))
+    (pprint (/ p-elastic p-ice))
 
-;;     )
-;;   )
+    )
+  )
 
 ;; (let ((a :CRYO))
 ;;   (case a

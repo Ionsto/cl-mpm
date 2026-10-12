@@ -30,7 +30,7 @@
         (tn-average nil)
         ;;Factor of 0 means use this tangent, approaching 1 means more averaging
         ;; (tn-average-factor 0.5d0)
-        (tn-average-factor 0.9d0)
+        (tn-average-factor 0.99d0)
         ;; (tn-average-factor (sim-tangent-average-factor sim))
         (rsteps 0)
         (bad-initial-tangents 2))
@@ -280,6 +280,7 @@
                        &key (output-dir "./output/")
                          (post-conv-step (lambda (sim)))
                          (post-load-step (lambda (sim)))
+                         (convergence-check (lambda (sim) t))
                          (plotter (lambda (sim)))
                          (dt-scale 0.5d0)
                          (dt 1d0)
@@ -397,6 +398,9 @@
                                                      :min-tangent-ratio min-tangent-ratio
                                                      ;; :stagger-damage t
                                                      )
+                                  (unless (convergence-check sim)
+                                    (format t "Failed a user specified convergence check~%")
+                                    (setf conv nil))
                                   (setf quasi-conv conv
                                         stagger-iters inc-steps)
                                   (format t "Step ~A current adaptivity ~D~%" quasi-conv current-adaptivity)

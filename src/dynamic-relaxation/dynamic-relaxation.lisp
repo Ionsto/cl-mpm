@@ -462,7 +462,9 @@
       (let* ((dconv (cl-mpm/damage::sim-stats-damage-residual sim))
              (dconv-0 dconv)
              (dconv-prev dconv)
-             (crit (min 1d-3 conv-crit)))
+             (crit (min
+                    (sim-damage-conv-criteria sim)
+                    conv-crit)))
         (declare (double-float dconv dconv-0 crit dconv-prev))
         (when (> dconv crit)
           (let ((iter 0))

@@ -19,10 +19,9 @@
              sim
              (lambda (n)
                (if (and (cl-mpm/mesh::node-active n)
-                        ;; (or
-                        ;;  (cl-mpm/mesh::node-interior n)
-                        ;;  (not (cl-mpm/mesh::node-agg n)))
-                        )
+                        (or
+                         (cl-mpm/mesh::node-interior n)
+                         (not (cl-mpm/mesh::node-agg n))))
                    (cl-mpm/fastmaths::mag-squared
                     (cl-mpm/mesh::node-displacment n))
                    0d0)))))

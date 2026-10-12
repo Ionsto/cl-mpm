@@ -57,7 +57,11 @@
   (:documentation "DR psudo-linear step with update stress last update"))
 
 (defclass mpm-sim-dr-damage (mpm-sim-dr cl-mpm/damage::mpm-sim-damage)
-  ()
+  ((damage-conv-criteria
+    :initform 1d-3
+    :initarg :damage-conv-crit
+    :accessor sim-damage-conv-criteria)
+   )
   (:documentation "DR-damage mixin"))
 
 (defclass mpm-sim-dr-ul (mpm-sim-dr cl-mpm/aggregate::mpm-sim-aggregated)
