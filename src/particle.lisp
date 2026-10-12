@@ -271,9 +271,13 @@
     :type double-float
     :accessor mp-pressure
     :initform 0d0)
-   (pressure-n
+   (delay-pressure
     :type double-float
-    :accessor mp-pressure-n
+    :accessor mp-delay-pressure
+    :initform 0d0)
+   (delay-pressure-n
+    :type double-float
+    :accessor mp-delay-pressure-n
     :initform 0d0)
    (boundary
     :type double-float
@@ -1157,8 +1161,8 @@
                    (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (volume    cl-mpm/particle::mp-volume)
                    (volume-n    cl-mpm/particle::mp-volume-n)
-                   (pressure cl-mpm/particle::mp-pressure)
-                   (pressure-n cl-mpm/particle::mp-pressure-n)
+                   (pressure    cl-mpm/particle::mp-delay-pressure)
+                   (pressure-n  cl-mpm/particle::mp-delay-pressure-n)
                    (position    cl-mpm/particle::mp-position)
                    (position-trial    cl-mpm/particle::mp-position-trial)
                    (fric-force cl-mpm/particle::mp-penalty-frictional-force)
@@ -1219,8 +1223,8 @@
                    (y-prev    cl-mpm/particle::mp-damage-y-local-prev)
                    (volume    cl-mpm/particle::mp-volume)
                    (volume-n    cl-mpm/particle::mp-volume-n)
-                   (pressure cl-mpm/particle::mp-pressure)
-                   (pressure-n cl-mpm/particle::mp-pressure-n))
+                   (pressure   cl-mpm/particle::mp-delay-pressure)
+                   (pressure-n cl-mpm/particle::mp-delay-pressure-n))
       mp
     ;; (cl-mpm/utils:matrix-copy-into def def-0)
     ;; (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
@@ -1243,7 +1247,7 @@
 (defun p-wave-from-tangent (mp tang)
   (let ()
     (max
-     (* 1d-9 (cl-mpm/particle::compute-p-modulus mp))
+     (* 1d-6 (cl-mpm/particle::compute-p-modulus mp))
      (max
       (cl-mpm/utils::mtref tang 0 0)
       (cl-mpm/utils::mtref tang 1 1)
