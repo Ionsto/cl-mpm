@@ -843,6 +843,7 @@
             stats-oobf o
             stats-power p)
       (incf stats-work p))
+    (setf stats-oobf (displacement-convergence-norm sim))
     ;; (if (cl-mpm/aggregate::sim-enable-aggregate sim)
     ;;    ;;Other
     ;;    ;; (progn)

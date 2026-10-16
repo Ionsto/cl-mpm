@@ -4,7 +4,7 @@
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
 (defconstant +damage-average+ t)
-(defconstant +damage-half-average+ nil)
+(defconstant +damage-half-average+ t)
 (defconstant +damage-update-ul+ nil)
 (defconstant +damage-average-energy+ nil)
 
@@ -243,6 +243,13 @@
                (delocalise-damage sim))))
           (localise-damage mesh mps dt)))))
 
+(defun start-damage-step (sim)
+  (cl-mpm:iterate-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (setf (cl-mpm/particle::mp-damage-prev-trial mp)
+           (cl-mpm/particle::mp-damage mp)))))
+
 (defmethod compute-damage-delta ((sim cl-mpm::mpm-sim))
   (let* ((delta-ds
            (cl-mpm::reduce-over-global-mps-sum
@@ -251,10 +258,10 @@
               (if (typep mp 'cl-mpm/particle::particle-damage)
                 (with-accessors ((damage cl-mpm/particle::mp-damage)
                                  (damage-prev cl-mpm/particle::mp-damage-prev-trial)
-                                 (inc cl-mpm/particle::mp-damage-increment)
-                                 (mass cl-mpm/particle::mp-mass))
+                                 )
                     mp
-                  (expt (* mass (- damage damage-prev)) 2))
+                  (declare (double-float damage damage-prev))
+                  (expt (- damage damage-prev) 2))
                 0d0))))
          (delta-incs
            (cl-mpm::reduce-over-global-mps-sum
@@ -265,45 +272,51 @@
                                    (inc cl-mpm/particle::mp-damage-increment)
                                    (mass cl-mpm/particle::mp-mass))
                       mp
-                    (expt (* mass damage) 2))
+                    (declare (double-float inc))
+                    (expt inc 2)
+                    ;; (expt damage 2)
+                    )
                   0d0))))
          (err 0d0)
          )
+    (declare (double-float delta-incs delta-ds))
     (setf err
           (if (> delta-incs 0d0)
-              (sqrt (/ delta-ds delta-incs))
+              (the double-float (sqrt (the double-float (/ delta-ds delta-incs))))
               0d0))
-    ;; (when (> (sim-damage-ybar-relaxation sim) 0d0)
-    ;;   (let* ((yd-ds
-    ;;        (cl-mpm::reduce-over-global-mps-sum
-    ;;         sim
-    ;;         (lambda (mp)
-    ;;           (if (typep mp 'cl-mpm/particle::particle-damage)
-    ;;             (with-accessors ((damage cl-mpm/particle::mp-damage-ybar)
-    ;;                              (damage-prev cl-mpm/particle::mp-damage-ybar-n)
-    ;;                              (inc cl-mpm/particle::mp-damage-increment)
-    ;;                              (mass cl-mpm/particle::mp-mass))
-    ;;                 mp
-    ;;               (expt (* mass (- damage damage-prev)) 2))
-    ;;             0d0))))
-    ;;      (yd-incs
-    ;;        (cl-mpm::reduce-over-global-mps-sum
-    ;;         sim
-    ;;         (lambda (mp)
-    ;;           (if (typep mp 'cl-mpm/particle::particle-damage)
-    ;;               (with-accessors ((damage cl-mpm/particle::mp-damage-ybar)
-    ;;                                (mass cl-mpm/particle::mp-mass))
-    ;;                   mp
-    ;;                 (expt (* mass damage) 2))
-    ;;               0d0)))))
-    ;;     (setf err
-    ;;           (max
-    ;;            err
-    ;;            (if (> yd-incs 0d0)
-    ;;                (sqrt (/ yd-ds yd-incs))
-    ;;                0d0)))
-    ;;     )
-    ;;   )
+    err))
+(defgeneric compute-ybar-delta (sim))
+(defmethod compute-ybar-delta ((sim cl-mpm::mpm-sim))
+  (let* ((err 0d0))
+    (when t;(> (sim-damage-ybar-relaxation sim) 0d0)
+      (let* ((yd-ds
+           (cl-mpm::reduce-over-global-mps-sum
+            sim
+            (lambda (mp)
+              (if (typep mp 'cl-mpm/particle::particle-damage)
+                (with-accessors ((damage cl-mpm/particle::mp-damage-ybar)
+                                 (ybar-instant cl-mpm/particle::mp-damage-ybar-instant)
+                                 (damage-prev cl-mpm/particle::mp-damage-ybar-n))
+                    mp
+                  ;; (expt (- damage damage-prev) 2)
+                  (expt (- damage damage-prev) 2)
+                  )
+                0d0))))
+         (yd-incs
+           (cl-mpm::reduce-over-global-mps-sum
+            sim
+            (lambda (mp)
+              (if (typep mp 'cl-mpm/particle::particle-damage)
+                  (with-accessors ((damage cl-mpm/particle::mp-damage-ybar))
+                      mp
+                    (expt (* damage) 2))
+                  0d0)))))
+        (setf err
+              (max
+               err
+               (if (> yd-incs 0d0)
+                   (sqrt (/ yd-ds yd-incs))
+                   0d0)))))
     err))
 
 
@@ -316,39 +329,44 @@
                    (non-local-damage cl-mpm::sim-nonlocal-damage))
       sim
     (when (cl-mpm::sim-enable-damage sim)
-      (let* ((dconv (cl-mpm/damage::sim-stats-damage-residual sim))
-             (dconv-0 dconv)
-             (dconv-prev dconv)
-             (crit 1d-6))
-        (declare (double-float dconv dconv-0 crit dconv-prev))
-        (when (> dconv crit)
+      (let* ((yconv (compute-ybar-delta sim))
+             (yconv-prev yconv)
+             (crit 1d-3))
+        (declare (double-float crit yconv yconv-prev))
+        (when (> yconv crit)
           (let ((iter 0))
             (loop for i from 1 below 100
-                  while (> dconv crit)
+                  while (> yconv crit)
                   do (progn
                        (dotimes (i 1)
                          (incf iter)
                          (cl-mpm/damage::update-localisation sim dt)
                          (cl-mpm/damage::update-damage-mps sim dt))
-                       (setf dconv-prev dconv)
-                       (setf dconv (compute-damage-delta sim))
-                       (when (> dconv dconv-prev)
-                         (format t "Internal damage iter struggled applying relaxation ~D ~E ~E~%" iter dconv dconv-prev)
+                       (setf yconv-prev yconv)
+                       (setf yconv (compute-ybar-delta sim))
+                       (when (> yconv yconv-prev)
+                         (format t "Internal damage iter struggled applying relaxation ~D ~E ~E~%" iter yconv yconv-prev)
                          (setf (sim-damage-ybar-relaxation sim)
-                               ;; 0.9d0
                                (min 0.99d0
                                     (if (= 0d0 (sim-damage-ybar-relaxation sim))
                                         0.1d0
-                                        (sqrt (sim-damage-ybar-relaxation sim))))
-                               ))
-                       ))
+                                        (sqrt (sim-damage-ybar-relaxation sim))))))))
             (when (> (sim-damage-ybar-relaxation sim) 0d0)
-              (format t "Iter ~D ~E~%" iter dconv))
+              (format t "Iter ~D ~E ~E~%" iter yconv (sim-damage-ybar-relaxation sim)))
             (when (and (> iter 25) (not (> (sim-damage-ybar-relaxation sim) 0d0)))
-              (format t "Iter ~D ~E~%" iter dconv))
-            )
+              (format t "Iter ~D ~E~%" iter yconv)))
           (setf (sim-damage-ybar-relaxation sim) 0d0)
-          (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv-0))))))
+          (setf (cl-mpm/damage::sim-stats-damage-residual sim) (compute-damage-delta sim)))))))
+
+(defun compute-y-mps (sim dt)
+  (with-accessors ((mps cl-mpm::sim-mps))
+      sim
+    (cl-mpm:iterate-over-mps
+     mps
+     (lambda (mp)
+       (when (typep mp 'cl-mpm/particle:particle-damage)
+         (damage-model-calculate-y mp dt))
+       (values)))))
 
 (defmethod calculate-damage ((sim mpm-sim-damage) dt)
   (with-accessors ((mps cl-mpm:sim-mps)
@@ -370,13 +388,8 @@
         ;;Worst case we want dont want our delocal counter to exceed the max incase we get adjusted
         (setf delocal-counter (min (- delocal-counter 1) delocal-counter-max)))
 
-      (cl-mpm:iterate-over-mps
-       mps
-       (lambda (mp)
-         (when (typep mp 'cl-mpm/particle:particle-damage)
-           (damage-model-calculate-y mp dt))
-         (values)))
-
+      (start-damage-step sim)
+      (compute-y-mps sim dt)
       (update-localisation sim dt)
       (update-damage-mps sim dt)
 
@@ -595,8 +608,7 @@
 
 (defun weight-func-mps-geometric (mesh mp-a mp-b pos-a pos-b length)
   (declare (ignore mesh))
-  (let (
-        (da (cl-mpm/particle::mp-av-damage mp-a))
+  (let ((da (cl-mpm/particle::mp-av-damage mp-a))
         (da-other (cl-mpm/particle::mp-av-damage mp-b))
         ;; (da (cl-mpm/particle::mp-damage mp-a))
         ;; (da-other (cl-mpm/particle::mp-damage mp-b))
@@ -609,15 +621,22 @@
              (max
               1d-15
               (the double-float
+                   ;; (* (sqrt (the double-float (min 1d0 (max 0d0 (- 1d0 da)))))
+                   ;;    (the double-float (min 1d0 (max 0d0 (- 1d0 da-other)))))
+                   ;; (* (the double-float (min 1d0 (max 0d0 (- 1d0 da))))
+                   ;;    (the double-float (min 1d0 (max 0d0 (- 1d0 da-other)))))
                    (sqrt
                     (the double-float
                          ;; (* (the double-float (expt (min 1d0 (max 0d0 (- 1d0 da))) 2))
                          ;;    (the double-float (expt (min 1d0 (max 0d0 (- 1d0 da-other))) 2)))
+                         (* (sqrt (the double-float (min 1d0 (max 0d0 (- 1d0 da)))))
+                            (the double-float (min 1d0 (max 0d0 (- 1d0 da-other)))))
                          ;; (* (the double-float (min 1d0 (max 0d0 (- 1d0 da))))
                          ;;    (the double-float (min 1d0 (max 0d0 (- 1d0 da-other)))))
-                         (* (the double-float (sqrt (min 1d0 (max 0d0 (- 1d0 da)))))
-                            (the double-float (sqrt (min 1d0 (max 0d0 (- 1d0 da-other))))))
-                         )))))))))
+                         ;; (* (the double-float (sqrt (min 1d0 (max 0d0 (- 1d0 da)))))
+                         ;;    (the double-float (sqrt (min 1d0 (max 0d0 (- 1d0 da-other))))))
+                         ))
+                   )))))))
 
 (defun weight-func-mps-scatter (mesh mp-a mp-b pos-a pos-b length)
   (declare (ignore mesh))
@@ -625,7 +644,8 @@
         (da-other (cl-mpm/particle::mp-av-damage mp-b)))
     (declare (double-float length da da-other))
     (flet (;;(deg (d) (max 1d-15 (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 d)))))))
-           (deg (d) (max 1d-15 (the double-float (expt (max 0d0 (min 1d0 (- 1d0 d))) 1))))
+           (deg (d) (max 1d-15 (the double-float (expt (max 0d0 (min 1d0 (- 1d0 d))) 2))))
+           ;; (deg (d) (max 1d-15 (the double-float (max 0d0 (min 1d0 (- 1d0 (expt d 2)))))))
            ;; (deg (d) 1d0)
            )
       (weight-func
@@ -641,8 +661,8 @@
   (let ((da (cl-mpm/particle::mp-av-damage mp-a))
         (da-other (cl-mpm/particle::mp-av-damage mp-b)))
     (declare (double-float length da da-other))
-    (flet ((deg (d) (max 1d-15 (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 d)))))))
-           ;; (deg (d) (max 1d-15 (the double-float (expt (max 0d0 (min 1d0 (- 1d0 d))) 1))))
+    (flet (;; (deg (d) (max 1d-15 (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 d)))))))
+           (deg (d) (max 1d-15 (the double-float (expt (max 0d0 (min 1d0 (- 1d0 d))) 1))))
            )
       (weight-func
        (cl-mpm/fastmaths::diff-norm pos-a pos-b)
@@ -885,7 +905,12 @@ Calls the function with the mesh mp and node"
      mp
      length
      (lambda (mp-other)
-       (let ((length (if +damage-half-average+ (/ length 2d0) length)))
+       (let ((length (if +damage-half-average+
+                         (min
+                          (/ (cl-mpm/mesh::mesh-resolution mesh) 1d0)
+                          ;; (/ length 2d0)
+                          )
+                         length)))
          (let ((m (get-mp-volume mp-other))
                (d (cl-mpm/particle::mp-damage mp-other)))
            (declare (double-float d m length))
@@ -1314,11 +1339,12 @@ Calls the function with the mesh mp and node"
        (when (typep mp 'cl-mpm/particle:particle-damage)
          (with-accessors ((damage-ybar cl-mpm/particle::mp-damage-ybar)
                           (damage-ybar-n cl-mpm/particle::mp-damage-ybar-n)
+                          (damage-ybar-instant cl-mpm/particle::mp-damage-ybar-instant)
                           (damage cl-mpm/particle::mp-damage)
                           (local-length-t cl-mpm/particle::mp-local-length))
              mp
            (setf damage-ybar-n
-                 damage-ybar)
+                 damage-ybar-instant)
            (let ((ybar
                    (calculate-delocalised-damage
                     mesh
@@ -1327,9 +1353,10 @@ Calls the function with the mesh mp and node"
                     (sim-enable-length-localisation sim)))
                  (relax (sim-damage-ybar-relaxation sim)))
              (declare (double-float damage-ybar-n ybar relax))
+             (setf damage-ybar-instant ybar)
              (if (> relax 0d0)
                  (setf damage-ybar
-                       (+ (* relax damage-ybar-n)
+                       (+ (* relax damage-ybar)
                           (* (- 1d0 relax) ybar)))
                  (setf damage-ybar ybar))))))))
   (values))

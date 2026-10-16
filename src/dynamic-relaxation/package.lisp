@@ -138,3 +138,6 @@
 
 (define-condition error-deformation-gradient (non-convergence-error)
   ((def-grad :initarg :deformation-gradient :reader def-grad)))
+
+(define-condition error-damage-localisation (non-convergence-error)
+  ((y-conv :initarg :y-conv :reader y-conv)))

@@ -271,6 +271,10 @@
     :type double-float
     :accessor mp-pressure
     :initform 0d0)
+   (pressure-n
+    :type double-float
+    :accessor mp-pressure-n
+    :initform 0d0)
    (delay-pressure
     :type double-float
     :accessor mp-delay-pressure
@@ -1070,6 +1074,11 @@
     :type DOUBLE-FLOAT
     :initform 0d0
     :initarg :damage-ybar)
+   (damage-ybar-instant
+    :accessor mp-damage-ybar-instant
+    :type DOUBLE-FLOAT
+    :initform 0d0
+    )
    (damage-ybar-n
     :accessor mp-damage-ybar-n
     :type DOUBLE-FLOAT
@@ -1161,8 +1170,10 @@
                    (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (volume    cl-mpm/particle::mp-volume)
                    (volume-n    cl-mpm/particle::mp-volume-n)
-                   (pressure    cl-mpm/particle::mp-delay-pressure)
-                   (pressure-n  cl-mpm/particle::mp-delay-pressure-n)
+                   (pressure    cl-mpm/particle::mp-pressure)
+                   (pressure-n  cl-mpm/particle::mp-pressure-n)
+                   (delay-pressure    cl-mpm/particle::mp-delay-pressure)
+                   (delay-pressure-n  cl-mpm/particle::mp-delay-pressure-n)
                    (position    cl-mpm/particle::mp-position)
                    (position-trial    cl-mpm/particle::mp-position-trial)
                    (fric-force cl-mpm/particle::mp-penalty-frictional-force)
@@ -1174,6 +1185,7 @@
     (cl-mpm/utils:vector-copy-into position position-trial)
     ;; (cl-mpm/utils:vector-copy-into fric-force-n fric-force)
     (cl-mpm/particle::reset-corners mp)
+    (setf delay-pressure delay-pressure-n)
     (setf pressure pressure-n)
     (setf volume volume-n)
     (setf j j-n)
@@ -1223,8 +1235,11 @@
                    (y-prev    cl-mpm/particle::mp-damage-y-local-prev)
                    (volume    cl-mpm/particle::mp-volume)
                    (volume-n    cl-mpm/particle::mp-volume-n)
-                   (pressure   cl-mpm/particle::mp-delay-pressure)
-                   (pressure-n cl-mpm/particle::mp-delay-pressure-n))
+                   (delay-pressure   cl-mpm/particle::mp-delay-pressure)
+                   (delay-pressure-n cl-mpm/particle::mp-delay-pressure-n)
+                   (pressure   cl-mpm/particle::mp-pressure)
+                   (pressure-n cl-mpm/particle::mp-pressure-n)
+                   )
       mp
     ;; (cl-mpm/utils:matrix-copy-into def def-0)
     ;; (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
@@ -1233,6 +1248,7 @@
     (setf ybar-prev ybar)
     (setf y-prev y)
     (setf damage-n damage)
+    (setf delay-pressure-n delay-pressure)
     (setf pressure-n pressure)
     (call-next-method)))
 
@@ -1244,10 +1260,10 @@
   0d0)
 
 
-(defun p-wave-from-tangent (mp tang)
+(defun p-wave-from-tangent (mp tang &key (min-inelastic-ratio 1d-3))
   (let ()
     (max
-     (* 1d-6 (cl-mpm/particle::compute-p-modulus mp))
+     (* min-inelastic-ratio (cl-mpm/particle::compute-p-modulus mp))
      (max
       (cl-mpm/utils::mtref tang 0 0)
       (cl-mpm/utils::mtref tang 1 1)

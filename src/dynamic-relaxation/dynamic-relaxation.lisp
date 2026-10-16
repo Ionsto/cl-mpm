@@ -321,92 +321,103 @@
                 (* (sqrt 2d0) (sqrt (/ num denom))))
             0d0)))))
 
-(let ((work-pool (cl-mpm/utils::make-object-pool
-                  :constructor (lambda ()
-                                 (cl-mpm/utils:vector-zeros)))))
-  (defmethod dr-estimate-damping ((sim cl-mpm/aggregate::mpm-sim-aggregated))
-    (with-accessors ((mesh cl-mpm:sim-mesh))
-        sim
-      (let ((num 0d0)
-            (denom 0d0)
-            (dt 1d0))
-        (declare (double-float denom num))
-        (cl-mpm/utils::object-pool-ensure-size work-pool)
-        (setf
-         num
-         (float
-          (cl-mpm::reduce-over-nodes
-           mesh
-           (lambda (node)
-             (if (and (cl-mpm/mesh:node-active node)
-                      (not (cl-mpm/mesh::node-agg node)))
-                 (cl-mpm/fastmaths:dot
-                  (cl-mpm/mesh:node-velocity node)
-                  (cl-mpm/fastmaths:fast-.-
-                   (cl-mpm/mesh::node-residual-prev node)
-                   (cl-mpm/mesh::node-residual node)
-                   (cl-mpm/utils::object-pool-grab-unsafe work-pool)
-                   ))
-                 0d0))
-           #'+)
-          0d0))
-        (setf
-         denom
-         (* dt
-            (the double-float
-                 (float
-                  (cl-mpm::reduce-over-nodes
-                   mesh
-                   (lambda (node)
-                     (the double-float
-                          (if (and (cl-mpm/mesh:node-active node)
-                                   (not (cl-mpm/mesh::node-agg node)))
-                              (progn
-                                (*
-                                 (the double-float (cl-mpm/mesh:node-mass node))
-                                 (the double-float (cl-mpm/fastmaths::mag-squared
-                                                    (cl-mpm/mesh::node-velocity node)))))
-                              0d0)))
-                   #'+)
-                  0d0
-                  ))))
+(cl-mpm/utils::with-vector-pool
+    (defmethod dr-estimate-damping ((sim cl-mpm/aggregate::mpm-sim-aggregated))
+      (with-accessors ((mesh cl-mpm:sim-mesh))
+          sim
+        (let ((num 0d0)
+              (denom 0d0)
+              (dt 1d0))
+          (declare (double-float denom num))
+          (setf
+           num
+           (float
+            (cl-mpm::reduce-over-nodes
+             mesh
+             (lambda (node)
+               (if (and (cl-mpm/mesh:node-active node)
+                        (not (cl-mpm/mesh::node-agg node)))
+                   (cl-mpm/fastmaths:dot
+                    (cl-mpm/mesh:node-velocity node)
+                    (cl-mpm/fastmaths:fast-.-
+                     (cl-mpm/mesh::node-residual-prev node)
+                     (cl-mpm/mesh::node-residual node)
+                     (grab-new-vector)
+                     ))
+                   0d0))
+             #'+)
+            0d0))
+          (setf
+           denom
+           (* 1d0
+              (the double-float
+                   (float
+                    (cl-mpm::reduce-over-nodes
+                     mesh
+                     (lambda (node)
+                       (the double-float
+                            (if (and (cl-mpm/mesh:node-active node)
+                                     (not (cl-mpm/mesh::node-agg node)))
+                                (progn
+                                  (*
+                                   (the double-float (cl-mpm/mesh:node-mass node))
+                                   (the double-float (cl-mpm/fastmaths::mag-squared
+                                                      (cl-mpm/mesh::node-velocity node)))))
+                                0d0)))
+                     #'+)
+                    0d0
+                    ))))
 
-        (when (cl-mpm/aggregate::sim-enable-aggregate sim)
-          (cl-mpm/aggregate::iterate-over-dimensions-with-mutex
-           (cl-mpm/mesh::mesh-nd mesh)
-           (lambda (d mut)
-             (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
-                    (res-prev (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual-prev d))
-                    (ma (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-mass))
-                    (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d))
-                    (vglobal
-                      (cl-mpm/aggregate::extend-vec
-                       sim
-                       vi
-                       d)))
-               (let ((dnum (cl-mpm/fastmaths:dot
-                            (cl-mpm/fastmaths::fast-.- res-prev res)
-                            vglobal
-                            ))
-                     (ddenom (* dt (cl-mpm/fastmaths:dot vglobal
-                                                         (cl-mpm/fastmaths::fast-.*
-                                                          ma
-                                                          vglobal)))))
-                 (declare (double-float num dnum denom ddenom))
-                 (sb-thread::with-mutex (mut)
-                   (incf num dnum)
-                   (incf denom ddenom)))))))
-        (min 1.9d0
-             (max 0d0
-                  (* (the double-float (cl-mpm/dynamic-relaxation::sim-damping-scale sim))
-                     (if (> num 0d0)
-                         (if (= denom 0d0)
-                             0d0
-                             (the double-float
-                                  (* (sqrt 2d0)
-                                     (the double-float
-                                          (sqrt (max 0d0 (the double-float (/ num denom))))))))
-                         0d0))))))))
+          (when (cl-mpm/aggregate::sim-enable-aggregate sim)
+            (cl-mpm/aggregate::iterate-over-dimensions-with-mutex
+             (cl-mpm/mesh::mesh-nd mesh)
+             (lambda (d mut)
+               (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
+                      (res-prev (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual-prev d))
+                      (ma (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-mass))
+                      (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d))
+                      (tempint (cl-mpm/utils::resize-vector (grab-new-vector) (cl-mpm/utils:nrows vi)))
+                      (tempint2 (cl-mpm/utils::resize-vector (grab-new-vector) (cl-mpm/utils:nrows vi)))
+                      (tempglobal (cl-mpm/utils::resize-vector (grab-new-vector) (cl-mpm/utils:nrows res))))
+                 (let ((dnum (cl-mpm/fastmaths:dot
+                              (cl-mpm/aggregate::aggregate-vec
+                               sim
+                               (cl-mpm/fastmaths::fast-.-
+                                res-prev
+                                res
+                                tempglobal)
+                               d
+                               tempint)
+                              vi))
+                       (ddenom (* 1d0 (cl-mpm/fastmaths:dot
+                                       vi
+                                       (cl-mpm/aggregate::aggregate-vec
+                                        sim
+                                        (cl-mpm/fastmaths::fast-.*
+                                         ma
+                                         (cl-mpm/aggregate::extend-vec
+                                          sim
+                                          vi
+                                          d
+                                          tempglobal)
+                                         tempglobal)
+                                        d
+                                        tempint)))))
+                   (declare (double-float num dnum denom ddenom))
+                   (sb-thread::with-mutex (mut)
+                     (incf num dnum)
+                     (incf denom ddenom)))))))
+          (min 1.9d0
+               (max 0d0
+                    (* (the double-float (cl-mpm/dynamic-relaxation::sim-damping-scale sim))
+                       (if (> num 0d0)
+                           (if (= denom 0d0)
+                               0d0
+                               (the double-float
+                                    (* (sqrt 2d0)
+                                       (the double-float
+                                            (sqrt (max 0d0 (the double-float (/ num denom))))))))
+                           0d0))))))))
 
 (defun compute-condition (sim)
   (/ 1d0 (expt (/ (dr-estimate-damping sim) 2) 2)))
@@ -446,6 +457,20 @@
            (3
             (cl-mpm::UL-push-cached 1d0 1d0 1d0 df-inv nd))))))
 
+(defun partial-update-stress (sim dt)
+  (cl-mpm:iterate-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (with-accessors
+           ((stress cl-mpm/particle:mp-stress)
+            (strain cl-mpm/particle:mp-strain)
+            (trial-strain cl-mpm/particle::mp-trial-elastic-strain)
+            (j cl-mpm/particle::mp-deformation-jacobian-strain))
+         mp
+       (cl-mpm/utils::copy-into trial-strain strain)
+       (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress)
+       (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float j)))))))
+
 (defmethod cl-mpm/damage::solve-localisation ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-damage) dt)
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
@@ -455,46 +480,55 @@
                    (non-local-damage cl-mpm::sim-nonlocal-damage)
                    (ybar-relax cl-mpm/damage::sim-damage-ybar-relaxation)
                    (conv-crit cl-mpm/dynamic-relaxation::sim-convergence-critera)
+                   (damage-conv-crit sim-damage-conv-criteria)
                    )
       sim
     (declare (double-float ybar-relax conv-crit))
+    (setf ybar-relax 0d0)
     (when (cl-mpm::sim-enable-damage sim)
-      (let* ((dconv (cl-mpm/damage::sim-stats-damage-residual sim))
-             (dconv-0 dconv)
-             (dconv-prev dconv)
+      (cl-mpm/damage::update-localisation sim dt)
+      (let* ((yconv (cl-mpm/damage::compute-ybar-delta sim))
+             (yconv-prev yconv)
              (crit (min
-                    (sim-damage-conv-criteria sim)
+                    1d-3
+                    damage-conv-crit
                     conv-crit)))
-        (declare (double-float dconv dconv-0 crit dconv-prev))
-        (when (> dconv crit)
+        (declare (double-float crit yconv yconv-prev))
+        ;; (format t "Yconv ~E~%" yconv)
+        (when (> yconv crit)
           (let ((iter 0))
             (declare (fixnum iter))
             (loop for i from 1 below 100
-                  while (> dconv crit)
+                  while (> yconv crit)
                   do (progn
                        (dotimes (i 1)
                          (incf iter)
+                         ;; (partial-update-stress sim dt)
+                         ;; (cl-mpm/damage::compute-y-mps sim dt)
+                         (cl-mpm/damage::update-damage-mps sim dt)
                          (cl-mpm/damage::update-localisation sim dt)
-                         (cl-mpm/damage::update-damage-mps sim dt))
-                       (setf dconv-prev dconv)
-                       (setf dconv (compute-damage-delta sim))
-                       (when (> dconv dconv-prev)
-                         (format t "Internal damage iter struggled applying relaxation ~D ~E - ~E ~E~%" iter (cl-mpm/damage::sim-damage-ybar-relaxation sim) dconv dconv-prev)
-                         (setf (cl-mpm/damage::sim-damage-ybar-relaxation sim)
+                         )
+                       (setf yconv-prev yconv)
+                       (setf yconv (cl-mpm/damage::compute-ybar-delta sim))
+                       (when (> yconv yconv-prev)
+                         (format t "Internal damage iter struggled applying relaxation ~D ~E - ~E ~E~%" iter ybar-relax yconv yconv-prev)
+                         (setf ybar-relax
                                (min 0.99d0
                                     (if (= 0d0 ybar-relax)
-                                        0.5d0
+                                        0.1d0
                                         (the double-float (sqrt ybar-relax))))))))
             (when (> ybar-relax 0d0)
-              (format t "Iter ~D ~E~%" iter dconv))
+              (format t "Iter ~D ~E ~E~%" iter yconv ybar-relax))
             (when (and (> iter 25) (not (> ybar-relax 0d0)))
-              (format t "Iter ~D ~E ~E~%" iter dconv dconv-0))
-            (when (> dconv crit)
+              (format t "Iter ~D ~E~%" iter yconv))
+            (when (> yconv crit)
+              (setf ybar-relax 0d0)
               (error (make-instance 'non-convergence-error
                                     :text "Inner damage/localisation solve failed to converge"
-                                    :ke-norm dconv :oobf-norm 0d0))))
-          (setf (cl-mpm/damage::sim-damage-ybar-relaxation sim) 0d0)
-          (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv-0))))))
+                                    :ke-norm yconv :oobf-norm 0d0))))
+          (cl-mpm/damage::update-damage-mps sim dt)
+          (setf ybar-relax 0d0)
+          (setf (cl-mpm/damage::sim-stats-damage-residual sim) (cl-mpm/damage::compute-damage-delta sim)))))))
 
 
 

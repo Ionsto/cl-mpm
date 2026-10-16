@@ -137,8 +137,8 @@
            (cl-mpm/particle::mp-mass mp))))))
 
 (defmethod cl-mpm/particle::reset-loadstep-mp ((mp cl-mpm/particle::particle-erosion))
-  (with-accessors ((k    cl-mpm/particle::mp-eroded-volume)
-                   (k-n    cl-mpm/particle::mp-eroded-volume-n))
+  (with-accessors ((k cl-mpm/particle::mp-eroded-volume)
+                   (k-n cl-mpm/particle::mp-eroded-volume-n))
       mp
     (setf k k-n)
     (call-next-method)))
@@ -159,7 +159,7 @@
        (cl-mpm:sim-mps sim)
        (lambda (mp)
          (when (typep mp 'cl-mpm/particle::particle-erosion)
-           (with-accessors ((volume cl-mpm/particle::mp-volume)
+           (with-accessors ((volume cl-mpm/particle::mp-volume-0)
                             (mass cl-mpm/particle::mp-mass)
                             (erode cl-mpm/particle::mp-eroded-volume)
                             (erode-n cl-mpm/particle::mp-eroded-volume-n)

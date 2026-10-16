@@ -50,18 +50,23 @@
      (aref (sim-global-bcs sim) d)
      )))
 
+
+(declaim (ftype (function (cl-mpm::mpm-sim magicl::matrix/double-float fixnum &optional magicl::matrix/double-float ))
+                aggregate-vec))
 (defun aggregate-vec (sim vec d &optional (res nil))
-  (if (sim-global-bcs sim)
-      (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
-       (cl-mpm/aggregate::sim-global-sparse-et sim)
-       vec
-       (aref (sim-global-bcs-int sim) d)
-       (aref (sim-global-bcs sim) d)
-       res)
-      (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
-       (cl-mpm/aggregate::sim-global-sparse-et sim)
-       vec
-       res))
+  (if (cl-mpm/aggregate::sim-global-sparse-et sim)
+   (if (sim-global-bcs sim)
+       (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+        (cl-mpm/aggregate::sim-global-sparse-et sim)
+        vec
+        (aref (sim-global-bcs-int sim) d)
+        (aref (sim-global-bcs sim) d)
+        res)
+       (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
+        (cl-mpm/aggregate::sim-global-sparse-et sim)
+        vec
+        res))
+   (cl-mpm/fastmaths::fast-zero (cl-mpm/utils::deep-copy vec)))
   ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
   ;;  (cl-mpm/aggregate::sim-global-sparse-et sim)
   ;;  vec)
@@ -74,17 +79,21 @@
    (cl-mpm/aggregate::sim-global-sparse-et sim)
    vec))
 
-(defun extend-vec (sim vec d)
-  (if (sim-global-bcs sim)
-      (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
-       (cl-mpm/aggregate::sim-global-sparse-e sim)
-       vec
-       (aref (sim-global-bcs sim) d)
-       (aref (sim-global-bcs-int sim) d)
-       )
-      (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
-       (cl-mpm/aggregate::sim-global-sparse-e sim)
-       vec))
+(defun extend-vec (sim vec d &optional (res nil))
+  (if (cl-mpm/aggregate::sim-global-sparse-e sim)
+      (if (sim-global-bcs sim)
+          (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
+           (cl-mpm/aggregate::sim-global-sparse-e sim)
+           vec
+           (aref (sim-global-bcs sim) d)
+           (aref (sim-global-bcs-int sim) d)
+           res
+           )
+          (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
+           (cl-mpm/aggregate::sim-global-sparse-e sim)
+           vec
+           res))
+      (cl-mpm/fastmaths::fast-zero (cl-mpm/utils::deep-copy vec)))
   ;; (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec
   ;;  (cl-mpm/aggregate::sim-global-sparse-e sim)
   ;;  vec)

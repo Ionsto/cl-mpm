@@ -77,6 +77,20 @@
       result)))
 
 
+(defun scalar-regular (scalar z datum-true l-reg)
+  (declare (double-float z datum-true))
+  (let* ((datum datum-true)
+         (h (- datum z))
+         (a scalar))
+    (declare (double-float h a l-reg datum z))
+    (cond
+      ((and (< h l-reg)
+            (> h (- l-reg)))
+       (* (/ a (* 4d0 l-reg)) (- (* 2d0 (- h)) (* 2d0 l-reg))))
+      ((> h 0d0) a)
+      (t 0d0))
+    ))
+
 
 (defun pressure-at-depth-regular (z datum-true rho g l-reg)
   (declare (double-float z datum-true rho g))
@@ -107,7 +121,7 @@
   (let ((result (if result (cl-mpm/fastmaths:fast-zero result) (cl-mpm/utils:vector-zeros))))
     (let* ((datum datum-true)
            (h (- datum z))
-           (f (* -1d0 rho g))
+           (f 0d0)
            (a (* rho g)))
       (declare (double-float h f a l-reg datum z rho g))
       (setf f
@@ -292,11 +306,11 @@
         (funcall func pos reg result)
         result)))
 
-(cl-mpm/utils::with-voigt-pool
-    (defun calculate-val-scalar-mp-gimp-regular (mesh mp func)
-      (let ((pos (get-mp-position mp))
-            (reg (cl-mpm/particle::mp-buoyancy-gimp-length mp)))
-        (funcall func pos reg))))
+(defun calculate-val-scalar-mp-gimp-regular (mesh mp func)
+  (declare (function func))
+  (let ((pos (get-mp-position mp))
+        (reg (cl-mpm/particle::mp-buoyancy-gimp-length mp)))
+    (funcall func pos reg)))
 
 (defun calculate-val-scalar-mp-gimp (mesh mp func)
   (declare (function func))
@@ -367,7 +381,7 @@
 
 
 (defun direct-mp-enforcment (mesh mps datum)
-  (cl-mpm:iterate-over-mps 
+  (cl-mpm:iterate-over-mps
    mps
     (lambda (mp)
       (with-accessors ((volume cl-mpm/particle:mp-volume)
@@ -1124,7 +1138,10 @@
                    (clip-function bc-buoyancy-clip-func))
       bc
     (declare (function clip-function))
-    (populate-cells-volume sim (lambda (pos) (funcall clip-function pos datum)))
+    (populate-cells-volume sim (lambda (pos)
+                                 t
+                                 ;; (funcall clip-function pos datum)
+                                 ))
     ;; (locate-mps-cells sim (lambda (pos) (funcall clip-function pos datum)))
     ))
 
@@ -1164,7 +1181,11 @@
          )
        :scalar
        ;; (lambda (mp) (calculate-val-scalar-mp-gimp mesh mp #'melt-rate))
-       (lambda (mp) (calculate-val-mp mp #'melt-rate))
+       (lambda (mp) (calculate-val-scalar-mp-gimp-regular
+                     mesh
+                     mp
+                     (lambda (pos reg)
+                       (scalar-regular 1d0 (cl-mpm/utils:varef pos 1) datum reg))))
        :damage-volume nil)
 
       (cl-mpm:iterate-over-nodes
@@ -1255,6 +1276,9 @@
     (max 1d-9 (/ (- p-max p-min) 2d0))
     ;; 0d0
     ))
+
+(defmethod cl-mpm/buoyancy::compute-volumetric-damage ((mp cl-mpm/particle::particle))
+  0d0)
 
 (defparameter *buoyancy-regularisation-value* 4d0)
 (declaim (double-float *buoyancy-regularisation-value*))
@@ -1381,13 +1405,9 @@
                         datum
                         (*
                          -1d0
-                         ;; (if (= pressure-n 0d0)
-                         ;;     0d0
-                         ;;     (/ pressure pressure-n))
                          biot
-                         damage
-                         ;; (- 1d0 (expt (- 1d0 damage) 2))
-                         (- rho (/ mp-mass mp-volume-0)))
+                         (compute-volumetric-damage mp)
+                         (- rho (/ mp-mass mp-volume)))
                         gravity
                         (cl-mpm/particle::mp-buoyancy-gimp-length mp)
                         (cl-mpm/particle::mp-body-force mp))

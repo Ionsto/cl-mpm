@@ -125,7 +125,10 @@
    (mass-0
     :accessor mp-mass-0
     :initform 0d0
-    :initarg :mass))
+    :initarg :mass)
+   (pressure-degredation
+    :accessor mp-pressure-degredation
+    :initform 0d0))
   (:default-initargs
    :enable-viscosity nil
    :viscosity 1d13)
@@ -249,6 +252,7 @@
                        (strain-n mp-strain-n)
                        (trial-elastic-strain mp-trial-strain)
                        (damage mp-damage)
+                       (damage-n mp-damage-n)
                        (damage-pressure mp-damage-pressure)
                        (damage-t mp-damage-tension)
                        (damage-c mp-damage-compression)
@@ -270,7 +274,9 @@
                        (g-r mp-shear-residual-ratio)
                        (L                cl-mpm/particle::mp-stretch-tensor)
                        (j mp-deformation-jacobian-strain)
+                       (j-n mp-deformation-jacobian-strain-n)
                        (pressure mp-pressure)
+                       (pressure-n mp-pressure-n)
                        (p-wave cl-mpm/particle::mp-p-modulus-0)
                        (p cl-mpm/particle::mp-pressure)
                        )
@@ -303,9 +309,9 @@
         (when enable-plasticity
           (let* ((K (/ e (* 3 (- 1d0 (* 2 nu))))))
             (declare (double-float damage-pressure coheasion pressure))
-            (setf
-             damage-pressure
-             (- 1d0 damage))
+            ;; (setf
+            ;;  damage-pressure
+            ;;  (- 1d0 damage))
             ;; (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm-tangent
             ;;                                              stress-u
             ;;                                              strain
@@ -316,15 +322,16 @@
             ;;   (setf stress-u sig yield-func f)
             ;;   (let ((probe-vec (cl-mpm/utils::voigt-zeros))
             ;;         (dep (cl-mpm/particle::mp-tangent-stiffness mp)))
-            ;;     (setf p-wave (* 1d-6 p-wave))
-            ;;     (loop for d from 0 below 2
-            ;;           do (progn
-            ;;                (cl-mpm/fastmaths::fast-zero probe-vec)
-            ;;                (setf (varef probe-vec d) 1d0)
-            ;;                (setf p-wave
-            ;;                      (max p-wave
-            ;;                           (cl-mpm/utils:varef (cl-mpm/fastmaths::fast-@-tensor-voigt dep probe-vec)
-            ;;                                               d))))))
+            ;;     ;; (setf p-wave (* 1d-6 p-wave))
+            ;;     ;; (loop for d from 0 below 2
+            ;;     ;;       do (progn
+            ;;     ;;            (cl-mpm/fastmaths::fast-zero probe-vec)
+            ;;     ;;            (setf (varef probe-vec d) 1d0)
+            ;;     ;;            (setf p-wave
+            ;;     ;;                  (max p-wave
+            ;;     ;;                       (cl-mpm/utils:varef (cl-mpm/fastmaths::fast-@-tensor-voigt dep probe-vec)
+            ;;     ;;                                           d)))))
+            ;;     )
             ;;   (setf ps-vm-inc inc)
             ;;   (setf strain eps-e)
             ;;   (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
@@ -332,11 +339,20 @@
             (let* ((new-stress (grab-new-voigt))
                    (new-strain (grab-new-voigt))
                    (c-0 (cl-mpm/particle::mp-c-0 mp))
-                   (soft (* c-0 (cl-mpm/particle::mp-softening mp))))
-              (declare (double-float c-0 soft))
+                   (soft (cl-mpm/particle::mp-softening mp)))
+              (declare (double-float c-0 soft dt))
               (labels ((plastic (plastic-vm)
                          (declare (double-float plastic-vm))
-                         (setf coheasion (+ c-0 (* soft plastic-vm)))
+                         (setf coheasion
+                               (* c-0 (+ 1d0 (* soft (/ (- plastic-vm ps-vm-1) dt)))))
+
+                         ;; (setf coheasion (* c-0 (+ 1d0 (* soft plastic-vm))))
+                         ;; (setf
+                         ;;  coheasion
+                         ;;  (max
+                         ;;   (* coheasion 1d-3)
+                         ;;   (+ coheasion
+                         ;;      (* pressure damage))))
                          (cl-mpm/utils:voigt-copy-into stress-u new-stress)
                          (cl-mpm/utils:voigt-copy-into strain new-strain)
                          (multiple-value-bind (sig eps-e f inc pmod)
@@ -349,10 +365,9 @@
                               phi
                               psi
                               coheasion
-                              (cl-mpm/particle::mp-tangent-stiffness mp)
-                              )
-                           (when (> yield-func 0d0)
-                             (setf p-wave (* 1.0d0 pmod)))
+                              (cl-mpm/particle::mp-tangent-stiffness mp))
+                           ;; (when (> yield-func 0d0)
+                           ;;   (setf p-wave (* 1.0d0 pmod)))
                            (let (;; (inc (expt (* 1 (max 0d0
                                  ;;                      (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
                                  ;;                         (cl-mpm/utils::trace-voigt new-strain)))) 1))
@@ -369,7 +384,19 @@
                     (cl-mpm/constitutive::secant-hardening
                      #'plastic
                      ps-vm-1
-                     #'identity)))
+                     #'identity)
+                    ;; (with-accessors ((stiff mp-tangent-stiffness)
+                    ;;                  (ps-inc mp-strain-plastic-vm-inc))
+                    ;;     mp
+                    ;;     (let ((de-0 (cl-mpm/utils::deep-copy stiff))
+                    ;;           )
+                    ;;       (cl-mpm/constitutive::secant-hardening
+                    ;;        #'plastic
+                    ;;        ps-vm-1
+                    ;;        #'identity)
+                    ;;       (when (> ps-inc 0d0)
+                    ;;         (cl-mpm/utils::copy-into de-0 stiff))))
+                    ))
               (cl-mpm/utils::voigt-copy-into new-stress stress-u)
               (cl-mpm/utils::voigt-copy-into new-strain strain))
 
@@ -402,6 +429,27 @@
             ;;     (setf ps-vm (+ ps-vm-1 inc))
             ;;     (setf ps-vm-inc inc)))
             ))
+        ;; (let* ((pn (/ pressure-n j-n))
+        ;;        (p (/ pressure j))
+        ;;        ;; (pn pressure-n)
+        ;;        ;; (p pressure)
+        ;;        (pressure-inc
+        ;;          (*
+        ;;           -1d0
+        ;;           (mp-biot-coefficent mp)
+        ;;           ;; (- p pn)
+        ;;           (- (* damage p) (* damage pn))
+        ;;           ))
+        ;;        (K (cl-mpm/utils::calculate-bulk-modulus e nu)))
+        ;;   (unless (= 0d0 pressure-inc)
+        ;;     ;; (pprint (/ pressure-inc (* 3d0 K)))
+        ;;     ;; (pprint pressure-inc)
+        ;;     )
+        ;;   (cl-mpm/fastmaths::fast-.+
+        ;;    strain
+        ;;    (cl-mpm/utils::voigt-eye
+        ;;     (/ pressure-inc (* 3d0 K)))
+        ;;    strain))
         (setf (cl-mpm/particle::mp-p-wave-elastoplastic mp) p-wave)
         ;; (cl-mpm/utils::copy-into de (cl-mpm/particle::mp-tangent-stiffness mp))
         (cl-mpm/utils::copy-into
@@ -860,7 +908,6 @@
         ;;           (max
         ;;            k-n
         ;;            ybar))))
-        (setf (cl-mpm/particle::mp-damage-prev-trial mp) (cl-mpm/particle::mp-damage mp))
         (setf k
               (max
                k-n
@@ -915,7 +962,6 @@
       (declare (double-float damage damage-inc damage-n critical-damage k ybar tau dt ybar-prev init-stress k-n ybar))
       (when t;(<= damage 1d0)
         ;;Damage increment holds the delocalised driving factor
-        (setf (cl-mpm/particle::mp-damage-prev-trial mp) (cl-mpm/particle::mp-damage mp))
         (let ((k0 init-stress)
               (ps-y (sqrt (* E (expt ps-vm 2)))))
           (setf k
@@ -981,9 +1027,11 @@
                                   undamaged-stress
                                   (/ 1d0 j)
                                   (cl-mpm/utils::resize-vector (grab-new) 6)))
-               (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
-               ;; (pressure (* pressure (- 1d0 (expt (- 1d0 damage) 2))))
-               (pressure (* pressure damage))
+               (pundamaged (/ (cl-mpm/utils::trace-voigt undamaged-stress) 3d0))
+               (p pundamaged)
+               ;; (p (- pundamaged pressure))
+               ;; (pressure (* pressure (- 1d0 (expt (- 1d0 damage) 2/))))
+               ;; (pressure (* pressure damage))
                ;; (pind (- p pressure))
                (pind p)
                (p-deg 0d0)
@@ -994,13 +1042,13 @@
            (if (> pind 0d0)
                (- 1d0 damage-t)
                (- 1d0 damage-c)))
+          (setf (cl-mpm/particle::mp-pressure-degredation mp) p-deg)
           (setf p (* p p-deg))
 
           (setf stress
                 (cl-mpm/fastmaths:fast-.+
-                 ;; (cl-mpm/constitutive::voight-eye (- (/ p j) pressure))
-                 ;; (cl-mpm/fastmaths:fast-scale! s (/ (- 1d0 damage-s) j))
-                 (cl-mpm/constitutive::voight-eye (- p pressure))
+                 (cl-mpm/constitutive::voight-eye (- p (* (- 1d0 p-deg) pressure)))
+                 ;; (cl-mpm/constitutive::voight-eye (- p (* damage pressure)))
                  (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage-s))
                  stress))
 
@@ -1057,6 +1105,16 @@
           ;;             (cl-mpm/particle::mp-p-wave-elastoplastic mp)))))
           )))))
 
+(defmethod cl-mpm/buoyancy::compute-volumetric-damage ((mp cl-mpm/particle::particle-damage))
+  (cl-mpm/particle::mp-damage mp))
+
+(defmethod cl-mpm/buoyancy::compute-volumetric-damage ((mp cl-mpm/particle::particle-ice-brittle))
+  (let ((pu (cl-mpm/constitutive::voight-trace (cl-mpm/particle::mp-undamaged-stress mp))))
+    ;; (cl-mpm/particle::mp-damage mp)
+    (if (> pu 0d0)
+        (cl-mpm/particle::mp-damage-tension mp)
+        (cl-mpm/particle::mp-damage-compression mp))))
+
 (cl-mpm/utils::with-voigt-pool
     (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-brittle) dt)
       (declare (double-float dt))
@@ -1072,19 +1130,6 @@
                        (nu cl-mpm/particle::mp-nu)
                        (p-mod cl-mpm/particle::mp-p-modulus-0))
           mp
-        ;; (cl-mpm/damage::apply-tensile-strain-degredation mp)
-        ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
-        ;; (setf p-mod (max (* 1d0 (cl-mpm/particle::compute-p-modulus mp))))
-        ;; (cl-mpm/damage::apply-gill-damage mp)
-        ;; (cl-mpm/damage::apply-isotropic-degredation mp)
-        ;; (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
-        ;;        (G (/ e (* 2 (+ 1d0 nu))))
-        ;;        (P-0 (+ K (* 4/3 G))))
-        ;;   (declare (double-float K G P-0 e nu))
-        ;;   (setf p-mod
-        ;;         (max
-        ;;          (* 1d-3 P-0)
-        ;;          (* (- 1d0 damage) (cl-mpm/particle::mp-p-wave-elastoplastic mp)))))
         (apply-vol-pressure-degredation
          mp
          dt
