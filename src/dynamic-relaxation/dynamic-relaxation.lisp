@@ -490,7 +490,7 @@
       (let* ((yconv (cl-mpm/damage::compute-ybar-delta sim))
              (yconv-prev yconv)
              (crit
-               (* 0.5d0
+               (* 0.1d0
                   (min
                    damage-conv-crit
                    conv-crit))))
