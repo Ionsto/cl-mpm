@@ -2015,7 +2015,8 @@
     (compute-stiffness-cells-3d
      (cl-mpm:sim-mps sim)
      (cl-mpm:sim-mesh sim)
-     (lambda (pos) (abs (* (max 0d0 (- datum (varef pos 1))) rho (cl-mpm:sim-gravity sim))))
+     ;; (lambda (pos) (abs (* (max 0d0 (- datum (varef pos 1))) rho (cl-mpm:sim-gravity sim))))
+     (lambda (pos) (abs (* (if (> (- datum (varef pos 1)) 0d0) 0d0 1d0) rho (cl-mpm:sim-gravity sim))))
      clip-func))
   ;; (apply-force-mps-3d mesh mps
   ;;                     (lambda (mp) (calculate-val-mp mp func-stress))
