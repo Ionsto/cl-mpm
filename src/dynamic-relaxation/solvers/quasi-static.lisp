@@ -109,11 +109,12 @@
                 (declare (type double-float mp-volume mp-pmod svp)
                          (double-float node-mass))
                 (when node-active
-                  (sb-thread::with-mutex ((cl-mpm/mesh::node-lock node))
-                    (incf node-mass
-                          (the double-float
-                               (* 0.25d0
-                                  mp-factor))))))))))))))
+                  (when (> svp 1d-15)
+                    (sb-thread::with-mutex ((cl-mpm/mesh::node-lock node))
+                      (incf node-mass
+                            (the double-float
+                                 (* 0.25d0
+                                    mp-factor)))))))))))))))
 
 
 

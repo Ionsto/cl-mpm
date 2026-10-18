@@ -767,7 +767,7 @@
                                         (+
                                          epsilon
                                          (max 1d0 (/ (exp (/ (- (max penetration 0d0)) regularisation-length)) regularisation-length))
-                                         (if (> dt 0d0)
+                                         (if (and (> damping 0d0) (> dt 0d0))
                                              (the double-float (* (the double-float (sqrt (the double-float (* epsilon mp-mass))))
                                                                  damping
                                                                  (/ 1d0 dt)))

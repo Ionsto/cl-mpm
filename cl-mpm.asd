@@ -314,7 +314,7 @@
                ;; "lfarm-admin"
                "flexi-streams"
                "cl-store"
-               "cl-binary-store"
+               ;; "cl-binary-store"
                "cl-mpm/fastmaths"
                "cl-mpm/utils"
                "alexandria"

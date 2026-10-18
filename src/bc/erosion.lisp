@@ -54,10 +54,10 @@
 
 
 (defun make-bc-erode-surface (sim &key (rate 1d0)
-                            (clip-func (lambda (pos) t))
-                            (scalar-func (lambda (pos) 1d0))
-                            (enable t)
-                            )
+                                    (clip-func (lambda (pos) t))
+                                    (scalar-func (lambda (pos) 1d0))
+                                    (enable t)
+                                    (max-increment 0.5d0))
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
     (make-instance 'bc-erode-surface
@@ -180,10 +180,11 @@
 (defmethod cl-mpm/bc::apply-sim-bc (sim (bc bc-erode-uniform) dt)
   (apply-erosion-uniform sim bc (cl-mpm:sim-mesh sim) dt))
 
-(defun make-bc-erode-uniform (sim &key (rate 1d0) (enable t))
+(defun make-bc-erode-uniform (sim &key (rate 1d0) (enable t) (max-increment 0.5d0))
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
     (make-instance 'bc-erode-uniform
                    :index nil
                    :damage-rate rate
-                   :enable enable)))
+                   :enable enable
+                   :max-erosion-per-step max-increment)))

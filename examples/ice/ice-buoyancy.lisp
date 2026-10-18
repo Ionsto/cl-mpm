@@ -199,7 +199,7 @@
                 (extra-offset 0)
                 (use-penalty t)
                 (stick-base t)
-                (epsilon-scale 1d-2)
+                (epsilon-scale 1d-1)
                 (E 1d9)
                 )
   (let* ((density 918d0)
@@ -464,7 +464,9 @@
       (cl-mpm/erosion::make-bc-erode-uniform
        *sim*
        :enable nil
-       :rate 1d-5)
+       :rate 1d-5
+       :max-increment 0.9d0
+       )
       ;; (cl-mpm/erosion::make-bc-erode
       ;;  *sim*
       ;;  :enable nil
@@ -691,6 +693,11 @@
   (cl-mpm/output:add-mp-output *sim* :SCALAR "eroded"
                                (lambda (mp)
                                  (/ (cl-mpm/particle::mp-eroded-volume mp) (cl-mpm/particle::mp-mass mp))))
+  (cl-mpm/output:add-mp-output *sim* :SCALAR "eroded-increment"
+                               (lambda (mp)
+                                 (/ (- (cl-mpm/particle::mp-eroded-volume mp)
+                                       (cl-mpm/particle::mp-eroded-volume-n mp))
+                                    (cl-mpm/particle::mp-mass mp))))
 
   (macrolet ((damage-val (mp &body body)
                `(if (typep ,mp 'cl-mpm/particle::particle-damage)
@@ -772,7 +779,7 @@
 
     (unless debug
       (reduced-output-data *sim*))
-    (cl-mpm::domain-sort-mps *sim*)
+    ;; (cl-mpm::domain-sort-mps *sim*)
 
     (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree)
       (setf (cl-mpm/dynamic-relaxation::sim-intra-mesh-aggregation *sim*) t)
@@ -934,7 +941,7 @@
   (let* ((mps 3)
          (H 600d0)
          (density 918d0)
-         (water-damping 100d0)
+         (water-damping 10d0)
          )
     (setf *delay-time* 1d2)
     (defparameter *length-scaler* 3d0)
@@ -950,7 +957,7 @@
            :melange nil
            :aspect 2d0
            :slope 0d0
-           :floatation-ratio 1.1d0
+           :floatation-ratio 0.7d0
            ;; :floatation-ratio 1.00d0
            :use-penalty t
            :extra-offset 0
@@ -984,9 +991,9 @@
        :dt 1d0
        :total-time 1d5
        ;; :dt-scale 1000d0
-       :dt-scale 0.5d0
+       :dt-scale 0.90d0
        :mass-scale 1d0
-       :damping 1d-4
+       :damping 1d-3
        :enable-plastic nil
        :enable-damage nil
        :conv-criteria 1d-3
@@ -1006,8 +1013,9 @@
           ;; (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
           ;; (cl-mpm::sim-ghost-factor *sim*) (* density 1d-4)
           ;; (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-9)
-          ))
-
+          )
+         ;; (setf (cl-mpm/penalty::bc-penalty-damping *sim*) 1d-1)
+         )
        :plotter
        (lambda (sim)
          (plot-domain)
@@ -1123,7 +1131,7 @@
        :max-plastic-inc nil
        :max-deformation-gradient 4d0
        :min-tangent-ratio 1d-1
-       :conv-criteria 1d-2
+       :conv-criteria 1d-6
        :save-vtk-loadstep t
        :save-vtk-dr debug
        :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
@@ -1152,6 +1160,7 @@
          (setf (cl-mpm/bc::bc-enable *bc-erode*) erode)
          (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic)
              (setf (cl-mpm/dynamic-relaxation::sim-true-damping *sim*) (* 1d-3 (cl-mpm/setup::estimate-critical-damping *sim*))))
+         (break)
          (setf
           (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
           (cl-mpm::sim-ghost-factor *sim*) nil))
@@ -1624,7 +1633,6 @@
        :VECTOR
        "inertia"
        #'cl-mpm/mesh::node-inertia-force)
-      (cl-mpm::domain-sort-mps *sim*)
 
       (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree)
         (setf (cl-mpm/dynamic-relaxation::sim-intra-mesh-aggregation *sim*) t)
