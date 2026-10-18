@@ -43,13 +43,14 @@
 
 
 (defclass cl-mpm/particle::particle-ice-erodable (cl-mpm/particle::particle-ice-delayed
-                                                    cl-mpm/particle::particle-erosion)
+                                                  cl-mpm/particle::particle-erosion)
   ())
 
 
 (defmethod cl-mpm/erosion::mp-erosion-enhancment ((mp cl-mpm/particle::particle-ice-erodable))
   ;; (+ 1d0 (* 10 (cl-mpm/particle::mp-damage mp)))
-  (expt (the double-float (cl-mpm/particle::mp-av-damage mp)) 2)
+  ;; (expt (the double-float (cl-mpm/particle::mp-av-damage mp)) 2)
+  (expt (the double-float (cl-mpm/particle::mp-damage mp)) 2)
   ;; (let ((crit 0.9d0))
   ;;   (expt
   ;;    (/ (max (- (cl-mpm/particle::mp-av-damage mp) crit) 0d0) (- 1d0 0.9d0))
@@ -245,7 +246,7 @@
                                                 ;; :refinement multigrid-refines
                                                 :max-split-depth 3
                                                 :enable-split t
-                                                :tangent-average-factor 0.99d0
+                                                :tangent-average-factor 0.5d0
                                                 :damage-conv-crit 1d-3
                                                 ;; :mp-removal-size 0.5d0
                                                 ;; :damage-removal t
@@ -464,8 +465,8 @@
       (cl-mpm/erosion::make-bc-erode-uniform
        *sim*
        :enable nil
-       :rate 1d-5
-       :max-increment 0.9d0
+       :rate 1d-6
+       :max-increment 0.5d0
        )
       ;; (cl-mpm/erosion::make-bc-erode
       ;;  *sim*
@@ -694,10 +695,7 @@
                                (lambda (mp)
                                  (/ (cl-mpm/particle::mp-eroded-volume mp) (cl-mpm/particle::mp-mass mp))))
   (cl-mpm/output:add-mp-output *sim* :SCALAR "eroded-increment"
-                               (lambda (mp)
-                                 (/ (- (cl-mpm/particle::mp-eroded-volume mp)
-                                       (cl-mpm/particle::mp-eroded-volume-n mp))
-                                    (cl-mpm/particle::mp-mass mp))))
+                               (lambda (mp) (/ (cl-mpm/particle::mp-eroded-increment mp) (cl-mpm/particle::mp-mass mp))))
 
   (macrolet ((damage-val (mp &body body)
                `(if (typep ,mp 'cl-mpm/particle::particle-damage)
@@ -1125,13 +1123,13 @@
        :sub-conv-steps 500
        :min-adaptive-steps -14
        :max-adaptive-steps 14
-       :adaption-constant 4
+       :adaption-constant 2
        :adaption-easy-steps 4
-       :max-damage-inc 0.5d0
+       :max-damage-inc 0.9d0
        :max-plastic-inc nil
        :max-deformation-gradient 4d0
        :min-tangent-ratio 1d-1
-       :conv-criteria 1d-6
+       :conv-criteria 1d-3
        :save-vtk-loadstep t
        :save-vtk-dr debug
        :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
