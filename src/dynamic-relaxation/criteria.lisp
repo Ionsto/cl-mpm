@@ -228,52 +228,7 @@
         (if (> oobf-denom 0d0)
             (setf oobf (/ oobf-num oobf-denom))
             (setf oobf (if (> oobf-num 0d0) sb-ext:double-float-positive-infinity 0d0)))
-        ;; (when (and *debug-oobf*
-        ;;            (> oobf-denom 0d0))
-        ;;   (cl-mpm::iterate-over-nodes
-        ;;    (cl-mpm:sim-mesh sim)
-        ;;    (lambda (node)
-        ;;      (with-accessors ((active cl-mpm/mesh::node-active)
-        ;;                       (agg cl-mpm/mesh::node-agg)
-        ;;                       (int cl-mpm/mesh::node-interior)
-        ;;                       (f-ext cl-mpm/mesh::node-external-force)
-        ;;                       ;; (f-int cl-mpm/mesh::node-internal-force)
-        ;;                       (f-int cl-mpm/mesh::node-force)
-        ;;                       (n-mass cl-mpm/mesh::node-mass)
-        ;;                       (node-oobf cl-mpm/mesh::node-oobf))
-        ;;          node
-        ;;        (if (and active
-        ;;                 ;; (or
-        ;;                 ;;  int
-        ;;                 ;;  (not agg))
-        ;;                 )
-        ;;            (setf node-oobf
-        ;;                  (if (> oobf 0d0)
-        ;;                      (cl-mpm/fastmaths::mag-squared f-int)
-        ;;                      ;; (/ (cl-mpm/fastmaths::mag f-int)
-        ;;                      ;;  ;; (* n-mass (cl-mpm/fastmaths::mag f-int))
-        ;;                      ;;    oobf-denom)
-        ;;                      0d0
-        ;;                      ))
-        ;;          (setf node-oobf 0d0)))))
-
-        ;;   (cl-mpm::iterate-over-nodes
-        ;;    (cl-mpm:sim-mesh sim)
-        ;;    (lambda (node)
-        ;;      (with-accessors ((active cl-mpm/mesh::node-active)
-        ;;                       (agg cl-mpm/mesh::node-agg)
-        ;;                       (int cl-mpm/mesh::node-interior)
-        ;;                       (node-oobf cl-mpm/mesh::node-oobf))
-        ;;          node
-        ;;        (when (and active
-        ;;                   ;; agg
-        ;;                   ;int
-        ;;                   )
-        ;;          (setf node-oobf (/ (sqrt (max node-oobf 0d0)) oobf-denom))
-        ;;          ))))
-        ;;   )
-        (values energy oobf power)
-        ))))
+        (values energy oobf power)))))
 
 (defgeneric estimate-energy-norm (sim))
 (defmethod estimate-energy-norm ((sim cl-mpm::mpm-sim))
@@ -836,13 +791,16 @@
   (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
                    (stats-oobf cl-mpm::sim-stats-oobf)
                    (stats-power cl-mpm::sim-stats-power)
-                   (stats-work cl-mpm::sim-stats-work))
+                   (stats-work cl-mpm::sim-stats-work)
+                   (stats-strain cl-mpm::sim-stats-strain-energy)
+                   )
       sim
     (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats-aggregated sim)
       (setf stats-energy e
             stats-oobf o
             stats-power p)
       (incf stats-work p))
+    ;; (setf )
     (setf stats-oobf (displacement-convergence-norm sim))
     ;; (if (cl-mpm/aggregate::sim-enable-aggregate sim)
     ;;    ;;Other

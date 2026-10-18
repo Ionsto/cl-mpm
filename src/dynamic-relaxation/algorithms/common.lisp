@@ -68,12 +68,12 @@
 (defgeneric save-timestep-preamble (sim output-dir))
 (defmethod save-timestep-preamble (sim output-dir)
   (with-open-file (stream (merge-pathnames output-dir "./timesteps.csv") :direction :output :if-exists :supersede)
-    (cl-mpm:sim-format sim stream "steps,time,damage,plastic,energy,oobf,work,step-type,mass~%")))
+    (cl-mpm:sim-format sim stream "steps,time,damage,plastic,energy,oobf,work,strain-energy,step-type,mass~%")))
 
 (defmethod save-timestep ((sim cl-mpm:mpm-sim) output-dir step type)
   (when (uiop:file-exists-p (merge-pathnames output-dir "timesteps.csv"))
     (with-open-file (stream (merge-pathnames "timesteps.csv" output-dir) :direction :output :if-exists :append)
-      (cl-mpm:sim-format sim stream "~D,~f,~f,~f,~f,~f,~f,~A,~f~%"
+      (cl-mpm:sim-format sim stream "~D,~f,~f,~f,~f,~f,~f,~f,~A,~f~%"
               step
               (cl-mpm::sim-time sim)
               (get-damage sim)
@@ -81,6 +81,7 @@
               (cl-mpm::sim-stats-energy sim)
               (cl-mpm::sim-stats-oobf sim)
               (cl-mpm::sim-stats-work sim)
+              (cl-mpm::sim-stats-strain-energy sim)
               type
               0d0))))
 

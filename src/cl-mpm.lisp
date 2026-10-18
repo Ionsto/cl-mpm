@@ -214,6 +214,10 @@
     :type double-float
     :accessor sim-stats-work
     :initform 0d0)
+   (stats-strain-energy
+    :type double-float
+    :accessor sim-stats-strain-energy
+    :initform 0d0)
    (mass-filter
      :type double-float
      :accessor sim-mass-filter

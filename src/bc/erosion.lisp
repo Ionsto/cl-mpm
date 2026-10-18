@@ -20,6 +20,9 @@
    (eroded-volume-n
     :initform 0d0
     :accessor mp-eroded-volume-n)
+   (eroded-increment
+    :initform 0d0
+    :accessor mp-eroded-increment)
    (erosion-modulus
     :accessor mp-erosion-modulus
     :initform 1d0
@@ -98,9 +101,10 @@
                             (mass cl-mpm/particle::mp-mass)
                             (erode cl-mpm/particle::mp-eroded-volume)
                             (erode-n cl-mpm/particle::mp-eroded-volume-n)
+                            (inc cl-mpm/particle::mp-eroded-increment)
                             (erosion-modulus cl-mpm/particle::mp-erosion-modulus))
                mp
-             (declare (double-float volume mass erode erosion-modulus erode erode-n))
+             (declare (double-float volume mass erode erosion-modulus erode erode-n inc))
              (let ((weathering 0d0))
                (declare (double-float weathering))
                (cl-mpm:iterate-over-neighbours
@@ -128,7 +132,7 @@
                (setf weathering (* (/ weathering erosion-modulus) dt))
                (setf (cl-mpm/particle::mp-boundary mp) weathering)
                (setf erode (+ erode-n weathering))
-               ))))))))
+               (setf inc (- erode erode-n))))))))))
 
 (defmethod cl-mpm/bc::apply-sim-bc (sim (bc bc-erode-surface) dt)
   (apply-erosion bc (cl-mpm:sim-mesh sim) dt))
