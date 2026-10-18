@@ -465,7 +465,7 @@
       (cl-mpm/erosion::make-bc-erode-uniform
        *sim*
        :enable nil
-       :rate 1d-6
+       :rate 1d-5
        :max-increment 0.5d0
        )
       ;; (cl-mpm/erosion::make-bc-erode
@@ -1108,7 +1108,8 @@
     (setf (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND)
     ;; (setf (cl-mpm/dynamic-relaxation::sim-enable-dynamics *sim*) nil)
     (let ((step 0)
-          (substeps (* 2 (ceiling (* 10 (floor H 100) (/ 10d0 (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))))))
+          (substeps (* 4 (ceiling (* 10 (floor H 100) (/ 10d0 (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))))))
+          ;; (substeps 1)
           (elastic-dt (cl-mpm/setup::estimate-elastic-dt *sim*)))
       (format t "Substeps ~D~%" substeps)
       (cl-mpm/dynamic-relaxation::run-quasi-time
@@ -1128,7 +1129,7 @@
        :max-damage-inc 0.9d0
        :max-plastic-inc nil
        :max-deformation-gradient 4d0
-       :min-tangent-ratio 1d-1
+       :min-tangent-ratio nil;1d-1
        :conv-criteria 1d-3
        :save-vtk-loadstep t
        :save-vtk-dr debug
@@ -1158,7 +1159,6 @@
          (setf (cl-mpm/bc::bc-enable *bc-erode*) erode)
          (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic)
              (setf (cl-mpm/dynamic-relaxation::sim-true-damping *sim*) (* 1d-3 (cl-mpm/setup::estimate-critical-damping *sim*))))
-         (break)
          (setf
           (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
           (cl-mpm::sim-ghost-factor *sim*) nil))
