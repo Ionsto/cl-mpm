@@ -489,10 +489,11 @@
       (cl-mpm/damage::update-localisation sim dt)
       (let* ((yconv (cl-mpm/damage::compute-ybar-delta sim))
              (yconv-prev yconv)
-             (crit (min
-                    1d-3
-                    damage-conv-crit
-                    conv-crit)))
+             (crit
+               (* 0.5d0
+                  (min
+                   damage-conv-crit
+                   conv-crit))))
         (declare (double-float crit yconv yconv-prev))
         ;; (format t "Yconv ~E~%" yconv)
         (when (> yconv crit)

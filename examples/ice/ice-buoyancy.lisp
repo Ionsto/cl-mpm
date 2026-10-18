@@ -138,8 +138,8 @@
                ;; (cl-mpm/damage::tensile-energy-norm strain e de)
                ;; (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure angle)
                ;; (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress angle)
-               (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure angle)
-               ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress-pressure angle)
+               ;; (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure angle)
+               (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress-pressure angle)
                ;; (cl-mpm/damage::criterion-mohr-coloumb-gill strain angle e nu)
                ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress-pressure angle)
                ;; (cl-mpm/damage::drucker-prager-criterion stress angle)
@@ -541,7 +541,7 @@
     (cl-mpm/output:add-mp-output
      *sim*
      :SCALAR
-     "damage-tcs-volumetric-degredation"
+     "damage-porosity"
      #'cl-mpm/particle::mp-pressure-degredation)
 
 
@@ -555,9 +555,9 @@
      :SCALAR
      "damage-nl-delta"
      (lambda (mp) (- (cl-mpm/particle::mp-damage-ybar mp) (cl-mpm/particle::mp-damage-y-local mp))))
-    ;; (cl-mpm/output:add-mp-output *sim* :SCALAR "eroded"
-    ;;                              (lambda (mp)
-    ;;                                (/ (cl-mpm/particle::mp-eroded-volume mp) (cl-mpm/particle::mp-mass mp))))
+    (cl-mpm/output:add-mp-output *sim* :SCALAR "eroded"
+                                 (lambda (mp)
+                                   (/ (cl-mpm/particle::mp-eroded-volume mp) (cl-mpm/particle::mp-mass mp))))
     (cl-mpm/output:add-mp-output
      *sim*
      :SCALAR
@@ -1074,6 +1074,7 @@
            :use-penalty t)
 
     (cl-mpm/output:add-mp-output *sim* :SCALAR "plastic-c" #'cl-mpm/particle::mp-c)
+    (cl-mpm/output:add-mp-output *sim* :VECTOR "body-force" #'cl-mpm/particle::mp-body-force)
     (setup-settings)
 
     (cl-mpm/output:add-node-output
@@ -1118,7 +1119,7 @@
        :max-adaptive-steps 14
        :adaption-constant 4
        :adaption-easy-steps 4
-       :max-damage-inc 0.9d0
+       :max-damage-inc 0.5d0
        :max-plastic-inc nil
        :max-deformation-gradient 4d0
        :min-tangent-ratio 1d-1
@@ -2121,3 +2122,18 @@
      :aspect 6d0
      ))
   )
+
+;; (let* ((mp (cl-mpm/setup::find-mp *sim* (cl-mpm/utils:vector-from-list (list 1456d0 522d0 0d0))))
+;;        (p (cl-mpm/particle::mp-pressure mp))
+;;        (e (cl-mpm/particle::mp-e mp))
+;;        (nu (cl-mpm/particle::mp-nu mp))
+;;        (k (cl-mpm/utils::calculate-bulk-modulus e nu))
+;;        (theta (log (cl-mpm/particle::mp-deformation-jacobian-strain mp)))
+;;        (volumetric-damage 1d0)
+;;        (porosity (+
+;;                   (* -1d0 p (/ volumetric-damage k))
+;;                   ;; (* volumetric-damage theta)
+;;                   )))
+;;   (pprint theta)
+;;   (pprint porosity)
+;;   )

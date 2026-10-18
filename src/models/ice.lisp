@@ -1042,7 +1042,7 @@
            (if (> pind 0d0)
                (- 1d0 damage-t)
                (- 1d0 damage-c)))
-          (setf (cl-mpm/particle::mp-pressure-degredation mp) p-deg)
+          ;; (setf (cl-mpm/particle::mp-pressure-degredation mp) p-deg)
           (setf p (* p p-deg))
 
           (setf stress

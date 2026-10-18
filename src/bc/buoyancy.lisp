@@ -1354,6 +1354,7 @@
                               (mp-body-force cl-mpm/particle::mp-body-force))
                  mp
                (declare (double-float mp-mass mp-volume-0 damage pressure-delay pressure-delay-n))
+               (setf (cl-mpm/particle::mp-pressure-degredation mp) 0d0)
                (let ((biot-delay-time 0d0))
                  (when (slot-exists-p mp 'cl-mpm/particle::biot-delay-time)
                    (setf biot-delay-time (the double-float (cl-mpm/particle::mp-biot-delay-time mp))))
@@ -1383,7 +1384,16 @@
                      (* (- 1d0 factor) pressure-delay-n)))
                    (when (and (typep mp 'cl-mpm/particle::particle-damage)
                               (> damage 0d0))
-                     (let ((biot 1d0))
+                     (let* ((biot 1d0)
+                            (p-center (pressure-at-depth
+                                       (varef (get-mp-position mp) 1)
+                                       datum
+                                       rho
+                                       (cl-mpm:sim-gravity sim)
+                                       ))
+                            (e (cl-mpm/particle::mp-e mp))
+                            (nu (cl-mpm/particle::mp-nu mp))
+                            (k (cl-mpm/utils::calculate-bulk-modulus e nu)))
                        (declare (double-float biot damage))
                        (when (slot-exists-p mp 'cl-mpm/particle::biot-coefficent)
                          (setf biot (cl-mpm/particle::mp-biot-coefficent mp)))
@@ -1400,17 +1410,25 @@
                        ;;     reg))
                        ;;  )
 
-                       (buoyancy-virtual-div-regular
-                        (varef (get-mp-position mp) 1)
-                        datum
-                        (*
-                         -1d0
-                         biot
-                         (compute-volumetric-damage mp)
-                         (- rho (/ mp-mass mp-volume)))
-                        gravity
-                        (cl-mpm/particle::mp-buoyancy-gimp-length mp)
-                        (cl-mpm/particle::mp-body-force mp))
+                       (let* ((volumetric-damage (compute-volumetric-damage mp))
+                              (alpha (* biot volumetric-damage))
+                              (porosity (+
+                                         (* -1d0 p-center (/ alpha k))
+                                         (* alpha (log (cl-mpm/particle::mp-deformation-jacobian-strain mp))))))
+                         (declare (double-float p-center volumetric-damage porosity))
+                         (setf (cl-mpm/particle::mp-pressure-degredation mp) porosity)
+                         (buoyancy-virtual-div-regular
+                          (varef (get-mp-position mp) 1)
+                          datum
+                          (*
+                           -1d0
+                           (min 1d0 (max 0d0 porosity))
+                           ;; biot
+                           ;; (compute-volumetric-damage mp)
+                           (- rho (/ mp-mass mp-volume)))
+                          gravity
+                          (cl-mpm/particle::mp-buoyancy-gimp-length mp)
+                          (cl-mpm/particle::mp-body-force mp)))
 
                        ;; (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
                        ;;       (calculate-val-mp

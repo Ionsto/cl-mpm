@@ -9,14 +9,25 @@
 
 ;; (defparameter *max-erosion-per-step* )
 
-(defmethod convergence-check :after ((sim cl-mpm::mpm-sim))
-  (cl-mpm:iterate-over-mps
-   (cl-mpm:sim-mps sim)
-   (lambda (mp)
-     (when (typep mp 'cl-mpm/particle::particle-erosion)
-       (let ((inc (/ (- (cl-mpm/particle::mp-eroded-volume mp)
-                        (cl-mpm/particle::mp-eroded-volume-n mp))
-                     (cl-mpm/particle::mp-mass mp))))
-         (when (> inc 0.25d0)
-           (format t "Erosion criteria exceeded~%")
-           (error (make-instance 'error-erosion-criteria :max-erosion-inc inc))))))))
+(defmethod convergence-check :after ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr))
+  (let ((max-erosion-inc nil))
+    (cl-mpm::iterate-over-bcs-force-serial
+     sim
+     (lambda (bc)
+       (when (typep bc 'cl-mpm/erosion::bc-erode)
+         (unless max-erosion-inc
+           (setf max-erosion-inc (cl-mpm/erosion::bc-erode-max-erosion bc)))
+         (setf max-erosion-inc
+               (min (cl-mpm/erosion::bc-erode-max-erosion bc)
+                    max-erosion-inc)))))
+    (when max-erosion-inc
+      (cl-mpm:iterate-over-mps
+       (cl-mpm:sim-mps sim)
+       (lambda (mp)
+         (when (typep mp 'cl-mpm/particle::particle-erosion)
+           (let ((inc (/ (- (cl-mpm/particle::mp-eroded-volume mp)
+                            (cl-mpm/particle::mp-eroded-volume-n mp))
+                         (cl-mpm/particle::mp-mass mp))))
+             (when (> inc max-erosion-inc)
+               (format t "Erosion criteria exceeded~%")
+               (error (make-instance 'error-erosion-criteria :max-erosion-inc inc))))))))))

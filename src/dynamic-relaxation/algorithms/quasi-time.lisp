@@ -30,8 +30,8 @@
         (tn-average nil)
         ;;Factor of 0 means use this tangent, approaching 1 means more averaging
         ;; (tn-average-factor 0.5d0)
-        (tn-average-factor 0.9d0)
-        ;; (tn-average-factor (sim-tangent-average-factor sim))
+        ;; (tn-average-factor 0.9d0)
+        (tn-average-factor (sim-tangent-average-factor sim))
         (rsteps 0)
         (bad-initial-tangents 2))
     (flet ((reset-tangent ()

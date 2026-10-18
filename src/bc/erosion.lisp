@@ -39,7 +39,12 @@
   ((damage-rate
     :initform 1d0
     :initarg :damage-rate
-    :accessor bc-water-damage-damage-rate)))
+    :accessor bc-water-damage-damage-rate)
+   (max-erosion-per-step
+    :initform 0.5d0
+    :initarg :max-erosion-per-step
+    :accessor bc-erode-max-erosion)
+   ))
 
 (defclass bc-erode-surface (bc-erode cl-mpm/buoyancy::bc-scalar)
   ())
