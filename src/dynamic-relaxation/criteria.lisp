@@ -800,7 +800,7 @@
             stats-oobf o
             stats-power p)
       (incf stats-work p))
-    ;; (setf )
+    (setf stats-strain (estimate-strain-energy sim))
     (setf stats-oobf (displacement-convergence-norm sim))
     ;; (if (cl-mpm/aggregate::sim-enable-aggregate sim)
     ;;    ;;Other
@@ -817,6 +817,7 @@
   (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
                    (stats-oobf cl-mpm::sim-stats-oobf)
                    (stats-power cl-mpm::sim-stats-power)
+                   (stats-strain cl-mpm::sim-stats-strain-energy)
                    (stats-work cl-mpm::sim-stats-work))
       sim
     (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats-aggregated sim)
@@ -824,6 +825,7 @@
             stats-oobf o
             stats-power p)
       (incf stats-work p))
+    (setf stats-strain (estimate-strain-energy sim))
     ;; (if (cl-mpm/aggregate::sim-enable-aggregate sim)
     ;;    ;;Other
     ;;    ;; (progn)
