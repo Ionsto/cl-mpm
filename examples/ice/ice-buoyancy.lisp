@@ -475,7 +475,7 @@
        :enable nil
        :rate 1d-4
        :scalar-func (lambda (pos)
-                      (if (<= datum (cl-mpm/utils:varef pos 1))
+                      (if (>= datum (cl-mpm/utils:varef pos 1))
                           1d0 0d0))
        :clip-func (lambda (pos)
                     t
