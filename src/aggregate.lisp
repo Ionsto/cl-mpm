@@ -598,7 +598,7 @@
              (cl-mpm/mesh::cell-interior node) nil)))
 
     (when t
-      (let ((volume-ratio 0.1d0))
+      (let ((volume-ratio 0.2d0))
         (cl-mpm::iterate-over-nodes
          mesh
          (lambda (node)
