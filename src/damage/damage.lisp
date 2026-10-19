@@ -908,7 +908,7 @@ Calls the function with the mesh mp and node"
      (lambda (mp-other)
        (let ((length (if +damage-half-average+
                          (min
-                          (/ (cl-mpm/mesh::mesh-resolution mesh) 1d0)
+                          (cl-mpm/mesh::mesh-resolution mesh)
                           ;; (/ length 2d0)
                           )
                          length)))

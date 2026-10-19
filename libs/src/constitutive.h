@@ -282,7 +282,7 @@ namespace constitutive{
         dep.block<3,3>(3,3) = T * dep.block<3,3>(3,3);
         dep = Q.transpose() * dep * Q;
         // Eigen::Matrix<double,3,1> pinc = (epsE - epsEtr).reverse();
-        Eigen::Matrix<double,3,1> pinc = (epsE - epsEtr);
+        Eigen::Matrix<double,3,1> pinc = ((epsE.array()-(1.0/3.0)*epsE.sum()).matrix() - (epsEtr.array()-(1.0/3.0)*epsEtr.sum()).matrix());
         const double psinc = std::sqrt((2.0/3.0) * pinc.squaredNorm());
         // const double psinc = sig.dot(pinc);
         // const double psinc = std::sqrt(0.5 *

@@ -172,6 +172,7 @@
                             (mass cl-mpm/particle::mp-mass)
                             (erode cl-mpm/particle::mp-eroded-volume)
                             (erode-n cl-mpm/particle::mp-eroded-volume-n)
+                            (inc cl-mpm/particle::mp-eroded-increment)
                             (erosion-modulus cl-mpm/particle::mp-erosion-modulus))
                mp
              (declare (double-float volume mass erode erosion-modulus erode erode-n))
@@ -179,7 +180,8 @@
                (declare (double-float weathering))
                (setf weathering (* weathering volume (mp-erosion-enhancment mp)))
                (setf weathering (* (/ weathering erosion-modulus) dt))
-               (setf erode (+ erode-n weathering))))))))))
+               (setf erode (+ erode-n weathering))
+               (setf inc (- erode erode-n))))))))))
 
 (defmethod cl-mpm/bc::apply-sim-bc (sim (bc bc-erode-uniform) dt)
   (apply-erosion-uniform sim bc (cl-mpm:sim-mesh sim) dt))
