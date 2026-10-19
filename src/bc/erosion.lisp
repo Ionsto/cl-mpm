@@ -97,7 +97,7 @@
        (cl-mpm:sim-mps sim)
        (lambda (mp)
          (when (typep mp 'cl-mpm/particle::particle-erosion)
-           (with-accessors ((volume cl-mpm/particle::mp-volume)
+           (with-accessors ((volume cl-mpm/particle::mp-volume-n)
                             (mass cl-mpm/particle::mp-mass)
                             (erode cl-mpm/particle::mp-eroded-volume)
                             (erode-n cl-mpm/particle::mp-eroded-volume-n)
@@ -117,14 +117,8 @@
                                    (node-active cl-mpm/mesh::node-active))
                       node
                     (when (and node-active
-                               boundary-node
-                               )
-                                        ;(incf weathering (* svp (/ node-boundary-scalar node-volume)))
-                      (incf weathering (* svp (/ node-boundary-scalar node-volume)))
-                      ;; (when (> node-boundary-scalar 0d0)
-                      ;;   )
-                      ;; (format t "~E ~%" weathering)
-                      ))))
+                               boundary-node)
+                      (incf weathering (* svp (/ node-boundary-scalar node-volume)))))))
 
                (setf weathering (max weathering 0d0))
                (setf weathering (* rate (* weathering volume)))
@@ -135,7 +129,7 @@
                (setf inc (- erode erode-n))))))))))
 
 (defmethod cl-mpm/bc::apply-sim-bc (sim (bc bc-erode-surface) dt)
-  (apply-erosion bc (cl-mpm:sim-mesh sim) dt))
+  (apply-erosion-surface bc (cl-mpm:sim-mesh sim) dt))
 
 (defmethod cl-mpm::new-loadstep :after ((sim cl-mpm::mpm-sim))
   (cl-mpm::remove-mps-func
