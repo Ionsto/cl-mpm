@@ -640,7 +640,7 @@
             (declare (double-float volume pressure mp-mass))
             (let* ((penetration (penetration-distance-point point datum normal))
                    (contact-area (* 1d0 (the double-float (expt volume (/ (- nd 1) nd)))))
-                   (regularisation-length (/ h 2))
+                   (regularisation-length (* h 0.05))
                    (epsilon-regularisation (- 1d0 (exp (- (/ (max 0d0 penetration) regularisation-length)))))
                    (epsilon (* epsilon epsilon-regularisation))
                    (normal-force (*

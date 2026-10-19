@@ -29,15 +29,17 @@
 (defparameter *length-scaler* 2d0)
 (defparameter *gf* 10000d0)
 (defparameter *ductility* 10d0)
-(defparameter *tensile-strength* 0.1d6)
+(defparameter *tensile-strength* 0.15d6)
 ;; (defparameter *biot-coefficent* 0.619d0)
 ;; (defparameter *biot-coefficent* 0.552d0)
 (defparameter *biot-coefficent* 0.9d0)
 (defparameter *alpha* 1d0)
-(defparameter *viscoplastic-hardening* 1d2)
+(defparameter *viscoplastic-hardening* 1d4)
 ;; (defparameter *alpha* 0.5d0)
 ;; (defparameter *alpha* 0.619d0)
 (defparameter *material-damping* 0d-3)
+
+(defparameter *epsilon-scale* 1d-1)
 
 ;; (defparameter *alpha* 0.4d0)
 
@@ -246,7 +248,7 @@
                                                 ;; :refinement multigrid-refines
                                                 :max-split-depth 3
                                                 :enable-split t
-                                                :tangent-average-factor 0.5d0
+                                                :tangent-average-factor 0.8d0
                                                 :damage-conv-crit 1d-3
                                                 ;; :mp-removal-size 0.5d0
                                                 ;; :damage-removal t
@@ -735,8 +737,7 @@
 (defun calving-test (&key (output-dir "./output/") (H 600d0)
                        (refine 0.125)
                        (debug t)
-                       (erode t)
-                       )
+                       (erode t))
   (cl-mpm/utils::set-workers 8)
   (let* ((mps 3)
          (dt 1d3)
@@ -989,7 +990,7 @@
        :dt 1d0
        :total-time 1d5
        ;; :dt-scale 1000d0
-       :dt-scale 0.90d0
+       :dt-scale 0.50d0
        :mass-scale 1d0
        :damping 1d-3
        :enable-plastic nil
@@ -1129,7 +1130,7 @@
        :max-damage-inc 0.9d0
        :max-plastic-inc nil
        :max-deformation-gradient 4d0
-       :min-tangent-ratio nil;1d-1
+       :min-tangent-ratio 1d-1
        :conv-criteria 1d-3
        :save-vtk-loadstep t
        :save-vtk-dr debug
@@ -2143,3 +2144,12 @@
 ;;   (pprint theta)
 ;;   (pprint porosity)
 ;;   )
+
+
+
+
+(let ((height 400d0)
+      (h-x (/ 10d0 0.25d0))
+      )
+  ;(cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*))
+  (pprint (ceiling (* 20 (/ height 100) (/ 10d0 h-x)))))
