@@ -74,7 +74,7 @@
   (cl-mpm::update-domain-polar mesh mp dt)
   ;; (cl-mpm::update-domain-midpoint mesh mp dt)
   ;; (cl-mpm::update-domain-deformation mesh mp dt)
-  ;; (cl-mpm::scale-domain-size mesh mp)
+  (cl-mpm::scale-domain-size mesh mp)
   ;; (when (= (cl-mpm/particle::mp-split-depth mp) (- (cl-mpm::sim-max-split-depth *sim*) 0))
   ;;   (cl-mpm::clamp-domains mesh mp))
   )
