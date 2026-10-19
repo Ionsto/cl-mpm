@@ -273,8 +273,8 @@
                                    (mass cl-mpm/particle::mp-mass))
                       mp
                     (declare (double-float inc))
-                    (expt inc 2)
-                    ;; (expt damage 2)
+                    ;; (expt inc 2)
+                    (expt damage 2)
                     )
                   0d0))))
          (err 0d0)

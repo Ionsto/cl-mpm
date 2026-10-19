@@ -230,12 +230,13 @@ Calls func with only the node"
 
 (defmethod reduce-over-global-mps-sum ((sim cl-mpm::mpm-sim) map)
   (declare (function map))
-  (if (> (length (cl-mpm::sim-mps sim)) 0)
-      (lparallel:pmap-reduce
-       map
-       #'+
-       (cl-mpm:sim-mps sim))
-      0d0))
+  (let ((mps (cl-mpm::sim-mps sim)))
+    (if (and mps (> (length mps) 0))
+        (lparallel:pmap-reduce
+         map
+         #'+
+         (cl-mpm:sim-mps sim))
+        0d0)))
 
 (defmethod reduce-over-global-mps-max ((sim cl-mpm::mpm-sim) map)
   (declare (function map))
