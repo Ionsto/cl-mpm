@@ -204,6 +204,7 @@
                 (stick-base t)
                 (epsilon-scale 1d0)
                 (E 1d9)
+                (surface-erosion t)
                 )
   (let* ((density 918d0)
          (water-density 1028d0)
@@ -464,28 +465,20 @@
     ;; (setf (cl-mpm/penalty::bc-penalty-stiffness-scale *floor-bc*) 1d0)
 
     (defparameter *bc-erode*
-      ;; (cl-mpm/erosion::make-bc-erode-uniform
-      ;;  *sim*
-      ;;  :enable nil
-      ;;  :rate 1d-5
-      ;;  :max-increment 0.5d0
-      ;;  )
-      (cl-mpm/erosion::make-bc-erode-surface
-       *sim*
-       :enable nil
-       :rate 1d-4
-       :scalar-func (lambda (pos)
-                      (if (>= datum (cl-mpm/utils:varef pos 1))
-                          1d0 0d0))
-       :clip-func (lambda (pos)
-                    t
-                    ;; (and
-                    ;;  (>= datum (cl-mpm/utils:varef pos 1))
-                    ;;  (<= (- datum (* 0.25d0 start-height)) (cl-mpm/utils:varef pos 1))
-                    ;;  ;; (>= (cl-mpm/utils:varef pos 1) (+ offset mesh-resolution) )
-                    ;;  )
-                    ))
-      )
+      (if surface-erosion
+          (cl-mpm/erosion::make-bc-erode-surface
+           *sim*
+           :enable nil
+           :rate 1d-4
+           :scalar-func (lambda (pos)
+                          (if (>= datum (cl-mpm/utils:varef pos 1))
+                              1d0 0d0))
+           :clip-func (lambda (pos) t))
+          (cl-mpm/erosion::make-bc-erode-uniform
+           *sim*
+           :enable nil
+           :rate 1d-5
+           :max-increment 0.5d0)))
     (when use-penalty
       (cl-mpm:add-bcs-force-list
        *sim*
