@@ -1077,13 +1077,26 @@
    (damage-ybar-instant
     :accessor mp-damage-ybar-instant
     :type DOUBLE-FLOAT
-    :initform 0d0
-    )
+    :initform 0d0)
+   (damage-ybar-instant-n
+    :accessor mp-damage-ybar-instant-n
+    :type DOUBLE-FLOAT
+    :initform 0d0)
    (damage-ybar-n
     :accessor mp-damage-ybar-n
     :type DOUBLE-FLOAT
     :initform 0d0
     :initarg :damage-ybar)
+
+   (damage-ybar-res
+    :accessor mp-damage-ybar-res
+    :type DOUBLE-FLOAT
+    :initform 0d0)
+   (damage-ybar-res-n
+    :accessor mp-damage-ybar-res-n
+    :type DOUBLE-FLOAT
+    :initform 0d0)
+
    (damage-ybar-prev
     :accessor mp-damage-ybar-prev
     :type DOUBLE-FLOAT

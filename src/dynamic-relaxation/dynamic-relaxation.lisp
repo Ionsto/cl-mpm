@@ -471,6 +471,7 @@
        (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress)
        (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float j)))))))
 
+
 (defmethod cl-mpm/damage::solve-localisation ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-damage) dt)
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
@@ -492,6 +493,7 @@
              (crit
                (* 0.1d0
                   (min
+                   1d-3
                    damage-conv-crit
                    conv-crit))))
         (declare (double-float crit yconv yconv-prev))
@@ -511,17 +513,21 @@
                        (setf yconv-prev yconv)
                        (setf yconv (cl-mpm/damage::compute-ybar-delta sim))
                        ;; (format t "Iter ~D ~E ~E~%" iter yconv ybar-relax)
-                       (when (> yconv yconv-prev)
-                         (format t "Internal damage iter struggled applying relaxation ~D ~E - ~E ~E~%" iter ybar-relax yconv yconv-prev)
-                         (setf ybar-relax
-                               (min 0.99d0
-                                    (if (= 0d0 ybar-relax)
-                                        0.1d0
-                                        (the double-float (sqrt ybar-relax))))))))
-            (when (> ybar-relax 0d0)
-              (format t "Iter ~D ~E ~E~%" iter yconv ybar-relax))
-            (when (and (> iter 10) (not (> ybar-relax 0d0)))
-              (format t "Iter ~D ~E~%" iter yconv))
+                       ;; (format t "Optimal relaxation ~E~%" (cl-mpm/damage::compute-relaxation-factor sim))
+                       (setf ybar-relax (cl-mpm/damage::compute-relaxation-factor sim))
+                       ;; (when (> yconv yconv-prev)
+                       ;;   (format t "Internal damage iter struggled applying relaxation ~D ~E - ~E ~E~%" iter ybar-relax yconv yconv-prev)
+                       ;;   (setf ybar-relax
+                       ;;         (min 0.99d0
+                       ;;              (if (= 0d0 ybar-relax)
+                       ;;                  0.1d0
+                       ;;                  (the double-float (sqrt ybar-relax))))))
+                       ))
+            ;; (when (> ybar-relax 0d0)
+            ;;   (format t "Iter ~D ~E ~E~%" iter yconv ybar-relax))
+            (when (and (> iter 1) (not (> ybar-relax 0d0)))
+              (format t "Iter ~D ~E ~E~%" iter yconv ybar-relax)
+              )
             (when (> yconv crit)
               (setf ybar-relax 0d0)
               (error (make-instance 'non-convergence-error

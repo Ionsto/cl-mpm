@@ -273,9 +273,7 @@
                                    (mass cl-mpm/particle::mp-mass))
                       mp
                     (declare (double-float inc))
-                    ;; (expt inc 2)
-                    (expt damage 2)
-                    )
+                    (expt damage 2))
                   0d0))))
          (err 0d0)
          )
@@ -296,11 +294,9 @@
               (if (typep mp 'cl-mpm/particle::particle-damage)
                 (with-accessors ((damage cl-mpm/particle::mp-damage-ybar)
                                  (ybar-instant cl-mpm/particle::mp-damage-ybar-instant)
-                                 (damage-prev cl-mpm/particle::mp-damage-ybar-n))
+                                 (damage-prev cl-mpm/particle::mp-damage-ybar-instant-n))
                     mp
-                  ;; (expt (- damage damage-prev) 2)
-                  (expt (- damage damage-prev) 2)
-                  )
+                  (expt (- damage damage-prev) 2))
                 0d0))))
          (yd-incs
            (cl-mpm::reduce-over-global-mps-sum
@@ -319,6 +315,33 @@
                    0d0)))))
     err))
 
+
+(defun compute-relaxation-factor (sim)
+  (let ((num (cl-mpm::reduce-over-global-mps-sum
+              sim
+              (lambda (mp)
+                (let ((dx (- (cl-mpm/particle::mp-damage-ybar mp)
+                             (cl-mpm/particle::mp-damage-ybar-n mp))
+                          ))
+                  (* dx dx)))))
+        (denom (cl-mpm::reduce-over-global-mps-sum
+              sim
+              (lambda (mp)
+                (with-accessors ((y cl-mpm/particle::mp-damage-ybar)
+                                 (y-n cl-mpm/particle::mp-damage-ybar-n)
+                                 (yres cl-mpm/particle::mp-damage-ybar-res)
+                                 (yres-n cl-mpm/particle::mp-damage-ybar-res-n)
+                                 )
+                    mp
+                    (let ((dx (- y y-n))
+                          (dr (- yres
+                                 yres-n)))
+                      (* dx dr)))))))
+    ;; (format t "relax factors ~E ~E~%" num denom)
+    (if (= denom 0d0)
+        1d0
+        (max 0d0 (- (/ num denom)))
+        )))
 
 (defmethod solve-localisation ((sim mpm-sim-damage) dt)
   (with-accessors ((mps cl-mpm:sim-mps)
@@ -1341,11 +1364,18 @@ Calls the function with the mesh mp and node"
          (with-accessors ((damage-ybar cl-mpm/particle::mp-damage-ybar)
                           (damage-ybar-n cl-mpm/particle::mp-damage-ybar-n)
                           (damage-ybar-instant cl-mpm/particle::mp-damage-ybar-instant)
+                          (damage-ybar-instant-n cl-mpm/particle::mp-damage-ybar-instant-n)
+                          (damage-ybar-res cl-mpm/particle::mp-damage-ybar-res)
+                          (damage-ybar-res-n cl-mpm/particle::mp-damage-ybar-res-n)
                           (damage cl-mpm/particle::mp-damage)
                           (local-length-t cl-mpm/particle::mp-local-length))
              mp
            (setf damage-ybar-n
+                 damage-ybar)
+           (setf damage-ybar-instant-n
                  damage-ybar-instant)
+           (setf damage-ybar-res-n
+                 damage-ybar-res)
            (let ((ybar
                    (calculate-delocalised-damage
                     mesh
@@ -1355,6 +1385,7 @@ Calls the function with the mesh mp and node"
                  (relax (sim-damage-ybar-relaxation sim)))
              (declare (double-float damage-ybar-n ybar relax))
              (setf damage-ybar-instant ybar)
+             (setf damage-ybar-res (- damage-ybar ybar))
              (if (> relax 0d0)
                  (setf damage-ybar
                        (+ (* relax damage-ybar)
