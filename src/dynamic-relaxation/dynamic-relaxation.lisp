@@ -493,7 +493,7 @@
              (crit
                (* 0.1d0
                   (min
-                   1d-3
+                   1d-2
                    damage-conv-crit
                    conv-crit))))
         (declare (double-float crit yconv yconv-prev))
