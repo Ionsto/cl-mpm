@@ -29,17 +29,17 @@
 (defparameter *length-scaler* 2d0)
 (defparameter *gf* 10000d0)
 (defparameter *ductility* 10d0)
-(defparameter *tensile-strength* 0.15d6)
+(defparameter *tensile-strength* 0.1d6)
 ;; (defparameter *biot-coefficent* 0.619d0)
 ;; (defparameter *biot-coefficent* 0.552d0)
 (defparameter *biot-coefficent* 0.9d0)
 (defparameter *alpha* 1d0)
-(defparameter *viscoplastic-hardening* 1d4)
+(defparameter *viscoplastic-hardening* 0d4)
 ;; (defparameter *alpha* 0.5d0)
 ;; (defparameter *alpha* 0.619d0)
 (defparameter *material-damping* 0d-3)
 
-(defparameter *epsilon-scale* 1d-1)
+;; (defparameter *epsilon-scale* 1d-1)
 
 ;; (defparameter *alpha* 0.4d0)
 
@@ -74,7 +74,7 @@
   (cl-mpm::update-domain-polar mesh mp dt)
   ;; (cl-mpm::update-domain-midpoint mesh mp dt)
   ;; (cl-mpm::update-domain-deformation mesh mp dt)
-  (cl-mpm::scale-domain-size mesh mp)
+  ;; (cl-mpm::scale-domain-size mesh mp)
   ;; (when (= (cl-mpm/particle::mp-split-depth mp) (- (cl-mpm::sim-max-split-depth *sim*) 0))
   ;;   (cl-mpm::clamp-domains mesh mp))
   )
@@ -473,7 +473,8 @@
            :scalar-func (lambda (pos)
                           (if (>= datum (cl-mpm/utils:varef pos 1))
                               1d0 0d0))
-           :clip-func (lambda (pos) t))
+           :clip-func (lambda (pos) t)
+           :max-increment 0.5d0)
           (cl-mpm/erosion::make-bc-erode-uniform
            *sim*
            :enable nil
@@ -1125,7 +1126,7 @@
        :max-plastic-inc nil
        :max-deformation-gradient 4d0
        :min-tangent-ratio 1d-1
-       :conv-criteria 1d-3
+       :conv-criteria 1d-2
        :save-vtk-loadstep t
        :save-vtk-dr debug
        :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
@@ -1153,7 +1154,7 @@
        (lambda (sim)
          (setf (cl-mpm/bc::bc-enable *bc-erode*) erode)
          (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic)
-             (setf (cl-mpm/dynamic-relaxation::sim-true-damping *sim*) (* 1d-3 (cl-mpm/setup::estimate-critical-damping *sim*))))
+             (setf (cl-mpm/dynamic-relaxation::sim-true-damping *sim*) (* 1d1 (cl-mpm/setup::estimate-critical-damping *sim*))))
          (setf
           (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
           (cl-mpm::sim-ghost-factor *sim*) nil))
