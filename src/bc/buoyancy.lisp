@@ -1427,11 +1427,7 @@
                           (*
                            -1d0
                            porosity
-                           ;; biot
-                           ;; (compute-volumetric-damage mp)
-                           ;; (- rho (/ mp-mass mp-volume-0))
-                           (- rho (/ mp-mass mp-volume-0))
-                           )
+                           (- rho (/ mp-mass mp-volume-0)))
                           gravity
                           (cl-mpm/particle::mp-buoyancy-gimp-length mp)
                           (cl-mpm/particle::mp-body-force mp)))
@@ -2010,26 +2006,62 @@
                              (* volume svp (calculate-val-mp mp #'melt-rate)))))))))))))))
 
 
+(defmethod compute-boundary-scalar ((sim mpm-sim)))
+
 (defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc bc-buoyancy))
   (with-accessors ((datum bc-buoyancy-datum)
                    (clip-func bc-buoyancy-clip-func)
+                   (true-damping bc-viscous-damping)
                    (rho bc-buoyancy-rho))
       bc
     (declare (function clip-func))
     ;; (locate-mps-cells sim (lambda (pos) (funcall clip-func pos datum)))
     (markup-cells-nodes sim bc)
-    (compute-stiffness-cells-3d
-     (cl-mpm:sim-mps sim)
-     (cl-mpm:sim-mesh sim)
-     ;; (lambda (pos) (abs (* (max 0d0 (- datum (varef pos 1))) rho (cl-mpm:sim-gravity sim))))
-     (lambda (pos) (abs (* (if (> (- datum (varef pos 1)) 0d0) 0d0 1d0) rho (cl-mpm:sim-gravity sim))))
-     clip-func))
-  ;; (apply-force-mps-3d mesh mps
-  ;;                     (lambda (mp) (calculate-val-mp mp func-stress))
-  ;;                     (lambda (mp) (calculate-val-mp mp func-div))
-  ;;                     (lambda (pos) (funcall clip-function pos datum))
-  ;;                     )
+    ;; (compute-stiffness-cells-3d
+    ;;  (cl-mpm:sim-mps sim)
+    ;;  (cl-mpm:sim-mesh sim)
+    ;;  ;; (lambda (pos) (abs (* (max 0d0 (- datum (varef pos 1))) rho (cl-mpm:sim-gravity sim))))
+    ;;  (lambda (pos) (abs (* (if (> (- datum (varef pos 1)) 0d0) 0d0 1d0) rho (cl-mpm:sim-gravity sim))))
+    ;;  clip-func))
+    (with-accessors ((mesh cl-mpm:sim-mesh)
+                     (dt-true cl-mpm/dynamic-relaxation::sim-dt-loadstep))
+        sim
+      (let ((nd (cl-mpm/mesh::mesh-nd mesh)))
+        (flet ((stiffness-func
+                   (pos) (abs (* (if (> (- datum (varef pos 1)) 0d0) 0d0 1d0) rho (cl-mpm:sim-gravity sim)))))
+          (cl-mpm::iterate-over-nodes
+           mesh
+           (lambda (node)
+             (with-accessors ((node-pos cl-mpm/mesh::node-position)
+                              (node-mass cl-mpm/mesh::node-mass)
+                              (node-lock  cl-mpm/mesh:node-lock)
+                              (node-active cl-mpm/mesh:node-active)
+                              (node-boundary cl-mpm/mesh::node-boundary-node)
+                              (node-volume cl-mpm/mesh::node-volume)
+                              (node-volume-t cl-mpm/mesh::node-volume-true))
+                 node
+               (declare (double-float dt-true true-damping))
+               (when (and node-active
+                          node-boundary)
+                 (sb-thread:with-mutex (node-lock)
+                   (incf
+                    node-mass
+                    (*
+                     (the double-float (cl-mpm/mesh::node-boundary-scalar node))
+                     (max 0d0
+                          (*
+                           1d0
+                           (abs
+                            (+
+                             (if (> dt-true 0d0)
+                                 (* (/ 1d0 (expt dt-true 1)) true-damping)
+                                 0d0)
+                             (stiffness-func
+                              (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node)))))))))))))))))))
 
+(defun compute-stiffness-cells-3d (mps mesh stiffness-func clip-func)
+  "Update force on nodes, with virtual stress field from cells"
+  (declare (function stiffness-func))
   )
 
 (defun compute-stiffness-cells-3d (mps mesh stiffness-func clip-func)
@@ -2053,14 +2085,17 @@
              (incf
               node-mass
               (*
-               (sqrt (max 0d0 (- node-volume-t node-volume)))
+               (cl-mpm/mesh::node-boundary-scalar node)
+               ;; (sqrt (max 0d0 (- node-volume-t node-volume)))
                (max 0d0
                     (*
                      2d0
                      (abs
-                      (funcall
-                       stiffness-func
-                       (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node)))))))))))))))
+                      (+
+                       (* (/ 1d0 (expt dt-true 1)) true-damping)
+                       (funcall
+                        stiffness-func
+                        (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node))))))))))))))))
 
 (defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc cl-mpm/buoyancy::bc-pressure))
   (with-accessors ((datum bc-buoyancy-datum)

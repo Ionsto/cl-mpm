@@ -1274,6 +1274,7 @@
 
 
 (defun p-wave-from-tangent (mp tang &key (min-inelastic-ratio 1d-3))
+  (declare (double-float min-inelastic-ratio))
   (let ()
     (max
      (* min-inelastic-ratio (cl-mpm/particle::compute-p-modulus mp))
