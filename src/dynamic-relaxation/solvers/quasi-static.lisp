@@ -132,11 +132,12 @@
 (defmethod update-node-fictious-mass ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr))
   (with-accessors ((mesh cl-mpm::sim-mesh)
                    (dt cl-mpm::sim-dt)
+                   (dt-true cl-mpm/dynamic-relaxation::sim-dt-loadstep)
                    (bcs-force-list cl-mpm::sim-bcs-force-list))
       sim
     (map-stiffness sim)
     (loop for bc across bcs-force-list
-          do (cl-mpm/bc::assemble-bc-stiffness sim bc))
+          do (cl-mpm/bc::assemble-bc-stiffness sim bc dt-true))
     (cl-mpm/ghost::apply-ghost-stiffness sim)
     (cl-mpm/aggregate::update-mass-matrix sim)
     (setf dt 1d0)))

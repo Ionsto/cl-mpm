@@ -317,7 +317,7 @@
     (map-mass-stiffness sim)
     ;; (pprint "Hello")
      (loop for bc across bcs-force-list
-           do (cl-mpm/bc::assemble-bc-stiffness sim bc))
+           do (cl-mpm/bc::assemble-bc-stiffness sim bc dt-true))
     (cl-mpm::apply-essential-bcs sim)
 
     (cl-mpm/ghost::apply-ghost-stiffness sim)

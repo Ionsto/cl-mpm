@@ -546,7 +546,7 @@
       (format stream "index: ~a" index))))
 
 
-(defgeneric cl-mpm/bc::assemble-bc-stiffness (sim bc)
+(defgeneric cl-mpm/bc::assemble-bc-stiffness (sim bc dt)
   ;; (:documentation "For BCs that have a general stiffness, assemble a strict upper bound on stiffness into the mass-matrix")
   )
-(defmethod cl-mpm/bc::assemble-bc-stiffness (sim bc))
+(defmethod cl-mpm/bc::assemble-bc-stiffness (sim bc dt))

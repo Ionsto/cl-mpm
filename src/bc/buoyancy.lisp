@@ -2019,7 +2019,7 @@
 
 (defmethod compute-boundary-scalar ((sim mpm-sim)))
 
-(defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc bc-buoyancy))
+(defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc bc-buoyancy) dt)
   (with-accessors ((datum bc-buoyancy-datum)
                    (clip-func bc-buoyancy-clip-func)
                    (true-damping bc-viscous-damping)
@@ -2036,9 +2036,10 @@
     ;;  clip-func))
     (with-accessors ((mesh cl-mpm:sim-mesh)
                      (mps cl-mpm:sim-mps)
-                     (dt-true cl-mpm/dynamic-relaxation::sim-dt-loadstep))
+                     )
         sim
-      (let ((nd (cl-mpm/mesh::mesh-nd mesh)))
+      (let ((nd (cl-mpm/mesh::mesh-nd mesh))
+            (dt-true dt))
         (flet ((stiffness-func
                    (pos) (abs (* (if (> (- datum (varef pos 1)) 0d0) 0d0 1d0) rho (cl-mpm:sim-gravity sim)))))
           (cl-mpm::iterate-over-nodes
@@ -2105,7 +2106,7 @@
                         stiffness-func
                         (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node))))))))))))))))
 
-(defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc cl-mpm/buoyancy::bc-pressure))
+(defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc cl-mpm/buoyancy::bc-pressure) dt)
   (with-accessors ((datum bc-buoyancy-datum)
                    (clip-func bc-pressure-clip-func)
                    (rho bc-buoyancy-rho))

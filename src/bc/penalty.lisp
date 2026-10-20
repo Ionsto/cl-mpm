@@ -1310,7 +1310,7 @@
 
 (defun iterate-over-penalty-point-normal ())
 
-(defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc cl-mpm/penalty::bc-penalty))
+(defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc cl-mpm/penalty::bc-penalty) dt)
   (let* ((mesh (cl-mpm:sim-mesh sim))
          (stiffness-scale (bc-penalty-stiffness-scale bc)))
     (let* ((contacts (get-contact-points bc))

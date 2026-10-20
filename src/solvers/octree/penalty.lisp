@@ -95,7 +95,7 @@
                                              dt))))))))))))))
 
 
-(defmethod cl-mpm/bc::assemble-bc-stiffness ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree) (bc cl-mpm/penalty::bc-penalty))
+(defmethod cl-mpm/bc::assemble-bc-stiffness ((sim cl-mpm/dynamic-relaxation::mpm-sim-octree) (bc cl-mpm/penalty::bc-penalty) dt)
   (let* (;; (mesh (cl-mpm:sim-mesh sim))
          (mps (cl-mpm:sim-mps sim))
          (stiffness-scale (bc-penalty-stiffness-scale bc))
