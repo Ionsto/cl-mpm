@@ -32,9 +32,9 @@
 (defparameter *tensile-strength* 0.1d6)
 ;; (defparameter *biot-coefficent* 0.619d0)
 ;; (defparameter *biot-coefficent* 0.552d0)
-(defparameter *biot-coefficent* 0.9d0)
-(defparameter *alpha* 1d0)
-(defparameter *viscoplastic-hardening* 0d4)
+(defparameter *biot-coefficent* 1d0)
+(defparameter *alpha* 0.95d0)
+(defparameter *viscoplastic-hardening* 1d4)
 ;; (defparameter *alpha* 0.5d0)
 ;; (defparameter *alpha* 0.619d0)
 (defparameter *material-damping* 0d-3)
@@ -119,9 +119,9 @@
                       (the double-float (cl-mpm/particle::mp-biot-coefficent mp))
                       j
                       (- pressure)
-                      ;; (if (> pu 0d0)
-                      ;;     1d0
-                      ;;     (cl-mpm/particle::mp-k-compressive-residual-ratio mp))
+                      (if (> pu 0d0)
+                          1d0
+                          (cl-mpm/particle::mp-k-compressive-residual-ratio mp))
                       ;; (the double-float (- 1d0 damage))
                       ;; (- 1d0 (cl-mpm/buoyancy::compute-volumetric-damage mp))
                       ;; 0d0
@@ -1154,7 +1154,7 @@
        (lambda (sim)
          (setf (cl-mpm/bc::bc-enable *bc-erode*) erode)
          (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic)
-             (setf (cl-mpm/dynamic-relaxation::sim-true-damping *sim*) (* 1d1 (cl-mpm/setup::estimate-critical-damping *sim*))))
+             (setf (cl-mpm/dynamic-relaxation::sim-true-damping *sim*) (* 1d-1 (cl-mpm/setup::estimate-critical-damping *sim*))))
          (setf
           (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
           (cl-mpm::sim-ghost-factor *sim*) nil))
@@ -2148,3 +2148,4 @@
       )
   ;(cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*))
   (pprint (ceiling (* 20 (/ height 100) (/ 10d0 h-x)))))
+
