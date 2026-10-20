@@ -362,8 +362,8 @@
     (cl-mpm::reset-nodes-force sim)
     (cl-mpm::apply-essential-bcs sim)
 
-    (cl-mpm::apply-force-bcs sim dt-loadstep)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
+    (cl-mpm::apply-force-bcs sim dt-loadstep)
     (cl-mpm/damage::calculate-damage sim dt-loadstep)
 
     (cl-mpm::p2g-force-fs sim)

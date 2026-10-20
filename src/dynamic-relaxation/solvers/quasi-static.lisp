@@ -167,8 +167,8 @@
       (cl-mpm/penalty::reset-penalty sim)
       (cl-mpm::reset-nodes-force sim)
       (cl-mpm::apply-essential-bcs sim)
-      (cl-mpm::apply-force-bcs sim dt-loadstep)
       (cl-mpm::update-stress mesh mps dt-loadstep fbar)
+      (cl-mpm::apply-force-bcs sim dt-loadstep)
       (cl-mpm/damage::calculate-damage sim dt-loadstep)
       (cl-mpm::p2g-force-fs sim)
       (let ((dt-scale (cl-mpm::sim-dt-scale sim)))
@@ -303,8 +303,8 @@
     (cl-mpm/penalty::reset-penalty sim)
     (cl-mpm::reset-nodes-force sim)
     (cl-mpm::apply-essential-bcs sim)
-    (cl-mpm::apply-force-bcs sim dt-loadstep)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
+    (cl-mpm::apply-force-bcs sim dt-loadstep)
     ;; (cl-mpm/damage::calculate-damage mesh mps dt-loadstep fbar)
     (cl-mpm::p2g-force-fs sim)
     (when ghost-factor
@@ -372,8 +372,8 @@
     (setf dt 1d0)
     (cl-mpm::reset-nodes-force sim)
     (cl-mpm::apply-essential-bcs sim)
-    (cl-mpm::apply-force-bcs sim dt-loadstep)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
+    (cl-mpm::apply-force-bcs sim dt-loadstep)
     (cl-mpm/damage::calculate-damage sim dt-loadstep)
     (cl-mpm::p2g-force-fs sim)
     (when ghost-factor
@@ -652,11 +652,11 @@
         (cl-mpm::update-cells sim)
 
         (cl-mpm::update-stress mesh mps dt fbar)
+        (cl-mpm::apply-force-bcs sim dt-loadstep)
         ;; (update-node-fictious-mass sim)
         ;; (setf (cl-mpm:sim-dt sim) 1d0)
         ;; map forces onto nodes
         (cl-mpm::p2g-force sim)
-        (cl-mpm::apply-force-bcs sim dt-loadstep)
 
         (cl-mpm::update-node-forces sim)
         (cl-mpm::reset-node-displacement sim)
