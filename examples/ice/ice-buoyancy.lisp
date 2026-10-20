@@ -32,9 +32,9 @@
 (defparameter *tensile-strength* 0.1d6)
 ;; (defparameter *biot-coefficent* 0.619d0)
 ;; (defparameter *biot-coefficent* 0.552d0)
-(defparameter *biot-coefficent* 1d0)
-(defparameter *alpha* 0.95d0)
-(defparameter *viscoplastic-hardening* 1d4)
+(defparameter *biot-coefficent* 0.9d0)
+(defparameter *alpha* 1d0)
+(defparameter *viscoplastic-hardening* 0d4)
 ;; (defparameter *alpha* 0.5d0)
 ;; (defparameter *alpha* 0.619d0)
 (defparameter *material-damping* 0d-3)
@@ -204,7 +204,7 @@
                 (stick-base t)
                 (epsilon-scale 1d0)
                 (E 1d9)
-                (surface-erosion t)
+                (surface-erosion nil)
                 )
   (let* ((density 918d0)
          (water-density 1028d0)
@@ -2143,9 +2143,22 @@
 
 
 
-(let ((height 400d0)
-      (h-x (/ 10d0 0.25d0))
-      )
-  ;(cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*))
-  (pprint (ceiling (* 20 (/ height 100) (/ 10d0 h-x)))))
+;; (let ((height 400d0)
+;;       (h-x (/ 10d0 0.25d0))
+;;       )
+;;   ;(cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*))
+;;   (pprint (ceiling (* 20 (/ height 100) (/ 10d0 h-x)))))
 
+
+(defun remove-damage-mps (&key (damage 0.8d0))
+  (cl-mpm::remove-mps-func
+   *sim*
+   (lambda (mp)
+     (> (cl-mpm/particle::mp-damage mp) damage))))
+
+;; (cl-mpm::iterate-over-mps
+;;  (cl-mpm:sim-mps *sim*)
+;;  (lambda (mp)
+;;    (setf (cl-mpm/particle::mp-softening mp) 1d4)))
+
+;; (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
