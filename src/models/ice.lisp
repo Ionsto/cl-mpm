@@ -1029,10 +1029,6 @@
                                   (cl-mpm/utils::resize-vector (grab-new) 6)))
                (pundamaged (/ (cl-mpm/utils::trace-voigt undamaged-stress) 3d0))
                (p pundamaged)
-               ;; (p (- pundamaged pressure))
-               ;; (pressure (* pressure (- 1d0 (expt (- 1d0 damage) 2/))))
-               ;; (pressure (* pressure damage))
-               ;; (pind (- p pressure))
                (pind p)
                (p-deg 0d0)
                (s (cl-mpm/constitutive::deviatoric-voigt undamaged-stress (cl-mpm/utils::resize-vector (grab-new) 6))))
@@ -1042,13 +1038,12 @@
            (if (> pind 0d0)
                (- 1d0 damage-t)
                (- 1d0 damage-c)))
-          ;; (setf (cl-mpm/particle::mp-pressure-degredation mp) p-deg)
           (setf p (* p p-deg))
 
           (setf stress
                 (cl-mpm/fastmaths:fast-.+
-                 (cl-mpm/constitutive::voight-eye (- p (* (- 1d0 p-deg) pressure)))
-                 ;; (cl-mpm/constitutive::voight-eye (- p (* damage pressure)))
+                 ;; (cl-mpm/constitutive::voight-eye (- p (* (- 1d0 p-deg) pressure)))
+                 (cl-mpm/constitutive::voight-eye (- p (* damage pressure)))
                  (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage-s))
                  stress))
 
@@ -1110,10 +1105,11 @@
 
 (defmethod cl-mpm/buoyancy::compute-volumetric-damage ((mp cl-mpm/particle::particle-ice-brittle))
   (let ((pu (cl-mpm/constitutive::voight-trace (cl-mpm/particle::mp-undamaged-stress mp))))
-    ;; (cl-mpm/particle::mp-damage mp)
-    (if (> pu 0d0)
-        (cl-mpm/particle::mp-damage-tension mp)
-        (cl-mpm/particle::mp-damage-compression mp))))
+    (cl-mpm/particle::mp-damage mp)
+    ;; (if (> pu 0d0)
+    ;;     (cl-mpm/particle::mp-damage-tension mp)
+    ;;     (cl-mpm/particle::mp-damage-compression mp))
+    ))
 
 (cl-mpm/utils::with-voigt-pool
     (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-brittle) dt)
