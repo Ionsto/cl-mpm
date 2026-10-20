@@ -2071,10 +2071,6 @@
                              (stiffness-func
                               (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node)))))))))))))))))))
 
-(defun compute-stiffness-cells-3d (mps mesh stiffness-func clip-func)
-  "Update force on nodes, with virtual stress field from cells"
-  (declare (function stiffness-func))
-  )
 
 (defun compute-stiffness-cells-3d (mps mesh stiffness-func clip-func)
   "Update force on nodes, with virtual stress field from cells"
@@ -2104,7 +2100,7 @@
                      2d0
                      (abs
                       (+
-                       (* (/ 1d0 (expt dt-true 1)) true-damping)
+                       ;; (* (/ 1d0 (expt dt-true 1)) true-damping)
                        (funcall
                         stiffness-func
                         (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node))))))))))))))))
