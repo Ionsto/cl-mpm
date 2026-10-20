@@ -241,6 +241,7 @@
       )))
 
 
+
 (defparameter *mux* (sb-thread:make-mutex))
 (cl-mpm/utils::with-voigt-pool
     (defmethod constitutive-model ((mp particle-ice-brittle) strain dt)
@@ -366,12 +367,7 @@
                               psi
                               coheasion
                               (cl-mpm/particle::mp-tangent-stiffness mp))
-                           ;; (when (> yield-func 0d0)
-                           ;;   (setf p-wave (* 1.0d0 pmod)))
-                           (let (;; (inc (expt (* 1 (max 0d0
-                                 ;;                      (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
-                                 ;;                         (cl-mpm/utils::trace-voigt new-strain)))) 1))
-                                 )
+                           (let ()
                              (setf
                               new-stress sig
                               new-strain eps-e
@@ -1110,6 +1106,14 @@
     ;;     (cl-mpm/particle::mp-damage-tension mp)
     ;;     (cl-mpm/particle::mp-damage-compression mp))
     ))
+(defmethod cl-mpm/particle::estimate-stiffness ((mp cl-mpm/particle::particle-ice-brittle))
+  (with-accessors ((damage cl-mpm/particle::mp-damage)
+                   (pressure-stiff cl-mpm/particle::mp-pressure-stiffness)
+                   )
+      mp
+    (declare (double-float damage pressure-stiff))
+    (+ (the double-float (cl-mpm/particle::estimate-stiffness-hencky mp))
+       (* damage pressure-stiff))))
 
 (cl-mpm/utils::with-voigt-pool
     (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-brittle) dt)

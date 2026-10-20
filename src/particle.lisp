@@ -283,6 +283,10 @@
     :type double-float
     :accessor mp-delay-pressure-n
     :initform 0d0)
+   (pressure-stiffness
+    :type double-float
+    :accessor mp-pressure-stiffness
+    :initform 0d0)
    (boundary
     :type double-float
     :accessor mp-boundary

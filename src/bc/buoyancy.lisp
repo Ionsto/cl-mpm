@@ -1335,6 +1335,7 @@
                mp
              (when t
                (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-body-force mp))
+               (setf (cl-mpm/particle::mp-pressure-stiffness mp) 0d0)
                (setf pressure 0d0)))))
         ;;Populate pressure on MPs
         (let ((gravity (cl-mpm::sim-gravity sim))
@@ -1373,10 +1374,21 @@
                                          (-
                                           (if (> dt 0d0)
                                               (the double-float (/ biot-delay-time dt))
-                                              0d0))))))
+                                              0d0)))))
+                       (grad-p
+                         (cl-mpm/utils::varef
+                          (buoyancy-virtual-div-regular
+                           (varef (get-mp-position mp) 1)
+                           datum
+                           rho
+                           gravity
+                           (cl-mpm/particle::mp-buoyancy-gimp-length mp))
+                          1))
+                       )
                    (declare (double-float pressure-n factor biot-delay-time dt))
                    ;; (pprint (/ biot-delay-time dt))
                    (setf pressure pressure-n)
+                   (setf (cl-mpm/particle::mp-pressure-stiffness mp) grad-p)
                    (setf
                     pressure-delay
                     (+
@@ -1409,7 +1421,6 @@
                        ;;     (cl-mpm:sim-gravity sim)
                        ;;     reg))
                        ;;  )
-
                        (let* ((volumetric-damage (compute-volumetric-damage mp))
                               (alpha (* biot volumetric-damage))
                               (porosity
@@ -2024,6 +2035,7 @@
     ;;  (lambda (pos) (abs (* (if (> (- datum (varef pos 1)) 0d0) 0d0 1d0) rho (cl-mpm:sim-gravity sim))))
     ;;  clip-func))
     (with-accessors ((mesh cl-mpm:sim-mesh)
+                     (mps cl-mpm:sim-mps)
                      (dt-true cl-mpm/dynamic-relaxation::sim-dt-loadstep))
         sim
       (let ((nd (cl-mpm/mesh::mesh-nd mesh)))
