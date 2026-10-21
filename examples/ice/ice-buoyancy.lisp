@@ -34,7 +34,7 @@
 ;; (defparameter *biot-coefficent* 0.552d0)
 (defparameter *biot-coefficent* 0.9d0)
 (defparameter *alpha* 1d0)
-(defparameter *viscoplastic-hardening* 0d4)
+(defparameter *viscoplastic-hardening* 1d2)
 ;; (defparameter *alpha* 0.5d0)
 ;; (defparameter *alpha* 0.619d0)
 (defparameter *material-damping* 0d-3)
@@ -686,9 +686,10 @@
   (cl-mpm/output::add-mp-output sim :VECTOR "disp" #'cl-mpm/particle::mp-displacement)
   (cl-mpm/output::add-mp-output sim :VECTOR "vel" #'cl-mpm/particle::mp-velocity)
   (cl-mpm/output::add-mp-output sim :SCALAR "fric-normal" #'cl-mpm/particle::compute-normal-force)
-  (cl-mpm/output::add-mp-output sim :VOIGT "sig" #'cl-mpm/particle::mp-stress)
-  (cl-mpm/output:add-mp-output *sim* :SCALAR "plastic-c" #'cl-mpm/particle::mp-c)
-  (cl-mpm/output:add-mp-output *sim* :SCALAR "eroded"
+  (cl-mpm/output:add-mp-output sim :SCALAR "damage-porosity" #'cl-mpm/particle::mp-pressure-degredation)
+  (cl-mpm/output:add-mp-output sim :VOIGT "sig" #'cl-mpm/particle::mp-stress)
+  (cl-mpm/output:add-mp-output sim :SCALAR "plastic-c" #'cl-mpm/particle::mp-c)
+  (cl-mpm/output:add-mp-output sim :SCALAR "eroded"
                                (lambda (mp)
                                  (/ (cl-mpm/particle::mp-eroded-volume mp) (cl-mpm/particle::mp-mass mp))))
   (cl-mpm/output:add-mp-output *sim* :SCALAR "eroded-increment"
@@ -1054,7 +1055,7 @@
                           (flotation-ratio 0.8d0)
                           (slope 0d0)
                           )
-  (cl-mpm/utils:set-workers 4)
+  (cl-mpm/utils:set-workers 16)
   (let* ((mps 3)
          (density 918d0)
          (water-damping 10d0)
@@ -1154,7 +1155,7 @@
        (lambda (sim)
          (setf (cl-mpm/bc::bc-enable *bc-erode*) erode)
          (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic)
-             (setf (cl-mpm/dynamic-relaxation::sim-true-damping *sim*) (* 1d-1 (cl-mpm/setup::estimate-critical-damping *sim*))))
+             (setf (cl-mpm/dynamic-relaxation::sim-true-damping *sim*) (* 1d-3 (cl-mpm/setup::estimate-critical-damping *sim*))))
          (setf
           (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
           (cl-mpm::sim-ghost-factor *sim*) nil))
@@ -2162,3 +2163,36 @@
 ;;    (setf (cl-mpm/particle::mp-softening mp) 1d4)))
 
 ;; (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
+
+(let* ((eps (loop for x from -4d0 to 2d0 by 0.1d0 collect x))
+       (Js (mapcar (lambda (x) (exp x)) eps))
+       (p 1d6)
+       (k (cl-mpm/utils::calculate-bulk-modulus 1d9 0.3d0))
+       (alpha 1d0)
+       )
+  (labels ((h (J)
+             (if (> J 1d0)
+                 (- 1d0 (exp (* -1 (- J 1d0))))
+                 0d0))
+           (n (J)
+             (- 1d0
+                (* (- 1d0 (h j))
+                   (exp (* -1 p (/ alpha (* k (- 1d0 (h j)))))))))
+           (porosity (p eps)
+             (+
+              (* p (/ alpha k))
+              (* alpha eps))))
+    (vgplot:close-all-plots)
+    (vgplot:plot
+     eps
+     (mapcar
+      (lambda (x J)
+        ;; (h j)
+        (n j)
+        ;; (* (/ 1d0 J)
+        ;;    (porosity p x))
+        )
+      eps
+      Js
+      )))
+  )
