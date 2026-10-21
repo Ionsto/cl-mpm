@@ -1429,7 +1429,7 @@
                                     (declare (double-float j))
                                     (if (> J 1d0)
                                         (- 1d0 (* (- 1d0 n-0) (exp (* -1 (/ n-0 (- 1d0 n-0) ) (- J 1d0)))))
-                                        0d0))
+                                        (* n-0 J)))
                                   (n (J)
                                     (declare (double-float j p-center alpha k))
                                     (- 1d0
