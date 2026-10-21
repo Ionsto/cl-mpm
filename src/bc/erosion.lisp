@@ -141,9 +141,12 @@
 
 (defmethod cl-mpm/particle::reset-loadstep-mp ((mp cl-mpm/particle::particle-erosion))
   (with-accessors ((k cl-mpm/particle::mp-eroded-volume)
-                   (k-n cl-mpm/particle::mp-eroded-volume-n))
+                   (k-n cl-mpm/particle::mp-eroded-volume-n)
+                   (inc cl-mpm/particle::mp-eroded-increment))
       mp
-    (setf k k-n)
+    (setf k k-n
+          inc 0d0
+          )
     (call-next-method)))
 
 (defmethod cl-mpm/particle::new-loadstep-mp ((mp cl-mpm/particle::particle-erosion))

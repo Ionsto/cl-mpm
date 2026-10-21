@@ -1422,26 +1422,40 @@
                        ;;     reg))
                        ;;  )
                        (let* ((volumetric-damage (compute-volumetric-damage mp))
-                              (alpha (* biot volumetric-damage))
-                              (porosity
-                                (min 1d0
-                                     (max
-                                      0d0
-                                      (+
-                                       (* -1d0 p-center (/ alpha k))
-                                       (* alpha (log (cl-mpm/particle::mp-deformation-jacobian-strain mp))))))))
-                         (declare (double-float p-center volumetric-damage porosity))
-                         (setf (cl-mpm/particle::mp-pressure-degredation mp) porosity)
-                         (buoyancy-virtual-div-regular
-                          (varef (get-mp-position mp) 1)
-                          datum
-                          (*
-                           -1d0
-                           porosity
-                           (- rho (/ mp-mass mp-volume-0)))
-                          gravity
-                          (cl-mpm/particle::mp-buoyancy-gimp-length mp)
-                          (cl-mpm/particle::mp-body-force mp)))
+                              (alpha (* biot volumetric-damage)))
+                         (labels ((h (J)
+                                    (declare (double-float j))
+                                    (if (> J 1d0)
+                                        (- 1d0 (exp (* -1 (- J 1d0))))
+                                        0d0))
+                                  (n (J)
+                                    (declare (double-float j pressure alpha k))
+                                    (- 1d0
+                                       (* (- 1d0 (h j))
+                                          (exp (* -1d0 p-center (/ alpha (* k (- 1d0 (h j))))))))))
+                           (declare (double-float alpha volumetric-damage))
+                           (let* ((porosity
+                                    (min 1d0 (max 0d0 (n (cl-mpm/particle::mp-deformation-jacobian-strain mp)))))
+                                  ;; (porosity
+                                  ;;   (min 1d0
+                                  ;;        (max
+                                  ;;         0d0
+                                  ;;         (+
+                                  ;;          (* -1d0 p-center (/ alpha k))
+                                  ;;          (* alpha (log (cl-mpm/particle::mp-deformation-jacobian-strain mp)))))))
+                                  )
+                             (declare (double-float p-center volumetric-damage porosity))
+                             (setf (cl-mpm/particle::mp-pressure-degredation mp) porosity)
+                             (buoyancy-virtual-div-regular
+                              (varef (get-mp-position mp) 1)
+                              datum
+                              (*
+                               -1d0
+                               porosity
+                               (- rho (/ mp-mass mp-volume-0)))
+                              gravity
+                              (cl-mpm/particle::mp-buoyancy-gimp-length mp)
+                              (cl-mpm/particle::mp-body-force mp)))))
 
                        ;; (setf (varef (cl-mpm/particle::mp-body-force mp) 1)
                        ;;       (calculate-val-mp
