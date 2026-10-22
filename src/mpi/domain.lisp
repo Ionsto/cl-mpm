@@ -445,9 +445,23 @@ leaves a hanging mpi domain at the back"
                   (- (aref increment-array right-index)))
             ;; (format t "Rank ~D: Dim ~D moved upper by ~F ~%" (1+ rank) dim (- (aref increment-array right-index)))
             )))
-      (sync-domain-bounds-dimension sim dim)
-      )
+      (sync-domain-bounds-dimension sim dim))
     (every (lambda (x) (= x 0d0)) increment-array)))
+
+
+(defun quantise-domain-bounds (sim &key (dims (list :x :y :z)))
+  (format t "Quantise~%")
+  (loop for dim in dims
+        do (let ((i (position dim (list :x :y :z))))
+             (setf (first (nth i (mpm-sim-mpi-domain-bounds sim)))
+                   (float (round (first (nth i (mpm-sim-mpi-domain-bounds sim)))) 0d0))
+             (setf (second (nth i (mpm-sim-mpi-domain-bounds sim)))
+                   (float (round (second (nth i (mpm-sim-mpi-domain-bounds sim)))) 0d0)))))
+
+(defun sync-domain-bounds (sim &key (dims (list :x :y :z)))
+  (loop for dim in dims
+        do (let ((i (position dim (list :x :y :z))))
+             (sync-domain-bounds-dimension sim i))))
 
 (defun sync-domain-bounds-dimension (sim dim)
   (let* ((rank (cl-mpi::mpi-comm-rank))
@@ -457,7 +471,6 @@ leaves a hanging mpi domain at the back"
          (pos-array (make-array (+ dim-length 1) :element-type 'double-float :initial-element 0d0))
          (left-index dim-index)
          (right-index (1+ dim-index)))
-    ;; (format t "Dim length ~D~%" dim-length)
     (when (> dim-length 1)
       (destructuring-bind (bl br) (nth dim (mpm-sim-mpi-domain-bounds sim))
         (setf (aref pos-array dim-index) (float bl 0d0))
@@ -588,6 +601,10 @@ leaves a hanging mpi domain at the back"
                                                                                        :dims dims)
                        (setf balance balance
                              stag stagnent))))))
+
+      (quantise-domain-bounds sim :dims dims)
+      (format t "Sync~%")
+      (sync-domain-bounds sim :dims dims)
 
       (set-mp-mpi-index sim)
       (domain-decompose sim))))

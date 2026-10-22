@@ -1119,7 +1119,7 @@
         (abs
          (*
           1d0
-          damage
+          ;; damage
           (the double-float (cl-mpm/particle::mp-biot-coefficent mp))
           pressure-stiff))))))
 
