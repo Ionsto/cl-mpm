@@ -139,7 +139,7 @@
                       do (progn
                            (loop for stagger-i from 0 to 100
                                  while (or
-                                        (< stagger-i 2)
+                                        ;; (< stagger-i 2)
                                         (>= dconv damage-crit)
                                         (>= (cl-mpm::sim-stats-oobf sim) oobf-crit))
                                  do
@@ -198,11 +198,13 @@
                                            (format t "d-conv subiter ~E~%" dconv))
                                          (when (equal stagger-damage :MONOLITH-QS)
                                            (when enable-damage
-                                             (if (< (cl-mpm::sim-stats-oobf sim) (sqrt oobf-crit))
+                                             (if (< (cl-mpm::sim-stats-oobf sim)
+                                                    oobf-crit
+                                                    ;; (sqrt oobf-crit)
+                                                    )
                                                  (progn
                                                    (when (not (cl-mpm:sim-enable-damage sim))
                                                      (reset-tangent)
-                                                     ;; (setf (cl-mpm::sim-stats-oobf sim) oobf-crit)
                                                      (setf dconv damage-crit))
                                                    (setf (cl-mpm:sim-enable-damage sim) t))
                                                  (progn

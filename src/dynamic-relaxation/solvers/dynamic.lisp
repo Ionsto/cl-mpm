@@ -277,8 +277,7 @@
       (cl-mpm::iterate-over-mps
        mps
        (lambda (mp)
-         (setf (cl-mpm/particle::mp-p-modulus mp)
-               (cl-mpm/particle::estimate-stiffness mp))
+         (setf (cl-mpm/particle::mp-p-modulus mp) (cl-mpm/particle::estimate-stiffness mp))
          (let* ((mp-mass (cl-mpm/particle::mp-mass mp)))
            (cl-mpm::iterate-over-neighbours
             mesh mp
@@ -315,7 +314,6 @@
       sim
     (map-stiffness sim)
     (map-mass-stiffness sim)
-    ;; (pprint "Hello")
      (loop for bc across bcs-force-list
            do (cl-mpm/bc::assemble-bc-stiffness sim bc dt-true))
     (cl-mpm::apply-essential-bcs sim)

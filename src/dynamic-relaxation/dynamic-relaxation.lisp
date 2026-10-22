@@ -522,14 +522,14 @@
                        (setf yconv (cl-mpm/damage::compute-ybar-delta sim))))
             ;; (when (> ybar-relax 0d0)
             ;;   (format t "Iter ~D ~E ~E~%" iter yconv ybar-relax))
-            (when (and (>= iter 2) (not (> ybar-relax 0d0)))
+            (when (and (>= iter 4))
               (format t "Iter ~D ~E ~E~%" iter yconv ybar-relax))
             (when (> yconv crit)
               (setf ybar-relax 0d0)
               (error (make-instance 'non-convergence-error
                                     :text "Inner damage/localisation solve failed to converge"
                                     :ke-norm yconv :oobf-norm 0d0))))
-          (cl-mpm/damage::update-damage-mps sim dt)
+          ;; (cl-mpm/damage::update-damage-mps sim dt)
           (setf ybar-relax 0d0)
           (setf (cl-mpm/damage::sim-stats-damage-residual sim) (cl-mpm/damage::compute-damage-delta sim)))))))
 

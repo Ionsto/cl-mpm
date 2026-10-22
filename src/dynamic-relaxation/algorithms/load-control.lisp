@@ -13,6 +13,7 @@
                            (conv-steps 50)
                            (post-conv-step (lambda (sim)))
                            (post-iter-step (lambda (sub-iter oobf energy)))
+                           (min-tangent-ratio nil)
                            (pre-step (lambda ()))
                            (plotter (lambda (sim)))
                            (stagger-damage :MONOLITH)
@@ -65,6 +66,7 @@
                        :stagger-damage stagger-damage
                        :sub-conv-steps conv-steps
                        :max-plastic-inc max-plastic-inc
+                       :min-tangent-ratio min-tangent-ratio
                        :post-iter-step
                        (lambda (i energy oobf)
                          (funcall post-iter-step i energy oobf)

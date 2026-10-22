@@ -1082,7 +1082,9 @@
           ;; (cl-mpm/fastmaths::fast-scale! (cl-mpm/particle::mp-tangent-stiffness mp) p-deg)
 
           ;; (cl-mpm/fastmaths:fast-scale! stress (/ 1d0 j))
-          (setf p-mod (cl-mpm/particle::p-wave-from-tangent mp (cl-mpm/particle::mp-tangent-stiffness mp)))
+          (setf p-mod
+                (* 1d0
+                   (cl-mpm/particle::p-wave-from-tangent mp (cl-mpm/particle::mp-tangent-stiffness mp))))
           ;; (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
           ;;        (G (/ e (* 2 (+ 1d0 nu))))
           ;;        (P-0 (+ K (* 4/3 G))))
@@ -1108,12 +1110,18 @@
     ))
 (defmethod cl-mpm/particle::estimate-stiffness ((mp cl-mpm/particle::particle-ice-brittle))
   (with-accessors ((damage cl-mpm/particle::mp-damage)
-                   (pressure-stiff cl-mpm/particle::mp-pressure-stiffness)
-                   )
+                   (pressure-stiff cl-mpm/particle::mp-pressure-stiffness))
       mp
     (declare (double-float damage pressure-stiff))
-    (+ (the double-float (cl-mpm/particle::estimate-stiffness-hencky mp))
-       (* damage pressure-stiff))))
+    (max
+     (* 1d-3 (cl-mpm/particle::compute-p-modulus mp))
+     (+ (the double-float (cl-mpm/particle::estimate-stiffness-hencky mp))
+        (abs
+         (*
+          1d0
+          damage
+          (the double-float (cl-mpm/particle::mp-biot-coefficent mp))
+          pressure-stiff))))))
 
 (cl-mpm/utils::with-voigt-pool
     (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-brittle) dt)
@@ -1139,6 +1147,7 @@
           (the double-float
                (/ p 1))))
 
+        ;; (setf (cl-mpm/particle::mp-p-modulus mp) (cl-mpm/particle::estimate-stiffness mp))
         ;; (when (> dt 0d0)
         ;;   (let ((mdamp (cl-mpm/particle::mp-material-damping mp)))
         ;;     (declare (double-float mdamp dt))

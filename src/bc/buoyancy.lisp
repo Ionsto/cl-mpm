@@ -1383,12 +1383,12 @@
                            rho
                            gravity
                            (cl-mpm/particle::mp-buoyancy-gimp-length mp))
-                          1))
-                       )
+                          1)))
                    (declare (double-float pressure-n factor biot-delay-time dt))
                    ;; (pprint (/ biot-delay-time dt))
                    (setf pressure pressure-n)
                    (setf (cl-mpm/particle::mp-pressure-stiffness mp) grad-p)
+                   ;; (pprint grad-p)
                    (setf
                     pressure-delay
                     (+
@@ -1447,12 +1447,11 @@
                                     )
                                   )
                            (declare (double-float alpha volumetric-damage))
-                           (let* (;; (porosity
-                                  ;;   (min 1d0 (max 0d0 (n (cl-mpm/particle::mp-deformation-jacobian-strain mp)))))
-                                  (porosity (log-linear (cl-mpm/particle::mp-deformation-jacobian-strain mp)))
-                                  )
+                           (let* ((porosity (log-linear (cl-mpm/particle::mp-deformation-jacobian-strain mp))))
                              (declare (double-float p-center volumetric-damage porosity))
                              (setf (cl-mpm/particle::mp-pressure-degredation mp) porosity)
+                             ;; (setf (cl-mpm/particle::mp-pressure-stiffness mp)
+                             ;;       (* 2d0 (cl-mpm/particle::mp-pressure-stiffness mp)))
                              (buoyancy-virtual-div-regular
                               (varef (get-mp-position mp) 1)
                               datum
@@ -2062,7 +2061,7 @@
       (let ((nd (cl-mpm/mesh::mesh-nd mesh))
             (dt-true dt))
         (flet ((stiffness-func
-                   (pos) (abs (* (if (> (- datum (varef pos 1)) 0d0) 0d0 1d0) rho (cl-mpm:sim-gravity sim)))))
+                   (pos) (abs (* (if (> (- datum (varef pos 1)) 0d0) 1d0 0d0) rho (cl-mpm:sim-gravity sim)))))
           (cl-mpm::iterate-over-nodes
            mesh
            (lambda (node)
@@ -2082,16 +2081,17 @@
                     node-mass
                     (*
                      (the double-float (cl-mpm/mesh::node-boundary-scalar node))
-                     (max 0d0
-                          (*
-                           1d0
-                           (abs
-                            (+
-                             (if (> dt-true 0d0)
-                                 (* (/ 1d0 (expt dt-true 1)) true-damping)
-                                 0d0)
-                             (stiffness-func
-                              (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node)))))))))))))))))))
+                     (max
+                      0d0
+                      (*
+                       1d0
+                       (abs
+                        (+
+                         (if (> dt-true 0d0)
+                             (* (/ 1d0 (expt dt-true 1)) true-damping)
+                             0d0)
+                         (stiffness-func
+                          (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node)))))))))))))))))))
 
 
 (defun compute-stiffness-cells-3d (mps mesh stiffness-func clip-func)

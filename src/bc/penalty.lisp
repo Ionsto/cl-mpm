@@ -613,6 +613,9 @@
                   normal-force))
               0d0))))))
 
+
+;; (defparameter *regularisation-length-scaler* 0.05d0)
+(defparameter *regularisation-length-scaler* 0.05d0)
 (cl-mpm/utils::with-vector-pool
   (defun apply-penalty-corner (mesh bc mp corner dt)
     (let* ((point (cl-mpm/particle::corner-trial-position corner))
@@ -637,11 +640,13 @@
                            (pressure cl-mpm/particle::mp-pressure)
                            (mp-mass cl-mpm/particle::mp-mass))
               mp
-            (declare (double-float volume pressure mp-mass))
+            (declare (double-float volume pressure mp-mass *regularisation-length-scaler*))
             (let* ((penetration (penetration-distance-point point datum normal))
                    (contact-area (* 1d0 (the double-float (expt volume (/ (- nd 1) nd)))))
-                   (regularisation-length (* h 0.05))
-                   (epsilon-regularisation (- 1d0 (exp (- (/ (max 0d0 penetration) regularisation-length)))))
+                   (regularisation-length (* h *regularisation-length-scaler*))
+                   (epsilon-regularisation (if (> regularisation-length 0d0)
+                                               (- 1d0 (exp (- (/ (max 0d0 penetration) regularisation-length))))
+                                               1d0))
                    (epsilon (* epsilon epsilon-regularisation))
                    (normal-force (*
                                   (max 0d0 penetration)
@@ -766,7 +771,9 @@
                                         1d0
                                         (+
                                          epsilon
-                                         (max 1d0 (/ (exp (/ (- (max penetration 0d0)) regularisation-length)) regularisation-length))
+                                         (if (> regularisation-length 0d0)
+                                             (max 1d0 (/ (exp (/ (- (max penetration 0d0)) regularisation-length)) regularisation-length))
+                                             1d0)
                                          (if (and (> damping 0d0) (> dt 0d0))
                                              (the double-float (* (the double-float (sqrt (the double-float (* epsilon mp-mass))))
                                                                  damping
@@ -792,8 +799,7 @@
                            (bc-penalty-contact-points bc)))
                         )
                       normal-force))
-                  0d0))))))
-    ))
+                  0d0))))))))
 
 (defgeneric resolve-load-direction (bc direction))
 
