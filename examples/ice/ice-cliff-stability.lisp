@@ -460,8 +460,7 @@
 (defun early-exit-check (sim)
   (if (> (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
       (progn
-        (let ((v (cl-mpm/dynamic-relaxation::max-velocity-criteria sim (cl-mpm/dynamic-
-relaxation::sim-dt-loadstep sim))))
+        (let ((v (cl-mpm/dynamic-relaxation::max-velocity-criteria sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))))
           (format t "Max velocity ~E~%" v)
           (when (> v 1d0)
             (format t "Maximum velocity error~%")
@@ -647,8 +646,7 @@ relaxation::sim-dt-loadstep sim))))
                                                                  (cl-mpm:sim-mps *sim*)
                                                                  (lambda (mp)
                                                                    (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-displacement mp))))
-                                                                (plot-domain)
-                                                                )))
+                                                                (plot-domain))))
                                    (early-exit-condition (c)
                                      (setf res (stable c))
                                      (when res
