@@ -70,6 +70,7 @@
                    (ybar-prev cl-mpm/particle::mp-damage-ybar-prev)
                    (y         cl-mpm/particle::mp-damage-y-local)
                    (y-prev    cl-mpm/particle::mp-damage-y-local-prev)
+                   (ybar-prev    cl-mpm/particle::mp-damage-ybar-n)
                    (damage    cl-mpm/particle::mp-damage)
                    (damage-n  cl-mpm/particle::mp-damage-n)
                    (stress cl-mpm/particle::mp-undamaged-stress))
@@ -294,9 +295,12 @@
               (if (typep mp 'cl-mpm/particle::particle-damage)
                 (with-accessors ((damage cl-mpm/particle::mp-damage-ybar)
                                  (ybar-instant cl-mpm/particle::mp-damage-ybar-instant)
-                                 (damage-prev cl-mpm/particle::mp-damage-ybar-instant-n))
+                                 (damage-prev cl-mpm/particle::mp-damage-ybar-instant-n)
+                                 (residual cl-mpm/particle::mp-damage-ybar-res)
+                                 )
                     mp
-                  (expt (- damage damage-prev) 2))
+                  ;; (expt (- damage damage-prev) 2))
+                  (expt residual 2))
                 0d0))))
          (yd-incs
            (cl-mpm::reduce-over-global-mps-sum
@@ -321,8 +325,7 @@
               sim
               (lambda (mp)
                 (let ((dx (- (cl-mpm/particle::mp-damage-ybar mp)
-                             (cl-mpm/particle::mp-damage-ybar-n mp))
-                          ))
+                             (cl-mpm/particle::mp-damage-ybar-n mp))))
                   (* dx dx)))))
         (denom (cl-mpm::reduce-over-global-mps-sum
               sim
@@ -340,8 +343,36 @@
     ;; (format t "relax factors ~E ~E~%" num denom)
     (if (= denom 0d0)
         1d0
-        (max 0d0 (- (/ num denom)))
-        )))
+        (max 0d0 (- 1d0 (/ num denom))))))
+
+(defun update-localisation-barzilai-borwein (sim dt)
+  (with-accessors ((ybar-relax sim-damage-ybar-relaxation)
+                   (mps cl-mpm:sim-mps))
+      sim
+    (setf ybar-relax 1d0)
+    (cl-mpm/damage::update-localisation sim dt)
+    (setf ybar-relax (cl-mpm/damage::compute-relaxation-factor sim))
+    ;; (setf ybar-relax 0.2d0)
+    ;; (format t "Relax by ~E~%" ybar-relax)
+    (cl-mpm:iterate-over-mps
+     mps
+     (lambda (mp)
+       (when (typep mp 'cl-mpm/particle:particle-damage)
+         (with-accessors ((damage-ybar cl-mpm/particle::mp-damage-ybar)
+                          (damage-ybar-instant cl-mpm/particle::mp-damage-ybar-instant)
+                          (damage-ybar-n cl-mpm/particle::mp-damage-ybar-n)
+                          (damage cl-mpm/particle::mp-damage))
+             mp
+           (let ((ybar damage-ybar-instant)
+                 (relax ybar-relax))
+             (declare (double-float ybar relax damage-ybar))
+             (setf damage-ybar-n
+                   damage-ybar)
+             (if (> relax 0d0)
+                 (setf damage-ybar
+                       (+ (* relax damage-ybar)
+                          (* (- 1d0 relax) ybar)))
+                 (setf damage-ybar ybar)))))))))
 
 (defmethod solve-localisation ((sim mpm-sim-damage) dt)
   (with-accessors ((mps cl-mpm:sim-mps)
@@ -363,21 +394,12 @@
                   do (progn
                        (dotimes (i 1)
                          (incf iter)
-                         (cl-mpm/damage::update-localisation sim dt)
-                         (cl-mpm/damage::update-damage-mps sim dt))
+                         (cl-mpm/damage::update-damage-mps sim dt)
+                         (cl-mpm/damage::update-localisation-barzilai-borwein sim dt))
                        (setf yconv-prev yconv)
-                       (setf yconv (compute-ybar-delta sim))
-                       (when (> yconv yconv-prev)
-                         (format t "Internal damage iter struggled applying relaxation ~D ~E ~E~%" iter yconv yconv-prev)
-                         (setf (sim-damage-ybar-relaxation sim)
-                               (min 0.99d0
-                                    (if (= 0d0 (sim-damage-ybar-relaxation sim))
-                                        0.1d0
-                                        (sqrt (sim-damage-ybar-relaxation sim))))))))
-            (when (> (sim-damage-ybar-relaxation sim) 0d0)
-              (format t "Iter ~D ~E ~E~%" iter yconv (sim-damage-ybar-relaxation sim)))
-            (when (and (> iter 25) (not (> (sim-damage-ybar-relaxation sim) 0d0)))
-              (format t "Iter ~D ~E~%" iter yconv)))
+                       (setf yconv (compute-ybar-delta sim))))
+            (when (and (>= iter 2))
+              (format t "Iter ~D ~E ~E~%" iter yconv (sim-damage-ybar-relaxation sim))))
           (setf (sim-damage-ybar-relaxation sim) 0d0)
           (setf (cl-mpm/damage::sim-stats-damage-residual sim) (compute-damage-delta sim)))))))
 
@@ -1354,43 +1376,48 @@ Calls the function with the mesh mp and node"
 (defmethod delocalise-damage ((sim cl-mpm/damage::mpm-sim-damage))
   (declare (optimize (speed 3)))
   (with-accessors ((mps cl-mpm::sim-mps)
-                   (mesh cl-mpm:sim-mesh))
+                   (mesh cl-mpm:sim-mesh)
+                   (relax sim-damage-ybar-relaxation))
       sim
     ;; Calculate the delocalised damage for each damage particle
-    (cl-mpm:iterate-over-mps
-     mps
-     (lambda (mp)
-       (when (typep mp 'cl-mpm/particle:particle-damage)
-         (with-accessors ((damage-ybar cl-mpm/particle::mp-damage-ybar)
-                          (damage-ybar-n cl-mpm/particle::mp-damage-ybar-n)
-                          (damage-ybar-instant cl-mpm/particle::mp-damage-ybar-instant)
-                          (damage-ybar-instant-n cl-mpm/particle::mp-damage-ybar-instant-n)
-                          (damage-ybar-res cl-mpm/particle::mp-damage-ybar-res)
-                          (damage-ybar-res-n cl-mpm/particle::mp-damage-ybar-res-n)
-                          (damage cl-mpm/particle::mp-damage)
-                          (local-length-t cl-mpm/particle::mp-local-length))
-             mp
-           (setf damage-ybar-n
-                 damage-ybar)
-           (setf damage-ybar-instant-n
-                 damage-ybar-instant)
-           (setf damage-ybar-res-n
-                 damage-ybar-res)
-           (let ((ybar
-                   (calculate-delocalised-damage
-                    mesh
-                    mp
-                    local-length-t
-                    (sim-enable-length-localisation sim)))
-                 (relax (sim-damage-ybar-relaxation sim)))
-             (declare (double-float damage-ybar-n ybar relax))
-             (setf damage-ybar-instant ybar)
-             (setf damage-ybar-res (- damage-ybar ybar))
-             (if (> relax 0d0)
-                 (setf damage-ybar
-                       (+ (* relax damage-ybar)
-                          (* (- 1d0 relax) ybar)))
-                 (setf damage-ybar ybar))))))))
+    (let ((trial-step (= relax 1d0))) ;; 
+      (cl-mpm:iterate-over-mps
+       mps
+       (lambda (mp)
+         (when (typep mp 'cl-mpm/particle:particle-damage)
+           (with-accessors ((damage-ybar cl-mpm/particle::mp-damage-ybar)
+                            (damage-ybar-n cl-mpm/particle::mp-damage-ybar-n)
+                            (damage-ybar-instant cl-mpm/particle::mp-damage-ybar-instant)
+                            (damage-ybar-instant-n cl-mpm/particle::mp-damage-ybar-instant-n)
+                            (damage-ybar-res cl-mpm/particle::mp-damage-ybar-res)
+                            (damage-ybar-res-n cl-mpm/particle::mp-damage-ybar-res-n)
+                            (damage cl-mpm/particle::mp-damage)
+                            (local-length-t cl-mpm/particle::mp-local-length))
+               mp
+             (progn;unless trial-step
+               (unless trial-step
+                 (setf damage-ybar-n
+                       damage-ybar))
+               (setf damage-ybar-instant-n
+                     damage-ybar-instant)
+               (setf damage-ybar-res-n
+                     damage-ybar-res))
+             (let ((ybar
+                     (calculate-delocalised-damage
+                      mesh
+                      mp
+                      local-length-t
+                      (sim-enable-length-localisation sim)))
+                   )
+               (declare (double-float damage-ybar-n ybar relax damage-ybar))
+               (setf damage-ybar-instant ybar)
+               (setf damage-ybar-res (- damage-ybar ybar))
+               (unless trial-step
+                 (if (> relax 0d0)
+                     (setf damage-ybar
+                           (+ (* relax damage-ybar)
+                              (* (- 1d0 relax) ybar)))
+                     (setf damage-ybar ybar))))))))))
   (values))
 
 (defgeneric delocalise-damage-stress (sim))
