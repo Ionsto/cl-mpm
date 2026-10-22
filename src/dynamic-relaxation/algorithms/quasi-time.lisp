@@ -35,6 +35,7 @@
         (rsteps 0)
         (bad-initial-tangents 2))
     (flet ((reset-tangent ()
+             (format t "Reset tangent~%")
              (setf
               r-n nil
               r-n1 nil
@@ -64,7 +65,9 @@
                  (stagger-iters 0))
             (when (equal (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
               (reset-mp-velocity sim))
-            (set-mp-plastic-damage sim :enable-damage enable-damage :enable-plastic enable-plastic)
+
+            ;; (set-mp-plastic-damage sim :enable-damage enable-damage :enable-plastic enable-plastic)
+
             (unless stagger-damage
               (setf (cl-mpm:sim-enable-damage sim) nil))
             (case stagger-damage
@@ -198,10 +201,7 @@
                                            (format t "d-conv subiter ~E~%" dconv))
                                          (when (equal stagger-damage :MONOLITH-QS)
                                            (when enable-damage
-                                             (if (< (cl-mpm::sim-stats-oobf sim)
-                                                    oobf-crit
-                                                    ;; (sqrt oobf-crit)
-                                                    )
+                                             (if (< (cl-mpm::sim-stats-oobf sim) oobf-crit)
                                                  (progn
                                                    (when (not (cl-mpm:sim-enable-damage sim))
                                                      (reset-tangent)
@@ -213,6 +213,7 @@
                                       (when enable-damage
                                         (unless (cl-mpm:sim-enable-damage sim)
                                           (setf dconv damage-crit)
+                                          (setf (cl-mpm::sim-stats-oobf sim) oobf-crit)
                                           (reset-tangent))
                                         (setf (cl-mpm:sim-enable-damage sim) enable-damage)
 
@@ -312,6 +313,7 @@
     (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
     (setf (cl-mpm:sim-damping-factor sim) 0d0)
     (setf (cl-mpm:sim-enable-damage sim) nil)
+    (setf (cl-mpm/dynamic-relaxation::sim-convergence-critera sim) conv-criteria)
     (defparameter *total-iter* 0)
     (when initial-quasi-static
 

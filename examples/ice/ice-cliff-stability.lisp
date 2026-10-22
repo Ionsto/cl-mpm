@@ -455,6 +455,7 @@
   ;;                                   :stable t)))))
   ;;       t)
   ;;     t)
+  t
   )
 
 (defun early-exit-check (sim)
@@ -610,7 +611,7 @@
                                   )
                             (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
                             (time
-                             (let* ((dt-0 1d3)
+                             (let* ((dt-0 1d0)
                                     (dt-start 1d3)
                                     (max-time 1d8)
                                     (adaptive-constant 2)
@@ -633,6 +634,8 @@
                                               :max-damage-inc 0.90d0
                                               :max-plastic-inc nil
                                               :max-deformation-gradient 4d0
+                                              :min-tangent-ratio 0.1d0
+                                              :stagger-damage :MONOLITH-QS
                                               :save-vtk-dr t
                                               :save-vtk-loadstep t
                                               :enable-damage t
