@@ -1458,7 +1458,9 @@
                               (*
                                -1d0
                                porosity
-                               (- rho (/ mp-mass mp-volume-0)))
+                               (- rho (/ mp-mass mp-volume))
+                               ;; (- rho (/ mp-mass mp-volume-0))
+                               )
                               gravity
                               (cl-mpm/particle::mp-buoyancy-gimp-length mp)
                               (cl-mpm/particle::mp-body-force mp)))))
