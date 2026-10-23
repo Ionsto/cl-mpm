@@ -451,12 +451,16 @@ leaves a hanging mpi domain at the back"
 
 (defun quantise-domain-bounds (sim &key (dims (list :x :y :z)))
   (format t "Quantise~%")
-  (loop for dim in dims
-        do (let ((i (position dim (list :x :y :z))))
-             (setf (first (nth i (mpm-sim-mpi-domain-bounds sim)))
-                   (float (round (first (nth i (mpm-sim-mpi-domain-bounds sim)))) 0d0))
-             (setf (second (nth i (mpm-sim-mpi-domain-bounds sim)))
-                   (float (round (second (nth i (mpm-sim-mpi-domain-bounds sim)))) 0d0)))))
+  (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm::sim-mesh sim))))
+    (loop for dim in dims
+          do (let ((i (position dim (list :x :y :z))))
+               (flet ((quant (x)
+                        (declare (double-float x h))
+                        (float (* h (round x h)) 0d0)))
+                 (setf (first (nth i (mpm-sim-mpi-domain-bounds sim)))
+                       (quant (first (nth i (mpm-sim-mpi-domain-bounds sim)))))
+                 (setf (second (nth i (mpm-sim-mpi-domain-bounds sim)))
+                       (quant (second (nth i (mpm-sim-mpi-domain-bounds sim))))))))))
 
 (defun sync-domain-bounds (sim &key (dims (list :x :y :z)))
   (loop for dim in dims
