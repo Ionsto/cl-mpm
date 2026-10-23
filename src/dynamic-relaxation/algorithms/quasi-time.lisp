@@ -107,8 +107,7 @@
                        (format t "Bad initial tangent ~E - ~D~%" t0 bad-initial-tangents)
                        (reset-tangent)
                        (when (= bad-initial-tangents 20)
-                         ;; (error 'cl-mpm/errors::error-simulation)
-                         ))
+                         (error 'cl-mpm/errors::error-simulation)))
 
                      (when (and r-n r-n1)
                        (let* ((secant-n
