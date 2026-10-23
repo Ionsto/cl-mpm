@@ -301,42 +301,12 @@
               (declare (double-float K G rho dy exp-rho lam dt viscosity p-wave))
               (cl-mpm/models/visco::dev-exp-v stress-u strain-n strain e nu de viscosity dt)
               (setf p-wave (+ K (* 4/3 G lam))))
-            ;; (multiple-value-bind (eps pmod) (cl-mpm/ext::constitutive-viscoelastic stress-u strain de e nu dt viscosity)
-            ;;   (setf p-wave pmod)
-            ;;   )
             )
           )
         (cl-mpm/utils:voigt-copy-into strain trial-elastic-strain)
         (when enable-plasticity
           (let* ((K (/ e (* 3 (- 1d0 (* 2 nu))))))
             (declare (double-float damage-pressure coheasion pressure))
-            ;; (setf
-            ;;  damage-pressure
-            ;;  (- 1d0 damage))
-            ;; (multiple-value-bind (sig eps-e f inc pmod) (cl-mpm/ext::constitutive-vm-tangent
-            ;;                                              stress-u
-            ;;                                              strain
-            ;;                                              de
-            ;;                                              e nu
-            ;;                                              coheasion
-            ;;                                              (cl-mpm/particle::mp-tangent-stiffness mp))
-            ;;   (setf stress-u sig yield-func f)
-            ;;   (let ((probe-vec (cl-mpm/utils::voigt-zeros))
-            ;;         (dep (cl-mpm/particle::mp-tangent-stiffness mp)))
-            ;;     ;; (setf p-wave (* 1d-6 p-wave))
-            ;;     ;; (loop for d from 0 below 2
-            ;;     ;;       do (progn
-            ;;     ;;            (cl-mpm/fastmaths::fast-zero probe-vec)
-            ;;     ;;            (setf (varef probe-vec d) 1d0)
-            ;;     ;;            (setf p-wave
-            ;;     ;;                  (max p-wave
-            ;;     ;;                       (cl-mpm/utils:varef (cl-mpm/fastmaths::fast-@-tensor-voigt dep probe-vec)
-            ;;     ;;                                           d)))))
-            ;;     )
-            ;;   (setf ps-vm-inc inc)
-            ;;   (setf strain eps-e)
-            ;;   (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
-
             (let* ((new-stress (grab-new-voigt))
                    (new-strain (grab-new-voigt))
                    (c-0 (cl-mpm/particle::mp-c-0 mp))
@@ -346,7 +316,6 @@
                          (declare (double-float plastic-vm))
                          (setf coheasion
                                (* c-0 (+ 1d0 (* soft (/ (- plastic-vm ps-vm-1) dt)))))
-
                          ;; (setf coheasion (* c-0 (+ 1d0 (* soft plastic-vm))))
                          ;; (setf
                          ;;  coheasion

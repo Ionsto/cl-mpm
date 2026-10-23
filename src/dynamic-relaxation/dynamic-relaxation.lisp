@@ -522,7 +522,7 @@
                        (setf yconv (cl-mpm/damage::compute-ybar-delta sim))))
             ;; (when (> ybar-relax 0d0)
             ;;   (format t "Iter ~D ~E ~E~%" iter yconv ybar-relax))
-            (when (and (>= iter 4))
+            (when (and (>= iter 2))
               (format t "Iter ~D ~E ~E~%" iter yconv ybar-relax))
             (when (> yconv crit)
               (setf ybar-relax 0d0)

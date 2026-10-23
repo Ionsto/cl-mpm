@@ -106,8 +106,9 @@
                        (incf bad-initial-tangents)
                        (format t "Bad initial tangent ~E - ~D~%" t0 bad-initial-tangents)
                        (reset-tangent)
-                       (when (= bad-initial-tangents 5)
-                         (error 'cl-mpm/errors::error-simulation)))
+                       (when (= bad-initial-tangents 20)
+                         ;; (error 'cl-mpm/errors::error-simulation)
+                         ))
 
                      (when (and r-n r-n1)
                        (let* ((secant-n
@@ -147,6 +148,7 @@
                                         (>= (cl-mpm::sim-stats-oobf sim) oobf-crit))
                                  do
                                     (progn
+                                      (format t "dconv ~E oobf ~E~%" dconv (cl-mpm::sim-stats-oobf sim))
                                       (format t "Stagger iter ~D ~A~%" stagger-i (cl-mpm:sim-enable-damage sim))
                                       (refine-mesh sim)
                                       (cl-mpm/dynamic-relaxation:converge-quasi-static

@@ -435,13 +435,13 @@
 
       (start-damage-step sim)
       (compute-y-mps sim dt)
+      (setf (cl-mpm/damage::sim-damage-ybar-relaxation sim) 0d0)
       (update-localisation sim dt)
       (update-damage-mps sim dt)
 
       (when (cl-mpm::sim-enable-damage sim)
         (setf (cl-mpm/damage::sim-stats-damage-residual sim) (compute-damage-delta sim)))
-      (solve-localisation sim dt)
-      )
+      (solve-localisation sim dt))
     (cl-mpm:iterate-over-mps
      mps
      (lambda (mp)
