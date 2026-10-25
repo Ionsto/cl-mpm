@@ -21,6 +21,7 @@
                           ;; (tangent-average-factor 0.8d0)
                           ;; (min-tangent-ratio nil)
                           (stagger-damage :HYBRID)
+                          (pre-finalise-check (lambda (sim)))
                           (plotter (lambda (sim))))
   (let ((total-i 0)
         (r-0 nil)
@@ -132,7 +133,9 @@
                                  t0
                                  ratio)
                          (when min-tangent-ratio
-                           (when (or (< ratio min-tangent-ratio))
+                           (when (or (< ratio min-tangent-ratio)
+                                     ;; (> t0 0d0)
+                                     )
                              (format t "Current tangent dropped below specified ratio~%")
                              (error 'cl-mpm/errors::error-simulation)))
                          ))))
@@ -140,7 +143,7 @@
                 (loop for ac from 0 to 10
                       while (not alt-conv-crit)
                       do (progn
-                           (loop for stagger-i from 0 to 100
+                           (loop for stagger-i from 0 to 50
                                  while (or
                                         ;; (< stagger-i 2)
                                         (>= dconv damage-crit)
@@ -253,19 +256,20 @@
                            (setf alt-conv-crit (convergence-check sim))
                            (unless alt-conv-crit
                              (setf (cl-mpm::sim-stats-oobf sim) oobf-crit))))))
-          (when (or (> (cl-mpm::sim-stats-oobf sim) oobf-crit)
-                    (> dconv damage-crit))
-            (cl-mpm:sim-format sim t "Staggered solve didn't converge ~E ~E~%" dconv (cl-mpm::sim-stats-oobf sim))
-            (error (make-instance 'non-convergence-error
-                                  :text "Staggered solve didn't converge ~E ~E"
-                                  :ke-norm  dconv
-                                  :oobf-norm  (cl-mpm::sim-stats-oobf sim))))
-          (when save-vtk-dr
-            (save-vtks-dr-step sim output-dir global-step *trial-iter* total-i))
-          (cl-mpm::finalise-loadstep sim)
-          (save-timestep sim output-dir global-step :QUASI-STATIC)
-          (values t stagger-iters)))
-      )))
+            (when (or (> (cl-mpm::sim-stats-oobf sim) oobf-crit)
+                      (> dconv damage-crit))
+              (cl-mpm:sim-format sim t "Staggered solve didn't converge ~E ~E~%" dconv (cl-mpm::sim-stats-oobf sim))
+              (error (make-instance 'non-convergence-error
+                                    :text "Staggered solve didn't converge ~E ~E"
+                                    :ke-norm  dconv
+                                    :oobf-norm  (cl-mpm::sim-stats-oobf sim))))
+            (funcall pre-finalise-check sim)
+            (when save-vtk-dr
+              (save-vtks-dr-step sim output-dir global-step *trial-iter* total-i))
+            (cl-mpm::finalise-loadstep sim)
+            (save-timestep sim output-dir global-step :QUASI-STATIC)
+            (values t stagger-iters)))
+        )))
   )
 
 (defun run-quasi-time (sim

@@ -43,7 +43,7 @@
            (energy e-crit)
            (oobf oobf-crit)
            (work 0d0)
-           (intertial-passed t)
+           (intertial-passed nil)
            (dt-0 (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
            (substeps (max 1 (round target-time (cl-mpm:sim-dt sim)))))
       (declare (double-float e-crit oobf-crit energy oobf work dt-0))
@@ -279,17 +279,18 @@
                                                      :max-deformation-gradient max-deformation-gradient
                                                      :min-tangent-ratio min-tangent-ratio
                                                      ;; :stagger-damage nil
+                                                     :pre-finalise-check
+                                                     (lambda (sim)
+                                                       (let ((inertia-norm (true-intertial-criteria sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))))
+                                                         (format t "Converged inertia norm - ~E~%" inertia-norm)
+                                                         (format t "Static OOBF norm - ~E~%" (estimate-static-oobf-aggregated sim))
+                                                         (when max-inertia-norm
+                                                           (when (> inertia-norm max-inertia-norm)
+                                                             (format t "Condition-ish Failed inertia norm ~E ~E~%" inertia-norm max-inertia-norm)
+                                                             (make-instance 'error-inertia-criteria :inertia-norm inertia-norm)))))
                                                      :stagger-damage stagger-damage
                                                      :save-vtk-dr save-vtk-dr)
-                                  (let ((inertia-norm (true-intertial-criteria sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))))
-                                    (format t "Converged inertia norm - ~E~%" inertia-norm)
-                                    (format t "Static OOBF norm - ~E~%" (estimate-static-oobf-aggregated sim))
-                                    (when max-inertia-norm
-                                      (when (> inertia-norm max-inertia-norm)
-                                        (format t "Condition-ish Failed inertia norm ~E ~E~%" inertia-norm max-inertia-norm)
-                                        (setf quasi-conv nil)
-                                        ;; (make-instance 'error-inertia-criteria :inertia-norm inertia-norm)
-                                        )))
+                                  
                                   (setf quasi-conv conv
                                         stagger-iters inc-steps)
                                   (cl-mpm:sim-format sim t "Quasi-conv? ~A~%" quasi-conv)
