@@ -785,16 +785,12 @@
                                         ;; (+ 1d0 (expt friction 2))
                                         (+ 1d0 (* 1d0 friction))
                                         ;; (sqrt (+ 1d0 (expt friction 2)))
-                                        ;; (max 1d0
-                                        ;;      (+ 1d0
-                                        ;;         (*
-                                        ;;          1d0
-                                        ;;          friction
-                                        ;;          ;; (/
-                                        ;;          ;;  (cl-mpm/fastmaths:mag force-friction)
-                                        ;;          ;;  epsilon
-                                        ;;          ;;  )
-                                        ;;          )))
+                                        ;; (+ 1d0
+                                        ;;    (*
+                                        ;;     friction
+                                        ;;     (/
+                                        ;;      (cl-mpm/fastmaths:mag force-friction)
+                                        ;;      epsilon)))
                                         ;; (+ 1d0 (* 1d0 (expt friction 1)))
                                         contact-area)
                             :density (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))
