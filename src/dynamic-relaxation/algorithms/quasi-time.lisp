@@ -107,7 +107,7 @@
                        (incf bad-initial-tangents)
                        (format t "Bad initial tangent ~E - ~D~%" t0 bad-initial-tangents)
                        (reset-tangent)
-                       (when (= bad-initial-tangents 20)
+                       (when (= bad-initial-tangents 5)
                          (error 'cl-mpm/errors::error-simulation)))
 
                      (when (and r-n r-n1)
