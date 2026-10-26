@@ -13,34 +13,37 @@
 ;; (sb-ext:restrict-compiler-policy 'safety 3 3)
 
 (defparameter *angle* 38d0)
-(defparameter *angle-r* 0d0)
+(defparameter *angle-r* 38d0)
 (defparameter *angle-psi* 5d0)
 (defparameter *rt* (- 1d0 1d-2))
 ;; (defparameter *rt* 1d0)
 
 (defparameter *pd-oversize* 1d-2)
 (defparameter *rc*
-  ;; 0d0
   (- 1d0 *pd-oversize*)
   )
 
 (defparameter *enable-plastic-damage* nil)
 (defparameter *delay-time* 1d5)
-(defparameter *delay-exponent* 2d0)
+(defparameter *delay-exponent* 4d0)
 (defparameter *enable-viscosity* nil)
 (defparameter *length-scaler* 2d0)
 (defparameter *gf* 10000d0)
 (defparameter *ductility* 10d0)
-(defparameter *tensile-strength* 0.1d6)
+(defparameter *tensile-strength* 0.15d6)
 ;; (defparameter *biot-coefficent* 0.619d0)
 ;; (defparameter *biot-coefficent* 0.552d0)
 ;; (defparameter *biot-coefficent* 0.9d0)
 (defparameter *biot-coefficent* 0.9d0)
 (defparameter *alpha* 1d0)
-(defparameter *viscoplastic-hardening* 1d2)
+(defparameter *viscoplastic-hardening* 1d4)
 ;; (defparameter *alpha* 0.5d0)
 ;; (defparameter *alpha* 0.619d0)
 (defparameter *material-damping* 0d-3)
+
+;; (defparameter *biot-coefficent* 0d0)
+;; (defparameter *alpha* 0d0)
+;; (defparameter *viscoplastic-hardening* 0d2)
 
 ;; (defparameter *epsilon-scale* 1d-1)
 
@@ -120,16 +123,9 @@
                      (*
                       (the double-float *alpha*)
                       (the double-float (cl-mpm/particle::mp-biot-coefficent mp))
-                      j
-                      (- pressure)
-                      ;; (if (> pu 0d0)
-                      ;;     1d0
-                      ;;     (cl-mpm/particle::mp-k-compressive-residual-ratio mp))
-                      ;; (the double-float (- 1d0 damage))
-                      ;; (- 1d0 (cl-mpm/buoyancy::compute-volumetric-damage mp))
-                      ;; 0d0
-                      ;; (the double-float (- 2d0 (* 2d0 damage)))
-                      )
+                      ;; j
+                      ;; (- 1d0 damage)
+                      (- pressure))
                      (grab-new-voigt))
                     (grab-new-voigt))))
             (setf
@@ -197,6 +193,7 @@
                 (ice-height 400d0)
                 (bench-length 0d0)
                 (bench-extra-cut 0d0)
+                (bench-square t)
                 (undercut-length 0d0)
                 (aspect 1)
                 (floatation-ratio 0.9)
@@ -414,15 +411,16 @@
         (when (> cutback 0d0)
           (cl-mpm/setup:remove-sdf
            *sim*
-           (lambda (point)
-             (cl-mpm/setup::plane-point-point-sdf
-              point
-              (cl-mpm/utils::vector-from-list (list (float (- (first block-size) cutback) 0d0)
-                                                    (float (+ offset ice-height) 0d0) 0d0))
-              (cl-mpm/utils::vector-from-list (list (float (first block-size) 0d0) (float (+ offset (- ice-height cutout)) 0d0) 0d0)))
-             )
-           ;; (cl-mpm/setup::rectangle-sdf (list (first block-size) (+ offset ice-height ice-height))
-           ;;                              (list cutback (+ cutout ice-height)))
+           (if bench-square
+               (cl-mpm/setup::rectangle-sdf (list (first block-size) (+ offset ice-height ice-height))
+                                            (list cutback (+ cutout ice-height)))
+               (lambda (point)
+                 (cl-mpm/setup::plane-point-point-sdf
+                  point
+                  (cl-mpm/utils::vector-from-list (list (float (- (first block-size) cutback) 0d0)
+                                                        (float (+ offset ice-height) 0d0) 0d0))
+                  (cl-mpm/utils::vector-from-list (list (float (first block-size) 0d0) (float (+ offset (- ice-height cutout)) 0d0) 0d0)))
+                 ))
            ))))
     (let ((cutout water-level)
           (cutback undercut-length))
@@ -609,6 +607,7 @@
            0d0)))
     (cl-mpm/output:add-mp-output *sim* :SCALAR "j" #'cl-mpm/particle::mp-deformation-jacobian-strain)
     (cl-mpm/output:add-mp-output *sim* :SCALAR "water-pressure" #'cl-mpm/particle::mp-pressure)
+    (cl-mpm/output:add-mp-output *sim* :SCALAR "water-pressure-alpha" (lambda (mp) (* (cl-mpm/particle::mp-damage mp) (cl-mpm/particle::mp-pressure mp))))
     (cl-mpm/output:add-mp-output *sim* :SCALAR "water-pressure-delay" #'cl-mpm/particle::mp-delay-pressure)
     ;; (cl-mpm/output:add-mp-output *sim* :SCALAR "effective-total-pressure" (lambda (mp)
     ;;                                                     (-
@@ -759,8 +758,8 @@
          (total-time 1d10)
          (ice-aspect 1d0)
          (density 918d0)
-         (explicit-dt-scale 0.5d0)
-         (water-damping 20d0)
+         (explicit-dt-scale 0.25d0)
+         (water-damping 10d0)
          (friction 0.5d0)
          (floatation-ratio 0.7d0))
     (defparameter *length-scaler* 3d0)
@@ -1073,6 +1072,7 @@
                           (aspect 2d0)
                           (flotation-ratio 0.8d0)
                           (slope 0d0)
+                          (bench-square t)
                           )
   (cl-mpm/utils:set-workers 8)
   (let* ((mps 3)
@@ -1091,6 +1091,7 @@
            :melange nil
            :aspect aspect
            :slope slope
+           :bench-square bench-square
            :floatation-ratio flotation-ratio
            :use-penalty t)
 
@@ -1109,8 +1110,8 @@
      "inertia"
      #'cl-mpm/mesh::node-inertia-force)
     ;; (change-class *sim* 'cl-mpm/damage::mpm-sim-agg-damage)
-    ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic)
-    (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul)
+    (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic)
+    ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul)
     (unless debug
       (reduced-output-data *sim*))
     (plot-domain)
@@ -1123,7 +1124,7 @@
     (setf (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND)
     ;; (setf (cl-mpm/dynamic-relaxation::sim-enable-dynamics *sim*) nil)
     (let ((step 0)
-          (substeps (* 4 (ceiling (* 20 (/ H 100) (/ 10d0 (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))))))
+          (substeps (* 1 (ceiling (* 10 (/ H 100) (/ 10d0 (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))))))
           ;; (substeps 1)
           (elastic-dt (cl-mpm/setup::estimate-elastic-dt *sim*)))
       (format t "Substeps ~D~%" substeps)
@@ -1133,20 +1134,22 @@
        :dt 1d4
        :total-time 1d10
        :dt-scale 0.9d0
-       :enable-plastic nil
+       :enable-plastic t
        :enable-damage t
        :substeps substeps
-       :sub-conv-steps 500
+       :sub-conv-steps 50
        :min-adaptive-steps -14
        :max-adaptive-steps 14
        :adaption-constant 2
        :adaption-easy-steps 4
-       :max-damage-inc 0.5d0
+       :max-damage-inc 0.9d0
        :max-plastic-inc nil
        :max-deformation-gradient 4d0
-       :stagger-damage :MONOLITH-QS
-       :min-tangent-ratio 1d-1
-       :conv-criteria 1d-3
+       :stagger-damage :HYBRID-FULL
+       ;; :stagger-damage :MONOLITH-QS
+       ;; :min-tangent-ratio 1d-1
+       :min-tangent-ratio nil
+       :conv-criteria 1d-2
        :save-vtk-loadstep t
        :save-vtk-dr debug
        :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
