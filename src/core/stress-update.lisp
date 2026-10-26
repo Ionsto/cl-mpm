@@ -195,9 +195,10 @@
                 (cl-mpm/fastmaths::fast-scale!
                  df-strain
                  (expt
-                  (+
-                   +fbar-mixing-value+
-                   (* (- 1d0 +fbar-mixing-value+) (the double-float (/ j-fbar j))))
+                  (the double-float (/ j-fbar j))
+                  ;; (+
+                  ;;  +fbar-mixing-value+
+                  ;;  (* (- 1d0 +fbar-mixing-value+) (the double-float (/ j-fbar j))))
                   (the double-float (/ 1d0 nd))))
                 (ecase nd
                   (1
