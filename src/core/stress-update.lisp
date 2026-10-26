@@ -4,7 +4,7 @@
 
 
 
-(defconstant +fbar-mixing-value+ 1d-3)
+(defconstant +fbar-mixing-value+ 0d-3)
 
 
 (declaim (notinline calculate-strain-rate)
