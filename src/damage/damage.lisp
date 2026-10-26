@@ -398,7 +398,7 @@
                          (cl-mpm/damage::update-localisation-barzilai-borwein sim dt))
                        (setf yconv-prev yconv)
                        (setf yconv (compute-ybar-delta sim))))
-            (when (and (>= iter 2))
+            (when (and (>= iter 4))
               (format t "Iter ~D ~E ~E~%" iter yconv (sim-damage-ybar-relaxation sim))))
           (setf (sim-damage-ybar-relaxation sim) 0d0)
           (setf (cl-mpm/damage::sim-stats-damage-residual sim) (compute-damage-delta sim)))))))

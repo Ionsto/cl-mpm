@@ -21,7 +21,6 @@
                          (mass-scaler 1d1)
                          (output-frequency 1))
   (declare (double-float damping dt-scale))
-
   (let ((state :dynamic))
     (setf (cl-mpm:sim-mass-scale sim) 1d0)
     (when enable-mass-scaling

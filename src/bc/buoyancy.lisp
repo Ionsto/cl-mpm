@@ -1449,6 +1449,7 @@
                            (declare (double-float alpha volumetric-damage))
                            (let* ((porosity (log-linear (cl-mpm/particle::mp-deformation-jacobian-strain mp)))
                                   ;; (porosity damage)
+                                  (porosity 0d0)
                                   )
                              (declare (double-float p-center volumetric-damage porosity))
                              (setf (cl-mpm/particle::mp-pressure-degredation mp) porosity)
