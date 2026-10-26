@@ -123,7 +123,7 @@
                      (*
                       (the double-float *alpha*)
                       (the double-float (cl-mpm/particle::mp-biot-coefficent mp))
-                      ;; j
+                      j
                       ;; (- 1d0 damage)
                       (- pressure))
                      (grab-new-voigt))
@@ -707,7 +707,7 @@
   (cl-mpm/output:add-mp-output sim :SCALAR "damage-porosity" #'cl-mpm/particle::mp-pressure-degredation)
   (cl-mpm/output:add-mp-output sim :VOIGT "sig" #'cl-mpm/particle::mp-stress)
   (cl-mpm/output:add-mp-output sim :SCALAR "plastic-c" #'cl-mpm/particle::mp-c)
-  (cl-mpm/output::add-mp-output :VECTOR "fric-force" #'cl-mpm/particle::compute-friction-force)
+  (cl-mpm/output::add-mp-output sim :VECTOR "fric-force" #'cl-mpm/particle::compute-friction-force)
   (cl-mpm/output:add-mp-output sim :SCALAR "eroded"
                                (lambda (mp)
                                  (/ (cl-mpm/particle::mp-eroded-volume mp) (cl-mpm/particle::mp-mass mp))))
@@ -1143,7 +1143,7 @@
        :max-adaptive-steps 14
        :adaption-constant 2
        :adaption-easy-steps 4
-       :max-damage-inc 0.9d0
+       :max-damage-inc 1.9d0
        :max-plastic-inc nil
        :max-deformation-gradient 4d0
        :stagger-damage :HYBRID-FULL
