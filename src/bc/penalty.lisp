@@ -768,17 +768,20 @@
                             :position (cl-mpm/utils:vector-copy trial-point)
                             :contact-area contact-area
                             :stiffness (*
-                                        1d0
+                                        2d0
                                         (+
-                                         epsilon
-                                         (if (> regularisation-length 0d0)
-                                             (max 1d0 (/ (exp (/ (- (max penetration 0d0)) regularisation-length)) regularisation-length))
-                                             1d0)
-                                         (if (and (> damping 0d0) (> dt 0d0))
-                                             (the double-float (* (the double-float (sqrt (the double-float (* epsilon mp-mass))))
-                                                                 damping
-                                                                 (/ 1d0 dt)))
-                                             0d0))
+                                         (*
+                                          epsilon
+                                          ;; (if (> regularisation-length 0d0)
+                                          ;;     (- 1d0 (exp (/ (- (max penetration 0d0)) regularisation-length)))
+                                          ;;     1d0)
+                                          )
+                                         ;; (if (and (> damping 0d0) (> dt 0d0))
+                                         ;;     (the double-float (* (the double-float (sqrt (the double-float (* epsilon mp-mass))))
+                                         ;;                         damping
+                                         ;;                         (/ 1d0 dt)))
+                                         ;;     0d0)
+                                         )
                                         ;; (+ 1d0 (expt friction 2))
                                         (+ 1d0 (* 1d0 friction))
                                         ;; (sqrt (+ 1d0 (expt friction 2)))
