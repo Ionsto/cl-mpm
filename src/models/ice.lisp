@@ -307,6 +307,18 @@
         (when enable-plasticity
           (let* ((K (/ e (* 3 (- 1d0 (* 2 nu))))))
             (declare (double-float damage-pressure coheasion pressure))
+            ;; (multiple-value-bind (sig eps-e f inc pmod)
+            ;;     (cl-mpm/ext::constitutive-vm-tangent
+            ;;      stress-u
+            ;;      strain
+            ;;      de
+            ;;      e
+            ;;      nu
+            ;;      coheasion
+            ;;      (cl-mpm/particle::mp-tangent-stiffness mp))
+            ;;   (setf yield-func f)
+            ;;   (setf ps-vm-inc inc)
+            ;;   (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
             (let* ((new-stress (grab-new-voigt))
                    (new-strain (grab-new-voigt))
                    (c-0 (cl-mpm/particle::mp-c-0 mp))
@@ -350,49 +362,10 @@
                      #'plastic
                      ps-vm-1
                      #'identity)
-                    ;; (with-accessors ((stiff mp-tangent-stiffness)
-                    ;;                  (ps-inc mp-strain-plastic-vm-inc))
-                    ;;     mp
-                    ;;     (let ((de-0 (cl-mpm/utils::deep-copy stiff))
-                    ;;           )
-                    ;;       (cl-mpm/constitutive::secant-hardening
-                    ;;        #'plastic
-                    ;;        ps-vm-1
-                    ;;        #'identity)
-                    ;;       (when (> ps-inc 0d0)
-                    ;;         (cl-mpm/utils::copy-into de-0 stiff))))
                     ))
               (cl-mpm/utils::voigt-copy-into new-stress stress-u)
               (cl-mpm/utils::voigt-copy-into new-strain strain))
 
-            ;; (multiple-value-bind (sig eps-e f inc pmod)
-            ;;     (cl-mpm/ext::constitutive-mohr-coulomb
-            ;;      stress-u
-            ;;      de
-            ;;      strain
-            ;;      E
-            ;;      nu
-            ;;      phi
-            ;;      psi
-            ;;      coheasion
-            ;;      (cl-mpm/particle::mp-tangent-stiffness mp)
-            ;;      )
-            ;;   (setf
-            ;;    stress-u sig
-            ;;    strain eps-e
-            ;;    yield-func f
-            ;;    ;; p-wave (* 1.0d0 pmod)
-            ;;    )
-            ;;   (when (> yield-func 0d0)
-            ;;     (setf p-wave (* 1.0d0 (the double-float pmod))))
-            ;;   (let (;(inc (expt (* 1 (max 0d0
-            ;;         ;                       (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
-            ;;         ;                          (cl-mpm/utils::trace-voigt strain)))) 1))
-            ;;         ;(inc (abs inc))
-            ;;         )
-            ;;     (declare (double-float inc ps-vm-1))
-            ;;     (setf ps-vm (+ ps-vm-1 inc))
-            ;;     (setf ps-vm-inc inc)))
             ))
         ;; (let* ((pn (/ pressure-n j-n))
         ;;        (p (/ pressure j))

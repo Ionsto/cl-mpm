@@ -707,6 +707,7 @@
   (cl-mpm/output:add-mp-output sim :SCALAR "damage-porosity" #'cl-mpm/particle::mp-pressure-degredation)
   (cl-mpm/output:add-mp-output sim :VOIGT "sig" #'cl-mpm/particle::mp-stress)
   (cl-mpm/output:add-mp-output sim :SCALAR "plastic-c" #'cl-mpm/particle::mp-c)
+  (cl-mpm/output::add-mp-output :VECTOR "fric-force" #'cl-mpm/particle::compute-friction-force)
   (cl-mpm/output:add-mp-output sim :SCALAR "eroded"
                                (lambda (mp)
                                  (/ (cl-mpm/particle::mp-eroded-volume mp) (cl-mpm/particle::mp-mass mp))))
@@ -756,17 +757,17 @@
   (let* ((mps 3)
          (dt 1d3)
          (total-time 1d10)
-         (ice-aspect 1d0)
+         (ice-aspect 4d0)
          (density 918d0)
          (explicit-dt-scale 0.25d0)
          (water-damping 10d0)
          (friction 0.5d0)
-         (floatation-ratio 0.7d0))
+         (floatation-ratio 0.8d0))
     (defparameter *length-scaler* 3d0)
     (setup
      :refine refine
      :friction friction
-     :bench-length (* 0d0 H)
+     :bench-length (* 0.5d0 H)
      :bench-extra-cut (* 0d0 (* H 1d0))
      :undercut-length (* 0d0 H)
      :ice-height H
@@ -1148,7 +1149,7 @@
        :stagger-damage :HYBRID-FULL
        ;; :stagger-damage :MONOLITH-QS
        ;; :min-tangent-ratio 1d-1
-       :min-tangent-ratio nil
+       :min-tangent-ratio 1d-1
        :conv-criteria 1d-2
        :save-vtk-loadstep t
        :save-vtk-dr debug
@@ -1196,17 +1197,11 @@
          (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
          (incf step))))))
 
-
-
-
-
 (defun save-test-vtks (&key (output-dir "./output/"))
   (cl-mpm::finalise-loadstep *sim*)
   (cl-mpm/output:save-vtk (merge-pathnames "test.vtk" output-dir) *sim*)
   (cl-mpm/output:save-vtk-nodes (merge-pathnames "test_nodes.vtk" output-dir) *sim*)
-  (cl-mpm/output:save-vtk-cells (merge-pathnames "test_cells.vtk" output-dir) *sim*)
-  )
-
+  (cl-mpm/output:save-vtk-cells (merge-pathnames "test_cells.vtk" output-dir) *sim*))
 
 (defun est-shear-from-angle (angle angle-r rc)
   (let* ((angle-plastic (* angle (/ pi 180)))
