@@ -312,7 +312,7 @@
                    (enable-dynamics sim-enable-dynamics)
                    (bcs-force-list cl-mpm::sim-bcs-force-list))
       sim
-    ;; (setf (cl-mpm::sim-dt-scale sim) 0.5d0)
+    ;; (setf (cl-mpm::sim-dt-scale sim) 0.9d0)
     (map-stiffness sim)
     (map-mass-stiffness sim)
      (loop for bc across bcs-force-list

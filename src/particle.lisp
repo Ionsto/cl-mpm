@@ -1277,7 +1277,7 @@
   0d0)
 
 
-(defun p-wave-from-tangent (mp tang &key (min-inelastic-ratio 1d-1))
+(defun p-wave-from-tangent (mp tang &key (min-inelastic-ratio 1d-0))
   (declare (double-float min-inelastic-ratio))
   (let ()
     (max
