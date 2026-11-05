@@ -1,12 +1,12 @@
 (defpackage :cl-mpm/examples/virtual-stress/thick-cylinder
   (:use :cl))
 (in-package :cl-mpm/examples/virtual-stress/thick-cylinder)
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
-;; (sb-ext:restrict-compiler-policy 'speed  0 0)
-;; (sb-ext:restrict-compiler-policy 'debug  3 3)
-;; (sb-ext:restrict-compiler-policy 'safety 3 3)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
 
 (declaim (optimize (debug 3) (safety 3) (speed 2)))
 
@@ -29,6 +29,7 @@
     (vgplot:format-plot t "set xtics ~f" h))
   (cl-mpm/plotter::simple-plot
    sim
+   :trial t
    :plot :deformed
    ;:colour-func (lambda (mp) (compute-radial-stress mp))
    :colour-func (lambda (mp) (abs (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy)))
@@ -47,11 +48,6 @@
          (block-size (list (* b 2) (* b 2)))
          (offset (list (- offset-scalar b)
                        (- offset-scalar b)))
-         ;; (offset-scalar 0d0)
-         ;; (size (list (+ b 1) (+ b 1)))
-         ;; (block-size (list b b))
-         ;; (offset (list offset-scalar
-         ;;               offset-scalar))
          )
     (when sym
       (setf
@@ -94,7 +90,8 @@
                          1
                          ))
             density
-            'cl-mpm/particle::particle-linear-elastic
+            ;; 'cl-mpm/particle::particle-linear-elastic
+            'cl-mpm/particle::particle-elastic
             :E 1d9
             :nu 0.2d0)))
         (let ((refine 0))
@@ -106,7 +103,8 @@
                (list offset-scalar offset-scalar 0d0)
                a)
               p))
-           :refine refine)
+           :refine refine
+           )
           (cl-mpm/setup:remove-sdf
            sim
            (lambda (p)
@@ -117,7 +115,8 @@
                         0d0)
                   b)
                  p)))
-           :refine refine))
+           :refine refine)
+          )
         (format t "MP count ~D~%" (length (cl-mpm:sim-mps sim)))
         (setf (cl-mpm::sim-gravity sim) 0d0)
         (cl-mpm/setup::setup-bcs
@@ -127,8 +126,8 @@
         (defparameter *bc-pressure*
           (cl-mpm/buoyancy::make-bc-pressure
            sim
-           100d3
-           100d3
+           -100d3
+           -100d3
            :clip-func (lambda (pos)
                         (<=
                          (funcall
@@ -142,6 +141,7 @@
          *bc-pressure*)
         sim))))
 (defun setup (&key (refine 0d0) (mps 2d0) (sym nil))
+  (cl-mpm/utils:set-workers 8)
   ;; (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ 1 5) 2))
   (let* ((e (expt 2 refine))
          (h (/ 1d0 e)))
@@ -186,7 +186,7 @@
            )
       (+ (* sx (expt (sin theta) 2))
          (* sy (expt (cos theta) 2))
-         (* -2 sxy (sin theta) (cos theta))))))
+         (* 2 sxy (sin theta) (cos theta))))))
 
 (defun compute-radial-stress-normal (mp)
   (let ((pos (cl-mpm/particle::mp-position mp))
@@ -196,17 +196,32 @@
                 pos
                 *origin*))))
       (magicl:@ (magicl:transpose n) (cl-mpm/utils:voigt-to-matrix stress) n))))
-(defun compute-radial-stress-analytic (mp)
+
+(defun compute-pos-radial-stress-analytic (pos)
   (let ((radius (cl-mpm/fastmaths:mag
                  (cl-mpm/fastmaths:fast-.-
-                  (cl-mpm/particle:mp-position mp)
+                  pos
                   *origin*))))
     (let ((b 5d0)
           (a 1d0)
-          (pressure 100e3)
+          (pressure -100d3)
           )
       (* (/ pressure (- (expt (/ b a) 2) 1))
          (- 1 (expt (/ b radius) 2))))))
+
+(defun compute-radial-stress-analytic (mp)
+  (compute-pos-radial-stress-analytic (cl-mpm/particle::mp-position mp))
+  ;; (let ((radius (cl-mpm/fastmaths:mag
+  ;;                (cl-mpm/fastmaths:fast-.-
+  ;;                 (cl-mpm/particle:mp-position mp)
+  ;;                 *origin*))))
+  ;;   (let ((b 5d0)
+  ;;         (a 1d0)
+  ;;         (pressure -100e3)
+  ;;         )
+  ;;     (* (/ pressure (- (expt (/ b a) 2) 1))
+  ;;        (- 1 (expt (/ b radius) 2)))))
+  )
 
 (defun compute-hoop-stress-normal (mp)
   (let ((pos (cl-mpm/particle::mp-position mp))
@@ -219,7 +234,7 @@
 (defun compute-error (&optional sim)
   (let* ((mp-list (loop for mp across (cl-mpm:sim-mps *sim*) collect mp))
          (vp-list (loop for mp in mp-list collect (cl-mpm/particle::mp-volume mp)))
-         (pressure 100e3)
+         (pressure 100d3)
          (syy (mapcar #'compute-radial-stress mp-list))
          (syy-ref (mapcar #'compute-radial-stress-analytic mp-list))
          (err (/
@@ -243,17 +258,17 @@
 
 
 (defun loading-function (f)
-  (let ((load (* f 100d3)))
+  (let ((load (* f -100d3)))
     (setf (cl-mpm/buoyancy::bc-pressure-pressures *bc-pressure*) (list load load 0d0)))
   )
 
 (defparameter *run-sim* nil)
 (defun run-conv ()
-  (cl-mpm/utils:set-workers 8)
+  (cl-mpm/utils:set-workers 16)
   (setf *run-sim* t)
   (defparameter *data-refine* (list))
   (defparameter *data-error* (list))
-  (loop for i in '(1)
+  (loop for i in '(1 2 3 4 5)
         while *run-sim*
         do
            (let* ((refine i)
@@ -271,12 +286,13 @@
                 :output-dir (merge-pathnames (format nil "./output-~A_~D/" i mps))
                 :load-steps 1
                 :substeps (* 20 refine)
+                :sub-conv-steps 200
                 :plotter (lambda (s));#'plot
                 :damping (sqrt 2d0)
-                :save-vtk-dr nil
+                :save-vtk-dr t
                 :save-vtk-loadstep t
-                :dt-scale 1d0
-                :criteria 1d-9
+                :dt-scale 0.9d0
+                :criteria 1d-6
                 :loading-function #'loading-function)
                ;; (plot-sigma-yy)
                ;; (push (compute-error *sim*) *data-error*)
@@ -292,27 +308,27 @@
   (setf (cl-mpm::sim-run-sim *sim*) nil)
   (setf *run-sim* nil))
 
-(defun plot-sigma-yy (&optional sim)
-  (with-accessors ((mps cl-mpm:sim-mps))
-      *sim*
-    (let* ((x-slice-pos (loop for mp across mps maximize (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
-           (mp-list
-             (loop for mp across mps
-                     collect mp))
-           (y (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-position mp) 1 0)))
-           (y-ref (loop for pos in *original-configuration*
-                        collect pos))
+;; (defun plot-sigma-yy (&optional sim)
+;;   (with-accessors ((mps cl-mpm:sim-mps))
+;;       *sim*
+;;     (let* ((x-slice-pos (loop for mp across mps maximize (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
+;;            (mp-list
+;;              (loop for mp across mps
+;;                      collect mp))
+;;            (y (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-position mp) 1 0)))
+;;            (y-ref (loop for pos in *original-configuration*
+;;                         collect pos))
 
-           (syy (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0)))
-           (pressure -1d4)
-           (max-y 50)
-           (syy-ref (mapcar (lambda (x) pressure) y-ref))
-           )
-      (vgplot:plot syy y-ref "first;;with points pt 7"
-                   syy-ref y-ref "Ref;;with points pt 7"
-                   )
-      (vgplot:legend)
-      )))
+;;            (syy (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0)))
+;;            (pressure -1d4)
+;;            (max-y 50)
+;;            (syy-ref (mapcar (lambda (x) pressure) y-ref))
+;;            )
+;;       (vgplot:plot syy y-ref "first;;with points pt 7"
+;;                    syy-ref y-ref "Ref;;with points pt 7"
+;;                    )
+;;       (vgplot:legend)
+;;       )))
 
 ;; (defun compute-error (&optional sim)
 ;;   (with-accessors ((mps cl-mpm:sim-mps))
@@ -359,7 +375,7 @@
 (defun test-dr ()
   (setup :mps 4 :refine 2 :sym t)
   (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t)
-  (cl-mpm/setup::set-mass-filter *sim* 1d3 :proportion 1d-9)
+  ;; (cl-mpm/setup::set-mass-filter *sim* 1d3 :proportion 1d-9)
   ;; (cl-mpm:update-sim *sim*)
   ;; (plot *sim*)
   (cl-mpm/dynamic-relaxation::run-load-control
@@ -367,11 +383,9 @@
    :output-dir "./output/"
    :load-steps 1
    :plotter #'plot
-   :damping 1d0
-   :kinetic-damping nil
    :save-vtk-dr t
    :save-vtk-loadstep t
    :substeps 10
    :dt-scale 1d0
-   :criteria 1d-9
+   :criteria 1d-6
    :loading-function #'loading-function))
