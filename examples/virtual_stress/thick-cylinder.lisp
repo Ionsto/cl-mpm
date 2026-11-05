@@ -90,8 +90,8 @@
                          1
                          ))
             density
-            ;; 'cl-mpm/particle::particle-linear-elastic
-            'cl-mpm/particle::particle-elastic
+            'cl-mpm/particle::particle-linear-elastic
+            ;; 'cl-mpm/particle::particle-elastic
             :E 1d9
             :nu 0.2d0)))
         (let ((refine 0))
