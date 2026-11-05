@@ -188,7 +188,8 @@
               t0 nil
               rsteps 0)))
       (setf
-       (cl-mpm/dynamic-relaxation::sim-convergence-critera sim) crit
+       (cl-mpm/dynamic-relaxation::sim-convergence-critera sim) damage-crit
+       (cl-mpm::sim-stats-oobf sim) crit
        (cl-mpm:sim-enable-damage sim) nil)
       (set-mp-plastic-damage
        sim
@@ -196,13 +197,14 @@
        :enable-plastic enable-plastic)
       (unless stagger-damage
         (setf (cl-mpm:sim-enable-damage sim) nil))
-      (case stagger-damage
-        (:MONOLITH (setf (cl-mpm::sim-enable-damage sim) enable-damage))
-        (:HYBRID (setf (cl-mpm::sim-enable-damage sim) nil))
-        (:HYBRID-FULL (setf (cl-mpm::sim-enable-damage sim) nil))
-        (:MONOLITH-QS (setf (cl-mpm::sim-enable-damage sim) nil))
-        (:FULL (setf (cl-mpm::sim-enable-damage sim) nil))
-        (t (setf (cl-mpm::sim-enable-damage sim) nil)))
+      (when (typep sim 'cl-mpm/damage:mpm-sim-damage)
+        (case stagger-damage
+          (:MONOLITH (setf (cl-mpm::sim-enable-damage sim) enable-damage))
+          (:HYBRID (setf (cl-mpm::sim-enable-damage sim) nil))
+          (:HYBRID-FULL (setf (cl-mpm::sim-enable-damage sim) nil))
+          (:MONOLITH-QS (setf (cl-mpm::sim-enable-damage sim) nil))
+          (:FULL (setf (cl-mpm::sim-enable-damage sim) nil))
+          (t (setf (cl-mpm::sim-enable-damage sim) nil))))
       ;; (setf (cl-mpm::sim-enable-damage sim) nil)
       (format t "Stagger scheme ~A~%" stagger-damage)
       (let ((additional-conv nil))
@@ -213,9 +215,10 @@
                    (loop for stagger-i from 0 to staggered-steps
                          while
                          (or
-                          (>= dconv damage-crit)
+                          ;; (>= dconv damage-crit)
                           (>= (cl-mpm::sim-stats-oobf sim) crit))
                          do (progn
+                              (format t "OOBF ~E -crit ~E~%" (cl-mpm::sim-stats-oobf sim) crit)
                               (let ((iv 0))
                                 (refine-mesh sim)
                                 (cl-mpm/dynamic-relaxation:converge-quasi-static
@@ -229,8 +232,10 @@
                                  (lambda (sim f o)
                                    (if r-n
                                        (progn
-                                         (unless t0
-                                           (setf t0 (/ (log (/ o r-0)) substeps)))
+                                         (if (not (= r-0 0d0))
+                                           (unless t0
+                                             (setf t0 (/ (log (/ o r-0)) substeps)))
+                                           (setf t0 0d0))
                                          (incf rsteps)
                                          (rotatef r-n r-n1)
                                          (setf r-n o)
@@ -244,12 +249,11 @@
                                            (setf r-0 o))))
                                    ;; (pprint "Hello")
                                    (format t "~A ~A ~%" r-n r-n1)
-                                   (when (and r-n r-n1)
-                                     (let* (;; (tn (/ (- r-n r-0) (* rsteps substeps)))
-                                            (tn
-                                              (/ (log (/ r-n r-0)) (* rsteps substeps))
-                                              ;; (/ (log (/ r-n r-n1)) substeps)
+                                   (when (and (and r-n r-n1)
+                                              (not (= r-0 0d0))
+                                              (not (= t0 0d0))
                                               )
+                                     (let* ((tn (/ (log (/ r-n r-0)) (* rsteps substeps)))
                                             (ratio (/ tn t0)))
                                        (format t "Current tangent ~E - initial tangent ~E - ratio ~E~%"
                                                tn
@@ -263,25 +267,25 @@
                                          (format t "Current tangent dropped below specified ratio~%")
                                          (error 'cl-mpm/errors::error-simulation))))
 
-                                   (when (and (cl-mpm::sim-enable-damage sim))
-                                     (setf dconv (compute-damage-delta sim))
-                                     (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv)
-                                     (cl-mpm:sim-format sim t "d-conv ~E~%" dconv))
+                                   (when (typep sim 'cl-mpm/damage:mpm-sim-damage)
+                                     (when (and (cl-mpm::sim-enable-damage sim))
+                                       (setf dconv (compute-damage-delta sim))
+                                       (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv)
+                                       (cl-mpm:sim-format sim t "d-conv ~E~%" dconv))
 
-                                   (when (equal stagger-damage :MONOLITH-QS)
-                                     (when enable-damage
-                                       (if (< (cl-mpm::sim-stats-oobf sim) crit)
-                                           (progn
-                                             (when (not (cl-mpm:sim-enable-damage sim))
-                                               (format t "Enabling damage evolution due to low oobf~%")
-                                               (reset-tangent)
-                                               (setf dconv damage-crit))
-                                             (setf (cl-mpm:sim-enable-damage sim) t))
-                                           (progn
-                                             (when (cl-mpm:sim-enable-damage sim)
-                                               (format t "Disabling damage evolution due to high oobf~%"))
-                                             (setf (cl-mpm:sim-enable-damage sim) nil)))))
-
+                                     (when (equal stagger-damage :MONOLITH-QS)
+                                       (when enable-damage
+                                         (if (< (cl-mpm::sim-stats-oobf sim) crit)
+                                             (progn
+                                               (when (not (cl-mpm:sim-enable-damage sim))
+                                                 (format t "Enabling damage evolution due to low oobf~%")
+                                                 (reset-tangent)
+                                                 (setf dconv damage-crit))
+                                               (setf (cl-mpm:sim-enable-damage sim) t))
+                                             (progn
+                                               (when (cl-mpm:sim-enable-damage sim)
+                                                 (format t "Disabling damage evolution due to high oobf~%"))
+                                               (setf (cl-mpm:sim-enable-damage sim) nil))))))
                                    (let ((ccrit (cl-mpm/dynamic-relaxation::sim-convergence-critera sim)))
                                      (declare (double-float ccrit))
                                      (if convergence-criteria
@@ -307,17 +311,9 @@
                                    (funcall post-iter-step i e o)
                                    )
                                  )
-                                ;; (when (equal stagger-damage :MONOLITH-QS)
-                                ;;   (when enable-damage
-                                ;;     (if (< (cl-mpm::sim-stats-oobf sim) crit)
-                                ;;         (progn
-                                ;;           (when (not (cl-mpm:sim-enable-damage sim))
-                                ;;             (reset-tangent)
-                                ;;             (setf dconv damage-crit))
-                                ;;           (setf (cl-mpm:sim-enable-damage sim) t))
-                                ;;         (progn
-                                ;;           (setf (cl-mpm:sim-enable-damage sim) nil)))))
-                                (if enable-damage
+                                (if (and
+                                     (typep sim 'cl-mpm/damage:mpm-sim-damage)
+                                     enable-damage)
                                     (progn
                                       (unless (cl-mpm:sim-enable-damage sim)
                                         (setf dconv damage-crit)
@@ -353,8 +349,7 @@
                                       (setf (cl-mpm/damage::sim-stats-damage-residual sim) dconv)
                                       )
                                       )
-                                  (setf dconv 0d0))
-                                )))
+                                  (setf dconv 0d0)))))
                  (setf additional-conv (convergence-check sim))))))
     (when (>= dconv damage-crit)
       (cl-mpm:sim-format sim t "Failed to converge damage during stagger~%")

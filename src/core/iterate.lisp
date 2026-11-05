@@ -1309,8 +1309,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (position (cl-mpm/particle:mp-position mp))
           (domain (cl-mpm/particle::mp-domain-size mp)))
       (flet ((update (x y)
-               (let (
-                     (corner (cl-mpm/utils:vector-zeros)))
+               (let ((corner (cl-mpm/utils:vector-zeros)))
                  (declare (double-float x y))
                  (setf (varef v 0) (* (varef domain 0) x 0.5d0)
                        (varef v 1) (* (varef domain 1) y 0.5d0)
@@ -1318,15 +1317,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                  (cl-mpm/fastmaths::fast-.+-vector
                   position
                   v
-                  ;; (cl-mpm/fastmaths:fast-scale!
-                  ;;  (cl-mpm/fastmaths:fast-.*
-                  ;;   (vector-from-list
-                  ;;    (list
-                  ;;     x
-                  ;;     y
-                  ;;     0d0))
-                  ;;   domain
-                  ;;   ) 0.5d0)
                   corner)
                  (funcall func corner))))
         (loop for x from -1d0 to 1d0 by 2d0

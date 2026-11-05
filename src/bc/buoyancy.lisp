@@ -136,11 +136,15 @@
       (setf (varef result 2) 0d0)
       result)))
 
-(defun pressure-virtual-stress (pressure-x pressure-y)
-  (voigt-from-list (list pressure-x pressure-y 0d0 0d0 0d0 0d0)))
+(defun pressure-virtual-stress (pressure-x pressure-y &optional (result nil))
+  (let ((result (if result (cl-mpm/fastmaths:fast-zero result) (cl-mpm/utils:voigt-zeros))))
+    (setf (varef result 0) pressure-x
+          (varef result 1) pressure-y)
+    result))
 
-(defun pressure-virtual-div ()
-  (vector-zeros))
+(defun pressure-virtual-div (&optional (result nil))
+  (let ((result (if result (cl-mpm/fastmaths:fast-zero result) (cl-mpm/utils:vector-zeros))))
+    result))
 
 ;; (defun pressure-virtual-stress ()
 ;;   (let* ((p -1d3)
@@ -183,10 +187,10 @@
      disp-inc
      pos-trial)))
 
-(declaim (ftype (function (cl-mpm/particle:particle function) (values)) calculate-val-mp))
-(defun calculate-val-mp (mp func)
+(declaim (ftype (function (cl-mpm/particle:particle function &optional magicl:matrix/double-float) (values)) calculate-val-mp))
+(defun calculate-val-mp (mp func &optional (result nil))
   (let ((pos (get-mp-position mp)))
-    (funcall func pos)))
+    (funcall func pos result)))
 
 (defun calculate-val-mp-stress (mp func &optional (result nil))
   (declare (function func))
@@ -930,22 +934,16 @@
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
-      ;; (locate-mps-cells sim (lambda (pos) (funcall clip-function pos datum)))
-      ;; (locate-mps-cells sim clip-function)
-      ;; (populate-cells-volume sim clip-function)
-      ;; (populate-nodes-volume mesh clip-function)
-      ;; (populate-nodes-volume-damage mesh clip-function)
-      ;; (populate-nodes-domain mesh clip-function)
-      (apply-force-mps-3d mesh mps
-                       (lambda (mp) (calculate-val-mp mp func-stress))
-                       (lambda (mp) (calculate-val-mp mp func-div))
-                       clip-function
-                       )
-      ;; (apply-force-cells-3d sim
-      ;;                    func-stress
-      ;;                    func-div
-      ;;                    clip-function
-      ;;                    )
+      (apply-force-mps-3d
+       mesh
+       mps
+       (lambda (mp res)
+         (calculate-val-mp mp func-stress res))
+       (lambda (mp res)
+         (calculate-val-mp mp func-div res))
+       ;; (lambda (mp res) (calculate-val-stress-mp-gimp-regular mesh mp func-stress res))
+       ;; (lambda (mp res) (calculate-val-force-mp-gimp-regular mesh mp func-div res))
+       clip-function)
       )))
 
 (defclass bc-non-conforming-neumann (bc)
@@ -976,10 +974,10 @@
     (markup-cells-nodes sim bc)
     (apply-non-conforming-nuemann
      sim
-     (lambda (pos)
-       (pressure-virtual-stress (first pressures) (second pressures)))
-     (lambda (pos)
-       (pressure-virtual-div))
+     (lambda (pos res)
+       (pressure-virtual-stress (first pressures) (second pressures) res))
+     (lambda (pos res)
+       (pressure-virtual-div res))
      clip-func)))
 
 (defclass bc-buoyancy (cl-mpm/bc::bc)
@@ -1130,19 +1128,14 @@
 
 (defmethod markup-cells-nodes (sim (bc cl-mpm/buoyancy::bc-pressure))
   ;; (populate-cells-volume sim (lambda (pos) (funcall (bc-pressure-clip-func bc) pos)))
-  (locate-mps-cells sim (lambda (pos) (funcall (bc-pressure-clip-func bc) pos)))
-  )
+  (locate-mps-cells sim (lambda (pos) (funcall (bc-pressure-clip-func bc) pos))))
 
 (defmethod markup-cells-nodes (sim (bc cl-mpm/buoyancy::bc-buoyancy))
   (with-accessors ((datum bc-buoyancy-datum)
                    (clip-function bc-buoyancy-clip-func))
       bc
     (declare (function clip-function))
-    (populate-cells-volume sim (lambda (pos)
-                                 t
-                                 ;; (funcall clip-function pos datum)
-                                 ))
-    ;; (locate-mps-cells sim (lambda (pos) (funcall clip-function pos datum)))
+    (populate-cells-volume sim (lambda (pos) t))
     ))
 
 (defgeneric apply-buoyancy (sim func-stress func-div clip-function datum))
@@ -1180,7 +1173,6 @@
          ;; (funcall clip-function pos datum)
          )
        :scalar
-       ;; (lambda (mp) (calculate-val-scalar-mp-gimp mesh mp #'melt-rate))
        (lambda (mp) (calculate-val-scalar-mp-gimp-regular
                      mesh
                      mp
@@ -1666,8 +1658,8 @@
                       (grads-vec (grab-new-vector))
                       (f-stress (grab-new-vector))
                       (f-div (grab-new-vector)))
-                 (funcall func-stress mp mp-stress)
-                 (funcall func-div mp mp-div)
+                 (setf mp-stress (funcall func-stress mp mp-stress))
+                 (setf mp-div (funcall func-div mp mp-div))
                  ;;Iterate over neighbour nodes
                  (cl-mpm::iterate-over-neighbours
                   mesh mp
@@ -1705,8 +1697,7 @@
                              mp-div
                              (* volume svp)
                              f-div)
-                            (let* (;; (f-total (cl-mpm/fastmaths::fast-.+ f-stress f-div))
-                                   )
+                            (let* ()
                               (setf (varef grads-vec 0) (cl-mpm/utils::gradients-dx grads)
                                     (varef grads-vec 1) (cl-mpm/utils::gradients-dy grads)
                                     (varef grads-vec 2) (cl-mpm/utils::gradients-dz grads))
@@ -1718,18 +1709,10 @@
                                 (cl-mpm/fastmaths:fast-.+ node-force-ext f-div    node-force-ext)
                                 (cl-mpm/fastmaths:fast-.+ node-buoyancy-force f-stress node-buoyancy-force)
                                 (cl-mpm/fastmaths:fast-.+ node-buoyancy-force f-div node-buoyancy-force)
-                                ;; (incf node-boundary-scalar
-                                ;;       (* -1d0
-                                ;;          volume
-                                ;;          (funcall scalar mp)
-                                ;;          (+ (cl-mpm/utils::gradients-dx grads)
-                                ;;             (cl-mpm/utils::gradients-dy grads)
-                                ;;             (cl-mpm/utils::gradients-dz grads))))
                                 (cl-mpm/fastmaths::fast-.+
                                  grads-vec
                                  (cl-mpm/mesh::node-boundary-vec node)
                                  (cl-mpm/mesh::node-boundary-vec node))
-                                ;; (incf node-boundary-scalar (* volume svp (funcall scalar mp)))
                                 ))))))))
                  ))))))))
 

@@ -280,26 +280,6 @@
                   (= (cl-mpm/particle::mp-index mp) index)
                   t))))
       (dotimes (i refine)
-        ;; (cl-mpm::split-mps-criteria
-        ;;  sim
-        ;;  (lambda (mp h)
-        ;;    (let ((value nil)
-        ;;          (not-partial t))
-        ;;      (when (or (not index) (= index index))
-        ;;        (with-accessors ((pos cl-mpm/particle:mp-position)
-        ;;                         (domain-size cl-mpm/particle::mp-domain-size)
-        ;;                         (index cl-mpm/particle::mp-index))
-        ;;            mp
-        ;;          (let ((max-domain-size (max
-        ;;                                  (cl-mpm/utils::get-vector domain-size :x)
-        ;;                                  (cl-mpm/utils::get-vector domain-size :y)
-        ;;                                  (cl-mpm/utils::get-vector domain-size :z))))
-        ;;            (setf value (< (funcall sdf pos mp) max-domain-size))
-        ;;            (setf not-partial (< (funcall sdf pos mp) (- max-domain-size))))
-        ;;          ))
-        ;;      (if (and value (not not-partial))
-        ;;          :xy
-        ;;          nil))))
         (loop for j from 0 below (cl-mpm/mesh:mesh-nd mesh)
               for dir in (list :x :y :z)
               do

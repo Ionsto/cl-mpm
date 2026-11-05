@@ -145,11 +145,22 @@
 (defmethod cl-mpm::finalise-loadstep ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
   ;;DR algorithm requires that finalisation is called once
   (setf (sim-initial-setup sim) nil)
-  (cl-mpm::g2p (cl-mpm:sim-mesh sim)
-               (cl-mpm:sim-mps sim)
-               (cl-mpm:sim-dt sim)
-               (cl-mpm:sim-damping-factor sim)
-               (cl-mpm::sim-velocity-algorithm sim))
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm:sim-mps)
+                   (dt cl-mpm:sim-dt)
+                   )
+      sim
+    (cl-mpm::iterate-over-nodes
+     mesh
+     (lambda (n)
+       (when (cl-mpm/mesh:node-active n)
+         (cl-mpm/fastmaths::fast-zero (cl-mpm/mesh::node-velocity n)))))
+    (cl-mpm::g2p
+     mesh
+     mps
+     dt
+     (cl-mpm:sim-damping-factor sim)
+     (cl-mpm::sim-velocity-algorithm sim)))
   (call-next-method)
   (when (cl-mpm::sim-allow-mp-damage-removal sim)
     (cl-mpm::remove-material-damaged sim))
