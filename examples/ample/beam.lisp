@@ -197,7 +197,7 @@
       :dt-scale dt-scale
       :substeps substeps
       :conv-steps 1000
-      :criteria 1d-9
+      :criteria 1d-6
       ;; :sub-conv-steps 1000
       :save-vtk-dr t
       :save-vtk-loadstep t
@@ -252,20 +252,23 @@
 
 (defun test-both-agg ()
   (cl-mpm/utils:set-workers 8)
-  (dolist (agg (list t nil))
+  (dolist (agg (list t))
     (setup :mps 3 :refine 1)
     (setf (cl-mpm::sim-ghost-factor *sim*) nil
-          (cl-mpm/aggregate::sim-enable-aggregate *sim*) agg)
-    (cl-mpm/setup::set-mass-filter *sim* 7750d3 :proportion 1d-15)
-    (run :output-dir (format nil "./output-~A/" agg) :substeps 400 :dt-scale 0.9d0 :load-steps 10)))
+          (cl-mpm/aggregate::sim-enable-aggregate *sim*) agg
+          ;; (cl-mpm/dynamic-relaxation::sim-mass-matrix-form *sim*) :P-WAVE
+          (cl-mpm/dynamic-relaxation::sim-mass-matrix-form *sim*) :IMPLICIT-APPROX
+          )
+    (cl-mpm/setup::set-mass-filter *sim* 7750d3 :proportion 0d-9)
+    (run :output-dir (format nil "./output-~A/" agg) :substeps 400 :dt-scale 1d0 :load-steps 10)))
 
 (defun test-agg ()
   (cl-mpm/utils:set-workers 8)
   (setup :mps 3 :refine 1)
   (setf (cl-mpm::sim-ghost-factor *sim*) nil
         (cl-mpm/aggregate::sim-enable-aggregate *sim*) t)
-  (cl-mpm/setup::set-mass-filter *sim* 7750d3 :proportion 1d-9)
-  (run :output-dir "./output-agg/" :substeps 400 :dt-scale 0.5d0 :load-steps 10))
+  (cl-mpm/setup::set-mass-filter *sim* 7750d3 :proportion 1d-15)
+  (run :output-dir "./output-T/" :substeps 400 :dt-scale 0.9d0 :load-steps 10))
 
 (defun test-noagg ()
   (cl-mpm/utils:set-workers 8)
@@ -273,7 +276,7 @@
   (setf (cl-mpm::sim-ghost-factor *sim*) nil
         (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil)
   (cl-mpm/setup::set-mass-filter *sim* 7750d3 :proportion 1d-9)
-  (run :output-dir "./output-noagg/" :substeps 400 :dt-scale 0.5d0 :load-steps 10))
+  (run :output-dir "./output-NIL/" :substeps 400 :dt-scale 0.5d0 :load-steps 10))
 
 ;; (defun test-cuts ()
 ;;   (cl-mpm/utils:set-workers 16)
@@ -290,6 +293,23 @@
 ;;         (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil)
 ;;   (run :output-dir "./output-noagg/" :substeps 100))
 
+(defun test-ghost ()
+  (cl-mpm/utils:set-workers 8)
+  (dolist (agg (list t))
+    (setup :mps 3 :refine 1)
+    (setf (cl-mpm::sim-ghost-factor *sim*) (* 12d6 1d-4)
+          (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
+          (cl-mpm/dynamic-relaxation::sim-mass-matrix-form *sim*) :P-WAVE
+          ;; (cl-mpm/dynamic-relaxation::sim-mass-matrix-form *sim*) :IMPLICIT-APPROX
+          )
+    (cl-mpm/output:add-node-output
+     *sim*
+     :VECTOR
+     "force-ghost"
+     #'cl-mpm/mesh::node-ghost-force)
+    (cl-mpm/setup::set-mass-filter *sim* 7750d3 :proportion 1d-15)
+    (run :output-dir (format nil "./output-ghost/") :substeps 200 :dt-scale 0.5d0 :load-steps 10)))
+
 (defun test ()
   (cl-mpm/utils:set-workers 16)
   (setup :mps 3 :refine 1)
@@ -301,9 +321,39 @@
   )
 
 
+(defun test-small-cut ()
+  (cl-mpm/utils:set-workers 8)
+  (let ((filter 0d-15))
+    (setup :mps 3 :refine 1)
+    (setf (cl-mpm::sim-ghost-factor *sim*) nil
+          (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
+          (cl-mpm/dynamic-relaxation::sim-mass-matrix-form *sim*) :IMPLICIT-APPROX
+          ;; (cl-mpm/dynamic-relaxation::sim-mass-matrix-form *sim*) :P-WAVE
+          )
+    ;; (cl-mpm/output:add-node-output
+    ;;  *sim*
+    ;;  :VECTOR
+    ;;  "force-ghost"
+    ;;  #'cl-mpm/mesh::node-ghost-force)
+    (cl-mpm/setup::set-mass-filter *sim* 7750d3 :proportion filter)
+    (run :output-dir (format nil "./output-filter-~E/" filter) :substeps 200 :dt-scale 0.9d0 :load-steps 10)))
 
 
 ;; (cl-mpm::iterate-over-mps-serial
 ;;  (cl-mpm:sim-mps *sim*)
 ;;  (lambda (mp)
-;;    (pprint (cl-mpm/dynamic-relaxation::estimate-ul-enhancement mp 2))))
+;;    ;; (format t "UL - ~E~%" (cl-mpm/dynamic-relaxation::estimate-ul-enhancement mp 2))
+;;    ;; (multiple-value-bind (l v) (cl-mpm/utils:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-strain mp)))
+;;    ;;   (pprint (mapcar (lambda (x) (exp (- x))) l)))
+;;    ;; (pprint (cl-mpm/particle::estimate-log-enhancement mp))
+;;    (pprint (magicl:@ (cl-mpm/utils:transpose (cl-mpm/utils::vector-from-list (list 1d0 1d0 0d0)))
+;;                      (cl-mpm/particle::mp-deformation-gradient-increment-inverse mp)))
+;;    ;; (multiple-value-bind (s v d) (cl-mpm/utils:svd (cl-mpm/particle::mp-deformation-gradient-increment-inverse mp))
+;;    ;;   (format t "SVD - ~E~%"
+;;    ;;           (expt
+;;    ;;            (max (cl-mpm/utils::mtref v 0 0)
+;;    ;;                 (cl-mpm/utils::mtref v 1 1)
+;;    ;;                 (cl-mpm/utils::mtref v 2 2)
+;;    ;;                 )
+;;    ;;            2)))
+;;    ))

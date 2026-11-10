@@ -27,6 +27,7 @@
            mesh
            (lambda (node)
              (when (cl-mpm/mesh:node-active node)
+               (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-mass-vector node))
                (setf (cl-mpm/mesh:node-mass node) 0d0))))
           (let ((mass-scale (the double-float (/ 1d0 (the double-float (cl-mpm::sim-dt-scale sim))))))
             (declare (double-float mass-scale))
@@ -114,6 +115,7 @@
            mesh
            (lambda (node)
              (when (cl-mpm/mesh:node-active node)
+               (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-mass-vector node))
                (setf (cl-mpm/mesh:node-mass node) 0d0))))
           (let ((mass-scale (the double-float (/ 1d0 (the double-float (cl-mpm::sim-dt-scale sim))))))
             (declare (double-float mass-scale))
@@ -121,22 +123,23 @@
              mps
              (lambda (mp)
                (let ((stiffness (cl-mpm/implicit::assemble-mp-stiffness mesh mp))
-                     ;; (stiffness (cl-mpm/implicit::6x6-stress-to-9x9 (cl-mpm/particle::mp-tangent-stiffness mp)))
                      (df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse mp))
                      (mp-volume (cl-mpm/particle::mp-volume mp))
                      (g-a ;; (cl-mpm/utils::stretch-dsvp-3d-zeros)
-                       (cl-mpm/utils::resize-matrix (grab-new) 3 9)
-                          )
+                       (cl-mpm/utils::resize-matrix (grab-new) 9 3)
+                       )
                      (g-b ;; (cl-mpm/utils::stretch-dsvp-3d-zeros)
-                       (cl-mpm/utils::resize-matrix (grab-new) 3 9)
-                          ))
+                       (cl-mpm/utils::resize-matrix (grab-new) 9 3)
+                       ))
                  (declare (double-float mp-volume))
                  (cl-mpm::iterate-over-neighbours
                   mesh
                   mp
                   (lambda (node svp grads fsvp fgrads)
                     (with-accessors ((node-active  cl-mpm/mesh:node-active)
-                                     (node-lock  cl-mpm/mesh:node-lock))
+                                     (node-lock  cl-mpm/mesh:node-lock)
+                                     (node-mass cl-mpm/mesh:node-mass)
+                                     (node-mass-vector cl-mpm/mesh::node-mass-vector))
                         node
                       (declare (boolean node-active)
                                (sb-thread:mutex node-lock))
@@ -160,17 +163,23 @@
                                            g-b)))
                                  (let ((stiff (cl-mpm/fastmaths::fast-@-arb-arb gpa g-b)))
                                    (sb-thread:with-mutex (node-lock)
-                                     (incf
-                                      (the double-float (cl-mpm/mesh::node-mass node))
-                                      (* 0.25d0
-                                         0.5d0
-                                         mass-scale
-                                         (* mp-volume
-                                            (max
-                                             (+ (the double-float (abs (cl-mpm/utils::mtref stiff 0 0)))
-                                                (the double-float (abs (cl-mpm/utils::mtref stiff 0 1))))
-                                             (+ (the double-float (abs (cl-mpm/utils::mtref stiff 1 0)))
-                                                (the double-float (abs (cl-mpm/utils::mtref stiff 1 1)))))))))))))))))))))))))))
+                                     (dotimes (i nd)
+                                       (incf
+                                        (cl-mpm/utils:varef node-mass-vector i)
+                                        (* 0.25d0
+                                           mass-scale
+                                           (* mp-volume
+                                              (+ (the double-float (abs (cl-mpm/utils::mtref stiff i 0)))
+                                                 (the double-float (abs (cl-mpm/utils::mtref stiff i 1))))))))
+                                     ))))))))))))))
+            (cl-mpm::iterate-over-nodes
+             mesh
+             (lambda (node)
+               (when (cl-mpm/mesh:node-active node)
+                 (setf (cl-mpm/mesh:node-mass node)
+                       (max
+                        (cl-mpm/utils::varef (cl-mpm/mesh::node-mass-vector node) 0)
+                        (cl-mpm/utils::varef (cl-mpm/mesh::node-mass-vector node) 1)))))))))))
 
 (defun map-stiffness-quasi-static (sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)

@@ -105,6 +105,10 @@
     :accessor node-mass
     :type double-float
     :initform 0d0)
+   (mass-vector
+    :accessor node-mass-vector
+    :type magicl::matrix/double-float
+    :initform (cl-mpm/utils:vector-zeros))
    (volume
     :accessor node-volume
     :type double-float
