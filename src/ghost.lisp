@@ -513,10 +513,10 @@
                     (let ((dsvp-p (fast-scale!
                                    (magicl:transpose
                                     (cl-mpm/shape-function::assemble-dsvp-3d
-                                     ;; grads
-                                     (cl-mpm::gradient-push-forwards
-                                      grads
-                                      (cl-mpm/mesh::cell-deformation-gradient cell-p))
+                                     grads
+                                     ;; (cl-mpm::gradient-push-forwards
+                                     ;;  grads
+                                     ;;  (cl-mpm/mesh::cell-deformation-gradient cell-p))
                                      ))
                                    fact
                                    )))
@@ -542,10 +542,10 @@
                              (fast-scale!
                               (magicl:transpose
                                (cl-mpm/shape-function::assemble-dsvp-3d
-                                ;; grads
-                                (cl-mpm::gradient-push-forwards
-                                 grads
-                                 (cl-mpm/mesh::cell-deformation-gradient cell))
+                                grads
+                                ;; (cl-mpm::gradient-push-forwards
+                                ;;  grads
+                                ;;  (cl-mpm/mesh::cell-deformation-gradient cell))
                                 ))
                               fact
                               )))
