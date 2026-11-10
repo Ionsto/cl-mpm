@@ -156,15 +156,6 @@
            (zy (varef s 3))
            (zx (varef s 4))
            (xy (varef s 5))
-;;               [s(1) 0    0    s(4) 0    0    0    0    s(6);
-;;                0    s(2) 0    0    s(4) s(5) 0    0    0   ;
-;;                0    0    s(3) 0    0    0    s(5) s(6) 0   ;
-;;                0    s(4) 0    0    s(1) s(6) 0    0    0   ;
-;;                s(4) 0    0    s(2) 0    0    0    0    s(5);
-;;                0    0    s(5) 0    0    0    s(2) s(4) 0   ;
-;;                0    s(5) 0    0    s(6) s(3) 0    0    0   ;
-;;                s(6) 0    0    s(5) 0    0    0    0    s(3);
-;;                0    0    s(6) 0    0    0    s(4) s(1) 0   ];        
            (s-tensor
              (magicl:transpose
               (cl-mpm/utils::arb-matrix-from-list
@@ -178,18 +169,6 @@
                      zx  0d0 0d0 zy  0d0 0d0 0d0 0d0 zz
                      0d0 0d0 zx  0d0 0d0 0d0 xy  xx  0d0)
                9 9))))
-      ;;2*B(1) 0      0      2*B(4) 0      0      0      0      2*B(7)
-      ;;0      2*B(5) 0      0      2*B(2) 2*B(8) 0      0      0     
-      ;;0      0      2*B(9) 0      0      0      2*B(6) 2*B(3) 0     
-      ;;B(2)   B(4)   0      B(5)   B(1)   B(7)   0      0      B(8)  
-      ;;B(2)   B(4)   0      B(5)   B(1)   B(7)   0      0      B(8)  
-      ;;0      B(6)   B(8)   0      B(3)   B(9)   B(5)   B(2)   0     
-      ;;0      B(6)   B(8)   0      B(3)   B(9)   B(5)   B(2)   0     
-      ;;B(3)   0      B(7)   B(6)   0      0      B(4)   B(1)   B(9)  
-      ;;B(3)   0      B(7)   B(6)   0      0      B(4)   B(1)   B(9)] 
-
-
-      ;; (format t "L ~A~%" L)
       (let* ((bxx (cl-mpm/utils:mtref b 0 0))
              (bxy (cl-mpm/utils:mtref b 0 1))
              (bxz (cl-mpm/utils:mtref b 0 2))

@@ -67,7 +67,10 @@
 (defclass mpm-sim-dr-ul (mpm-sim-dr cl-mpm/aggregate::mpm-sim-aggregated)
   ((initial-setup
     :initform nil
-    :accessor sim-initial-setup))
+    :accessor sim-initial-setup)
+   (mass-matrix-form
+    :initform :P-WAVE
+    :accessor sim-mass-matrix-form))
   (:documentation "DR solved quasi-static implicit mpm"))
 
 (defclass mpm-sim-dr-dynamic (mpm-sim-dr-ul mpm-sim-dr-damage)

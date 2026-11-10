@@ -1,67 +1,176 @@
 (in-package :cl-mpm/dynamic-relaxation)
 
-(defun implicit-assemble-stiffness (sim)
-  (with-accessors ((mesh cl-mpm::sim-mesh)
-                   (mps cl-mpm::sim-mps))
-      sim
-    (with-accessors ((nd cl-mpm/mesh::mesh-nd))
-        mesh
-      (cl-mpm::iterate-over-nodes
-       mesh
-       (lambda (node)
-         (when (cl-mpm/mesh:node-active node)
-           (setf (cl-mpm/mesh:node-mass node) 0d0))))
-      (let ((mass-scale (the double-float (/ 1d0 (the double-float (cl-mpm::sim-dt-scale sim))))))
-        (declare (double-float mass-scale))
-        (cl-mpm::iterate-over-mps
-         mps
-         (lambda (mp)
-           (let ((stiffness (cl-mpm/implicit::assemble-mp-stiffness mesh mp))
-                 (df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse mp))
-                 (mp-volume (cl-mpm/particle::mp-volume mp))
-                 (g-a (cl-mpm/utils::stretch-dsvp-3d-zeros))
-                 (g-b (cl-mpm/utils::stretch-dsvp-3d-zeros)))
-             (declare (double-float mp-volume))
-             (cl-mpm::iterate-over-neighbours
-              mesh
-              mp
-              (lambda (node svp grads fsvp fgrads)
-                (with-accessors ((node-active  cl-mpm/mesh:node-active)
-                                 (node-lock  cl-mpm/mesh:node-lock))
-                    node
-                  (declare (boolean node-active)
-                           (sb-thread:mutex node-lock))
-                  (when node-active
-                    (let* ((g-a (cl-mpm/implicit::assemble-g-3d-prealloc
-                                 (cl-mpm::gradient-push-forwards-cached
-                                  grads
-                                  df-inv)
-                                 g-a))
-                           (gpa (cl-mpm/fastmaths::fast-@-arbt-arb g-a stiffness)))
+(let ((global-k-values (make-array 0 :fill-pointer 0 :adjustable t :element-type 'double-float))
+      (global-k-rows (make-array 0 :fill-pointer 0 :adjustable t :element-type 'fixnum))
+      (global-k-cols (make-array 0 :fill-pointer 0 :adjustable t :element-type 'fixnum))
+      (global-k-lock (sb-thread:make-mutex)))
+  (defun implicit-assemble-stiffness (sim)
 
-                      (cl-mpm::iterate-over-neighbours
-                       mesh
-                       mp
-                       (lambda (node-b svp-b grads-b fsvp fgrads)
-                         (when (cl-mpm::node-active node-b)
-                           (let ((g-b (cl-mpm/implicit::assemble-g-3d-prealloc
-                                       (cl-mpm::gradient-push-forwards-cached
-                                        grads-b
-                                        df-inv)
-                                       g-b)))
-                             (let ((stiff (cl-mpm/fastmaths::fast-@-arb-arb gpa g-b)))
-                               (sb-thread:with-mutex (node-lock)
-                                 (incf
-                                  (the double-float (cl-mpm/mesh::node-mass node))
-                                  (* 0.25d0
-                                     0.5d0
-                                     mass-scale
-                                     (* mp-volume
-                                        (max
-                                         (+ (the double-float (abs (cl-mpm/utils::mtref stiff 0 0)))
-                                            (the double-float (abs (cl-mpm/utils::mtref stiff 0 1))))
-                                         (+ (the double-float (abs (cl-mpm/utils::mtref stiff 1 0)))
-                                            (the double-float (abs (cl-mpm/utils::mtref stiff 1 1))))))))))))))))))))))))))
+    (let ((active-nodes
+            (cl-mpm/implicit::filter-nodes sim #'cl-mpm/mesh::node-active)))
+      (cl-mpm/utils::bpdotimes
+       (i (length active-nodes))
+       (progn
+         (setf (cl-mpm/mesh::node-stiffness-fd (aref active-nodes i)) i)))
+      (setf
+       (fill-pointer global-k-values) 0
+       (fill-pointer global-k-rows) 0
+       (fill-pointer global-k-cols) 0)
+
+
+      (with-accessors ((mesh cl-mpm::sim-mesh)
+                       (mps cl-mpm::sim-mps))
+          sim
+        (with-accessors ((nd cl-mpm/mesh::mesh-nd))
+            mesh
+          (cl-mpm::iterate-over-nodes
+           mesh
+           (lambda (node)
+             (when (cl-mpm/mesh:node-active node)
+               (setf (cl-mpm/mesh:node-mass node) 0d0))))
+          (let ((mass-scale (the double-float (/ 1d0 (the double-float (cl-mpm::sim-dt-scale sim))))))
+            (declare (double-float mass-scale))
+            (cl-mpm::iterate-over-mps
+             mps
+             (lambda (mp)
+               (let ((stiffness (cl-mpm/implicit::assemble-mp-stiffness mesh mp))
+                     (df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse mp))
+                     (mp-volume (cl-mpm/particle::mp-volume mp))
+                     (g-a (cl-mpm/utils::stretch-dsvp-3d-zeros))
+                     (g-b (cl-mpm/utils::stretch-dsvp-3d-zeros)))
+                 (declare (double-float mp-volume))
+                 (cl-mpm::iterate-over-neighbours
+                  mesh
+                  mp
+                  (lambda (node svp grads fsvp fgrads)
+                    (with-accessors ((node-active  cl-mpm/mesh:node-active)
+                                     (node-lock  cl-mpm/mesh:node-lock))
+                        node
+                      (declare (boolean node-active)
+                               (sb-thread:mutex node-lock))
+                      (when node-active
+                        (let* ((g-a (cl-mpm/implicit::assemble-g-3d-prealloc
+                                     (cl-mpm::gradient-push-forwards-cached
+                                      grads
+                                      df-inv)
+                                     g-a))
+                               (gpa (cl-mpm/fastmaths::fast-@-arbt-arb g-a stiffness)))
+                          (cl-mpm::iterate-over-neighbours
+                           mesh
+                           mp
+                           (lambda (node-b svp-b grads-b fsvp fgrads)
+                             (when (cl-mpm::node-active node-b)
+                               (let ((g-b (cl-mpm/implicit::assemble-g-3d-prealloc
+                                           (cl-mpm::gradient-push-forwards-cached
+                                            grads-b
+                                            df-inv)
+                                           g-b)))
+                                 (let ((stiff (cl-mpm/fastmaths::fast-@-arb-arb gpa g-b)))
+                                   (sb-thread:with-mutex (global-k-lock)
+                                     (dotimes (i nd)
+                                       (declare (fixnum i))
+                                       (dotimes (j nd)
+                                         (declare (fixnum j))
+                                         (let* ((na (the fixnum (* nd (cl-mpm/mesh::node-stiffness-fd node))))
+                                                (nb (the fixnum (* nd (cl-mpm/mesh::node-stiffness-fd node-b))))
+                                                (gi (+ na i))
+                                                (gj (+ nb j))
+                                                (stiff-entry
+                                                  (the double-float
+                                                       (* (the double-float mp-volume)
+                                                          (the double-float (cl-mpm/utils:mtref stiff i j))))))
+                                           (when t
+                                             (vector-push-extend stiff-entry global-k-values)
+                                             (vector-push-extend gi global-k-rows)
+                                             (vector-push-extend gj global-k-cols)))))))
+                                 ))))))))))))
+            (let* ((global-k (cl-mpm/utils::build-sparse-matrix
+                              global-k-values
+                              global-k-rows
+                              global-k-cols
+                              (the fixnum (* nd (length active-nodes)))
+                              (the fixnum (* nd (length active-nodes)))))
+                   (sum  (cl-mpm/utils::sparse-row-abs-sum global-k)))
+              ;; (pprint sum)
+              (cl-mpm/utils::bpdotimes
+               (i (length active-nodes))
+               (let ((n (aref active-nodes i)))
+                 (dotimes (ndi nd)
+                   (setf (cl-mpm/mesh::node-mass n)
+                         (max
+                          (cl-mpm/mesh::node-mass n)
+                          (* mass-scale
+                             0.25d0
+                             (cl-mpm/utils:varef sum (+ ndi (* nd i))))))))))))))))
+
+(cl-mpm/utils::with-arb-pool
+    (defun implicit-approx-assemble-stiffness (sim)
+      (with-accessors ((mesh cl-mpm::sim-mesh)
+                       (mps cl-mpm::sim-mps))
+          sim
+        (with-accessors ((nd cl-mpm/mesh::mesh-nd))
+            mesh
+          (cl-mpm::iterate-over-nodes
+           mesh
+           (lambda (node)
+             (when (cl-mpm/mesh:node-active node)
+               (setf (cl-mpm/mesh:node-mass node) 0d0))))
+          (let ((mass-scale (the double-float (/ 1d0 (the double-float (cl-mpm::sim-dt-scale sim))))))
+            (declare (double-float mass-scale))
+            (cl-mpm::iterate-over-mps
+             mps
+             (lambda (mp)
+               (let ((stiffness (cl-mpm/implicit::assemble-mp-stiffness mesh mp))
+                     ;; (stiffness (cl-mpm/implicit::6x6-stress-to-9x9 (cl-mpm/particle::mp-tangent-stiffness mp)))
+                     (df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse mp))
+                     (mp-volume (cl-mpm/particle::mp-volume mp))
+                     (g-a ;; (cl-mpm/utils::stretch-dsvp-3d-zeros)
+                       (cl-mpm/utils::resize-matrix (grab-new) 3 9)
+                          )
+                     (g-b ;; (cl-mpm/utils::stretch-dsvp-3d-zeros)
+                       (cl-mpm/utils::resize-matrix (grab-new) 3 9)
+                          ))
+                 (declare (double-float mp-volume))
+                 (cl-mpm::iterate-over-neighbours
+                  mesh
+                  mp
+                  (lambda (node svp grads fsvp fgrads)
+                    (with-accessors ((node-active  cl-mpm/mesh:node-active)
+                                     (node-lock  cl-mpm/mesh:node-lock))
+                        node
+                      (declare (boolean node-active)
+                               (sb-thread:mutex node-lock))
+                      (when node-active
+                        (let* ((g-a (cl-mpm/implicit::assemble-g-3d-prealloc
+                                     (cl-mpm::gradient-push-forwards-cached
+                                      grads
+                                      df-inv)
+                                     g-a))
+                               (gpa (cl-mpm/fastmaths::fast-@-arbt-arb g-a stiffness)))
+
+                          (cl-mpm::iterate-over-neighbours
+                           mesh
+                           mp
+                           (lambda (node-b svp-b grads-b fsvp fgrads)
+                             (when (cl-mpm::node-active node-b)
+                               (let ((g-b (cl-mpm/implicit::assemble-g-3d-prealloc
+                                           (cl-mpm::gradient-push-forwards-cached
+                                            grads-b
+                                            df-inv)
+                                           g-b)))
+                                 (let ((stiff (cl-mpm/fastmaths::fast-@-arb-arb gpa g-b)))
+                                   (sb-thread:with-mutex (node-lock)
+                                     (incf
+                                      (the double-float (cl-mpm/mesh::node-mass node))
+                                      (* 0.25d0
+                                         0.5d0
+                                         mass-scale
+                                         (* mp-volume
+                                            (max
+                                             (+ (the double-float (abs (cl-mpm/utils::mtref stiff 0 0)))
+                                                (the double-float (abs (cl-mpm/utils::mtref stiff 0 1))))
+                                             (+ (the double-float (abs (cl-mpm/utils::mtref stiff 1 0)))
+                                                (the double-float (abs (cl-mpm/utils::mtref stiff 1 1)))))))))))))))))))))))))))
 
 (defun map-stiffness-quasi-static (sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)
@@ -86,12 +195,15 @@
          ;;       (cl-mpm/particle::estimate-stiffness mp))
          (let* ((mp-volume (cl-mpm/particle::mp-volume mp))
                 (mp-pmod (cl-mpm/particle::estimate-stiffness mp))
+                ;; (mp-pmod (cl-mpm/particle::p-wave-from-tangent mp (cl-mpm/implicit::assemble-mp-stiffness mesh mp)))
                 (ul (estimate-ul-enhancement mp nd))
+                (df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse mp))
                 (mp-factor (* mp-pmod
                               mp-volume
-                              ul
+                              ;; ul
                               mass-scale
-                              (/ 1d0 (* h h)))))
+                              ;; (/ 1d0 (* h h))
+                              )))
            (declare (type double-float mp-factor mp-pmod ul mp-volume))
            (setf (cl-mpm/particle::mp-p-modulus mp)
                  (* mp-pmod
@@ -103,7 +215,6 @@
               (declare
                (cl-mpm/particle:particle mp)
                (cl-mpm/mesh::node node)
-               ;; (ignore grads fsvp fgrads)
                (double-float svp))
               (declare (type double-float mp-pmod mp-volume ul))
               (with-slots ((node-active cl-mpm/mesh::active)
@@ -112,20 +223,41 @@
                 (declare (type double-float mp-volume mp-pmod svp)
                          (double-float node-mass))
                 (when node-active
-                  (when (> svp 0d-15)
-                    (sb-thread::with-mutex ((cl-mpm/mesh::node-lock node))
-                      (incf node-mass
-                            (the double-float
-                                 (* 0.25d0
-                                    mp-factor)))))))))))))))
+                  (let ((grads (cl-mpm::gradient-push-forwards-cached
+                                grads
+                                df-inv)))
+                    (when (> svp 0d-25)
+                      ;; (format t "~A ~A ~A~%" (/ 1d0 (* h h))
+                      ;;         (expt (cl-mpm/utils::gradients-dx grads) 2)
+                      ;;         (expt (cl-mpm/utils::gradients-dy grads) 2))
+                      ;; (pprint (+
+                      ;;          (cl-mpm/utils::gradients-dx grads) 2
+                      ;;          (cl-mpm/utils::gradients-dy grads) 2))
+                      (sb-thread::with-mutex ((cl-mpm/mesh::node-lock node))
+                        (incf node-mass
+                              (the double-float
+                                   (*
+                                    ;; 0.25d0
+                                    0.25d0
+                                    (expt
+                                     (+
+                                      (abs (cl-mpm/utils::gradients-dx grads))
+                                      (abs (cl-mpm/utils::gradients-dy grads))
+                                      (abs (cl-mpm/utils::gradients-dz grads)))
+                                     2)
+                                    mp-factor))))))))))))))))
 
 
 
 
 
 (defmethod map-stiffness ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
+  (case (cl-mpm/dynamic-relaxation::sim-mass-matrix-form sim)
+    (:P-WAVE (map-stiffness-quasi-static sim))
+    (:IMPLICIT-APPROX (implicit-approx-assemble-stiffness sim))
+    (:IMPLICIT (implicit-assemble-stiffness sim)))
   ;; (map-stiffness-quasi-static sim)
-  (implicit-assemble-stiffness sim)
+  ;; (implicit-assemble-stiffness sim)
   )
 
 

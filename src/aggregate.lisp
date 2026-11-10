@@ -664,8 +664,8 @@
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh))
       sim
-    ;; (locate-aggregate-nodes-coombs sim)
-    (locate-aggregate-nodes-volume sim)
+    (locate-aggregate-nodes-coombs sim)
+    ;; (locate-aggregate-nodes-volume sim)
 
     (setf
      (cl-mpm/aggregate::sim-agg-nodes-fdc sim)
