@@ -1058,11 +1058,13 @@
     (max
      (* 1d-3 (cl-mpm/particle::compute-p-modulus mp))
      (+ (the double-float (cl-mpm/particle::estimate-stiffness-hencky mp))
-        (abs
-         (*
-          1d0
-          (the double-float (cl-mpm/particle::mp-biot-coefficent mp))
-          pressure-stiff))))))
+        ;; (abs
+        ;;  (*
+        ;;   4d0
+        ;;   (the double-float (cl-mpm/particle::mp-biot-coefficent mp))
+        ;;   damage
+        ;;   pressure-stiff))
+        ))))
 
 (cl-mpm/utils::with-voigt-pool
     (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-brittle) dt)

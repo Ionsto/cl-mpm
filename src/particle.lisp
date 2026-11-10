@@ -726,8 +726,10 @@
 (defun estimate-log-enhancement (particle)
   (with-accessors ((def-inc mp-deformation-gradient-increment)
                    (def mp-deformation-gradient)
+                   (j cl-mpm/particle::mp-deformation-jacobian-strain)
                    (eps mp-strain))
       particle
+    (declare (double-float j))
     ;; (multiple-value-bind (l v) (cl-mpm/utils::eig  (cl-mpm/utils::voight-to-matrix eps))
     ;;   (let ((lmax (reduce #'min l)))
     ;;     (the double-float (expt (the double-float (exp (- lmax))) 1))))
@@ -737,8 +739,9 @@
     ;;     (format t "~E ~E ~E~%" s1 s2 s3)
     ;;     (the double-float (expt (the double-float (exp (- lmax))) 1))))
     (let ((lmax (cl-mpm/fastmaths::min-eigenvalue-3x3 eps)))
-      (the double-float (expt (the double-float (exp (- lmax))) 1)))
-    ))
+      (-
+       (the double-float (expt (the double-float (exp (- lmax))) 1))
+       (/ lmax j)))))
 
 
 (defgeneric constitutive-model (mp elastic-trial-strain dt)

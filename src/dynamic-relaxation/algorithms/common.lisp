@@ -207,6 +207,7 @@
           (t (setf (cl-mpm::sim-enable-damage sim) nil))))
       ;; (setf (cl-mpm::sim-enable-damage sim) nil)
       (format t "Stagger scheme ~A~%" stagger-damage)
+      (format t "Substeps ~D~%" substeps)
       (let ((additional-conv nil))
         (loop for i from 0 to 100
               while (not additional-conv)

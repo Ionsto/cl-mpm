@@ -574,9 +574,7 @@
                                                 (cl-mpm/mesh::node-interior n))))
      (cl-mpm/aggregate::sim-agg-nodes-fd sim)
      (cl-mpm::filter-nodes sim (lambda (n) (and (cl-mpm/mesh::node-active n)
-                                                (cl-mpm/mesh::node-agg n)))))
-
-    ))
+                                                (cl-mpm/mesh::node-agg n)))))))
 
 (defun locate-aggregate-nodes-volume (sim)
   (with-accessors ((mps cl-mpm:sim-mps)

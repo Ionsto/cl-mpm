@@ -1142,7 +1142,9 @@ This modifies the dt of the simulation in the process
 
 (defun add-bcs (sim new-bcs)
   "Add nodal essential bcs"
-  (with-accessors ((bcs cl-mpm:sim-bcs))
+  (with-accessors ((bcs cl-mpm:sim-bcs)
+                   (mesh cl-mpm:sim-mesh)
+                   )
       sim
     (typecase new-bcs
       (array
@@ -1161,7 +1163,11 @@ This modifies the dt of the simulation in the process
                               (list new-bcs)))
        ;; (vector-push-extend new-bcs bcs)
        ;; (setf bcs bcs)
-       ))))
+       ))
+    (setf bcs (cl-mpm/bc::collate-bcs-fixed bcs))
+    ;; (cl-mpm/setup::resolve-bc-nodes sim mesh bcs)
+    )
+  )
 (defun add-bcs-force-list (sim new-bcs)
   "Add bcs that apply forces, ordered in a FILO"
   (with-accessors ((bcs-force-list cl-mpm:sim-bcs-force-list))
@@ -1246,7 +1252,8 @@ This modifies the dt of the simulation in the process
   (when (cl-mpm::sim-allow-mp-split sim)
     (split-mps sim))
   (check-mps sim)
-  (check-single-mps sim)
+  ;; (check-single-mps sim)
+
   ;; (cl-mpm/ghost::reset-ghost-cache sim)
   ;; (reset-node-displacement sim)
   )

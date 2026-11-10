@@ -79,14 +79,13 @@
            (mass-scale (the double-float (/ 1d0 (the double-float (cl-mpm::sim-dt-scale sim))))))
       (declare (double-float h mass-scale)
                (fixnum nd))
-      ;; (pprint "Hello")
       (cl-mpm::iterate-over-mps
        mps
        (lambda (mp)
-         (setf (cl-mpm/particle::mp-p-modulus mp)
-               (cl-mpm/particle::estimate-stiffness mp))
+         ;; (setf (cl-mpm/particle::mp-p-modulus mp)
+         ;;       (cl-mpm/particle::estimate-stiffness mp))
          (let* ((mp-volume (cl-mpm/particle::mp-volume mp))
-                (mp-pmod (cl-mpm/particle::mp-p-modulus mp))
+                (mp-pmod (cl-mpm/particle::estimate-stiffness mp))
                 (ul (estimate-ul-enhancement mp nd))
                 (mp-factor (* mp-pmod
                               mp-volume
@@ -94,6 +93,10 @@
                               mass-scale
                               (/ 1d0 (* h h)))))
            (declare (type double-float mp-factor mp-pmod ul mp-volume))
+           (setf (cl-mpm/particle::mp-p-modulus mp)
+                 (* mp-pmod
+                    ;; ul
+                    ))
            (cl-mpm::iterate-over-neighbours
             mesh mp
             (lambda (node svp grads fsvp fgrads)
@@ -109,21 +112,20 @@
                 (declare (type double-float mp-volume mp-pmod svp)
                          (double-float node-mass))
                 (when node-active
-                  (when (> svp 1d-15)
+                  (when (> svp 0d-15)
                     (sb-thread::with-mutex ((cl-mpm/mesh::node-lock node))
                       (incf node-mass
                             (the double-float
                                  (* 0.25d0
-                                    mp-factor))))))))))))
-      )))
+                                    mp-factor)))))))))))))))
 
 
 
 
 
 (defmethod map-stiffness ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
-  (map-stiffness-quasi-static sim)
-  ;; (implicit-assemble-stiffness sim)
+  ;; (map-stiffness-quasi-static sim)
+  (implicit-assemble-stiffness sim)
   )
 
 

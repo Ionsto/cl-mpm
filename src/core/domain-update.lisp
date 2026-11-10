@@ -123,29 +123,29 @@
                                    (the double-float (mtref F 2 2))))
         ))))
 
-(defun update-domain-stretch (mesh mp dt)
-  "Update the domain length based on the increment of the stretch rate"
-  (with-accessors ((def cl-mpm/particle::mp-deformation-gradient)
-                   (domain cl-mpm/particle::mp-domain-size)
-                   (domain-0 cl-mpm/particle::mp-domain-size-0)
-                   (true-domain cl-mpm/particle::mp-true-domain)
-                   )
-      mp
-    (let ((F (cl-mpm/utils::matrix-zeros)))
-      (magicl:mult def def :target F :transb :t)
-      (let* ((stretch (cl-mpm/ext::matrix-sqrt F)))
-        (declare (type magicl:matrix/double-float stretch))
-        (setf (varef domain 0) (* (the double-float (varef domain-0 0))
-                                  (the double-float (mtref stretch 0 0))))
-        (setf (varef domain 1) (* (the double-float (varef domain-0 1))
-                                  (the double-float (mtref stretch 1 1))))
-        (setf (varef domain 2) (* (the double-float (varef domain-0 2))
-                                  (the double-float (mtref stretch 2 2))))
+(cl-mpm/utils::with-matrix-pool
+    (defun update-domain-stretch (mesh mp dt)
+      "Update the domain length based on the increment of the stretch rate"
+      (with-accessors ((def cl-mpm/particle::mp-deformation-gradient)
+                       (domain cl-mpm/particle::mp-domain-size)
+                       (domain-0 cl-mpm/particle::mp-domain-size-0)
+                       (true-domain cl-mpm/particle::mp-true-domain))
+          mp
+        (let ((F (cl-mpm/fastmaths::fast-zero (grab-new-matrix))))
+          (magicl:mult def def :target F :transb :t)
+          (let* ((stretch (cl-mpm/ext::matrix-sqrt F)))
+            (declare (type magicl:matrix/double-float stretch))
+            (setf (varef domain 0) (* (the double-float (varef domain-0 0))
+                                      (the double-float (mtref stretch 0 0))))
+            (setf (varef domain 1) (* (the double-float (varef domain-0 1))
+                                      (the double-float (mtref stretch 1 1))))
+            (setf (varef domain 2) (* (the double-float (varef domain-0 2))
+                                      (the double-float (mtref stretch 2 2))))
 
-        (setf (mtref true-domain 0 0) (varef domain 0))
-        (setf (mtref true-domain 1 1) (varef domain 1))
-        (setf (mtref true-domain 2 2) (varef domain 2))
-        ))))
+            (setf (mtref true-domain 0 0) (varef domain 0))
+            (setf (mtref true-domain 1 1) (varef domain 1))
+            (setf (mtref true-domain 2 2) (varef domain 2))
+            )))))
 
 (defun update-domain-midpoint (mesh mp dt)
   "Use a corner tracking scheme to update domain lengths"

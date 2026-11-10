@@ -8,7 +8,10 @@
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
-  (cl-mpm::update-domain-stretch mesh mp dt))
+  (cl-mpm::update-domain-deformation mesh mp dt)
+  ;; (cl-mpm::update-domain-stretch mesh mp dt)
+  ;; (cl-mpm::update-domain-polar mesh mp dt)
+  )
 
 (defun plot-domain ()
   (when *sim*
@@ -34,15 +37,18 @@
                  mesh-resolution
                  element-count
                  ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multi grid
-                 :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
+                 :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
+                 ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
                  ;; :sim-type 'cl-mpm/implicit::mpm-sim-implicit
-                 :args-list (list :enable-aggregate t
-                                  :mass-update-count 1
-                                  :mp-removal-size nil
-                                  ;; :refinement 2
-                                  ;; :ghost-factor (* 12d6 1d-4)
-                                  :ghost-factor nil
-                                  )))
+                 :args-list (list
+                             :mass-update-count 1
+                             :mp-removal-size nil
+                             ;; :refinement 2
+                             ;; :ghost-factor (* 12d6 1d-4)
+                             :enable-aggregate t
+                             :ghost-factor nil
+                             :enable-split nil
+                             )))
     (setf mesh-resolution (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
     (format t "Mesh resolution ~E~%" mesh-resolution)
     (cl-mpm:add-mps
@@ -85,7 +91,12 @@
     (cl-mpm/setup::set-mass-filter *sim* density :proportion 0d-9)
     (cl-mpm/setup::setup-bcs
      *sim*
-     :left '(0 0 nil))
+     :left '(0 nil nil))
+    (cl-mpm::add-bcs
+     *sim*
+     (cl-mpm/bc::make-bc-fixed
+      (list 0 (round center-y mesh-resolution) 0)
+      (list 0 0 nil)))
     (setf *run-sim* t))
   (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
   )
@@ -164,6 +175,8 @@
 (defparameter *data-type* (list))
 (defun run (&key (output-dir "./output/")
               (substeps 1)
+              (load-steps 10)
+              (dt-scale 0.9d0)
               )
   (defparameter *data-x* (list 0d0))
   (defparameter *data-y* (list 0d0))
@@ -175,47 +188,45 @@
      (cl-mpm/dynamic-relaxation::run-load-control
       *sim*
       :output-dir output-dir
-      :plotter (lambda (sim) ;; (plot-domain)
-                 (plot-analytic))
-      :load-steps 4
+      :plotter (lambda (sim)
+                 ;; (plot-domain)
+                 ;;(plot-analytic)
+                 )
+      :load-steps load-steps
       :damping (sqrt 2d0)
-      :dt-scale 1d0
+      :dt-scale dt-scale
       :substeps substeps
       :conv-steps 1000
-      :criteria 1d-3
+      :criteria 1d-9
       ;; :sub-conv-steps 1000
-      :save-vtk-dr nil
-      :save-vtk-loadstep nil
+      :save-vtk-dr t
+      :save-vtk-loadstep t
       :post-iter-step
       (lambda (sim o e)
-        (with-accessors ((mesh cl-mpm::sim-mesh)
-                         (mps cl-mpm::sim-mps)
-                         (dt cl-mpm::sim-dt)
-                         (damping cl-mpm::sim-damping))
-            *sim*
-          (cl-mpm::g2p mesh mps 0d0 0d0 :TRIAL))
-        (let ((pos (get-pos)))
-          (format t "Disp ~E ~E ~%" (cl-mpm/utils::varef pos 0) (cl-mpm/utils::varef pos 1))
-          (push (cl-mpm/utils::varef pos 0) *data-y*)
-          (push (cl-mpm/utils::varef pos 1) *data-x*)
-          (push nil *data-type*)
-          (cl-mpm/output::save-vtk (merge-pathnames  output-dir (format nil "sim_~5,'0d.vtk" i)) *sim*)
-          (incf i)))
-      :post-conv-step
-      (lambda (sim)
         ;; (with-accessors ((mesh cl-mpm::sim-mesh)
         ;;                  (mps cl-mpm::sim-mps)
         ;;                  (dt cl-mpm::sim-dt)
         ;;                  (damping cl-mpm::sim-damping))
         ;;     *sim*
         ;;   (cl-mpm::g2p mesh mps 0d0 0d0 :TRIAL))
-        (let ((pos (get-pos)))
-          (format t "Disp ~E ~E ~%" (cl-mpm/utils::varef pos 0) (cl-mpm/utils::varef pos 1))
-          (push (cl-mpm/utils::varef pos 0) *data-y*)
-          (push (cl-mpm/utils::varef pos 1) *data-x*)
-          (push t *data-type*)
-          (cl-mpm/output::save-vtk (merge-pathnames  output-dir (format nil "sim_~5,'0d.vtk" i)) *sim*)
-          (incf i))))))
+        ;; (let ((pos (get-pos)))
+        ;;   (format t "Disp ~E ~E ~%" (cl-mpm/utils::varef pos 0) (cl-mpm/utils::varef pos 1))
+        ;;   (push (cl-mpm/utils::varef pos 0) *data-y*)
+        ;;   (push (cl-mpm/utils::varef pos 1) *data-x*)
+        ;;   (push nil *data-type*)
+        ;;   ;; (cl-mpm/output::save-vtk (merge-pathnames  output-dir (format nil "sim_~5,'0d.vtk" i)) *sim*)
+        ;;   (incf i))
+        )
+      :post-conv-step
+      (lambda (sim)
+        ;; (let ((pos (get-pos)))
+        ;;   (format t "Disp ~E ~E ~%" (cl-mpm/utils::varef pos 0) (cl-mpm/utils::varef pos 1))
+        ;;   (push (cl-mpm/utils::varef pos 0) *data-y*)
+        ;;   (push (cl-mpm/utils::varef pos 1) *data-x*)
+        ;;   (push t *data-type*)
+        ;;   ;; (cl-mpm/output::save-vtk (merge-pathnames  output-dir (format nil "sim_~5,'0d.vtk" i)) *sim*)
+        ;;   (incf i))
+        ))))
   (output-disp output-dir)
   (plot-analytic))
 
@@ -239,16 +250,60 @@
       for type in *data-type*
       do (format stream "~D,~f,~f,~D~%" i x y (if type 1 0)))))
 
+(defun test-both-agg ()
+  (cl-mpm/utils:set-workers 8)
+  (dolist (agg (list t nil))
+    (setup :mps 3 :refine 1)
+    (setf (cl-mpm::sim-ghost-factor *sim*) nil
+          (cl-mpm/aggregate::sim-enable-aggregate *sim*) agg)
+    (cl-mpm/setup::set-mass-filter *sim* 7750d3 :proportion 1d-15)
+    (run :output-dir (format nil "./output-~A/" agg) :substeps 400 :dt-scale 0.9d0 :load-steps 10)))
+
+(defun test-agg ()
+  (cl-mpm/utils:set-workers 8)
+  (setup :mps 3 :refine 1)
+  (setf (cl-mpm::sim-ghost-factor *sim*) nil
+        (cl-mpm/aggregate::sim-enable-aggregate *sim*) t)
+  (cl-mpm/setup::set-mass-filter *sim* 7750d3 :proportion 1d-9)
+  (run :output-dir "./output-agg/" :substeps 400 :dt-scale 0.5d0 :load-steps 10))
+
+(defun test-noagg ()
+  (cl-mpm/utils:set-workers 8)
+  (setup :mps 3 :refine 1)
+  (setf (cl-mpm::sim-ghost-factor *sim*) nil
+        (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil)
+  (cl-mpm/setup::set-mass-filter *sim* 7750d3 :proportion 1d-9)
+  (run :output-dir "./output-noagg/" :substeps 400 :dt-scale 0.5d0 :load-steps 10))
+
+;; (defun test-cuts ()
+;;   (cl-mpm/utils:set-workers 16)
+;;   (setup :mps 3 :refine 1)
+;;   (setf (cl-mpm::sim-ghost-factor *sim*) nil
+;;         (cl-mpm/aggregate::sim-enable-aggregate *sim*) t)
+;;   (run :output-dir "./output-agg/" :substeps 100))
+
+
+;; (defun test-cuts-noagg ()
+;;   (cl-mpm/utils:set-workers 16)
+;;   (setup :mps 3 :refine 1)
+;;   (setf (cl-mpm::sim-ghost-factor *sim*) nil
+;;         (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil)
+;;   (run :output-dir "./output-noagg/" :substeps 100))
 
 (defun test ()
   (cl-mpm/utils:set-workers 16)
   (setup :mps 3 :refine 1)
   (change-class *sim* 'cl-mpm/implicit::mpm-sim-implicit)
   (run :output-dir "./output-nr/" :substeps 1)
-  (setup :mps 3 :refine 1)
-  (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static)
-  (run :output-dir "./output-dr/" :substeps 400)
+  ;; (setup :mps 3 :refine 1)
+  ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static)
+  ;; (run :output-dir "./output-dr/" :substeps 400)
   )
 
 
 
+
+;; (cl-mpm::iterate-over-mps-serial
+;;  (cl-mpm:sim-mps *sim*)
+;;  (lambda (mp)
+;;    (pprint (cl-mpm/dynamic-relaxation::estimate-ul-enhancement mp 2))))

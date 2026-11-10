@@ -425,7 +425,8 @@
                               ;;Remove other bc
                               (setf (aref bcs j) nil))
                             ))))))
-  (setf bcs (delete-if-not #'identity bcs)))
+  (setf bcs (delete-if-not #'identity bcs))
+  bcs)
 
 (defun make-outside-bc-nostick (mesh-count)
     "Construct nostick bcs over the outside of a mesh"
@@ -449,12 +450,12 @@
              (loop for o from 0 to order
                    append
                    (append
-                    (loop for x from 0 to xsize 
-                          append 
+                    (loop for x from 0 to xsize
+                          append
                           (list (make-bc-fixed (list x order)     '(nil 0d0))
                                 (make-bc-fixed (list x (- ysize order)) '(nil 0d0))))
-                    (loop for y from 0 to ysize 
-                          append 
+                    (loop for y from 0 to ysize
+                          append
                           (list (make-bc-fixed (list order     y) '(0d0 nil))
                                 (make-bc-fixed (list (- xsize order) y) '(0d0 nil))))))))))
 

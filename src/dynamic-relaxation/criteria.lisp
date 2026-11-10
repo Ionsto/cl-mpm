@@ -801,7 +801,7 @@
             stats-power p)
       (incf stats-work p))
     (setf stats-strain (estimate-strain-energy sim))
-    (setf stats-oobf (displacement-convergence-norm sim))
+    ;; (setf stats-oobf (displacement-convergence-norm sim))
     ;; (if (cl-mpm/aggregate::sim-enable-aggregate sim)
     ;;    ;;Other
     ;;    ;; (progn)

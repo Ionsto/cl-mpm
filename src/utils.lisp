@@ -914,6 +914,24 @@
         (format t "Throughput: ~f~%" (/ 1 dt))
         dt))))
 
+;; (defun time-form-sim (it sim form)
+;;   (progn
+;;     (declaim (optimize speed))
+;;     (let* ((iterations it)
+;;            (start (get-internal-real-time)))
+;;       (dotimes (i it)
+;;         (funcall form sim))
+;;       (let* ((end (get-internal-real-time))
+;;              (units internal-time-units-per-second)
+;;              (dt (/ (- end start) (* iterations units))))
+;;         ;; (declare (double-float dt end units))
+;;         (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
+;;         (format t "Throughput: ~f~%" (/ 1 dt))
+
+;;         (format t "Time per MP: ~E~%" (/ dt (length (cl-mpm:sim-mps sim))))
+;;         (format t "MP Throughput: ~E~%" (/ (length (cl-mpm:sim-mps sim)) dt))
+;;         dt))))
+
 (defun principal-stresses-3d (stress)
   (multiple-value-bind (l v) (eig (voight-to-matrix stress))
     (declare (ignore v))

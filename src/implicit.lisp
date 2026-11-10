@@ -676,10 +676,10 @@
     (setf
      nodes-fd
      (filter-nodes sim #'cl-mpm/mesh::node-active))
-    (let ()
-      (lparallel:pdotimes (i (length nodes-fd))
-        do (progn
-             (setf (cl-mpm/mesh::node-stiffness-fd (aref nodes-fd i)) i))))
+    (cl-mpm/utils::bpdotimes
+     (i (length nodes-fd))
+     (progn
+       (setf (cl-mpm/mesh::node-stiffness-fd (aref nodes-fd i)) i)))
     (if sparse
         (progn
           (setf
@@ -1058,122 +1058,17 @@
             e
             (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
              et
-             ;;(cl-mpm/utils::sparse-row-abs-sum K)
              (cl-mpm/utils::sparse-row-abs-sum K)
-             ;; pre
              )))
-          ;; (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
-          ;;  et
-          ;;  (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
-          ;;   e))
-          ;; (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
-          ;;  et
-          ;;  pre)
-          ;; pre
-
-          pre)
-      )
-
-    ;; (let ((diag
-    ;;         (expand-vec-with-bcs
-    ;;          (cl-mpm/utils::diagonal
-    ;;           (cl-mpm/fastmaths::fast-@-arb-arb
-    ;;            (cl-mpm/fastmaths::fast-@-arb-arb
-    ;;             (reduce-with-bcs
-    ;;              (cl-mpm/utils::sparse-to-mat et)
-    ;;              bcs-int
-    ;;              bcs
-    ;;              )
-    ;;             (reduce-with-bcs
-    ;;              (cl-mpm/utils::sparse-to-mat K)
-    ;;              bcs
-    ;;              bcs)
-    ;;             :multithreaded t)
-    ;;            (reduce-with-bcs
-    ;;             (cl-mpm/utils::sparse-to-mat e)
-    ;;             bcs
-    ;;             bcs-int
-    ;;             )
-    ;;            :multithreaded t))
-    ;;          bcs-int
-    ;;          :replacement-value 1d0
-    ;;          )))
-    ;;   diag)
-    ;; (if enable-agg
-    ;;     ;; (let ((diag
-    ;;     ;;         (cl-mpm/utils::diagonal
-    ;;     ;;          (cl-mpm/fastmaths::fast-@-arb-arb
-    ;;     ;;           (cl-mpm/fastmaths::fast-@-arb-arb
-    ;;     ;;            (cl-mpm/utils::sparse-to-mat et)
-    ;;     ;;            (cl-mpm/utils::sparse-to-mat K))
-    ;;     ;;           (cl-mpm/utils::sparse-to-mat e)
-    ;;     ;;           ))))
-    ;;     ;;   ;; (cl-mpm/fastmaths::fast-./
-    ;;     ;;   ;;  (cl-mpm/utils::arb-matrix-constant 1d0 (magicl:nrows diag) 1)
-    ;;     ;;   ;;  diag
-    ;;     ;;   ;;  diag)
-    ;;     ;;   diag)
-    ;;     (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
-    ;;      (cl-mpm/aggregate::sim-global-sparse-et sim)
-    ;;      (cl-mpm/utils::diagonal
-    ;;       (cl-mpm/utils::sparse-to-mat K)))
-    ;;     (cl-mpm/utils::diagonal
-    ;;      (cl-mpm/utils::sparse-to-mat K)))
-    ;; (if enable-agg
-    ;;     (cl-mpm/fastmaths::lumped@-sparse-mat-dense-vec
-    ;;      (cl-mpm/aggregate::sim-global-sparse-et sim)
-    ;;      pre)
-    ;;     pre)
-    ))
+          pre))))
 
 (defun sparse-linear-solve-with-bcs (sim ksparse v bcs &optional (target-vi nil))
   (let ((target-vi (if target-vi
                        target-vi
                        (cl-mpm/utils::empty-copy v)))
-        ;; (jacobi (cl-mpm/linear-solver::make-preconditioner ksparse))
         (jacobi (make-diagonal-preconditioner sim))
-        ;; (jacobi (cl-mpm/linear-solver::make-lumped-preconditioner ksparse))
         (bcs-r (cl-mpm/aggregate::sim-global-bcs sim)))
 
-    ;; (let ((kdense (cl-mpm/utils::sparse-to-mat ksparse)))
-    ;;   (expand-vec-with-bcs
-    ;;    (magicl:linear-solve
-    ;;     (cl-mpm/linear-solver::reduce-with-bcs kdense bcs-r bcs-r)
-    ;;     (cl-mpm/linear-solver::reduce-vector-with-bcs v bcs-r))
-    ;;    bcs-r))
-
-
-    ;; (cl-mpm/utils::set-workers 1)
-    ;; (let* ((kdense (cl-mpm/utils::sparse-to-mat ksparse))
-    ;;        (krd (cl-mpm/linear-solver::reduce-with-bcs kdense bcs-r bcs-r)))
-    ;;   (let ((vr  (expand-vec-with-bcs
-    ;;               (cl-mpm/linear-solver::solve-conjugant-gradients-squared
-    ;;                (lambda (v) (magicl:@ krd v))
-    ;;                (cl-mpm/linear-solver::reduce-vector-with-bcs v bcs-r)
-    ;;                :tol 1d-9
-    ;;                :jacobi-precondition (cl-mpm/linear-solver::reduce-vector-with-bcs jacobi bcs-r)
-    ;;                ) bcs-r)))
-    ;;     vr
-    ;;     ))
-    ;; (break)
-
-    ;; (labels ((system-operation (x)
-    ;;            (cl-mpm/linear-solver::reduce-vector-with-bcs 
-    ;;             (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
-    ;;              ksparse
-    ;;              (expand-vec-with-bcs x bcs-r)
-    ;;              bcs
-    ;;              bcs)
-    ;;             bcs-r)))
-    ;;   (let ((vs (cl-mpm/linear-solver::solve-conjugant-gradients-squared
-    ;;              #'system-operation
-    ;;              (cl-mpm/linear-solver::reduce-vector-with-bcs v bcs-r)
-    ;;              :tol 1d-20
-    ;;              :max-iters 10000
-    ;;              :jacobi-precondition (cl-mpm/linear-solver::reduce-vector-with-bcs jacobi bcs-r)
-    ;;              ;; :mask bcs
-    ;;              )))
-    ;;     (expand-vec-with-bcs vs bcs-r)))
     (labels ((system-operation (x)
                (cl-mpm/fastmaths::fast-@-sparse-mat-dense-vec-masked
                 ksparse
@@ -1590,7 +1485,7 @@
     (setf (cl-mpm/dynamic-relaxation::sim-solve-count sim) 0)
     (cl-mpm::reset-grid mesh :reset-displacement t)
     (cl-mpm::p2g mesh mps vel-algo)
-    (when (> mass-filter 0d0)
+    (when t;(> mass-filter 0d0)
       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (cl-mpm::apply-bcs mesh bcs dt)
@@ -1661,11 +1556,7 @@
            (cl-mpm/fastmaths::fast-.+
             (cl-mpm/mesh::node-force node)
             (cl-mpm/mesh::node-reaction-force node)
-            (cl-mpm/mesh::node-reaction-force node)))
-         )))
-
-    )
-  )
+            (cl-mpm/mesh::node-reaction-force node))))))))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-implicit))
   (declare (cl-mpm::mpm-sim sim))
