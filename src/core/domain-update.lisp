@@ -87,7 +87,7 @@
                    (domain cl-mpm/particle::mp-domain-size))
       mp
     (let ((F (cl-mpm/utils::matrix-zeros)))
-      (magicl:mult df df :target F :transb :t)
+      (magicl:mult df df :target F :transa :t)
       (let* ((stretch (cl-mpm/ext::matrix-sqrt F)))
         (declare (type magicl:matrix/double-float stretch))
         (setf (varef domain 0) (* (the double-float (varef domain 0))
@@ -103,7 +103,7 @@
 (defun update-domain-F (def domain domain-0)
   "Update the domain length based on the total stretch rate"
   (let ((F (cl-mpm/utils::matrix-zeros)))
-    (magicl:mult def def :target F :transb :t)
+    (magicl:mult def def :target F :transa :t)
     (multiple-value-bind (l v) (cl-mpm/utils::eig F)
       (let* ((stretch
               (cl-mpm/fastmaths::fast-@-matrix-n
@@ -132,7 +132,7 @@
                        (true-domain cl-mpm/particle::mp-true-domain))
           mp
         (let ((F (cl-mpm/fastmaths::fast-zero (grab-new-matrix))))
-          (magicl:mult def def :target F :transb :t)
+          (magicl:mult def def :target F :transa :t)
           (let* ((stretch (cl-mpm/ext::matrix-sqrt F)))
             (declare (type magicl:matrix/double-float stretch))
             (setf (varef domain 0) (* (the double-float (varef domain-0 0))

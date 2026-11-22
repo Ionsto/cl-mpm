@@ -117,7 +117,11 @@
    vec))
 
 (defclass mpm-sim-aggregated (mpm-sim)
-  ((agg-elems
+  ((aggregation-algorithm
+    :initform :VOLUME
+    :initarg :aggregation-algorithm
+    :accessor sim-agg-algorithm)
+   (agg-elems
     :initform (make-array 0)
     :accessor sim-agg-elems)
    (enable-aggregate
@@ -664,8 +668,11 @@
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh))
       sim
-    (locate-aggregate-nodes-coombs sim)
-    ;; (locate-aggregate-nodes-volume sim)
+    (case (sim-agg-algorithm sim)
+      (:COOMBS
+       (locate-aggregate-nodes-coombs sim))
+      (:VOLUME
+       (locate-aggregate-nodes-volume sim)))
 
     (setf
      (cl-mpm/aggregate::sim-agg-nodes-fdc sim)

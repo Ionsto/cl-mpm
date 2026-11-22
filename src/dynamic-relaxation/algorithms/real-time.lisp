@@ -103,13 +103,13 @@
     (let* ((sim-time 0d0))
       (let ((total-iter 0)
             (dt-accumulator 0d0))
-        (let ((state :accelerate)
+        (let ((state :dynamic)
               (oobf 0d0)
               (energy 0d0)
               (work 0d0)
-              (hist adaptive-hist)
-              )
+              (hist adaptive-hist))
           (when adaptive-mass-enabled
+            (setf state :accelerate)
             (setf (cl-mpm:sim-mass-scale sim) adaptive-mass-scale))
           (time (loop for steps from 0 to (round total-time dt)
                       while (and (cl-mpm::sim-run-sim sim)
@@ -118,7 +118,7 @@
                          (let ((substeps 0))
                            (cl-mpm:sim-format sim t "Step ~d ~%" steps)
                            (cl-mpm/dynamic-relaxation::save-vtks sim output-dir steps)
-                           (save-timestep sim output-dir total-iter :DYNAMIC)
+                           (save-timestep sim output-dir total-iter state)
                            (incf dt-accumulator dt)
                            (cl-mpm:sim-format sim t "Estimated substeps ~d ~%" (round dt (cl-mpm::sim-dt sim)))
                            (time
@@ -134,12 +134,11 @@
                                        (incf total-iter)
                                        (decf dt-accumulator (cl-mpm::sim-dt sim)))))
                            (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
-                           ;; (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm/setup::estimate-elastic-dt sim)))
                            (funcall post-iter-step sim)
                            (funcall plotter sim)
                            (when save-vtk-loadstep
                              (save-vtks sim output-dir steps))
-                           (when adaptive-mass-enabled 
+                           (when adaptive-mass-enabled
                              (setf oobf (/ oobf substeps)
                                    energy (/ energy work))
                              (format t "~A - OOBF ~E - energy ~E~%" state oobf energy)

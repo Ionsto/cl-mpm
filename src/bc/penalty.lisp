@@ -1364,7 +1364,7 @@
      (with-accessors ()
          mp
        ;; (declare (double-float pen-stiff))
-       (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-penalty-frictional-force mp))
+       (cl-mpm/particle::reset-corners mp)
        ))))
 
 

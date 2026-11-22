@@ -511,13 +511,15 @@
 
 (defun reset-corners (mp)
   (when (mp-corners mp)
-    (dotimes (i (length (mp-corners mp)))
-      (let ((corner (aref (mp-corners mp) i)))
-        (setf (corner-contact corner) nil)
-        (setf (corner-stick corner) nil)
-        (cl-mpm/utils:vector-copy-into
-         (corner-penalty-frictional-force-prev corner)
-         (corner-penalty-frictional-force corner))))))
+    (iterate-over-mp-corners
+     mp
+     (lambda (corner)
+       (setf (corner-contact corner) nil)
+       (setf (corner-stick corner) nil)
+       (setf (corner-penalty-normal-force corner) 0d0)
+       (cl-mpm/utils:vector-copy-into
+        (corner-penalty-frictional-force-prev corner)
+        (corner-penalty-frictional-force corner))))))
 
 (defun compute-friction-force (mp)
   (let ((f (cl-mpm/utils:vector-zeros)))
@@ -739,6 +741,7 @@
     ;;     (format t "~E ~E ~E~%" s1 s2 s3)
     ;;     (the double-float (expt (the double-float (exp (- lmax))) 1))))
     (let ((lmax (cl-mpm/fastmaths::min-eigenvalue-3x3 eps)))
+      ;; (the double-float (expt (the double-float (exp (- lmax))) 1))
       (-
        (the double-float (expt (the double-float (exp (- lmax))) 1))
        (/ lmax j)))))
